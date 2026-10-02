@@ -82,9 +82,11 @@ cleanup() {
 trap cleanup EXIT
 
 SOURCE_DATE_EPOCH=0 DOCKER_BUILDKIT=1 docker buildx build \
+  --build-arg SOURCE_DATE_EPOCH=0 \
   --platform linux/amd64 \
   --output "type=docker,dest=$temporary_directory/image.tar,rewrite-timestamp=true" \
   --file "$dockerfile" --tag "$image_tag" .
+image_config_id=$(python3 scripts/google-sdp-image-config-id.py "$temporary_directory/image.tar")
 docker load -i "$temporary_directory/image.tar" >/dev/null
 
 image_id=$(docker image inspect "$image_tag" --format '{{.Id}}')
@@ -120,5 +122,6 @@ if result.get("outcome") != "INCONCLUSIVE — MORE EVIDENCE REQUIRED":
 PY
 
 printf 'Image tag: %s\nImage ID: %s\n' "$image_tag" "$image_id"
+printf 'Image configuration ID: %s\n' "$image_config_id"
 printf 'RepoDigest: %s\nRuntime UID:GID: %s\n' "${image_digest:-unavailable}" "$runtime_user"
 printf 'Offline synthetic validation: PASS (network disabled)\n'

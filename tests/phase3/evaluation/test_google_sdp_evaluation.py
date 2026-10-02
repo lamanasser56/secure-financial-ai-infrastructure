@@ -12,6 +12,7 @@ from pathlib import Path
 import socket
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 import urllib.request
 
@@ -141,6 +142,42 @@ class GoogleSDPEvaluationTests(unittest.TestCase):
         self.assertEqual(report["aggregate"]["status_counts"],
                          {"pass": 6, "fail": 0, "inconclusive": 3})
         self.assertEqual(report["outcome"], runner.OUTCOME_INCONCLUSIVE)
+        self.assertEqual(report["provider_operations"]["accounting"], "test_double_unavailable")
+        self.assertIsNone(report["provider_operations"]["inspect_attempted"])
+
+    def test_changed_live_corpus_is_rejected_before_provider_construction(self):
+        changed = deepcopy(self.corpus)
+        changed["cases"]["email-basic-001"]["input"]["text"] = "Changed synthetic text."
+        with patch.dict(os.environ, {runner.ACK_ENV: runner.ACK_VALUE}):
+            with patch.object(runner, "_live_redactor", side_effect=AssertionError("real client")) as construct:
+                with self.assertRaises(runner.EvaluationFailure):
+                    runner.evaluate(changed, live=True, redactor=self.fake)
+                construct.assert_not_called()
+        self.assertEqual(self.fake.calls, [])
+
+    def test_real_adapter_reports_bounded_sdk_attempts_with_fake_transport(self):
+        class Client:
+            api_endpoint = runner.ENDPOINT
+
+            def inspect_content(self, *, request, retry, timeout):
+                self.check(retry, timeout)
+                return SimpleNamespace(result=SimpleNamespace(findings=[]))
+
+            def deidentify_content(self, *, request, retry, timeout):
+                self.check(retry, timeout)
+                return SimpleNamespace(item=SimpleNamespace(value=request["item"]["value"]))
+
+            def check(self, retry, timeout):
+                if retry is not None or timeout != 20:
+                    raise AssertionError("unbounded operation")
+
+        redactor = runner.GoogleSDPRedactor("synthetic-eval", client=Client())
+        report = self.run_fake(fake=redactor)
+        self.assertEqual(report["provider_operations"], {
+            "accounting": "sdk_invocation_attempts", "inspect_attempted": 9,
+            "deidentify_attempted": 9, "application_retries": 0, "rpc_timeout_seconds": 20,
+        })
+        self.assertNotIn("fixture@example.com", json.dumps(report))
 
     def test_explicit_client_construction_keeps_fixed_region_and_endpoint(self):
         with patch.dict(os.environ, {runner.PROJECT_ENV: "synthetic-eval"}):
@@ -238,7 +275,7 @@ class GoogleSDPEvaluationTests(unittest.TestCase):
             self.assertNotIn(base64.b64encode(text.encode()).decode(), rendered)
             self.assertNotIn(text.encode().hex(), rendered)
             self.assertNotIn(hashlib.sha256(text.encode()).hexdigest(), rendered)
-        self.assertEqual(set(report), {"run_mode", "cases", "aggregate", "outcome"})
+        self.assertEqual(set(report), {"run_mode", "provider_operations", "cases", "aggregate", "outcome"})
 
     def test_cli_default_emits_only_sanitized_offline_result(self):
         output, errors = io.StringIO(), io.StringIO()

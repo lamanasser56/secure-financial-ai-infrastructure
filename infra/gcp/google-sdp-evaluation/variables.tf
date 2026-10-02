@@ -107,6 +107,18 @@ variable "gke_cluster_location" {
   }
 }
 
+variable "node_service_account_email" {
+  description = "Reviewed GKE node image-pull identity; supplied outside Git, distinct from the evaluation runtime GSA."
+  type        = string
+  validation {
+    condition = can(regex(
+      "^([a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z][a-z0-9-]{4,28}[a-z0-9]\\.iam\\.gserviceaccount\\.com|[1-9][0-9]{5,19}-compute@developer\\.gserviceaccount\\.com)$",
+      var.node_service_account_email
+    )) && var.node_service_account_email != "google-sdp-runtime@${var.project_id}.iam.gserviceaccount.com" && var.node_service_account_email != "google-sdp-release@${var.project_id}.iam.gserviceaccount.com"
+    error_message = "Use the reviewed GKE node GSA email, separate from the runtime and release identities."
+  }
+}
+
 variable "namespace" {
   type    = string
   default = "google-sdp-evaluation"

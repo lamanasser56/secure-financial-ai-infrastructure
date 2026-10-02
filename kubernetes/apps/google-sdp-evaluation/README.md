@@ -1,5 +1,7 @@
 # Google SDP synthetic evaluation Job
 
+The [integrated readiness record](../../../docs/security/google-sdp-milestone-readiness.md) defines the single execution proposal and its unresolved prerequisites. The policy includes NodeLocal DNSCache at `169.254.20.10:53` and only documented GKE metadata ports. A namespace policy still cannot enforce an FQDN; independently reviewed target egress enforcement remains a prerequisite before any live run.
+
 This is an **unapplied, evaluation-only** Kustomize package. It is deliberately absent from the production base. Presidio remains authoritative. The committed templates contain placeholders and are not deployable until a trusted operator renders and reviews them. No Secret, Kubernetes RBAC grant, or Google credential is included.
 
 The dedicated `google-sdp-evaluation` namespace enforces the restricted Pod Security Standard. The Job has one Pod, no retries, a 15-minute active deadline, one-hour cleanup TTL, fixed CPU, memory and ephemeral-storage requests and limits, and no writable container filesystem. Its image must be a `me-central2-docker.pkg.dev` digest from the same project as the bound Google service account. It runs the image's existing synthetic corpus with `--live` and the exact synthetic-only acknowledgment. Only the runner's sanitized JSON result is written to stdout; retain and review logs under a separately approved evidence policy.

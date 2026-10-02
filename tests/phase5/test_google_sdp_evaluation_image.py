@@ -79,10 +79,13 @@ class GoogleSDPEvaluationImageTests(unittest.TestCase):
             "kev_feed_date", "trivy_db_updated_at",
             "high_fixable", "high_unfixable", "critical_fixable",
             "critical_unfixable", "policy_result",
+            "image_config_digest", "reproducible_build",
         })
         self.assertEqual(evidence["decision"], "eligible")
         self.assertRegex(evidence["image_subject"], REF)
         self.assertRegex(evidence["image_id"], r"^sha256:[0-9a-f]{64}$")
+        self.assertRegex(evidence["image_config_digest"], r"^sha256:[0-9a-f]{64}$")
+        self.assertEqual(evidence["reproducible_build"], "fresh_cache_configuration_match")
         self.assertGreater(evidence["image_size_bytes"], 0)
         self.assertGreater(evidence["sbom_package_count"], 0)
         self.assertEqual(evidence["offline_validation"], "schema_valid_network_disabled")
@@ -93,6 +96,7 @@ class GoogleSDPEvaluationImageTests(unittest.TestCase):
         self.assertEqual(evidence["policy_result"], "PASS: accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding")
 
     def test_build_script_has_offline_default_and_no_push(self):
+        self.assertIn("--build-arg SOURCE_DATE_EPOCH=0", BUILD.read_text(encoding="utf-8"))
         text = BUILD.read_text(encoding="utf-8")
         self.assertIn("--network none", text)
         self.assertIn("--read-only", text)

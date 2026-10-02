@@ -89,6 +89,7 @@ for rule in policy["egress"]:
         if "ipBlock" in destination and destination["ipBlock"]["cidr"] == "0.0.0.0/0":
             assert rule["ports"] == [{"protocol": "TCP", "port": 443}]
             assert set(destination["ipBlock"]["except"]) == {"10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.168.0.0/16", "224.0.0.0/4"}
+assert any(rule["to"] == [{"ipBlock": {"cidr": "169.254.20.10/32"}}] and rule["ports"] == [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}] for rule in policy["egress"])
 assert "NetworkPolicy cannot restrict" in combined
 readme = (base / "README.md").read_text(encoding="utf-8")
 assert "FQDN" in readme and "Presidio" in readme and "evaluation-only" in readme

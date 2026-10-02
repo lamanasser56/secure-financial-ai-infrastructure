@@ -64,21 +64,23 @@
   ],
   "qualification": {
     "decision": "eligible",
-    "image_subject": "portfolio-google-sdp-evaluation@sha256:cdcea9c3a02080d4aebf01419d3a08a4064b2634a9c252e46fa82f89888c33f9",
-    "image_id": "sha256:cdcea9c3a02080d4aebf01419d3a08a4064b2634a9c252e46fa82f89888c33f9",
-    "image_size_bytes": 34234164,
+    "image_subject": "portfolio-google-sdp-evaluation@sha256:9b936cc451bde56a674044686357cbc5bde2ea2ce5df7b38bd68c2dca061dbf1",
+    "image_id": "sha256:9b936cc451bde56a674044686357cbc5bde2ea2ce5df7b38bd68c2dca061dbf1",
+    "image_size_bytes": 34234858,
     "sbom_package_count": 1363,
     "syft_version": "1.44.0",
     "trivy_version": "0.72.0",
     "offline_validation": "schema_valid_network_disabled",
-    "trivy_report_sha256": "sha256:a6005dc331e59a9428be2a13f8116b45bd1868c7eae8178327b87f6e237ba9a4",
-    "sbom_sha256": "sha256:fb89f76a9c1ed0ce48bfd112704e1899927e4654fa206892448e81a3ff7c5200",
+    "trivy_report_sha256": "sha256:abfffae1752b8d50780ef03cc3a06dea419c493f00d6236aa70afdde8d3d6b41",
+    "sbom_sha256": "sha256:cae674abadeda6958477a783e96de06ac849514175d3e051f06dc5210feeac53",
     "kev_feed_date": "2026-10-02T15:19:38.2945Z",
-    "trivy_db_updated_at": "2026-10-02T12:48:00.080865328Z",
+    "trivy_db_updated_at": "2026-10-02T19:00:34.190885353Z",
     "high_fixable": 0,
     "high_unfixable": 0,
     "critical_fixable": 0,
     "critical_unfixable": 0,
-    "policy_result": "PASS: accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding"
+    "policy_result": "PASS: accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding",
+    "image_config_digest": "sha256:c4200d0868eb75179691d3275e137b885ec446e2735aa50b003e3626a26d091d",
+    "reproducible_build": "fresh_cache_configuration_match"
   }
 }

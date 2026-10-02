@@ -45,3 +45,12 @@ resource "google_artifact_registry_repository_iam_member" "release_writer" {
   role       = "roles/artifactregistry.writer"
   member     = "serviceAccount:${google_service_account.release.email}"
 }
+
+# Kubelet image pulls use the node identity, independently of Pod Workload Identity.
+resource "google_artifact_registry_repository_iam_member" "node_reader" {
+  project    = var.project_id
+  location   = var.region
+  repository = google_artifact_registry_repository.evaluation.repository_id
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:${var.node_service_account_email}"
+}

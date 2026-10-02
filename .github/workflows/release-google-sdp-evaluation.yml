@@ -28,6 +28,7 @@ concurrency:
 jobs:
   qualify:
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     permissions:
       contents: read
     outputs:
@@ -47,6 +48,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           [[ "$GITHUB_REF" == refs/heads/main ]]
+          [[ "$GITHUB_RUN_ATTEMPT" == 1 ]]
           [[ "$APPROVED_COMMIT" =~ ^[0-9a-f]{40}$ && "$APPROVED_COMMIT" == "$GITHUB_SHA" ]]
           [[ "$(git rev-parse HEAD)" == "$APPROVED_COMMIT" && -z "$(git status --porcelain)" ]]
           [[ "$RELEASE_REGION" == me-central2 ]]
@@ -89,7 +91,7 @@ jobs:
           mapfile -t bases < "$RUNNER_TEMP/selected-bases"
           bash scripts/build-google-sdp-evaluation-image.sh "${bases[0]}" "${bases[1]}" > "$RUNNER_TEMP/local-build.txt"
           image_tag=$(sed -n 's/^Image tag: //p' "$RUNNER_TEMP/local-build.txt")
-          image_id=$(sed -n 's/^Image ID: //p' "$RUNNER_TEMP/local-build.txt")
+          image_id=$(sed -n 's/^Image configuration ID: //p' "$RUNNER_TEMP/local-build.txt")
           [[ "$image_tag" =~ ^portfolio-google-sdp-evaluation:local-[0-9a-f]{16}$ ]]
           [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ ]]
           printf 'image_id=%s\n' "$image_id" >> "$GITHUB_OUTPUT"
@@ -124,6 +126,7 @@ jobs:
   publish:
     needs: qualify
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     environment: google-sdp-evaluation-release
     permissions:
       contents: read
@@ -149,6 +152,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           [[ "$GITHUB_REF" == refs/heads/main && "$APPROVED_COMMIT" == "$GITHUB_SHA" ]]
+          [[ "$GITHUB_RUN_ATTEMPT" == 1 ]]
           [[ "$(git rev-parse HEAD)" == "$APPROVED_COMMIT" && -z "$(git status --porcelain)" ]]
           [[ "$RELEASE_REGION" == me-central2 ]]
           [[ "$ARTIFACT_REPOSITORY" =~ ^[a-z][a-z0-9-]{0,62}$ && "$IMAGE_NAME" =~ ^[a-z][a-z0-9._-]{0,127}$ ]]
@@ -160,7 +164,7 @@ jobs:
           PY
           mapfile -t bases < "$RUNNER_TEMP/selected-bases"
           bash scripts/build-google-sdp-evaluation-image.sh "${bases[0]}" "${bases[1]}" > "$RUNNER_TEMP/local-build.txt"
-          image_id=$(sed -n 's/^Image ID: //p' "$RUNNER_TEMP/local-build.txt")
+          image_id=$(sed -n 's/^Image configuration ID: //p' "$RUNNER_TEMP/local-build.txt")
           [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ && "$image_id" == "$QUALIFIED_IMAGE_ID" ]]
           printf 'Verified reproducible image configuration: %s\n' "$image_id"
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
@@ -202,8 +206,11 @@ jobs:
           [[ "$digest" =~ ^[0-9a-f]{64}$ ]]
           digest_ref="$image@sha256:$digest"
           docker pull "$digest_ref" >/dev/null
-          [[ "$(docker image inspect "$digest_ref" --format '{{.Id}}')" == "${{ needs.qualify.outputs.image_id }}" ]]
+          docker save "$digest_ref" -o "$RUNNER_TEMP/pulled-image.tar"
+          [[ "$(python scripts/google-sdp-image-config-id.py "$RUNNER_TEMP/pulled-image.tar")" == "${{ needs.qualify.outputs.image_id }}" ]]
+          rm -f "$RUNNER_TEMP/pulled-image.tar"
           mkdir -p "$RUNNER_TEMP/release-evidence"
+          printf '%s\n' "${{ needs.qualify.outputs.image_id }}" > "$RUNNER_TEMP/release-evidence/image-config-digest.txt"
           printf '%s\n' "$digest_ref" > "$RUNNER_TEMP/release-evidence/resolved-digest.txt"
           printf 'digest_ref=%s\n' "$digest_ref" >> "$GITHUB_OUTPUT"
       - name: Qualify registry digest before signing

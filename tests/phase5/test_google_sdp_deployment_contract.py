@@ -41,6 +41,7 @@ class DeploymentContractTests(unittest.TestCase):
         self.assertEqual(workflow["jobs"]["publish"]["permissions"], {"contents": "read", "id-token": "write"})
         self.assertEqual(workflow["jobs"]["publish"]["needs"], "qualify")
         for job in workflow["jobs"].values():
+            self.assertLessEqual(job["timeout-minutes"], 45)
             for step in job["steps"]:
                 if "uses" in step:
                     self.assertRegex(step["uses"], r"^[\w-]+/[\w-]+@[0-9a-f]{40}$")
@@ -56,10 +57,13 @@ class DeploymentContractTests(unittest.TestCase):
         self.assertIn("dockerConfig", text)
         self.assertIn("immutableTags", text)
         self.assertIn("docker buildx imagetools inspect --raw", text)
+        self.assertIn('python scripts/google-sdp-image-config-id.py "$RUNNER_TEMP/pulled-image.tar"', text)
+        self.assertEqual(text.count("s/^Image configuration ID: //p"), 2)
         self.assertIn('cosign sign --yes "$DIGEST_REF"', text)
         self.assertIn('cosign verify --certificate-identity', text)
         self.assertIn('"$DIGEST_REF" > "$RUNNER_TEMP/release-evidence/cosign-verification.json"', text)
         self.assertIn("create_credentials_file: false", text)
+        self.assertEqual(text.count('[[ "$GITHUB_RUN_ATTEMPT" == 1 ]]'), 2)
         self.assertIn("workload_identity_provider:", text)
         self.assertNotRegex(text, r"credentials_json:|service_account_key|kubectl apply|gcloud compute|--push\b|dlp\.projects")
         self.assertIn("me-central2", text)

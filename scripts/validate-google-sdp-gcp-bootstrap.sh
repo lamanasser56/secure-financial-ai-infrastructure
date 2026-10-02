@@ -42,9 +42,9 @@ require('required_version = ">= 1.16.5, < 1.17.0"' in tf["versions.tf"], "Terraf
 require(not re.search(r'(?m)^\s*project\s*=\s*"', source), "project ID must come from the validated input")
 require(not re.search(r"project-[0-9a-f]{8}-[0-9a-f-]{10,}|[a-z0-9-]+@[a-z0-9-]+\.iam\.gserviceaccount\.com", source + example), "real project or GSA identity found")
 require(not re.search(r"(?i)(private_key|credentials_json|google_service_account_key|BEGIN PRIVATE KEY|\.json\s*credentials)", source + example), "credential or service-account key found")
-require(not re.search(r"(?m)^\s*(?:project_id|project_number|github_owner_id|github_repository_id|gke_cluster_name)\s*=\s*\"(?!REPLACE_WITH_)", example), "example tfvars contains an environment identifier")
+require(not re.search(r"(?m)^\s*(?:project_id|project_number|github_owner_id|github_repository_id|gke_cluster_name|node_service_account_email)\s*=\s*\"(?!REPLACE_WITH_)", example), "example tfvars contains an environment identifier")
 require(not re.search(r"roles/(?:owner|editor|viewer)\b|allUsers|allAuthenticatedUsers|/\*\"", source, re.IGNORECASE), "broad IAM member or role found")
-require(set(re.findall(r"roles/[A-Za-z0-9_.]+", source)) == {"roles/artifactregistry.writer", "roles/iam.workloadIdentityUser"}, "unapproved predefined IAM role")
+require(set(re.findall(r"roles/[A-Za-z0-9_.]+", source)) == {"roles/artifactregistry.writer", "roles/artifactregistry.reader", "roles/iam.workloadIdentityUser"}, "unapproved predefined IAM role")
 
 visible = subprocess.check_output(
     ["git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
@@ -62,6 +62,8 @@ require('location      = var.region' in registry and 'format        = "DOCKER"' 
 require(re.search(r"docker_config\s*\{\s*immutable_tags\s*=\s*true", registry), "registry tags must be immutable")
 require('role       = "roles/artifactregistry.writer"' in registry and 'member     = "serviceAccount:${google_service_account.release.email}"' in registry, "release writer must be repository-scoped")
 require("google_artifact_registry_repository_iam_member" in registry and "google_project_iam_member" not in registry, "writer binding must use repository IAM")
+require('resource "google_artifact_registry_repository_iam_member" "node_reader"' in registry and 'role       = "roles/artifactregistry.reader"' in registry and 'member     = "serviceAccount:${var.node_service_account_email}"' in registry, "node image-pull identity must have repository-scoped read access")
+require('var.node_service_account_email != "google-sdp-runtime@${var.project_id}.iam.gserviceaccount.com"' in tf["variables.tf"] and 'var.node_service_account_email != "google-sdp-release@${var.project_id}.iam.gserviceaccount.com"' in tf["variables.tf"], "node identity must remain separate from evaluation identities")
 require("older_than = \"30d\"" in registry and 'tag_state  = "UNTAGGED"' in registry and 'tag_prefixes = ["sha-"]' in registry, "cleanup policy must protect releases and bound abandoned digests")
 
 wif = tf["github-wif.tf"]
@@ -70,6 +72,7 @@ for required_claim in (
     "assertion.repository ==", "assertion.repository_id ==",
     "assertion.ref == 'refs/heads/", "assertion.ref_type == 'branch'",
     "assertion.event_name == 'workflow_dispatch'", "assertion.workflow_ref ==",
+    "assertion.sub == 'repo:${var.github_owner}/${var.github_repository}:environment:google-sdp-evaluation-release'",
 ):
     require(required_claim in wif, f"missing WIF trust claim: {required_claim}")
 require('"attribute.repository_id"    = "assertion.repository_id"' in wif, "numeric repository claim must be mapped")
@@ -104,7 +107,7 @@ job_ksa = job["spec"]["template"]["spec"]["serviceAccountName"]
 require(ksa == job_ksa == "google-sdp-evaluation", "Terraform KSA does not match the existing ServiceAccount and Job")
 require(service_account["metadata"]["namespace"] == job["metadata"]["namespace"] == "google-sdp-evaluation", "Terraform namespace does not match the existing ServiceAccount and Job")
 require('value       = "serviceAccount:${var.project_id}.svc.id.goog[${var.namespace}/${var.ksa_name}]"' in tf["outputs.tf"], "KSA identity output must match the IAM member")
-require('namespace              = "google-sdp-evaluation"' in example and 'ksa_name               = "google-sdp-evaluation"' in example, "example identity must match the existing KSA")
+require(re.search(r'namespace\s*=\s*"google-sdp-evaluation"', example) and re.search(r'ksa_name\s*=\s*"google-sdp-evaluation"', example), "example identity must match the existing KSA")
 
 outputs = tf["outputs.tf"]
 for name in ("github_wif_provider_resource_name", "release_gsa_email", "runtime_gsa_email", "artifact_registry_repository_url", "ksa_annotation_value", "github_environment_variable_names", "gke_ksa_binding_identity"):

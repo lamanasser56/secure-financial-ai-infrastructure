@@ -3,9 +3,21 @@
   "title": "Sanitized synthetic Google SDP evaluation result",
   "type": "object",
   "additionalProperties": false,
-  "required": ["run_mode", "cases", "aggregate", "outcome"],
+  "required": ["run_mode", "provider_operations", "cases", "aggregate", "outcome"],
   "properties": {
     "run_mode": {"enum": ["offline", "live"]},
+    "provider_operations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accounting", "inspect_attempted", "deidentify_attempted", "application_retries", "rpc_timeout_seconds"],
+      "properties": {
+        "accounting": {"enum": ["not_executed", "sdk_invocation_attempts", "test_double_unavailable"]},
+        "inspect_attempted": {"type": ["integer", "null"], "minimum": 0, "maximum": 9},
+        "deidentify_attempted": {"type": ["integer", "null"], "minimum": 0, "maximum": 9},
+        "application_retries": {"const": 0},
+        "rpc_timeout_seconds": {"const": 20}
+      }
+    },
     "cases": {
       "type": "array",
       "minItems": 1,

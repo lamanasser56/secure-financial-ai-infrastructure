@@ -14,6 +14,13 @@ tree. The [candidate record](candidates.json) records the bounded base-image
 comparison and local qualification evidence. Base digests and vulnerability
 results are point-in-time observations; refresh and requalify before use.
 
+Live preparation preserves the nine-case corpus, rejects changed live inputs,
+sets a 20-second RPC deadline, and reports sanitized SDK invocation attempts.
+Those counters are not proof of server receipts. The fixed timestamp is passed
+explicitly as a BuildKit build argument as well as rewriting layer timestamps.
+See the [integrated readiness record](../../docs/security/google-sdp-milestone-readiness.md)
+for authentication, egress, release approval and evidence prerequisites.
+
 Build on a linux/amd64 worker with Docker Buildx and Python 3.12:
 
 ```bash
@@ -29,6 +36,14 @@ and runs default offline validation with container networking disabled. It
 prints the local image tag, image ID, and RepoDigest if Docker supplies one.
 It does not push or sign an image. The local digest is the qualification
 subject for the local scan and SBOM; it is not a registry release digest.
+
+The [configuration reader](../../scripts/google-sdp-image-config-id.py) hashes
+the configuration bytes in the Docker archive. Docker's `.Id` can denote a
+manifest with the containerd image store, so it is not used as a portable
+configuration identifier. The candidate record separately retains the
+observed image-store ID, local subject and configuration digest. A fresh
+uncached build reproduced the same configuration and rootfs identities;
+registry digest equality is not assumed.
 
 For qualification, scan that exact RepoDigest with Trivy 0.72.0, generate a
 CycloneDX SBOM with Syft 1.44.0, and run the existing

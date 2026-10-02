@@ -20,8 +20,8 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   display_name                       = "GitHub manual SDP release"
   disabled                           = false
 
-  # Do not rely on the default sub: an environment job can alter its shape.
-  # GitHub documents each claim below. Numeric IDs resist name reuse.
+  # Check the protected environment subject as well as independent branch,
+  # numeric identity and workflow claims. Numeric IDs resist name reuse.
   attribute_mapping = {
     "google.subject"             = "assertion.sub"
     "attribute.repository_id"    = "assertion.repository_id"
@@ -36,6 +36,7 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "assertion.ref_type == 'branch'",
     "assertion.event_name == 'workflow_dispatch'",
     "assertion.workflow_ref == '${var.github_owner}/${var.github_repository}/.github/workflows/${var.github_workflow}@refs/heads/${var.github_branch}'",
+    "assertion.sub == 'repo:${var.github_owner}/${var.github_repository}:environment:google-sdp-evaluation-release'",
   ])
 
   oidc {

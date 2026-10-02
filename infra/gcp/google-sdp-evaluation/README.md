@@ -14,6 +14,8 @@ The module enables only Artifact Registry, DLP, IAM Credentials and STS APIs, wi
 
 ## Registry and retention
 
+Kubelet pulls use the separately reviewed `node_service_account_email`, not the Pod's Workload Identity. The module grants this identity only `roles/artifactregistry.reader` on the evaluation repository; its access scopes must independently allow storage reads. Runtime and release GSAs are rejected as node identity inputs. No node, node pool, cluster or existing workload is changed.
+
 The Docker repository is fixed to `me-central2`, enforces immutable tags, and grants no public access. An active cleanup policy deletes **untagged** versions older than 30 days; a keep policy preserves commit-tagged `sha-` releases. [Artifact Registry does not delete tagged artifacts when immutable tags are enabled](https://docs.cloud.google.com/artifact-registry/docs/repositories/cleanup-policy). Therefore signed release growth is not automatically capped. The operator must approve a release-count and storage-cost ceiling, monitor it, and obtain separate authorization for any retirement or repository replacement. Retain digest, scan, SBOM, signature and decision evidence under the separately approved evidence policy.
 
 ## Remote state bootstrap contract
@@ -25,3 +27,5 @@ Use `terraform init -backend=false` for offline validation only. **Never apply w
 ## Location and authorization limit
 
 The current GKE cluster is in `us-east1-b`, while the pinned Google SDP endpoint and Artifact Registry repository are in `me-central2`. This synthetic-text evaluation does **not** establish end-to-end Saudi residency. Production residency would require a separate Saudi-region compute, network, logs, storage, backup, and observability review. No real customer or financial data is authorized, and no result here permits Presidio deletion or provider cutover.
+
+The GitHub provider also requires the default OIDC environment subject `repo:OWNER/REPOSITORY:environment:google-sdp-evaluation-release`, with the fixed owner and repository substituted from validated inputs. Changing GitHub's subject customization requires a new trust review. Stage 1 inventory and the single execution-approval checkpoint are defined in the [milestone readiness record](../../../docs/security/google-sdp-milestone-readiness.md).

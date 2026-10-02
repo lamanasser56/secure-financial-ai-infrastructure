@@ -74,8 +74,11 @@ class GCPBootstrapContractTests(unittest.TestCase):
                     "mutable_registry": ("artifact-registry.tf", 'immutable_tags = true', 'immutable_tags = false'),
                     "weak_workflow_trust": ("github-wif.tf", '"assertion.workflow_ref ==', '"assertion.missing_workflow_ref =='),
                     "weak_event_trust": ("github-wif.tf", "assertion.event_name == 'workflow_dispatch'", "assertion.event_name == 'push'"),
+                    "weak_environment_trust": ("github-wif.tf", "assertion.sub == 'repo:", "assertion.sub == 'unapproved:"),
                     "mixed_identities": ("artifact-registry.tf", 'member     = "serviceAccount:${google_service_account.release.email}"', 'member     = "serviceAccount:${google_service_account.runtime.email}"'),
                     "runtime_registry": ("runtime-identity.tf", 'permissions = ["serviceusage.services.use"]', 'permissions = ["serviceusage.services.use", "artifactregistry.repositories.uploadArtifacts"]'),
+                    "node_writer": ("artifact-registry.tf", 'role       = "roles/artifactregistry.reader"', 'role       = "roles/artifactregistry.writer"'),
+                    "runtime_pull_identity": ("artifact-registry.tf", 'member     = "serviceAccount:${var.node_service_account_email}"', 'member     = "serviceAccount:${google_service_account.runtime.email}"'),
                     "alternate_namespace": ("variables.tf", 'variable "namespace" {\n  type    = string\n  default = "google-sdp-evaluation"', 'variable "namespace" {\n  type    = string\n  default = "production"'),
                     "alternate_ksa": ("variables.tf", 'variable "ksa_name" {\n  type    = string\n  default = "google-sdp-evaluation"', 'variable "ksa_name" {\n  type    = string\n  default = "default"'),
                     "unrelated_api": ("services.tf", 'service            = "dlp.googleapis.com"', 'service            = "aiplatform.googleapis.com"'),
@@ -92,6 +95,7 @@ class GCPBootstrapContractTests(unittest.TestCase):
             "owner_role", "public_member", "mutable_registry", "weak_workflow_trust",
             "weak_event_trust", "mixed_identities", "runtime_registry",
             "alternate_namespace", "alternate_ksa", "unrelated_api", "backend_bucket",
+            "node_writer", "runtime_pull_identity", "weak_environment_trust",
         )
         for case in cases:
             with self.subTest(case=case):

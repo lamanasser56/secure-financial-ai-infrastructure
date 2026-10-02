@@ -14,6 +14,7 @@ from .trusted_runtime import RedactionResult
 
 REGION = "me-central2"
 ENDPOINT = "dlp.me-central2.rep.googleapis.com"
+RPC_TIMEOUT_SECONDS = 20
 _PROJECT_ID = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
 _INFO_TYPES = {
     "CREDIT_CARD_NUMBER": "CREDIT_CARD",
@@ -95,9 +96,15 @@ class GoogleSDPRedactor:
         ):
             raise GoogleSDPFailure()
         self._parent = f"projects/{project_id}/locations/{REGION}"
+        self._operation_counts = {"inspect_attempted": 0, "deidentify_attempted": 0}
         self._client = client if client is not None else _guarded(_create_client)
         if _guarded(lambda: self._client.api_endpoint == ENDPOINT) is not True:
             raise GoogleSDPFailure()
+
+    @property
+    def operation_counts(self) -> dict[str, int]:
+        """SDK invocation attempts; no request data and no server receipt claim."""
+        return dict(self._operation_counts)
 
     def redact(self, text: str) -> RedactionResult:
         if type(text) is not str or not text.strip() or len(text) > 4000:
@@ -105,11 +112,14 @@ class GoogleSDPRedactor:
         info_types = [{"name": name} for name in _INFO_TYPES]
         inspect_config = {"info_types": info_types, "include_quote": False}
         item = {"value": text}
+        self._operation_counts["inspect_attempted"] += 1
         inspected = _guarded(lambda: self._client.inspect_content(
             request={"parent": self._parent, "item": item, "inspect_config": inspect_config},
             retry=None,
+            timeout=RPC_TIMEOUT_SECONDS,
         ))
         categories, fragments = _guarded(lambda: _findings(inspected, text))
+        self._operation_counts["deidentify_attempted"] += 1
         transformed = _guarded(lambda: self._client.deidentify_content(
             request={
                 "parent": self._parent,
@@ -124,6 +134,7 @@ class GoogleSDPRedactor:
                 },
             },
             retry=None,
+            timeout=RPC_TIMEOUT_SECONDS,
         ))
         redacted = _guarded(lambda: _output(transformed))
         if any(fragment in redacted for fragment in fragments):

@@ -34,7 +34,9 @@ class FakeClient:
         self.inspect_result = inspect
         self.deidentify_result = deidentify
 
-    def inspect_content(self, *, request, retry):
+    def inspect_content(self, *, request, retry, timeout):
+        if timeout != 20:
+            raise AssertionError("unexpected RPC deadline")
         self.events.append(("inspect", request, retry))
         if isinstance(self.inspect_result, Exception):
             raise self.inspect_result
@@ -42,7 +44,9 @@ class FakeClient:
             result=SimpleNamespace(findings=[finding()]),
         )
 
-    def deidentify_content(self, *, request, retry):
+    def deidentify_content(self, *, request, retry, timeout):
+        if timeout != 20:
+            raise AssertionError("unexpected RPC deadline")
         self.events.append(("deidentify", request, retry))
         if isinstance(self.deidentify_result, Exception):
             raise self.deidentify_result
@@ -91,6 +95,16 @@ class GoogleSDPAdapterTests(unittest.TestCase):
         )
         result = adapter.GoogleSDPRedactor(PROJECT, client=client).redact("plain synthetic text")
         self.assertEqual(result, RedactionResult("plain synthetic text", ()))
+
+    def test_operation_accounting_includes_failed_attempts_without_retries(self):
+        client = FakeClient(inspect=RuntimeError("raw-provider-marker"))
+        redactor = adapter.GoogleSDPRedactor(PROJECT, client=client)
+        self.assert_sanitized(lambda: redactor.redact(TEXT))
+        self.assertEqual(redactor.operation_counts, {"inspect_attempted": 1, "deidentify_attempted": 0})
+        snapshot = redactor.operation_counts
+        snapshot["inspect_attempted"] = 99
+        self.assertEqual(redactor.operation_counts["inspect_attempted"], 1)
+        self.assertEqual(len(client.events), 1)
 
     def test_categories_are_normalized_and_sorted(self):
         text = "x y"

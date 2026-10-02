@@ -22,13 +22,20 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
+    # NodeLocal DNSCache on the reviewed GKE Calico cluster.
+    - to:
+        - ipBlock:
+            cidr: 169.254.20.10/32
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
     # GKE metadata server variants. Confirm the active dataplane before use.
     - to:
         - ipBlock:
             cidr: 169.254.169.252/32
       ports:
-        - protocol: TCP
-          port: 987
         - protocol: TCP
           port: 988
     - to:
@@ -37,8 +44,6 @@ spec:
       ports:
         - protocol: TCP
           port: 80
-        - protocol: TCP
-          port: 8080
     # Kubernetes NetworkPolicy cannot restrict a destination by FQDN.
     # This permits public HTTPS; application endpoint pinning is mandatory.
     - to:
