@@ -1,0 +1,9 @@
+# Direct Python 3.12 development and validation dependencies.
+jsonschema==4.23.0
+PyYAML==6.0.3
+actionlint-py==1.7.12.24
+pymarkdownlnt==0.9.39
+shellcheck-py==0.11.0.1
+yamllint==1.38.0
+referencing==0.37.0
+pip-tools==7.6.1
