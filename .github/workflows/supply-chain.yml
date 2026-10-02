@@ -1,0 +1,32 @@
+name: Qualify supply-chain controls
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install validation dependencies
+        run: python -m pip install --disable-pip-version-check --requirement requirements-dev.txt
+      - name: Install pinned scanner and signature tools
+        run: |
+          mkdir -p "$RUNNER_TEMP/qualification-bin"
+          bash scripts/install-qualification-tools.sh "$RUNNER_TEMP/qualification-bin"
+          printf '%s\n' "$RUNNER_TEMP/qualification-bin" >> "$GITHUB_PATH"
+      - name: Qualify scanners, SBOM, and signatures on public inputs
+        run: bash scripts/qualify-supply-chain.sh
