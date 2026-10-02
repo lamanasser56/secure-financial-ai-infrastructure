@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from runtime.phase3.adapters import DEFAULT_MASTER_KEY_ENV_VAR  # noqa: E402
 from runtime.phase3.trusted_runtime import APPROVED_MODEL_ALIAS  # noqa: E402
-FORBIDDEN_PATH_PARTS = {"backend", "frontend", "database", "fonts"}
+FORBIDDEN_PATH_PARTS = {"backend", "frontend", "fonts"}
 FORBIDDEN_CONTENT = (
     re.compile(r"project-[0-9a-f]{8}-[0-9a-f-]{10,}"),
     re.compile(r"github\.com/[^\s/]+/masar-ai(?:[\s/]|$)", re.IGNORECASE),
@@ -33,6 +33,8 @@ def main() -> None:
     for path in files:
         relative = path.relative_to(ROOT)
         assert not FORBIDDEN_PATH_PARTS.intersection(relative.parts), relative
+        if relative.parts[0] == "database":
+            assert relative.parts[:2] == ("database", "reference") or relative.name in {"README.md", "security-contract.md"}, relative
         if path.suffix in {".py", ".md", ".json", ".yaml", ".yml", ".sh"}:
             content = path.read_text(encoding="utf-8")
             for prohibited in FORBIDDEN_CONTENT:
