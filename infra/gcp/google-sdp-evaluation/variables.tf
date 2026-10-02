@@ -62,6 +62,15 @@ variable "github_repository_id" {
   }
 }
 
+variable "approved_source_commit" {
+  description = "Exact source SHA from the explicitly approved execution bundle, supplied outside Git."
+  type        = string
+  validation {
+    condition     = can(regex("^[0-9a-f]{40}$", var.approved_source_commit))
+    error_message = "Supply the full lowercase reviewed source commit SHA."
+  }
+}
+
 variable "github_branch" {
   type    = string
   default = "main"

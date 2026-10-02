@@ -74,7 +74,9 @@ class GCPBootstrapContractTests(unittest.TestCase):
                     "mutable_registry": ("artifact-registry.tf", 'immutable_tags = true', 'immutable_tags = false'),
                     "weak_workflow_trust": ("github-wif.tf", '"assertion.workflow_ref ==', '"assertion.missing_workflow_ref =='),
                     "weak_event_trust": ("github-wif.tf", "assertion.event_name == 'workflow_dispatch'", "assertion.event_name == 'push'"),
+                    "weak_source_trust": ("github-wif.tf", "assertion.sha == '${var.approved_source_commit}'", "assertion.sha != '${var.approved_source_commit}'"),
                     "weak_environment_trust": ("github-wif.tf", "assertion.sub == 'repo:", "assertion.sub == 'unapproved:"),
+                    "legacy_subject": ("github-wif.tf", "repo:${var.github_owner}@${var.github_owner_id}/${var.github_repository}@${var.github_repository_id}:environment:", "repo:${var.github_owner}/${var.github_repository}:environment:"),
                     "mixed_identities": ("artifact-registry.tf", 'member     = "serviceAccount:${google_service_account.release.email}"', 'member     = "serviceAccount:${google_service_account.runtime.email}"'),
                     "runtime_registry": ("runtime-identity.tf", 'permissions = ["serviceusage.services.use"]', 'permissions = ["serviceusage.services.use", "artifactregistry.repositories.uploadArtifacts"]'),
                     "node_writer": ("artifact-registry.tf", 'role       = "roles/artifactregistry.reader"', 'role       = "roles/artifactregistry.writer"'),
@@ -96,6 +98,8 @@ class GCPBootstrapContractTests(unittest.TestCase):
             "weak_event_trust", "mixed_identities", "runtime_registry",
             "alternate_namespace", "alternate_ksa", "unrelated_api", "backend_bucket",
             "node_writer", "runtime_pull_identity", "weak_environment_trust",
+            "weak_source_trust",
+            "legacy_subject",
         )
         for case in cases:
             with self.subTest(case=case):

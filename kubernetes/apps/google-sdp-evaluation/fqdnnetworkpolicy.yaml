@@ -1,0 +1,15 @@
+apiVersion: networking.gke.io/v1alpha1
+kind: FQDNNetworkPolicy
+metadata:
+  name: google-sdp-evaluation-regional-egress
+  namespace: google-sdp-evaluation
+  annotations:
+    policy.network.gke.io/enable-logging: "true"
+spec:
+  podSelector: {}
+  egress:
+    - matches:
+        - name: dlp.me-central2.rep.googleapis.com
+      ports:
+        - protocol: TCP
+          port: 443

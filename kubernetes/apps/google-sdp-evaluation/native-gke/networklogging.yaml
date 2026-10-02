@@ -1,0 +1,13 @@
+# Configure only the new dedicated evaluation cluster, never the MASAR cluster.
+apiVersion: networking.gke.io/v1alpha1
+kind: NetworkLogging
+metadata:
+  name: default
+spec:
+  cluster:
+    allow:
+      log: true
+      delegate: true
+    deny:
+      log: true
+      delegate: true

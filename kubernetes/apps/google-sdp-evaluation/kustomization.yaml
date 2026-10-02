@@ -6,5 +6,6 @@ resources:
   - configmap.yaml
   - job.yaml
   - networkpolicy.yaml
+  - fqdnnetworkpolicy.yaml
   - resourcequota.yaml
   - limitrange.yaml

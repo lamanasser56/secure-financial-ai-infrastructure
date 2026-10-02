@@ -16,7 +16,7 @@ PACKAGE = ROOT / "kubernetes/apps/google-sdp-evaluation"
 RENDER = ROOT / "scripts/render-google-sdp-evaluation-job.sh"
 VALIDATE = ROOT / "scripts/validate-google-sdp-deployment.sh"
 PROJECT = "synthetic-eval-123"
-GSA = f"sdp-evaluation@{PROJECT}.iam.gserviceaccount.com"
+GSA = f"google-sdp-runtime@{PROJECT}.iam.gserviceaccount.com"
 DIGEST = f"me-central2-docker.pkg.dev/{PROJECT}/synthetic-repo/evaluation@sha256:" + "a" * 64
 
 
@@ -107,7 +107,7 @@ class DeploymentContractTests(unittest.TestCase):
         manifest = Path(re.search(r"Rendered manifest: (\S+)", result.stdout).group(1))
         original = list(yaml.safe_load_all(manifest.read_text()))
         try:
-            for mutation in ("default_service_account", "privileged", "open_egress", "secret"):
+            for mutation in ("default_service_account", "privileged", "open_egress", "broad_https", "wildcard_fqdn", "missing_fqdn", "unsuspended", "secret"):
                 with self.subTest(mutation=mutation):
                     documents = list(yaml.safe_load_all(yaml.safe_dump_all(original)))
                     by_kind = {document["kind"]: document for document in documents}
@@ -117,6 +117,14 @@ class DeploymentContractTests(unittest.TestCase):
                         by_kind["Job"]["spec"]["template"]["spec"]["containers"][0]["securityContext"]["privileged"] = True
                     elif mutation == "open_egress":
                         by_kind["NetworkPolicy"]["spec"]["egress"].append({"to": [{"ipBlock": {"cidr": "0.0.0.0/0"}}]})
+                    elif mutation == "broad_https":
+                        by_kind["NetworkPolicy"]["spec"]["egress"].append({"to": [{"ipBlock": {"cidr": "0.0.0.0/0"}}], "ports": [{"protocol": "TCP", "port": 443}]})
+                    elif mutation == "wildcard_fqdn":
+                        by_kind["FQDNNetworkPolicy"]["spec"]["egress"][0]["matches"] = [{"pattern": "*.googleapis.com"}]
+                    elif mutation == "missing_fqdn":
+                        documents.remove(by_kind["FQDNNetworkPolicy"])
+                    elif mutation == "unsuspended":
+                        by_kind["Job"]["spec"]["suspend"] = False
                     else:
                         documents.append({"apiVersion": "v1", "kind": "Secret", "metadata": {"name": "unexpected", "namespace": "google-sdp-evaluation"}})
                     manifest.write_text(yaml.safe_dump_all(documents))
@@ -134,6 +142,7 @@ class DeploymentContractTests(unittest.TestCase):
         self.assertNotIn("RoleBinding", docs)
         job = docs["Job"]["spec"]
         self.assertEqual(job["backoffLimit"], 0)
+        self.assertTrue(job["suspend"])
         self.assertLessEqual(job["activeDeadlineSeconds"], 900)
         self.assertLessEqual(job["ttlSecondsAfterFinished"], 3600)
         pod = job["template"]["spec"]
@@ -146,6 +155,7 @@ class DeploymentContractTests(unittest.TestCase):
         self.assertTrue(container["securityContext"]["readOnlyRootFilesystem"])
         self.assertNotIn("ports", container)
         self.assertEqual(docs["NetworkPolicy"]["spec"]["podSelector"], {})
+        self.assertEqual(docs["FQDNNetworkPolicy"]["spec"]["egress"], [{"matches": [{"name": "dlp.me-central2.rep.googleapis.com"}], "ports": [{"protocol": "TCP", "port": 443}]}])
         self.assertNotIn("ingress", docs["NetworkPolicy"]["spec"])
         for rule in docs["NetworkPolicy"]["spec"]["egress"]:
             self.assertIn("ports", rule)

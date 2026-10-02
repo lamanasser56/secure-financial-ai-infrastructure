@@ -35,8 +35,9 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "assertion.ref == 'refs/heads/${var.github_branch}'",
     "assertion.ref_type == 'branch'",
     "assertion.event_name == 'workflow_dispatch'",
+    "assertion.sha == '${var.approved_source_commit}'",
     "assertion.workflow_ref == '${var.github_owner}/${var.github_repository}/.github/workflows/${var.github_workflow}@refs/heads/${var.github_branch}'",
-    "assertion.sub == 'repo:${var.github_owner}/${var.github_repository}:environment:google-sdp-evaluation-release'",
+    "assertion.sub == 'repo:${var.github_owner}@${var.github_owner_id}/${var.github_repository}@${var.github_repository_id}:environment:google-sdp-evaluation-release'",
   ])
 
   oidc {

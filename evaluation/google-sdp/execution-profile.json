@@ -1,0 +1,23 @@
+{
+  "profile": "synthetic-owner-approval-v1",
+  "status": "proposed",
+  "owner": "lamanasser56",
+  "repository": "lamanasser56/secure-financial-ai-infrastructure",
+  "requires_explicit_complete_bundle_approval": true,
+  "independent_review": false,
+  "separation_of_duties_proven": false,
+  "manual_release_only": true,
+  "exact_reviewed_commit_required": true,
+  "committed_corpus_only": true,
+  "maximum_sdk_operations": 18,
+  "maximum_live_jobs": 1,
+  "application_retries": 0,
+  "job_retries": 0,
+  "real_data_authorized": false,
+  "production_authorized": false,
+  "presidio_authoritative": true,
+  "egress": "gke-native-dns-derived-ip-port",
+  "maximum_cluster_hours": 6,
+  "incremental_operator_stop_limit_usd": 5,
+  "retain_evaluation_cluster": false
+}

@@ -7,6 +7,8 @@ if (($# > 1)); then
 fi
 python3 - "$root" "${1:-}" <<'PY'
 from pathlib import Path
+import copy
+import hashlib
 import re
 import sys
 import yaml
@@ -18,7 +20,7 @@ root = Path(sys.argv[1])
 rendered = Path(sys.argv[2]) if sys.argv[2] else None
 base = root / "kubernetes/apps/google-sdp-evaluation"
 resources = yaml.safe_load((base / "kustomization.yaml").read_text())["resources"]
-assert set(resources) == {"namespace.yaml", "serviceaccount.yaml", "configmap.yaml", "job.yaml", "networkpolicy.yaml", "resourcequota.yaml", "limitrange.yaml"}
+assert set(resources) == {"namespace.yaml", "serviceaccount.yaml", "configmap.yaml", "job.yaml", "networkpolicy.yaml", "fqdnnetworkpolicy.yaml", "resourcequota.yaml", "limitrange.yaml"}
 templates = [(base / name).read_text(encoding="utf-8") for name in resources]
 combined = "\n".join(templates)
 assert not re.search(r"(?i)(private.key|credentials.json|GOOGLE_APPLICATION_CREDENTIALS|LITELLM|kubectl apply|docker push|gcloud |secretKeyRef)", combined)
@@ -26,9 +28,9 @@ assert "REPLACE_WITH_PROJECT_ID" in combined and "REPLACE_WITH_GSA_EMAIL" in com
 assert "REPLACE_WITH_ARTIFACT_REGISTRY_DIGEST" in combined
 assert not re.search(r"[a-z][a-z0-9-]+@[a-z][a-z0-9-]+\.iam\.gserviceaccount\.com", combined)
 docs = list(yaml.safe_load_all(rendered.read_text(encoding="utf-8"))) if rendered else [yaml.safe_load(t) for t in templates]
-assert len(docs) == 7
+assert len(docs) == 8
 by_kind = {d["kind"]: d for d in docs}
-assert set(by_kind) == {"Namespace", "ServiceAccount", "ConfigMap", "Job", "NetworkPolicy", "ResourceQuota", "LimitRange"}
+assert set(by_kind) == {"Namespace", "ServiceAccount", "ConfigMap", "Job", "NetworkPolicy", "FQDNNetworkPolicy", "ResourceQuota", "LimitRange"}
 assert by_kind["Namespace"]["metadata"]["name"] == "google-sdp-evaluation"
 labels = by_kind["Namespace"]["metadata"]["labels"]
 for level in ("enforce", "audit", "warn"):
@@ -41,12 +43,13 @@ sa = by_kind["ServiceAccount"]
 assert sa["metadata"]["name"] == "google-sdp-evaluation" and sa["automountServiceAccountToken"] is True
 annotation = sa["metadata"]["annotations"]["iam.gke.io/gcp-service-account"]
 if rendered:
-    assert re.fullmatch(r"[a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z][a-z0-9-]{4,28}[a-z0-9]\.iam\.gserviceaccount\.com", annotation)
+    assert re.fullmatch(r"google-sdp-runtime@[a-z][a-z0-9-]{4,28}[a-z0-9]\.iam\.gserviceaccount\.com", annotation)
 else:
     assert annotation == "REPLACE_WITH_GSA_EMAIL"
 config = by_kind["ConfigMap"]["data"]
 assert config == {"region": "me-central2", "endpoint": "dlp.me-central2.rep.googleapis.com", "synthetic_corpus_path": "/app/evaluation/google-sdp/corpus.json"}
 job = by_kind["Job"]["spec"]
+assert job["suspend"] is True
 assert job["backoffLimit"] == 0 and job["parallelism"] == job["completions"] == 1
 assert 0 < job["activeDeadlineSeconds"] <= 900 and 0 < job["ttlSecondsAfterFinished"] <= 3600
 pod = job["template"]["spec"]
@@ -82,14 +85,41 @@ assert by_kind["LimitRange"]["spec"]["limits"][0]["type"] == "Container"
 policy = by_kind["NetworkPolicy"]["spec"]
 assert policy["podSelector"] == {} and set(policy["policyTypes"]) == {"Ingress", "Egress"}
 assert not policy.get("ingress")
-for rule in policy["egress"]:
-    assert rule.get("to") and rule.get("ports")
-    assert all(p.get("protocol") in {"TCP", "UDP"} and isinstance(p.get("port"), int) for p in rule["ports"])
-    for destination in rule["to"]:
-        if "ipBlock" in destination and destination["ipBlock"]["cidr"] == "0.0.0.0/0":
-            assert rule["ports"] == [{"protocol": "TCP", "port": 443}]
-            assert set(destination["ipBlock"]["except"]) == {"10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.168.0.0/16", "224.0.0.0/4"}
-assert any(rule["to"] == [{"ipBlock": {"cidr": "169.254.20.10/32"}}] and rule["ports"] == [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}] for rule in policy["egress"])
+assert policy["egress"] == [
+    {"to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "kube-system"}}, "podSelector": {"matchLabels": {"k8s-app": "kube-dns"}}}], "ports": [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}]},
+    {"to": [{"ipBlock": {"cidr": "169.254.169.254/32"}}], "ports": [{"protocol": "TCP", "port": 80}]},
+]
+fqdn = by_kind["FQDNNetworkPolicy"]
+assert fqdn["apiVersion"] == "networking.gke.io/v1alpha1"
+assert fqdn["spec"] == {"podSelector": {}, "egress": [{"matches": [{"name": "dlp.me-central2.rep.googleapis.com"}], "ports": [{"protocol": "TCP", "port": 443}]}]}
+assert fqdn["metadata"]["name"] == "google-sdp-evaluation-regional-egress"
+for kind in ("FQDNNetworkPolicy", "NetworkPolicy"):
+    assert by_kind[kind]["metadata"]["annotations"] == {"policy.network.gke.io/enable-logging": "true"}
+assert by_kind["Namespace"]["metadata"]["annotations"] == {"policy.network.gke.io/enable-deny-logging": "true"}
+logging = yaml.safe_load((base / "native-gke/networklogging.yaml").read_text())
+assert logging == {"apiVersion": "networking.gke.io/v1alpha1", "kind": "NetworkLogging", "metadata": {"name": "default"}, "spec": {"cluster": {"allow": {"log": True, "delegate": True}, "deny": {"log": True, "delegate": True}}}}
+if rendered:
+    directory = rendered.parent
+    assert list(yaml.safe_load_all((directory / "google-sdp-evaluation-controls.yaml").read_text())) == [d for d in docs if d["kind"] != "Job"]
+    assert yaml.safe_load((directory / "google-sdp-evaluation-job.yaml").read_text()) == by_kind["Job"]
+    assert yaml.safe_load((directory / "networklogging.yaml").read_text()) == logging
+    preflight_docs = list(yaml.safe_load_all((directory / "google-sdp-egress-preflight.yaml").read_text()))
+    assert len(preflight_docs) == 2
+    cmap, preflight = preflight_docs
+    probe_source = (root / "scripts/probe-google-sdp-egress.py").read_text(encoding="utf-8")
+    assert cmap == {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "google-sdp-egress-preflight", "namespace": "google-sdp-evaluation"}, "immutable": True, "data": {"probe.py": probe_source}}
+    expected = copy.deepcopy(by_kind["Job"])
+    expected["metadata"]["name"] = "google-sdp-egress-preflight"
+    expected["spec"].pop("suspend")
+    expected["spec"].update(activeDeadlineSeconds=180, ttlSecondsAfterFinished=600)
+    expected["spec"]["template"]["metadata"]["annotations"] = {"portfolio.example/probe-sha256": hashlib.sha256(probe_source.encode("utf-8")).hexdigest()}
+    p = expected["spec"]["template"]["spec"]
+    c = p["containers"][0]
+    c.update(name="egress-preflight", command=["/usr/local/bin/python3.12", "/probe/probe.py"], args=["--network-preflight"])
+    c["env"] = [{"name": "PORTFOLIO_GOOGLE_SDP_NETWORK_PREFLIGHT_ACK", "value": "I_ACKNOWLEDGE_SYNTHETIC_NETWORK_PREFLIGHT"}, {"name": "PORTFOLIO_GOOGLE_SDP_EXPECTED_GSA", "value": annotation}]
+    c["volumeMounts"] = [{"name": "probe", "mountPath": "/probe", "readOnly": True}]
+    p["volumes"] = [{"name": "probe", "configMap": {"name": "google-sdp-egress-preflight", "defaultMode": 0o444}}]
+    assert preflight == expected
 assert "NetworkPolicy cannot restrict" in combined
 readme = (base / "README.md").read_text(encoding="utf-8")
 assert "FQDN" in readme and "Presidio" in readme and "evaluation-only" in readme

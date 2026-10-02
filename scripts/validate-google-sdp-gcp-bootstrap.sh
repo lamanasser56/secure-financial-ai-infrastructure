@@ -72,7 +72,8 @@ for required_claim in (
     "assertion.repository ==", "assertion.repository_id ==",
     "assertion.ref == 'refs/heads/", "assertion.ref_type == 'branch'",
     "assertion.event_name == 'workflow_dispatch'", "assertion.workflow_ref ==",
-    "assertion.sub == 'repo:${var.github_owner}/${var.github_repository}:environment:google-sdp-evaluation-release'",
+    "assertion.sha == '${var.approved_source_commit}'",
+    "assertion.sub == 'repo:${var.github_owner}@${var.github_owner_id}/${var.github_repository}@${var.github_repository_id}:environment:google-sdp-evaluation-release'",
 ):
     require(required_claim in wif, f"missing WIF trust claim: {required_claim}")
 require('"attribute.repository_id"    = "assertion.repository_id"' in wif, "numeric repository claim must be mapped")
