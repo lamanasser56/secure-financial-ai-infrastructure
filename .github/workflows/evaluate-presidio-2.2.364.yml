@@ -1,0 +1,363 @@
+name: Evaluate Presidio 2.2.364 images
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: presidio-2-2-364-evaluation
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    name: ${{ matrix.component }} ${{ matrix.version }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [presidio-analyzer, presidio-anonymizer]
+        version: ['2.2.362', '2.2.364']
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Prepare evidence and install pinned scanners
+        run: |
+          mkdir -p evidence "$RUNNER_TEMP/qualification-bin"
+          bash scripts/install-qualification-tools.sh "$RUNNER_TEMP/qualification-bin"
+          printf '%s\n' "$RUNNER_TEMP/qualification-bin" >> "$GITHUB_PATH"
+      - name: Resolve official MCR tag to linux/amd64 digest
+        id: resolve
+        continue-on-error: true
+        env:
+          COMPONENT: ${{ matrix.component }}
+          VERSION: ${{ matrix.version }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import urllib.error
+          import urllib.request
+
+          component = os.environ['COMPONENT']
+          version = os.environ['VERSION']
+          repository = f'mcr.microsoft.com/{component}'
+          tag = f'{repository}:{version}'
+          output = Path('evidence')
+          output.mkdir(exist_ok=True)
+          result = {'registry': 'mcr.microsoft.com', 'repository': repository,
+                    'component': component, 'version': version, 'tag': tag,
+                    'architecture': 'linux/amd64'}
+          accept = ', '.join((
+              'application/vnd.oci.image.index.v1+json',
+              'application/vnd.docker.distribution.manifest.list.v2+json',
+              'application/vnd.oci.image.manifest.v1+json',
+              'application/vnd.docker.distribution.manifest.v2+json',
+          ))
+
+          def get(path):
+              url = f'https://mcr.microsoft.com/v2/{component}/{path}'
+              request = urllib.request.Request(url, headers={'Accept': accept})
+              with urllib.request.urlopen(request, timeout=45) as response:
+                  raw = response.read()
+                  declared = response.headers.get('Docker-Content-Digest')
+              actual = 'sha256:' + hashlib.sha256(raw).hexdigest()
+              if declared and declared != actual:
+                  raise ValueError('registry manifest digest mismatch')
+              return json.loads(raw), actual, raw
+
+          try:
+              try:
+                  manifest, tag_digest, tag_bytes = get(f'manifests/{version}')
+              except urllib.error.HTTPError as error:
+                  if error.code != 404:
+                      raise
+                  result['availability'] = 'unavailable'
+                  result['policy_result'] = 'NOT QUALIFIABLE UNDER CURRENT POLICY'
+                  result['reason'] = 'official MCR tag returned HTTP 404'
+              else:
+                  result['tag_manifest_digest'] = tag_digest
+                  (output / 'tag-manifest.json').write_bytes(tag_bytes)
+                  descriptors = manifest.get('manifests')
+                  if descriptors is not None:
+                      matches = [item for item in descriptors
+                                 if item.get('platform', {}).get('os') == 'linux'
+                                 and item.get('platform', {}).get('architecture') == 'amd64']
+                      if len(matches) != 1:
+                          raise ValueError('expected exactly one linux/amd64 manifest')
+                      selected = matches[0]
+                      digest = selected['digest']
+                      manifest, actual, selected_bytes = get(f'manifests/{digest}')
+                      if actual != digest:
+                          raise ValueError('platform manifest digest mismatch')
+                  else:
+                      digest = tag_digest
+                      selected_bytes = tag_bytes
+                  (output / 'selected-manifest.json').write_bytes(selected_bytes)
+                  config = manifest['config']
+                  config_digest = config['digest']
+                  url = f'https://mcr.microsoft.com/v2/{component}/blobs/{config_digest}'
+                  with urllib.request.urlopen(url, timeout=45) as response:
+                      config_bytes = response.read()
+                  if 'sha256:' + hashlib.sha256(config_bytes).hexdigest() != config_digest:
+                      raise ValueError('image config digest mismatch')
+                  image_config = json.loads(config_bytes)
+                  if (image_config.get('os'), image_config.get('architecture')) != ('linux', 'amd64'):
+                      raise ValueError('image config architecture mismatch')
+                  result.update(availability='available', digest=digest,
+                                subject=f'{repository}@{digest}',
+                                manifest_media_type=manifest.get('mediaType'),
+                                approximate_compressed_bytes=config['size'] + sum(
+                                    layer['size'] for layer in manifest['layers']))
+          except Exception as error:
+              result['availability'] = 'tooling_failure'
+              result['policy_result'] = 'INCONCLUSIVE — TOOLING OR EVIDENCE FAILURE'
+              result['reason'] = type(error).__name__
+              (output / 'status.json').write_text(json.dumps(result, indent=2) + '\n')
+              raise
+          (output / 'status.json').write_text(json.dumps(result, indent=2) + '\n')
+          PY
+      - name: Scan resolved digest and generate CycloneDX SBOM
+        id: evidence
+        if: steps.resolve.outcome == 'success'
+        continue-on-error: true
+        run: |
+          subject="$(python3 -c 'import json; print(json.load(open("evidence/status.json")).get("subject", ""))')"
+          if [[ -z "$subject" ]]; then
+            exit 0
+          fi
+          mkdir -p "$RUNNER_TEMP/trivy-cache"
+          trivy image --image-src remote --scanners vuln --exit-code 0 \
+            --format json --output evidence/trivy.json \
+            --cache-dir "$RUNNER_TEMP/trivy-cache" --no-progress \
+            --skip-version-check "$subject"
+          trivy image --image-src remote --scanners vuln --exit-code 0 \
+            --format table --output evidence/trivy.txt \
+            --cache-dir "$RUNNER_TEMP/trivy-cache" --no-progress \
+            --skip-version-check "$subject"
+          trivy --version > evidence/trivy-version.txt
+          if [[ -f "$RUNNER_TEMP/trivy-cache/db/metadata.json" ]]; then
+            cp "$RUNNER_TEMP/trivy-cache/db/metadata.json" evidence/trivy-db-metadata.json
+          fi
+          SYFT_CHECK_FOR_APP_UPDATE=false SYFT_LOG_QUIET=true \
+            syft scan "registry:$subject" \
+            --output 'cyclonedx-json=evidence/sbom.cdx.json'
+          syft version > evidence/syft-version.txt
+      - name: Validate evidence and evaluate current policy
+        id: policy
+        if: steps.resolve.outcome == 'success' && steps.evidence.outcome == 'success'
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+          import subprocess
+          import urllib.request
+
+          root = Path('evidence')
+          status = json.loads((root / 'status.json').read_text())
+          if status['availability'] != 'available':
+              raise SystemExit(0)
+          subject = status['subject']
+          report = json.loads((root / 'trivy.json').read_text())
+          if (report.get('SchemaVersion') != 2 or
+                  report.get('ArtifactType') != 'container_image' or
+                  report.get('ArtifactName') != subject or
+                  not isinstance(report.get('Results'), list) or
+                  not report['Results']):
+              raise ValueError('incomplete or mismatched Trivy evidence')
+          sbom = json.loads((root / 'sbom.cdx.json').read_text())
+          components = sbom.get('components')
+          if sbom.get('bomFormat') != 'CycloneDX' or not isinstance(components, list) or not components:
+              raise ValueError('incomplete CycloneDX SBOM')
+          source = sbom.get('metadata', {}).get('component', {})
+          if status['digest'].split(':', 1)[1] not in json.dumps(source).lower():
+              raise ValueError('SBOM source does not contain selected digest')
+          findings = []
+          for target in report['Results']:
+              for item in target.get('Vulnerabilities') or []:
+                  findings.append({
+                      'target': target.get('Target'), 'class': target.get('Class'),
+                      'type': target.get('Type'), 'package': item.get('PkgName'),
+                      'installed': item.get('InstalledVersion'),
+                      'fixed': item.get('FixedVersion') or '',
+                      'id': item.get('VulnerabilityID'),
+                      'source': item.get('VulnerabilitySource') or
+                                (item.get('DataSource') or {}).get('ID'),
+                      'severity': item.get('Severity'),
+                  })
+          (root / 'findings.json').write_text(json.dumps(findings, indent=2) + '\n')
+          status['generation_timestamp'] = datetime.now(timezone.utc).isoformat()
+          status['total_packages'] = len(components)
+          for severity in ('HIGH', 'CRITICAL'):
+              matching = [item for item in findings if item['severity'] == severity]
+              status[severity.lower()] = len(matching)
+              status['fixable_' + severity.lower()] = sum(bool(item['fixed']) for item in matching)
+              status['unfixable_' + severity.lower()] = sum(not item['fixed'] for item in matching)
+          with urllib.request.urlopen(
+                  'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json',
+                  timeout=45) as response:
+              kev_bytes = response.read()
+          (root / 'kev.json').write_bytes(kev_bytes)
+          kev = json.loads(kev_bytes)
+          status['kev_catalog_version'] = kev.get('catalogVersion')
+          status['kev_date_released'] = kev.get('dateReleased')
+          decision = subprocess.run([
+              'python3', 'scripts/evaluate-container-vulnerability-policy.py',
+              str(root / 'trivy.json'), subject, str(root / 'kev.json'),
+              'policy/empty-exceptions.json',
+          ], text=True, capture_output=True, check=False)
+          status['vulnerability_policy_exit_code'] = decision.returncode
+          status['vulnerability_policy_detail'] = decision.stdout.strip() or decision.stderr.strip()
+          if decision.returncode == 2:
+              status['policy_result'] = 'INCONCLUSIVE — TOOLING OR EVIDENCE FAILURE'
+          elif decision.returncode == 1:
+              status['policy_result'] = 'NOT QUALIFIABLE UNDER CURRENT POLICY'
+          elif decision.returncode == 0:
+              # This workflow does not verify image provenance or signatures.
+              status['policy_result'] = 'NOT QUALIFIABLE UNDER CURRENT POLICY'
+              status['qualification_gap'] = 'provenance and signature evidence not collected'
+          else:
+              raise ValueError('unexpected policy evaluator status')
+          (root / 'status.json').write_text(json.dumps(status, indent=2) + '\n')
+          if decision.returncode == 2:
+              raise ValueError('policy evidence could not be evaluated')
+          PY
+      - name: Upload candidate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: presidio-${{ matrix.component }}-${{ matrix.version }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Fail on tooling or evidence error
+        if: steps.resolve.outcome == 'failure' || steps.evidence.outcome == 'failure' || steps.policy.outcome == 'failure'
+        run: exit 1
+
+  comparison:
+    name: Compare official image evidence
+    needs: candidate
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Download candidate evidence
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: presidio-*
+          path: candidates
+      - name: Write comparison artifact
+        id: compare
+        continue-on-error: true
+        run: |
+          mkdir -p comparison
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('candidates')
+          rows = []
+          lines = [
+              '# Presidio official MCR image comparison', '',
+              '| Component | Version | Digest | HIGH | CRITICAL | Fixable HIGH | Fixable CRITICAL | Total packages | Policy result |',
+              '| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |',
+          ]
+          failure = False
+          for component in ('presidio-analyzer', 'presidio-anonymizer'):
+              for version in ('2.2.362', '2.2.364'):
+                  path = root / f'presidio-{component}-{version}' / 'status.json'
+                  if not path.is_file():
+                      row = {'component': component, 'version': version,
+                             'policy_result': 'INCONCLUSIVE — TOOLING OR EVIDENCE FAILURE',
+                             'reason': 'missing candidate artifact'}
+                  else:
+                      row = json.loads(path.read_text())
+                  if row.get('availability') == 'tooling_failure' or row['policy_result'].startswith('INCONCLUSIVE'):
+                      failure = True
+                  rows.append(row)
+                  cells = [component, version, row.get('digest', 'unavailable'),
+                           row.get('high', 'n/a'), row.get('critical', 'n/a'),
+                           row.get('fixable_high', 'n/a'), row.get('fixable_critical', 'n/a'),
+                           row.get('total_packages', 'n/a'), row['policy_result']]
+                  lines.append('| ' + ' | '.join(map(str, cells)) + ' |')
+          lines.extend(['', '## Unfixable HIGH and CRITICAL counts', ''])
+          for row in rows:
+              lines.append(f'- {row["component"]} {row["version"]}: '
+                           f'HIGH={row.get("unfixable_high", "n/a")}, '
+                           f'CRITICAL={row.get("unfixable_critical", "n/a")}')
+          lines.extend(['', '## Changes by component', ''])
+          for component in ('presidio-analyzer', 'presidio-anonymizer'):
+              old, new = [row for row in rows if row['component'] == component]
+              old_path = root / f'presidio-{component}-2.2.362' / 'findings.json'
+              new_path = root / f'presidio-{component}-2.2.364' / 'findings.json'
+              lines.append(f'### {component}')
+              if old_path.is_file() and new_path.is_file():
+                  def keys(path):
+                      return {tuple(item.get(key) for key in ('id', 'package', 'severity'))
+                              for item in json.loads(path.read_text())}
+                  before, after = keys(old_path), keys(new_path)
+                  lines.extend([f'- Removed findings: {sorted(before - after)}',
+                                f'- New findings: {sorted(after - before)}',
+                                f'- Unchanged findings: {sorted(before & after)}',
+                                f'- Dependency-count change: {new["total_packages"] - old["total_packages"]}',
+                                f'- Approximate compressed image-size change: '
+                                f'{new["approximate_compressed_bytes"] - old["approximate_compressed_bytes"]} bytes'])
+              else:
+                  lines.append('- Comparison unavailable because a tag or its evidence is missing.')
+              lines.append('- Clean upgrade path: ' + (
+                  'not established by this image-only evaluation.'
+                  if new.get('availability') == 'available' else
+                  'blocked: the official 2.2.364 image is unavailable or lacks valid evidence.'))
+              lines.append('- Dependency constraints blocking patched versions: '
+                           'not determinable from image scans alone; no image rebuild or package surgery was attempted.')
+              lines.append('')
+          anonymizer_new = root / 'presidio-presidio-anonymizer-2.2.364' / 'findings.json'
+          lines.append('## cryptography advisory check')
+          if anonymizer_new.is_file():
+              matches = [item for item in json.loads(anonymizer_new.read_text())
+                         if item.get('package', '').lower() == 'cryptography'
+                         or item.get('id') in ('CVE-2026-69247', 'GHSA-g6cj-pr64-35w5')]
+              lines.append(f'- Matching findings: {json.dumps(matches, sort_keys=True)}')
+          else:
+              lines.append('- Unavailable: official 2.2.364 Anonymizer evidence is missing.')
+          lines.extend(['', 'Dependency constraints, provenance, and signatures require separate evidence;',
+                        'package presence alone does not establish exploitability.', ''])
+          if failure:
+              overall = 'INCONCLUSIVE — TOOLING OR EVIDENCE FAILURE'
+          elif any(row.get('availability') != 'available' for row in rows):
+              overall = 'NOT QUALIFIABLE UNDER CURRENT POLICY'
+          elif all(row.get('policy_result') == 'QUALIFIABLE UNDER CURRENT POLICY'
+                   for row in rows if row['version'] == '2.2.364'):
+              overall = 'QUALIFIABLE UNDER CURRENT POLICY'
+          else:
+              overall = 'NOT QUALIFIABLE UNDER CURRENT POLICY'
+          lines.insert(2, f'**Overall outcome:** {overall}')
+          lines.insert(3, '')
+          Path('comparison/comparison.md').write_text('\n'.join(lines))
+          Path('comparison/comparison.json').write_text(json.dumps(
+              {'overall_outcome': overall, 'candidates': rows}, indent=2) + '\n')
+          with open('comparison/comparison.md') as report:
+              with open(__import__('os').environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+                  summary.write(report.read())
+          if failure:
+              raise SystemExit('tooling or evidence failure')
+          PY
+      - name: Upload comparison artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: presidio-comparison
+          path: comparison/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Fail on comparison evidence error
+        if: steps.compare.outcome == 'failure'
+        run: exit 1
