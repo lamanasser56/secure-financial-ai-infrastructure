@@ -1,5 +1,6 @@
 """Guard the standalone runtime against a direct provider adapter."""
 
+import ast
 from pathlib import Path
 import unittest
 
@@ -24,6 +25,19 @@ class AIPathContainmentTests(unittest.TestCase):
         source = "\n".join(p.read_text() for p in (ROOT / "runtime").rglob("*.py"))
         for prohibited in ("api.openai.com", "generativelanguage.googleapis.com", "google.generativeai", "vertexai.init("):
             self.assertNotIn(prohibited, source)
+
+    def test_presidio_is_the_only_concrete_redactor(self):
+        adapter_source = (ROOT / "runtime/phase3/adapters.py").read_text()
+        classes = [
+            node.name for node in ast.walk(ast.parse(adapter_source))
+            if isinstance(node, ast.ClassDef)
+            and any(isinstance(member, ast.FunctionDef) and member.name == "redact"
+                    for member in node.body)
+        ]
+        self.assertEqual(classes, ["PresidioRedactor"])
+        runtime_source = "\n".join(p.read_text() for p in (ROOT / "runtime").rglob("*.py"))
+        for prohibited in ("google.cloud.dlp", "google_cloud_dlp", "dlp_v2", "GoogleSDPRedactor"):
+            self.assertNotIn(prohibited, runtime_source)
 
     def test_authorization_denial_never_reaches_gateway(self):
         runtime, recorder = build_mock_runtime({"authorization": "deny"})

@@ -16,7 +16,7 @@ from runtime.phase3.mocks import (
     MockTraceSink,
     Recorder,
 )
-from runtime.phase3.trusted_runtime import ControlFailure, TrustedRuntime
+from runtime.phase3.trusted_runtime import ControlFailure, RedactionResult, TrustedRuntime
 
 
 class _StubHandler(BaseHTTPRequestHandler):
@@ -159,6 +159,29 @@ class HttpPresidioAnonymizerTests(unittest.TestCase):
             anonymizer = adapters.HttpPresidioAnonymizer(url=url, timeout=0.5)
             with self.assertRaises(TimeoutError):
                 anonymizer.anonymize("text", [])
+
+
+class PresidioRedactorTests(unittest.TestCase):
+    def test_presidio_sequence_returns_only_neutral_redacted_result(self):
+        protected = "synthetic" + "@" + "example.com"
+        message = "Contact " + protected
+        analysis = [{
+            "entity_type": "EMAIL_ADDRESS", "start": 8,
+            "end": len(message), "score": 0.99,
+        }]
+        analyzer = mock.Mock()
+        analyzer.analyze.return_value = analysis
+        anonymizer = mock.Mock()
+        anonymizer.anonymize.return_value = {"text": "Contact [REDACTED]"}
+
+        result = adapters.PresidioRedactor(analyzer, anonymizer).redact(message)
+
+        analyzer.analyze.assert_called_once_with(message)
+        anonymizer.anonymize.assert_called_once_with(message, analysis)
+        self.assertEqual(result, RedactionResult("Contact [REDACTED]", ("EMAIL_ADDRESS",)))
+        self.assertEqual(set(vars(result)), {"text", "categories"})
+        self.assertNotIn(protected, repr(result))
+        self.assertNotIn("start", repr(result))
 
 
 _SYNTHETIC_CLIENT_KEY = "invalid-synthetic-client-key-marker"
@@ -333,8 +356,7 @@ class HttpAdapterIntegrationWithTrustedRuntimeTests(unittest.TestCase):
             MockTenantResolver(recorder),
             MockAuthorizer(recorder),
             MockPolicyEngine(recorder),
-            analyzer,
-            anonymizer,
+            adapters.PresidioRedactor(analyzer, anonymizer),
             gateway,
             MockTraceSink(recorder),
         )

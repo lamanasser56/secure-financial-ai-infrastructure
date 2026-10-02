@@ -6,11 +6,13 @@ import hashlib
 import re
 from typing import Any
 
+from .adapters import PresidioRedactor
 from .trusted_runtime import (
     ControlFailure,
     GatewayResult,
     IdentityClaims,
     PolicyDecision,
+    RedactionResult,
     TenantContext,
 )
 
@@ -111,6 +113,19 @@ class MockAnonymizer:
         return {"text": transformed}
 
 
+class MockRedactor:
+    """Synthetic provider-neutral test double using the Presidio sequence."""
+
+    def __init__(self, recorder: Recorder, modes: dict[str, str]):
+        self._presidio = PresidioRedactor(
+            MockAnalyzer(recorder, modes.get("presidio_analyzer", "ok")),
+            MockAnonymizer(recorder, modes.get("presidio_anonymizer", "ok")),
+        )
+
+    def redact(self, text: str) -> RedactionResult:
+        return self._presidio.redact(text)
+
+
 class MockGateway:
     def __init__(self, recorder: Recorder, mode: str = "ok"):
         self.recorder, self.mode = recorder, mode
@@ -147,8 +162,7 @@ def build_mock_runtime(modes: dict[str, str] | None = None):
         MockTenantResolver(recorder, modes.get("tenant_context", "ok")),
         MockAuthorizer(recorder, modes.get("authorization", "ok")),
         MockPolicyEngine(recorder, modes.get("agent_policy_engine", "ok")),
-        MockAnalyzer(recorder, modes.get("presidio_analyzer", "ok")),
-        MockAnonymizer(recorder, modes.get("presidio_anonymizer", "ok")),
+        MockRedactor(recorder, modes),
         MockGateway(recorder, modes.get("litellm", "ok")),
         MockTraceSink(recorder),
     )

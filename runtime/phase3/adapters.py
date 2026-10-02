@@ -1,19 +1,13 @@
 """Real HTTP adapters implementing the Phase 3 Protocol interfaces.
 
-These adapters replace the mock transport in runtime/phase3/mocks.py with
-real calls to the in-cluster Presidio Analyzer, Presidio Anonymizer, and
-LiteLLM Services. trusted_runtime.py is not modified: every adapter here
-implements the exact same Protocol interface the mocks already implement,
-and every failure mode is left to propagate naturally so the existing
-_call() wrapper in trusted_runtime.py classifies it (TimeoutError -> stage
-"timeout", anything else -> stage "unavailable") without any adapter-side
-exception translation.
+These adapters call the in-cluster Presidio Analyzer, Presidio Anonymizer, and
+LiteLLM Services. PresidioRedactor owns response validation and exposes only
+the provider-neutral RedactorClient result to the trusted runtime.
 
 Presidio's real /analyze and /anonymize responses carry extra fields
 (analysis_explanation, recognition_metadata, items) beyond Portfolio's closed
 internal contract. This module's job is to normalize those real responses
-down to the closed shape trusted_runtime.py already enforces
-(validate_analysis / validate_redaction) -- never to loosen that contract.
+down to the closed shape validated here -- never to loosen that contract.
 """
 
 from __future__ import annotations
@@ -25,9 +19,15 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any
+from typing import Any, Protocol
 
-from .trusted_runtime import GatewayResult
+from .trusted_runtime import (
+    ControlFailure,
+    GatewayResult,
+    RedactionFailure,
+    RedactionResult,
+    SUPPORTED_ENTITIES,
+)
 
 DEFAULT_ANALYZER_URL = "http://presidio-analyzer.ai-platform.svc.cluster.local:3000/analyze"
 DEFAULT_ANONYMIZER_URL = "http://presidio-anonymizer.ai-platform.svc.cluster.local:3000/anonymize"
@@ -106,6 +106,92 @@ class HttpPresidioAnonymizer:
             self._timeout,
         )
         return {"text": response["text"]}
+
+
+class AnalyzerClient(Protocol):
+    def analyze(self, text: str) -> Any: ...
+
+
+class AnonymizerClient(Protocol):
+    def anonymize(self, text: str, analyzer_results: list[dict[str, Any]]) -> Any: ...
+
+
+def _validate_analysis(value: Any, text_length: int) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        raise ControlFailure("presidio_analyzer", "malformed_result")
+    normalized = []
+    spans = set()
+    for item in value:
+        if not isinstance(item, dict) or set(item) != {"entity_type", "start", "end", "score"}:
+            raise ControlFailure("presidio_analyzer", "malformed_result")
+        entity = item["entity_type"]
+        start, end, score = item["start"], item["end"], item["score"]
+        if (
+            entity not in SUPPORTED_ENTITIES
+            or not isinstance(start, int)
+            or isinstance(start, bool)
+            or not isinstance(end, int)
+            or isinstance(end, bool)
+            or not 0 <= start < end <= text_length
+            or not isinstance(score, (int, float))
+            or isinstance(score, bool)
+            or not 0 <= score <= 1
+            or (start, end) in spans
+        ):
+            raise ControlFailure("presidio_analyzer", "malformed_result")
+        spans.add((start, end))
+        normalized.append(dict(item))
+    ordered = sorted(normalized, key=lambda item: (item["start"], item["end"]))
+    if any(left["end"] > right["start"] for left, right in zip(ordered, ordered[1:])):
+        raise ControlFailure("presidio_analyzer", "ambiguous_result")
+    return ordered
+
+
+def _validate_redaction(original: str, result: Any, spans: list[dict[str, Any]]) -> str:
+    if not isinstance(result, dict) or set(result) != {"text"} or not isinstance(result["text"], str):
+        raise ControlFailure("presidio_anonymizer", "malformed_result")
+    transformed = result["text"]
+    if not transformed.strip():
+        raise ControlFailure("presidio_anonymizer", "malformed_result")
+    for span in spans:
+        protected = original[span["start"] : span["end"]]
+        if protected and protected in transformed:
+            raise ControlFailure("presidio_anonymizer", "incomplete_redaction")
+    return transformed
+
+
+class PresidioRedactor:
+    """The sole concrete redactor: Analyze, validate, Anonymize, validate."""
+
+    def __init__(
+        self,
+        analyzer: AnalyzerClient | None = None,
+        anonymizer: AnonymizerClient | None = None,
+    ):
+        self.analyzer = analyzer if analyzer is not None else HttpPresidioAnalyzer()
+        self.anonymizer = anonymizer if anonymizer is not None else HttpPresidioAnonymizer()
+
+    def redact(self, text: str) -> RedactionResult:
+        try:
+            raw_analysis = self.analyzer.analyze(text)
+        except TimeoutError:
+            raise ControlFailure("presidio_analyzer", "timeout") from None
+        except Exception:
+            raise ControlFailure("presidio_analyzer", "unavailable") from None
+        analysis = _validate_analysis(raw_analysis, len(text))
+        categories = tuple(sorted({item["entity_type"] for item in analysis}))
+
+        try:
+            raw_redaction = self.anonymizer.anonymize(text, analysis)
+        except TimeoutError:
+            raise RedactionFailure("presidio_anonymizer", "timeout", categories) from None
+        except Exception:
+            raise RedactionFailure("presidio_anonymizer", "unavailable", categories) from None
+        try:
+            redacted = _validate_redaction(text, raw_redaction, analysis)
+        except ControlFailure as failure:
+            raise RedactionFailure(failure.stage, failure.category, categories) from None
+        return RedactionResult(redacted, categories)
 
 
 class GatewayConfigurationError(ValueError):

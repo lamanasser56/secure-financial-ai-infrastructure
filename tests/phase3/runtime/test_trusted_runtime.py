@@ -5,7 +5,13 @@ import unittest
 from jsonschema import Draft202012Validator
 
 from runtime.phase3.mocks import MockGateway, build_mock_runtime
-from runtime.phase3.trusted_runtime import ControlFailure, STAGES, TenantContext
+from runtime.phase3.trusted_runtime import (
+    ControlFailure,
+    RedactionFailure,
+    RedactionResult,
+    STAGES,
+    TenantContext,
+)
 
 
 REQUEST_ID = "qualification-request-0001"
@@ -60,7 +66,95 @@ class MetadataRecordingGateway(MockGateway):
         return super().complete(model_alias, redacted_text, metadata)
 
 
+class TextRecordingGateway(MockGateway):
+    def __init__(self, recorder):
+        super().__init__(recorder)
+        self.inputs = []
+
+    def complete(self, model_alias, redacted_text, metadata):
+        self.inputs.append(redacted_text)
+        return super().complete(model_alias, redacted_text, metadata)
+
+
+class NeutralFakeRedactor:
+    def __init__(self, result=None, failure=None):
+        self.result, self.failure = result, failure
+        self.calls = []
+
+    def redact(self, text):
+        self.calls.append(text)
+        if self.failure is not None:
+            raise self.failure
+        return self.result
+
+
 class TrustedRuntimeTests(unittest.TestCase):
+    def test_provider_neutral_fake_redactor_succeeds_without_presidio_types(self):
+        runtime, recorder = build_mock_runtime()
+        redactor = NeutralFakeRedactor(RedactionResult("Redacted synthetic summary.", ("EMAIL_ADDRESS",)))
+        gateway = TextRecordingGateway(recorder)
+        runtime.redactor, runtime.gateway = redactor, gateway
+
+        response = runtime.execute("Bearer qualification-token", VALID_BODY, REQUEST_ID)
+
+        self.assertEqual(redactor.calls, [VALID_BODY["input"]["message"]])
+        self.assertEqual(gateway.inputs, ["Redacted synthetic summary."])
+        self.assertEqual(response["model"], "secure-financial-chat")
+        self.assertEqual(recorder.traces[-1]["detected_categories"], ["EMAIL_ADDRESS"])
+        schema = json.loads(Path("contracts/phase3/sanitized-trace-envelope.schema.json").read_text())
+        Draft202012Validator(schema).validate(recorder.traces[-1])
+
+    def test_invalid_neutral_results_fail_before_gateway(self):
+        invalid_results = (
+            ({"text": "raw provider shape"}, "malformed_result"),
+            (RedactionResult("", ()), "malformed_result"),
+            (RedactionResult("   ", ()), "malformed_result"),
+            (RedactionResult("safe text", ("RAW_VALUE",)), "malformed_result"),
+            (RedactionResult("safe text", ["EMAIL_ADDRESS"]), "malformed_result"),
+            (RedactionResult("safe text", ("PHONE_NUMBER", "EMAIL_ADDRESS")), "malformed_result"),
+            (RedactionResult(VALID_BODY["input"]["message"], ("EMAIL_ADDRESS",)), "incomplete_redaction"),
+        )
+        schema = json.loads(Path("contracts/phase3/sanitized-trace-envelope.schema.json").read_text())
+        validator = Draft202012Validator(schema)
+        for result, category in invalid_results:
+            with self.subTest(result=type(result).__name__, category=category):
+                runtime, recorder = build_mock_runtime()
+                redactor = NeutralFakeRedactor(result)
+                gateway = TextRecordingGateway(recorder)
+                runtime.redactor, runtime.gateway = redactor, gateway
+                with self.assertRaises(ControlFailure) as raised:
+                    runtime.execute("Bearer qualification-token", VALID_BODY, REQUEST_ID)
+                self.assertEqual((raised.exception.stage, raised.exception.category),
+                                 ("presidio_anonymizer", category))
+                self.assertEqual(redactor.calls, [VALID_BODY["input"]["message"]])
+                self.assertEqual((recorder.litellm_calls, recorder.provider_calls), (0, 0))
+                self.assertEqual(gateway.inputs, [])
+                self.assertEqual(recorder.traces[-1]["redaction_status"], "failed")
+                self.assertNotIn("raw provider shape", str(raised.exception))
+                self.assertNotIn("raw provider shape", json.dumps(recorder.traces))
+                validator.validate(recorder.traces[-1])
+
+    def test_redactor_exceptions_are_sanitized_and_fail_closed(self):
+        raw_marker = "synthetic-raw-response-marker"
+        failures = (
+            RuntimeError(raw_marker),
+            TimeoutError(raw_marker),
+            ControlFailure(raw_marker, raw_marker),
+            RedactionFailure("presidio_anonymizer", "unavailable", (raw_marker,)),
+        )
+        schema = json.loads(Path("contracts/phase3/sanitized-trace-envelope.schema.json").read_text())
+        validator = Draft202012Validator(schema)
+        for failure in failures:
+            with self.subTest(failure=type(failure).__name__):
+                runtime, recorder = build_mock_runtime()
+                runtime.redactor = NeutralFakeRedactor(failure=failure)
+                with self.assertRaises(ControlFailure) as raised:
+                    runtime.execute("Bearer qualification-token", VALID_BODY, REQUEST_ID)
+                self.assertEqual((recorder.litellm_calls, recorder.provider_calls), (0, 0))
+                self.assertNotIn(raw_marker, str(raised.exception))
+                self.assertNotIn(raw_marker, json.dumps(recorder.traces))
+                validator.validate(recorder.traces[-1])
+
     def test_valid_tenant_references_reach_gateway_and_schema_valid_trace_unchanged(self):
         schema = json.loads(
             Path("contracts/phase3/sanitized-trace-envelope.schema.json").read_text()
@@ -139,6 +233,18 @@ class TrustedRuntimeTests(unittest.TestCase):
         body = dict(VALID_BODY, tenant_id="attacker-controlled")
         recorder = self.assert_pre_provider_blocked(body=body)
         self.assertEqual(recorder.traces[-1]["failed_stage"], "structured_input_validation")
+
+    def test_request_cannot_select_redaction_implementation(self):
+        for field in ("redactor", "redaction_provider"):
+            with self.subTest(field=field):
+                runtime, recorder = build_mock_runtime()
+                body = dict(VALID_BODY, **{field: "google-sdp"})
+                with self.assertRaises(ControlFailure) as raised:
+                    runtime.execute("Bearer qualification-token", body, REQUEST_ID)
+                self.assertEqual(raised.exception.stage, "structured_input_validation")
+                self.assertNotIn("presidio_analyzer", recorder.sequence)
+                self.assertNotIn("presidio_anonymizer", recorder.sequence)
+                self.assertEqual(recorder.litellm_calls, 0)
 
     def test_nested_tenant_override_is_rejected(self):
         body = {

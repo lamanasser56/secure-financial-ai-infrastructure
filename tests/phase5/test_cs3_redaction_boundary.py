@@ -6,6 +6,9 @@ import unittest
 from pathlib import Path
 from typing import Any
 
+from jsonschema import Draft202012Validator
+
+from runtime.phase3.adapters import PresidioRedactor
 from runtime.phase3.mocks import (
     MockAuthenticator,
     MockAuthorizer,
@@ -37,6 +40,9 @@ TRACE_FIELDS = {
     "provider_called",
     "error_category",
 }
+TRACE_VALIDATOR = Draft202012Validator(json.loads(
+    Path("contracts/phase3/sanitized-trace-envelope.schema.json").read_text(encoding="utf-8")
+))
 
 
 def load_cases() -> list[dict[str, Any]]:
@@ -201,11 +207,13 @@ def build_runtime(
         MockTenantResolver(recorder),
         MockAuthorizer(recorder),
         MockPolicyEngine(recorder),
-        ControlledAnalyzer(recorder, analyzer_result, analyzer_failure),
-        ControlledAnonymizer(
-            recorder,
-            result=anonymizer_result,
-            failure=anonymizer_failure,
+        PresidioRedactor(
+            ControlledAnalyzer(recorder, analyzer_result, analyzer_failure),
+            ControlledAnonymizer(
+                recorder,
+                result=anonymizer_result,
+                failure=anonymizer_failure,
+            ),
         ),
         RecordingGateway(recorder),
         RecordingTraceSink(recorder),
@@ -229,6 +237,7 @@ class RedactionBoundaryTests(unittest.TestCase):
         self.assertEqual(len(recorder.traces), 1)
         trace = recorder.traces[0]
         self.assertEqual(set(trace), TRACE_FIELDS)
+        TRACE_VALIDATOR.validate(trace)
         self.assertEqual(trace["detected_categories"], expected_categories)
         serialized = json.dumps(trace, sort_keys=True)
         for value in sensitive_values:
@@ -246,6 +255,12 @@ class RedactionBoundaryTests(unittest.TestCase):
         )
         self.assertEqual(recorder.litellm_calls, 1)
         self.assertEqual(recorder.provider_calls, 1)
+        self.assertEqual(recorder.sequence.count("presidio_analyzer"), 1)
+        self.assertEqual(recorder.sequence.count("presidio_anonymizer"), 1)
+        self.assertLess(recorder.sequence.index("presidio_analyzer"),
+                        recorder.sequence.index("presidio_anonymizer"))
+        self.assertLess(recorder.sequence.index("presidio_anonymizer"),
+                        recorder.sequence.index("litellm"))
         self.assertEqual(len(recorder.gateway_inputs), 1)
         self.assertEqual(len(recorder.anonymized_hashes), 1)
         gateway_hash = hashlib.sha256(
@@ -287,6 +302,9 @@ class RedactionBoundaryTests(unittest.TestCase):
         self.assertEqual(raised.exception.category, expected_category)
         self.assertEqual(recorder.litellm_calls, 0)
         self.assertEqual(recorder.provider_calls, 0)
+        self.assertEqual(recorder.sequence.count("presidio_analyzer"), 1)
+        self.assertEqual(recorder.anonymizer_calls,
+                         0 if expected_stage == "presidio_analyzer" else 1)
         if recorder.gateway_inputs:
             self.fail("gateway received input after a redaction failure")
         expected_categories = []
@@ -448,6 +466,8 @@ class RedactionBoundaryTests(unittest.TestCase):
             )
         ]
         invalid_results = {
+            "empty-text": {"text": ""},
+            "whitespace-text": {"text": "   "},
             "malformed-result": "redacted",
             "missing-text": {"replacement": "[REDACTED]"},
             "invalid-text-type": {"text": ["REDACTED"]},

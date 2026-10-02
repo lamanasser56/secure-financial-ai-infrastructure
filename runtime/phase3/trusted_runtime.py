@@ -31,6 +31,10 @@ SUPPORTED_ENTITIES = {
     "SAUDI_RESIDENT_ID",
     "SAUDI_VAT_ID",
 }
+REDACTION_STAGES = {"presidio_analyzer", "presidio_anonymizer"}
+REDACTION_FAILURE_CATEGORIES = {
+    "timeout", "unavailable", "malformed_result", "ambiguous_result", "incomplete_redaction"
+}
 TENANT_KEYS = {"tenant", "tenant_id", "tenantid", "tenant-id"}
 TENANT_REF_PATTERN = re.compile(r"^[0-9a-f]{16}$")
 CORRELATION_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$")
@@ -43,6 +47,14 @@ class ControlFailure(Exception):
         super().__init__(f"{stage}:{category}")
         self.stage = stage
         self.category = category
+
+
+class RedactionFailure(ControlFailure):
+    """Sanitized redaction failure carrying normalized category names."""
+
+    def __init__(self, stage: str, category: str, categories: tuple[str, ...] = ()):
+        super().__init__(stage, category)
+        self.categories = categories
 
 
 @dataclass(frozen=True)
@@ -77,6 +89,12 @@ class GatewayResult:
     provider_called: bool
 
 
+@dataclass(frozen=True)
+class RedactionResult:
+    text: str
+    categories: tuple[str, ...]
+
+
 class Authenticator(Protocol):
     def authenticate(self, authorization: str) -> IdentityClaims: ...
 
@@ -95,12 +113,8 @@ class PolicyEngine(Protocol):
     def evaluate(self, request: dict[str, Any]) -> PolicyDecision: ...
 
 
-class AnalyzerClient(Protocol):
-    def analyze(self, text: str) -> Any: ...
-
-
-class AnonymizerClient(Protocol):
-    def anonymize(self, text: str, analyzer_results: list[dict[str, Any]]) -> Any: ...
+class RedactorClient(Protocol):
+    def redact(self, text: str) -> RedactionResult: ...
 
 
 class GatewayClient(Protocol):
@@ -122,6 +136,43 @@ def _call(stage: str, operation):
         raise ControlFailure(stage, "timeout") from exc
     except Exception as exc:
         raise ControlFailure(stage, "unavailable") from exc
+
+
+def _valid_categories(value: Any) -> bool:
+    return (
+        isinstance(value, tuple)
+        and all(type(item) is str and item in SUPPORTED_ENTITIES for item in value)
+        and tuple(sorted(set(value))) == value
+    )
+
+
+def _call_redactor(redactor: RedactorClient, text: str) -> Any:
+    """Keep a redactor's raw failure details behind bounded trace categories."""
+    try:
+        return redactor.redact(text)
+    except RedactionFailure as failure:
+        if (
+            type(failure.stage) is not str
+            or failure.stage not in REDACTION_STAGES
+            or type(failure.category) is not str
+            or failure.category not in REDACTION_FAILURE_CATEGORIES
+            or not _valid_categories(failure.categories)
+        ):
+            raise ControlFailure("presidio_anonymizer", "malformed_result") from None
+        raise RedactionFailure(failure.stage, failure.category, failure.categories) from None
+    except ControlFailure as failure:
+        if (
+            type(failure.stage) is not str
+            or failure.stage not in REDACTION_STAGES
+            or type(failure.category) is not str
+            or failure.category not in REDACTION_FAILURE_CATEGORIES
+        ):
+            raise ControlFailure("presidio_anonymizer", "malformed_result") from None
+        raise ControlFailure(failure.stage, failure.category) from None
+    except TimeoutError:
+        raise ControlFailure("presidio_anonymizer", "timeout") from None
+    except Exception:
+        raise ControlFailure("presidio_anonymizer", "unavailable") from None
 
 
 def _contains_tenant_key(value: Any) -> bool:
@@ -158,48 +209,6 @@ def validate_input(body: Any) -> ValidatedInput:
     return ValidatedInput("chat.complete", message, "json")
 
 
-def validate_analysis(value: Any, text_length: int) -> list[dict[str, Any]]:
-    if not isinstance(value, list):
-        raise ControlFailure("presidio_analyzer", "malformed_result")
-    normalized = []
-    spans = set()
-    for item in value:
-        if not isinstance(item, dict) or set(item) != {"entity_type", "start", "end", "score"}:
-            raise ControlFailure("presidio_analyzer", "malformed_result")
-        entity = item["entity_type"]
-        start, end, score = item["start"], item["end"], item["score"]
-        if (
-            entity not in SUPPORTED_ENTITIES
-            or not isinstance(start, int)
-            or isinstance(start, bool)
-            or not isinstance(end, int)
-            or isinstance(end, bool)
-            or not 0 <= start < end <= text_length
-            or not isinstance(score, (int, float))
-            or isinstance(score, bool)
-            or not 0 <= score <= 1
-            or (start, end) in spans
-        ):
-            raise ControlFailure("presidio_analyzer", "malformed_result")
-        spans.add((start, end))
-        normalized.append(dict(item))
-    ordered = sorted(normalized, key=lambda item: (item["start"], item["end"]))
-    if any(left["end"] > right["start"] for left, right in zip(ordered, ordered[1:])):
-        raise ControlFailure("presidio_analyzer", "ambiguous_result")
-    return ordered
-
-
-def validate_redaction(original: str, result: Any, spans: list[dict[str, Any]]) -> str:
-    if not isinstance(result, dict) or set(result) != {"text"} or not isinstance(result["text"], str):
-        raise ControlFailure("presidio_anonymizer", "malformed_result")
-    transformed = result["text"]
-    for span in spans:
-        protected = original[span["start"] : span["end"]]
-        if protected and protected in transformed:
-            raise ControlFailure("presidio_anonymizer", "incomplete_redaction")
-    return transformed
-
-
 def validate_output(value: Any) -> dict[str, str]:
     if not isinstance(value, dict) or set(value) != {"summary", "classification"}:
         raise ControlFailure("structured_output_validation", "malformed_result")
@@ -219,8 +228,7 @@ class TrustedRuntime:
         tenant_resolver: TenantResolver,
         authorizer: Authorizer,
         policy_engine: PolicyEngine,
-        analyzer: AnalyzerClient,
-        anonymizer: AnonymizerClient,
+        redactor: RedactorClient,
         gateway: GatewayClient,
         trace_sink: TraceSink,
     ):
@@ -228,8 +236,7 @@ class TrustedRuntime:
         self.tenant_resolver = tenant_resolver
         self.authorizer = authorizer
         self.policy_engine = policy_engine
-        self.analyzer = analyzer
-        self.anonymizer = anonymizer
+        self.redactor = redactor
         self.gateway = gateway
         self.trace_sink = trace_sink
 
@@ -286,16 +293,21 @@ class TrustedRuntime:
             if decision.allowed is not True or decision.reason_code != "phase3_chat_allowed":
                 raise ControlFailure(stage, "denied")
 
-            stage = "presidio_analyzer"
-            raw_analysis = _call(stage, lambda: self.analyzer.analyze(validated.message))
-            analysis = validate_analysis(raw_analysis, len(validated.message))
-            categories = sorted({item["entity_type"] for item in analysis})
-
+            # Preserve the existing trace stages while the concrete redactor
+            # owns its internal analyzer/anonymizer sequence.
             stage = "presidio_anonymizer"
-            raw_redaction = _call(
-                stage, lambda: self.anonymizer.anonymize(validated.message, analysis)
-            )
-            redacted = validate_redaction(validated.message, raw_redaction, analysis)
+            redaction = _call_redactor(self.redactor, validated.message)
+            if (
+                type(redaction) is not RedactionResult
+                or not isinstance(redaction.text, str)
+                or not redaction.text.strip()
+                or not _valid_categories(redaction.categories)
+            ):
+                raise ControlFailure(stage, "malformed_result")
+            if redaction.categories and redaction.text == validated.message:
+                raise ControlFailure(stage, "incomplete_redaction")
+            categories = list(redaction.categories)
+            redacted = redaction.text
 
             stage = "litellm"
             gateway_result = _call(
@@ -323,6 +335,8 @@ class TrustedRuntime:
             )
             return response
         except ControlFailure as failure:
+            if isinstance(failure, RedactionFailure):
+                categories = list(failure.categories)
             self._trace(
                 correlation_id, tenant_ref, subject_ref, "blocked", failure.stage,
                 "denied" if failure.stage in {"authorization", "agent_policy_engine"} else "not_reached",
