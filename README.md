@@ -4,6 +4,8 @@ A standalone portfolio repository of infrastructure and secure AI runtime work a
 
 The repository demonstrates a fail-closed route from a trusted application boundary through authentication, tenant context, authorization, input validation, policy, Presidio redaction, LiteLLM, and output validation. It also contains Kubernetes isolation templates, a metadata-only API audit policy, schema contracts, and CI validation.
 
+The [documentation index](docs/README.md) restores the architecture decisions, phase contracts, security model, and operations runbooks in sanitized form.
+
 ```text
 Application-owned identity and tenant adapters
     → trusted runtime controls
