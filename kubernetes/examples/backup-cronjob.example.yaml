@@ -1,0 +1,49 @@
+# Example only. A same-cluster PVC is staging, not disaster recovery.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup-example
+  namespace: ai-platform
+spec:
+  schedule: "REPLACE_WITH_APPROVED_SCHEDULE"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: postgres-backup-example
+        spec:
+          serviceAccountName: default
+          automountServiceAccountToken: false
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            fsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: backup
+              image: REPLACE_WITH_QUALIFIED_BACKUP_IMAGE_DIGEST
+              env:
+                - name: BACKUP_DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: backup-database-credentials
+                      key: BACKUP_DATABASE_URL
+              resources:
+                requests: {cpu: 100m, memory: 256Mi}
+                limits: {cpu: 500m, memory: 512Mi}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities: {drop: ["ALL"]}
+                readOnlyRootFilesystem: true
+              volumeMounts:
+                - name: backup-staging
+                  mountPath: /backup-staging
+          volumes:
+            - name: backup-staging
+              persistentVolumeClaim:
+                claimName: postgres-backup-staging-example

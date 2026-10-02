@@ -1,0 +1,33 @@
+# Example only; target CSI driver and encryption parameters need owner review.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: example-retained-csi
+provisioner: REPLACE_WITH_APPROVED_CSI_DRIVER
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data-example
+  namespace: ai-platform
+spec:
+  storageClassName: example-retained-csi
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backup-staging-example
+  namespace: ai-platform
+spec:
+  storageClassName: example-retained-csi
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
