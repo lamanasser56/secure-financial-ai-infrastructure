@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "deferred_unproven": [
+    "SAUDI_NATIONAL_ID",
+    "IQAMA",
+    "COMMERCIAL_REGISTRATION",
+    "SAUDI_IBAN",
+    "BANK_ACCOUNT",
+    "PHONE_NUMBER_ACCURACY",
+    "CREDIT_CARD_ACCURACY",
+    "ARABIC_OCR",
+    "IMAGE",
+    "OCR_CORRUPTION"
+  ],
+  "cases": {
+    "email-basic-001": {
+      "synthetic": true,
+      "input": {"text": "Send the sample note to fixture@example.com."},
+      "expected": {"expectation": "must_detect", "categories": ["EMAIL_ADDRESS"]}
+    },
+    "email-context-002": {
+      "synthetic": true,
+      "input": {"text": "Archive this synthetic request; contact sample@example.org for the example."},
+      "expected": {"expectation": "must_detect", "categories": ["EMAIL_ADDRESS"]}
+    },
+    "email-repeated-003": {
+      "synthetic": true,
+      "input": {"text": "The alias fixture@example.com appears twice: fixture@example.com."},
+      "expected": {"expectation": "must_detect", "categories": ["EMAIL_ADDRESS"]}
+    },
+    "email-whitespace-004": {
+      "synthetic": true,
+      "input": {"text": "First line is synthetic.\nSecond line: sample@example.org; end."},
+      "expected": {"expectation": "must_detect", "categories": ["EMAIL_ADDRESS"]}
+    },
+    "control-plain-005": {
+      "synthetic": true,
+      "input": {"text": "This synthetic sentence contains no contact detail."},
+      "expected": {"expectation": "must_not_detect", "categories": []}
+    },
+    "control-ip-006": {
+      "synthetic": true,
+      "input": {"text": "The documentation IP address 192.0.2.23 is only a reserved example."},
+      "expected": {"expectation": "must_not_detect", "categories": []}
+    },
+    "observe-obfuscated-007": {
+      "synthetic": true,
+      "input": {"text": "The contact hint fixture [at] example [dot] com is intentionally obfuscated."},
+      "expected": {"expectation": "observation_only", "categories": ["EMAIL_ADDRESS"]}
+    },
+    "observe-phone-008": {
+      "synthetic": true,
+      "input": {"text": "A telephone placeholder contains letters instead of digits."},
+      "expected": {"expectation": "observation_only", "categories": ["PHONE_NUMBER"]}
+    },
+    "observe-card-009": {
+      "synthetic": true,
+      "input": {"text": "A payment placeholder has no digits or checksum."},
+      "expected": {"expectation": "observation_only", "categories": ["CREDIT_CARD"]}
+    }
+  }
+}

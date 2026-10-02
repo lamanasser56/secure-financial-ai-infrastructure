@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Offline synthetic Google SDP evaluation corpus",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "deferred_unproven", "cases"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "deferred_unproven": {
+      "const": [
+        "SAUDI_NATIONAL_ID",
+        "IQAMA",
+        "COMMERCIAL_REGISTRATION",
+        "SAUDI_IBAN",
+        "BANK_ACCOUNT",
+        "PHONE_NUMBER_ACCURACY",
+        "CREDIT_CARD_ACCURACY",
+        "ARABIC_OCR",
+        "IMAGE",
+        "OCR_CORRUPTION"
+      ]
+    },
+    "cases": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[a-z][a-z0-9]*(?:-[a-z0-9]+){1,4}-[0-9]{3}$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["synthetic", "input", "expected"],
+          "properties": {
+            "synthetic": {"const": true},
+            "input": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["text"],
+              "properties": {
+                "text": {"type": "string", "minLength": 16, "maxLength": 4000}
+              }
+            },
+            "expected": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["expectation", "categories"],
+              "properties": {
+                "expectation": {
+                  "enum": ["must_detect", "must_not_detect", "observation_only"]
+                },
+                "categories": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "maxItems": 3,
+                  "items": {
+                    "enum": ["CREDIT_CARD", "EMAIL_ADDRESS", "PHONE_NUMBER"]
+                  }
+                }
+              },
+              "allOf": [
+                {
+                  "if": {"properties": {"expectation": {"const": "must_detect"}}},
+                  "then": {"properties": {"categories": {"minItems": 1}}}
+                },
+                {
+                  "if": {"properties": {"expectation": {"const": "must_not_detect"}}},
+                  "then": {"properties": {"categories": {"maxItems": 0}}}
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

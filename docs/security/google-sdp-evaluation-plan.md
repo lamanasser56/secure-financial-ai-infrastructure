@@ -14,7 +14,13 @@ No customer or production data, real financial records, real tenant or personal 
 
 ## Corpus design
 
-Do not commit a corpus yet. A future generator must create data specifically for this evaluation, without copied public or private person data. Use clearly synthetic names and reserved domains such as `example.com` and `example.org`. Avoid numbers that could reasonably belong to real people or organizations. Review every generated case before any API call; exclude real or uncertain data. Each case must carry a machine-readable `synthetic: true` label and the following fields:
+The committed [seed corpus](../../evaluation/google-sdp/corpus.json) is machine-labelled and deterministic. Its required-detection cases use only synthetic email addresses at RFC-reserved example domains. Negative controls and observation-only cases cover surrounding text, repetition, punctuation, whitespace and conservative obfuscation without guessing real identifier formats. [Corpus validation](../../evaluation/google-sdp/corpus.schema.json) rejects unknown configuration fields and duplicate case IDs. The [offline runner](../../scripts/evaluate-google-sdp.py) validates the corpus by default and constructs no provider client. It emits only the fields permitted by the [result schema](../../evaluation/google-sdp/result.schema.json); no raw or redacted fixture text is committed as a result artifact.
+
+Google's [infoType documentation](https://docs.cloud.google.com/sensitive-data-protection/docs/concepts-infotypes) identifies `EMAIL_ADDRESS`, `PHONE_NUMBER` and `CREDIT_CARD_NUMBER` as generic detectors. This seed asserts required detection only for synthetic `EMAIL_ADDRESS` cases. Phone and payment-card accuracy remains observation-only because this Change Set does not create telephone or checksum-valid card values.
+
+Live execution requires both `--live` and the exact `PORTFOLIO_GOOGLE_SDP_SYNTHETIC_ONLY_ACK=I_ACKNOWLEDGE_SYNTHETIC_ONLY_GOOGLE_SDP_EVALUATION` environment value, plus a separately supplied trusted project identity. Neither control is set in CI. The runner has no endpoint, region, credential or provider argument; the adapter remains fixed to `me-central2` and `dlp.me-central2.rep.googleapis.com`. Offline success proves only schema, sanitization and harness behavior. Even fake-client case passes cannot award **PASS FOR FURTHER BOUNDED INTEGRATION**, because the existing security, detection quality, operations and image gates remain unproven. A case failure yields **FAIL AND RETAIN PRESIDIO**; otherwise the runner records **INCONCLUSIVE — MORE EVIDENCE REQUIRED** for later review.
+
+The small seed does not establish phone, payment-card, Saudi identifier, Arabic OCR, image or corruption accuracy. Those categories are marked deferred or observation-only, without live detector claims. A future expanded corpus generator must create data specifically for this evaluation, without copied public or private person data. Use clearly synthetic names and reserved domains such as `example.com` and `example.org`. Avoid numbers that could reasonably belong to real people or organizations. Review every generated case before any API call; exclude real or uncertain data. Expanded cases must carry a machine-readable `synthetic: true` label and the following fields:
 
 | Field | Purpose |
 | --- | --- |
@@ -49,7 +55,7 @@ Any future custom detector needs an authoritative format source, safe synthetic-
 
 ## Evidence and gates
 
-Record raw test inputs only in an approved evaluation workspace; never in logs, traces, exception messages, LiteLLM metadata, audit envelopes, Git, or shared reports. Before execution, approve the bounded corpus, expected high-risk cases, scoring method, and operational thresholds. No gate below is currently passed.
+Only the reviewed, generated synthetic seed corpus may be committed to Git. Future live-execution inputs and provider outputs belong in an approved evaluation workspace and must never appear in logs, traces, exception messages, LiteLLM metadata, audit envelopes, Git, or shared reports. Before execution, approve the bounded live corpus, expected high-risk cases, scoring method, and operational thresholds. No gate below is currently passed.
 
 | Gate | Required evidence for a future pass |
 | --- | --- |
@@ -64,3 +70,5 @@ The intended future identity path is GKE Workload Identity → Google IAM → th
 ## Decision record
 
 After review, record exactly one outcome: **PASS FOR FURTHER BOUNDED INTEGRATION**, **FAIL AND RETAIN PRESIDIO**, or **INCONCLUSIVE — MORE EVIDENCE REQUIRED**. None authorizes automatic production cutover, Presidio deletion, customer-data processing, production deployment, or a compliance claim. A pass still requires a separate ADR and Change Set before Google SDP could become authoritative.
+
+Separate Change Sets are required before IAM, GKE execution, a live API call, image qualification or a provider authority change. AWS and Azure candidates could reuse the same sanitized result contract through the neutral `RedactorClient` boundary; no such adapter is implemented here.

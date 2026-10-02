@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Sanitized synthetic Google SDP evaluation result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["run_mode", "cases", "aggregate", "outcome"],
+  "properties": {
+    "run_mode": {"enum": ["offline", "live"]},
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id", "expected_categories", "observed_categories", "status",
+          "category_counts", "duration_seconds", "failure_code"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+){1,4}-[0-9]{3}$"
+          },
+          "expected_categories": {"$ref": "#/$defs/categories"},
+          "observed_categories": {"$ref": "#/$defs/categories"},
+          "status": {"enum": ["pass", "fail", "inconclusive"]},
+          "category_counts": {"$ref": "#/$defs/category_counts"},
+          "duration_seconds": {"type": "integer", "minimum": 0},
+          "failure_code": {
+            "enum": [
+              "none", "not_executed", "provider_failure", "malformed_result",
+              "missing_expected", "unexpected_detection", "observation_only"
+            ]
+          }
+        }
+      }
+    },
+    "aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "status_counts", "category_counts"],
+      "properties": {
+        "status": {"enum": ["pass", "fail", "inconclusive"]},
+        "status_counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pass", "fail", "inconclusive"],
+          "properties": {
+            "pass": {"type": "integer", "minimum": 0},
+            "fail": {"type": "integer", "minimum": 0},
+            "inconclusive": {"type": "integer", "minimum": 0}
+          }
+        },
+        "category_counts": {"$ref": "#/$defs/category_counts"}
+      }
+    },
+    "outcome": {
+      "enum": [
+        "PASS FOR FURTHER BOUNDED INTEGRATION",
+        "FAIL AND RETAIN PRESIDIO",
+        "INCONCLUSIVE — MORE EVIDENCE REQUIRED"
+      ]
+    }
+  },
+  "$defs": {
+    "categories": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 3,
+      "items": {"enum": ["CREDIT_CARD", "EMAIL_ADDRESS", "PHONE_NUMBER"]}
+    },
+    "category_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expected", "observed"],
+      "properties": {
+        "expected": {"type": "integer", "minimum": 0},
+        "observed": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}
