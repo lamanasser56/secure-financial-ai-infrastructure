@@ -6,7 +6,6 @@ import unittest
 from runtime.phase3.adapters import (
     DEFAULT_ANALYZER_URL,
     DEFAULT_ANONYMIZER_URL,
-    DEFAULT_LITELLM_URL,
 )
 from runtime.phase3.mocks import build_mock_runtime
 from runtime.phase3.trusted_runtime import ControlFailure
@@ -16,8 +15,8 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class AIPathContainmentTests(unittest.TestCase):
-    def test_default_http_adapters_are_internal_services(self):
-        for url in (DEFAULT_ANALYZER_URL, DEFAULT_ANONYMIZER_URL, DEFAULT_LITELLM_URL):
+    def test_default_presidio_adapters_are_internal_services(self):
+        for url in (DEFAULT_ANALYZER_URL, DEFAULT_ANONYMIZER_URL):
             self.assertTrue(url.startswith("http://"))
             self.assertIn(".ai-platform.svc.cluster.local:", url)
 

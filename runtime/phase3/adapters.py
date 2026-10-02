@@ -18,9 +18,12 @@ down to the closed shape trusted_runtime.py already enforces
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
+import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any
 
@@ -28,13 +31,14 @@ from .trusted_runtime import GatewayResult
 
 DEFAULT_ANALYZER_URL = "http://presidio-analyzer.ai-platform.svc.cluster.local:3000/analyze"
 DEFAULT_ANONYMIZER_URL = "http://presidio-anonymizer.ai-platform.svc.cluster.local:3000/anonymize"
-DEFAULT_LITELLM_URL = "http://litellm.ai-platform.svc.cluster.local:4000/chat/completions"
 DEFAULT_PRESIDIO_TIMEOUT_SECONDS = 10.0
-# LiteLLM's own configured provider timeout is 30s (litellm-config.yaml). This
-# stays above that so LiteLLM's own timeout error returns first, instead of
-# this adapter cutting the connection before LiteLLM can report the reason.
+# LiteLLM's configured provider timeout is 30s in
+# kubernetes/apps/litellm/configmap.yaml. Stay above that so LiteLLM can
+# report its own timeout before this adapter cuts the connection.
 DEFAULT_LITELLM_TIMEOUT_SECONDS = 35.0
-DEFAULT_MASTER_KEY_ENV_VAR = "PORTFOLIO_LITELLM_MASTER_KEY"
+CLIENT_KEY_ENV_VAR = "PORTFOLIO_LITELLM_CLIENT_KEY"
+BASE_URL_ENV_VAR = "PORTFOLIO_LITELLM_BASE_URL"
+_DNS_LABEL = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
 
 _ANALYZER_RESULT_KEYS = ("entity_type", "start", "end", "score")
 
@@ -104,28 +108,72 @@ class HttpPresidioAnonymizer:
         return {"text": response["text"]}
 
 
+class GatewayConfigurationError(ValueError):
+    """A fixed, non-sensitive failure for invalid gateway startup configuration."""
+
+    def __init__(self):
+        super().__init__("litellm:invalid_configuration")
+
+
+def _validated_litellm_base_url(value: str | None) -> str:
+    if not isinstance(value, str) or not value or any(
+        char.isspace() or ord(char) < 32 or ord(char) == 127 or char == "\\"
+        for char in value
+    ) or "?" in value or "#" in value:
+        raise GatewayConfigurationError()
+    try:
+        parsed = urllib.parse.urlsplit(value)
+        hostname = parsed.hostname
+        port = parsed.port
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or not hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in {"", "/"}
+            or "%" in parsed.netloc
+            or port == 0
+        ):
+            raise GatewayConfigurationError()
+        try:
+            ipaddress.ip_address(hostname)
+        except ValueError:
+            if any(not _DNS_LABEL.fullmatch(label) for label in hostname.split(".")):
+                raise GatewayConfigurationError() from None
+    except ValueError:
+        raise GatewayConfigurationError() from None
+    return value.rstrip("/")
+
+
 class HttpLiteLLMGateway:
     """Real GatewayClient implementation calling LiteLLM's /chat/completions.
 
-    The Authorization bearer value is read from an environment variable at
-    call time only -- it is never logged, never included in an exception
-    message, and never written anywhere by this class.
+    Trusted startup configuration supplies the endpoint and scoped client key.
+    Neither request content nor metadata can replace either value.
     """
 
     def __init__(
         self,
-        url: str = DEFAULT_LITELLM_URL,
+        base_url: str | None = None,
         timeout: float = DEFAULT_LITELLM_TIMEOUT_SECONDS,
-        master_key_env_var: str = DEFAULT_MASTER_KEY_ENV_VAR,
     ):
-        self._url = url
+        configured_url = base_url if base_url is not None else os.environ.get(BASE_URL_ENV_VAR)
+        self._url = _validated_litellm_base_url(configured_url) + "/chat/completions"
+        client_key = os.environ.get(CLIENT_KEY_ENV_VAR)
+        if (
+            not isinstance(client_key, str)
+            or not client_key.strip()
+            or client_key != client_key.strip()
+            or any(ord(char) < 32 or ord(char) == 127 for char in client_key)
+        ):
+            raise GatewayConfigurationError()
+        self._authorization = "Bearer " + client_key
         self._timeout = timeout
-        self._master_key_env_var = master_key_env_var
         self.call_count = 0
 
     def complete(self, model_alias: str, redacted_text: str, metadata: dict[str, str]) -> GatewayResult:
         self.call_count += 1
-        master_key = os.environ[self._master_key_env_var]
         payload = {
             "model": model_alias,
             "messages": [
@@ -142,7 +190,7 @@ class HttpLiteLLMGateway:
             self._url,
             payload,
             self._timeout,
-            headers={"Authorization": f"Bearer {master_key}"},
+            headers={"Authorization": self._authorization},
         )
         content = response["choices"][0]["message"]["content"]
         try:

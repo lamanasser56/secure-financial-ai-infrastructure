@@ -2,7 +2,7 @@
 
 The reference runtime enforces the sequence in `runtime/phase3/trusted_runtime.py`. Authentication derives identity, and the tenant resolver derives tenant context from trusted claims. Caller-supplied tenant fields are rejected. Authorization and policy must succeed before Analyzer, Anonymizer, or LiteLLM is called. The runtime validates detector spans and verifies protected fragments are absent from redacted output before contacting the gateway. Provider output must satisfy the closed structured result shape. Any failed control stops the sequence and emits a sanitized failure category.
 
-`runtime/phase3/adapters.py` implements HTTP transport for in-cluster Presidio and LiteLLM services. It does not implement application authentication or a real provider account. The gateway key comes from an environment variable at call time; the repository contains no value for it.
+`runtime/phase3/adapters.py` implements HTTP transport for in-cluster Presidio and LiteLLM services. It does not implement application authentication or a real provider account. The LiteLLM adapter requires a scoped client key and trusted base URL at construction, before any network call; request data cannot select either. The repository contains no credential value.
 
 Phase 4 provides a registry and a governance coordinator for tool requests. Tool metadata binds an action, risk class, schemas, limits, and approval requirement. Unknown or disabled tools fail closed. Prompt-injection assessment, policy, and verified human approval are explicit boundaries before any product-owned execution. Audit events use a closed schema and exclude raw prompts, arguments, credentials, and tenant identifiers. The coordinator does not call product tools.
 
