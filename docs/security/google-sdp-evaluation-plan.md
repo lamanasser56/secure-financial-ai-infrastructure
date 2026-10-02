@@ -1,6 +1,6 @@
 # Google SDP synthetic text evaluation plan
 
-**Status:** Disabled offline adapter and synthetic corpus validator implemented. A local, offline Job image has been qualified under the current zero-waiver HIGH/CRITICAL vulnerability gate. A manual signed-release workflow and unapplied GKE Job templates are prepared but have not run. No Google API call, IAM grant, registry push, signing, deployment, accuracy qualification, or production integration has occurred. This plan follows [ADR-004](../architecture/decisions/ADR-004-bounded-google-sdp-evaluation.md). Microsoft Presidio remains the authoritative redactor and default runtime path.
+**Status:** Disabled offline adapter and synthetic corpus validator implemented. A local, offline Job image has been qualified under the current zero-waiver HIGH/CRITICAL vulnerability gate. A manual signed-release workflow, unapplied GKE Job templates, and a [Terraform GCP bootstrap contract](../../infra/gcp/google-sdp-evaluation/README.md) are prepared but have not run or been applied. No Google API call, IAM grant, registry push, signing, deployment, accuracy qualification, or production integration has occurred. This plan follows [ADR-004](../architecture/decisions/ADR-004-bounded-google-sdp-evaluation.md). Microsoft Presidio remains the authoritative redactor and default runtime path.
 
 ## Scope and execution authority
 

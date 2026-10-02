@@ -16,3 +16,11 @@ build/
 *.kubeconfig
 secrets*.yaml
 !*.secret.example.yaml
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!example.tfvars
+*.tfvars.json
+terraform.rc
