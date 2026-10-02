@@ -69,4 +69,4 @@ shellcheck --rcfile .shellcheckrc --shell bash "${shell_files[@]}" \
   || fail 'Bash linting failed'
 pass "Bash linting passed for ${#shell_files[@]} files"
 
-pass 'repository linting completed; later Phase 2 controls remain separate deliverables'
+pass 'repository linting completed'

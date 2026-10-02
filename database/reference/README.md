@@ -9,7 +9,7 @@ export PORTFOLIO_TEST_DATABASE_URL='postgresql://.../portfolio_rls_test'
 bash scripts/test-reference-rls.sh
 ```
 
-The schema migrations are forward-only and non-idempotent. The behavioral script creates synthetic roles and rows inside rolled-back transactions. A successful disposable test proves this fixture's controls, not another database's isolation or deployment state.
+The schema migrations are forward-only and non-idempotent. The test runner requires the exact database name and resets only its `portfolio_ref` schema before each run, so this database must be disposable. The behavioral script creates synthetic roles and rows inside rolled-back transactions. A successful disposable test proves this fixture's controls, not another database's isolation or deployment state.
 
 - `migrations/001_tenant_schema.sql`: tenant directory and tenant-owned document metadata.
 - `migrations/002_documents_rls.sql`: `ENABLE`/`FORCE` RLS with command-specific policies.

@@ -8,6 +8,10 @@ actual_db="$(psql "$PORTFOLIO_TEST_DATABASE_URL" --no-psqlrc --tuples-only --no-
   echo 'refusing to run outside portfolio_rls_test' >&2
   exit 2
 }
+# This dedicated database is disposable. Reset only the reference fixture so
+# repeated qualification runs exercise the forward-only migrations from zero.
+psql "$PORTFOLIO_TEST_DATABASE_URL" --no-psqlrc --set=ON_ERROR_STOP=1 \
+  --command 'DROP SCHEMA IF EXISTS portfolio_ref CASCADE' >/dev/null
 for file in \
   database/reference/migrations/001_tenant_schema.sql \
   database/reference/migrations/002_documents_rls.sql \

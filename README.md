@@ -1,6 +1,6 @@
 # AI Infrastructure and Secure Agent Platform
 
-A standalone portfolio repository of infrastructure and secure AI runtime work adapted from my contribution to the private MASAR team project. It contains no product frontend, backend, database schema, customer data, deployment credentials, or original Git history. The examples use synthetic requests and an `ai-platform` namespace.
+A standalone portfolio repository of infrastructure and secure AI runtime work adapted from my contribution to the private MASAR team project. It contains no product frontend or backend, authoritative product schema, customer data, deployment credentials, or original Git history. Its database schema is a synthetic, reference-only RLS fixture. The examples use synthetic requests and an `ai-platform` namespace.
 
 The repository demonstrates a fail-closed route from a trusted application boundary through authentication, tenant context, authorization, input validation, policy, Presidio redaction, LiteLLM, and output validation. It also contains Kubernetes isolation templates, a metadata-only API audit policy, schema contracts, and CI validation.
 
@@ -22,19 +22,21 @@ Application-owned identity and tenant adapters
 - Python reference runtime with ordered, fail-closed controls, Presidio and LiteLLM HTTP adapters, sanitized trace envelopes, and synthetic qualification tests.
 - Tool registry, invocation, policy, prompt-injection assessment, approval verification, and audit-event contracts. The governance coordinator produces an eligible invocation; it does not execute a product tool.
 - JSON Schema and OpenAPI contracts for runtime and tool boundaries.
-- Kubernetes manifests for namespace quotas, restricted Pod Security Admission, default-deny network policy, DNS allowance, Presidio, and LiteLLM. The manifests are sanitized templates; repository validation parses them and checks their composition.
+- Kubernetes manifests for namespace quotas, restricted Pod Security Admission, default-deny network policy, DNS allowance, ServiceAccount hardening, Presidio, and LiteLLM. Separate examples cover scoped RBAC, migration credentials, NodeLocal DNS, storage, and backup. The manifests are sanitized templates; repository validation parses them and checks their composition.
 - Kubernetes API audit policy that records metadata without request or response bodies.
-- CI with read-only checkout, runtime tests, schema and YAML validation, source-scope checks, and Git history secret scanning.
+- A reference-only PostgreSQL schema with `FORCE ROW LEVEL SECURITY`, distinct migration and runtime role expectations, and behavioral tests for missing and cross-tenant context.
+- Reusable Trivy, OSV-Scanner, Syft, Cosign, Gitleaks, repository lint, and exact-subject vulnerability-policy qualification. The supply-chain workflow uses a public digest-pinned image and synthetic signing key; it does not release a portfolio image.
+- CI with read-only checkout, runtime and security tests, schema and YAML validation, source-scope and documentation-link checks, repository lint, Git history secret scanning, and a separate supply-chain qualification workflow.
 
 ### Designed
 
 - Observability requirements and sensitive-data limits in [Observability](docs/observability.md). There is no claimed Prometheus or Grafana deployment in this repository.
-- Supply-chain controls and promotion gates in [Supply chain](docs/supply-chain.md). Image scanning, SBOM generation, signing, and deployment are described as gates, not represented as completed by this standalone CI.
+- Production image build, registry publication, provenance verification, signing-key custody, and deployment promotion in [Supply chain](docs/supply-chain.md).
 - Cloud identity, secret ownership, alert routing, retention, backup, and recovery boundaries in [Operations](docs/operations.md).
 
 ### Integration-dependent
 
-- A product-owned authenticator, tenant resolver, authorizer, tool executor, and audit sink must be supplied and tested against a real application. The included mocks are only synthetic test fixtures.
+- A product-owned authenticator, tenant resolver, authorizer, tool executor, and audit sink must be supplied and tested against a real application. The included mocks are only synthetic test fixtures. Product-table RLS coverage must be qualified separately against the authoritative schema.
 - Set an approved provider model, GCP project, region, and Workload Identity binding; inject the LiteLLM master key from an external secret manager. The placeholders deliberately block direct deployment.
 - Requalify image digests and vulnerability state, CNI NetworkPolicy behavior, DNS and egress, namespace quota, probes, monitoring access, and cluster audit configuration in the target environment.
 - Production deployment, live provider use, customer-data processing, alert delivery, and end-to-end tenant isolation require separate integration evidence.
@@ -48,8 +50,11 @@ Application-owned identity and tenant adapters
 | `contracts/` | JSON Schema and OpenAPI definitions |
 | `tests/` | Synthetic runtime and governance qualification |
 | `kubernetes/` | Namespaced security and AI service templates |
+| `database/reference/` | Synthetic, reference-only RLS schema and SQL behavior checks |
+| `policy/` | Empty exception register for fail-closed image policy |
+| `scripts/` | Validation, linting, and portable supply-chain qualification |
 | `k3s/` | Metadata-only Kubernetes API audit policy |
-| `.github/workflows/` | Validation-only CI |
+| `.github/workflows/` | Source validation and public-input supply-chain qualification |
 | `docs/` | Architecture, observability, supply-chain, and operations notes |
 
 ## Run locally
@@ -61,10 +66,12 @@ python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 bash scripts/check.sh
-kubectl kustomize kubernetes/base  # optional manifest rendering check
+kubectl kustomize kubernetes/base
+bash scripts/lint-repository.sh
+bash scripts/scan-secrets.sh  # requires Gitleaks 8.30.1
 ```
 
-The tests use synthetic fixtures and local loopback HTTP servers. They do not need cloud credentials or a running Kubernetes cluster. Rendering manifests does not configure Workload Identity or authorize deployment; see [Operations](docs/operations.md).
+The tests use synthetic fixtures and local loopback HTTP servers. They do not need cloud credentials or a running Kubernetes cluster. To run the live RLS behavior checks, provide a disposable PostgreSQL database named `portfolio_rls_test` through `PORTFOLIO_TEST_DATABASE_URL` and install `psql`; `scripts/check.sh` runs them automatically when both are available. The [supply-chain qualification](docs/supply-chain.md) requires pinned scanners and network access. Rendering manifests does not configure Workload Identity or authorize deployment; see [Operations](docs/operations.md).
 
 ## Security and attribution
 
