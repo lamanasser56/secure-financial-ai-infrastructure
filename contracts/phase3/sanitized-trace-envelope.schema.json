@@ -26,7 +26,7 @@
       "uniqueItems": true,
       "items": {"enum": ["CREDIT_CARD", "EMAIL_ADDRESS", "IBAN_CODE", "PHONE_NUMBER", "SAUDI_BANK_ACCOUNT", "SAUDI_NATIONAL_ID", "SAUDI_RESIDENT_ID", "SAUDI_VAT_ID"]}
     },
-    "model_alias": {"type": ["string", "null"], "enum": [null, "ai-platformroved-chat"]},
+    "model_alias": {"type": ["string", "null"], "enum": [null, "secure-financial-chat"]},
     "provider_called": {"type": "boolean"},
     "error_category": {
       "type": ["string", "null"],

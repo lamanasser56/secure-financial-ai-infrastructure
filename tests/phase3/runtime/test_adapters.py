@@ -164,7 +164,7 @@ class HttpPresidioAnonymizerTests(unittest.TestCase):
 _SYNTHETIC_MASTER_KEY = "synthetic-test-master-key-marker"
 
 
-@mock.patch.dict("os.environ", {"Portfolio_LITELLM_MASTER_KEY": _SYNTHETIC_MASTER_KEY})
+@mock.patch.dict("os.environ", {"PORTFOLIO_LITELLM_MASTER_KEY": _SYNTHETIC_MASTER_KEY})
 class HttpLiteLLMGatewayTests(unittest.TestCase):
     def test_contract_conforming_model_output_is_parsed(self):
         raw = {
@@ -181,7 +181,7 @@ class HttpLiteLLMGatewayTests(unittest.TestCase):
         with stub_server(json_response(200, raw)) as url:
             gateway = adapters.HttpLiteLLMGateway(url=url)
             result = gateway.complete(
-                "ai-platformroved-chat", "redacted text", {"correlation_id": "c1", "tenant_ref": "t1"}
+                "secure-financial-chat", "redacted text", {"correlation_id": "c1", "tenant_ref": "t1"}
             )
         self.assertTrue(result.provider_called)
         self.assertEqual(result.output, {"summary": "Synthetic summary.", "classification": "informational"})
@@ -191,7 +191,7 @@ class HttpLiteLLMGatewayTests(unittest.TestCase):
         raw = {"choices": [{"message": {"content": "This is not JSON."}}]}
         with stub_server(json_response(200, raw)) as url:
             gateway = adapters.HttpLiteLLMGateway(url=url)
-            result = gateway.complete("ai-platformroved-chat", "redacted text", {})
+            result = gateway.complete("secure-financial-chat", "redacted text", {})
         self.assertTrue(result.provider_called)
         self.assertEqual(result.output, "This is not JSON.")
         self.assertNotIsInstance(result.output, dict)
@@ -200,13 +200,13 @@ class HttpLiteLLMGatewayTests(unittest.TestCase):
         with stub_server(json_response(500, {"error": "boom"})) as url:
             gateway = adapters.HttpLiteLLMGateway(url=url)
             with self.assertRaises(urllib.error.HTTPError):
-                gateway.complete("ai-platformroved-chat", "text", {})
+                gateway.complete("secure-financial-chat", "text", {})
 
     def test_master_key_never_appears_in_exception_text(self):
         with stub_server(json_response(500, {"error": "boom"})) as url:
             gateway = adapters.HttpLiteLLMGateway(url=url)
             with self.assertRaises(urllib.error.HTTPError) as raised:
-                gateway.complete("ai-platformroved-chat", "text", {})
+                gateway.complete("secure-financial-chat", "text", {})
         self.assertNotIn(_SYNTHETIC_MASTER_KEY, str(raised.exception))
         self.assertNotIn(_SYNTHETIC_MASTER_KEY, repr(raised.exception))
 
@@ -214,7 +214,7 @@ class HttpLiteLLMGatewayTests(unittest.TestCase):
         with black_hole_server() as url:
             gateway = adapters.HttpLiteLLMGateway(url=url, timeout=0.5)
             with self.assertRaises(TimeoutError):
-                gateway.complete("ai-platformroved-chat", "text", {})
+                gateway.complete("secure-financial-chat", "text", {})
 
 
 class HttpAdapterIntegrationWithTrustedRuntimeTests(unittest.TestCase):
@@ -251,7 +251,7 @@ class HttpAdapterIntegrationWithTrustedRuntimeTests(unittest.TestCase):
         self.assertEqual(anonymizer.call_count, 0)
         self.assertEqual(recorder.traces[-1]["provider_called"], False)
 
-    @mock.patch.dict("os.environ", {"Portfolio_LITELLM_MASTER_KEY": _SYNTHETIC_MASTER_KEY})
+    @mock.patch.dict("os.environ", {"PORTFOLIO_LITELLM_MASTER_KEY": _SYNTHETIC_MASTER_KEY})
     def test_litellm_non_contract_output_fails_closed_at_output_validation(self):
         body = {
             "action": "chat.complete",

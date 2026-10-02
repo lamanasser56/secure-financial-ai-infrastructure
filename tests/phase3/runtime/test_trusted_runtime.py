@@ -36,7 +36,7 @@ class TrustedRuntimeTests(unittest.TestCase):
         self.assertEqual(recorder.sequence, externally_recorded)
         self.assertEqual(recorder.litellm_calls, 1)
         self.assertEqual(recorder.provider_calls, 1)
-        self.assertEqual(result["model"], "ai-platformroved-chat")
+        self.assertEqual(result["model"], "secure-financial-chat")
         self.assertEqual(recorder.traces[-1]["outcome"], "success")
 
     def test_claim_derived_tenant_and_untrusted_body_tenant_rejected(self):

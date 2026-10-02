@@ -4,7 +4,7 @@
 
 1. Choose an approved provider model and region. Replace the `REPLACE_WITH_*` values in the LiteLLM ConfigMap through an environment-owned overlay or templating system.
 2. Bind the gateway Kubernetes ServiceAccount to a least-privilege cloud identity in the target environment. No account address is committed here.
-3. Deliver the `PORTFOLIO_LITELLM_MASTER_KEY` secret through an approved external secret mechanism. Do not add a real Kubernetes Secret manifest to Git.
+3. Deliver the `PORTFOLIO_LITELLM_MASTER_KEY` secret through an approved external secret mechanism. The [non-deployable example](../kubernetes/secret-templates/litellm-master-key.secret.example.yaml) documents its key; never put a real value in Git or include this example in Kustomize.
 4. Requalify each pinned OCI digest, vulnerability report, probe, resource limit, NetworkPolicy, DNS route, Workload Identity route, and provider egress in the actual cluster.
 5. Supply application-owned authentication, tenant resolution, authorization, audit storage, and tool execution adapters. Exercise negative-path and tenant-isolation tests against those real adapters.
 6. Confirm monitoring ownership, retention, alert routing, backup and restore, API audit log destination, and incident access before making a production claim.

@@ -7,7 +7,7 @@
   "required": ["request_id", "model", "result"],
   "properties": {
     "request_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"},
-    "model": {"const": "ai-platformroved-chat"},
+    "model": {"const": "secure-financial-chat"},
     "result": {
       "type": "object",
       "additionalProperties": false,

@@ -20,7 +20,7 @@ STAGES = (
     "provider",
     "structured_output_validation",
 )
-APPROVED_MODEL_ALIAS = "ai-platformroved-chat"
+APPROVED_MODEL_ALIAS = "secure-financial-chat"
 SUPPORTED_ENTITIES = {
     "CREDIT_CARD",
     "EMAIL_ADDRESS",

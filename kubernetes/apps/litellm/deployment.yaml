@@ -59,11 +59,11 @@ spec:
               containerPort: 4000
               protocol: TCP
           env:
-            - name: Portfolio_LITELLM_MASTER_KEY
+            - name: PORTFOLIO_LITELLM_MASTER_KEY
               valueFrom:
                 secretKeyRef:
                   name: litellm-gateway-credentials
-                  key: Portfolio_LITELLM_MASTER_KEY
+                  key: PORTFOLIO_LITELLM_MASTER_KEY
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

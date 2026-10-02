@@ -34,7 +34,7 @@ DEFAULT_PRESIDIO_TIMEOUT_SECONDS = 10.0
 # stays above that so LiteLLM's own timeout error returns first, instead of
 # this adapter cutting the connection before LiteLLM can report the reason.
 DEFAULT_LITELLM_TIMEOUT_SECONDS = 35.0
-DEFAULT_MASTER_KEY_ENV_VAR = "Portfolio_LITELLM_MASTER_KEY"
+DEFAULT_MASTER_KEY_ENV_VAR = "PORTFOLIO_LITELLM_MASTER_KEY"
 
 _ANALYZER_RESULT_KEYS = ("entity_type", "start", "end", "score")
 

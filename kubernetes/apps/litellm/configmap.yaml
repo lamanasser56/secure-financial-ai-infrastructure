@@ -11,7 +11,7 @@ metadata:
 data:
   config.yaml: |
     model_list:
-      - model_name: ai-platformroved-chat
+      - model_name: secure-financial-chat
         litellm_params:
           model: vertex_ai/REPLACE_WITH_APPROVED_MODEL
           vertex_project: REPLACE_WITH_GCP_PROJECT_ID
@@ -22,7 +22,7 @@ data:
           max_retries: 0
 
     general_settings:
-      master_key: os.environ/Portfolio_LITELLM_MASTER_KEY
+      master_key: os.environ/PORTFOLIO_LITELLM_MASTER_KEY
       disable_spend_logs: true
 
     litellm_settings:
