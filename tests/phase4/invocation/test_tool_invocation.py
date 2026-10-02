@@ -1,10 +1,14 @@
 import json
 import unittest
 from copy import deepcopy
+from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import Mock
 
 from runtime.phase3.mocks import MockAuthenticator, MockTenantResolver, Recorder
 from runtime.phase3.trusted_runtime import ControlFailure, IdentityClaims, TenantContext
+from runtime.phase4.prompt_injection import PromptInjectionAssessment, PromptInjectionOutcome
+from runtime.phase4.tool_governance import validate_and_govern_tool_invocation
 from runtime.phase4.tool_invocation import (
     ALLOWED_STAGE_CATEGORIES,
     ARGUMENT_VALIDATORS,
@@ -16,6 +20,7 @@ from runtime.phase4.tool_invocation import (
     validate_invocation_envelope,
     validate_tool_invocation,
 )
+from runtime.phase4.tool_policy import PolicyOutcome, ToolPolicyDecision
 from runtime.phase4.tool_registry import load_registry, validate_tool_metadata
 
 VALID_REQUEST = {
@@ -24,6 +29,41 @@ VALID_REQUEST = {
     "tool_id": "example_get_cash_position",
     "arguments": {"as_of_date": "2026-08-01"},
 }
+VALID_TENANT_REFS = (
+    "9f31a8c247bd10e6",
+    "0000000000000000",
+    "abcdef0123456789",
+)
+INVALID_TENANT_REFS = (
+    ("empty", ""),
+    ("whitespace", "   "),
+    ("short", "abcdef012345678"),
+    ("long", "abcdef01234567890"),
+    ("uppercase", "ABCDEF0123456789"),
+    ("nonhex", "ghijkl0123456789"),
+    ("hyphen", "abcdef01-2345678"),
+    ("underscore", "abcdef01_2345678"),
+    ("internal space", "abcdef01 2345678"),
+    ("tenant name", "demo-tenant"),
+    ("email", "demo@example.invalid"),
+    ("uuid", "00000000-0000-4000-8000-000000000000"),
+    ("numeric organization id", "123456"),
+    ("account shaped", "acct_demo_001"),
+    ("customer shaped", "customer_demo_001"),
+    ("leading space", " abcdef0123456789"),
+    ("trailing space", "abcdef0123456789 "),
+    ("null", None),
+    ("integer", 123456),
+)
+
+
+class FixedTenantResolver:
+    def __init__(self, recorder: Recorder, tenant_ref):
+        self.recorder, self.tenant_ref = recorder, tenant_ref
+
+    def resolve(self, claims: IdentityClaims) -> TenantContext:
+        self.recorder.sequence.append("tenant_context")
+        return TenantContext(claims.tenant_claim, self.tenant_ref)
 
 
 class MockToolAuthorizer:
@@ -213,6 +253,79 @@ class FailureResponseVocabularyTests(unittest.TestCase):
 class ToolInvocationCoordinatorTests(unittest.TestCase):
     def setUp(self):
         self.registry = load_registry("tests/phase4/registry/sample-registry.json")
+
+    def test_valid_tenant_references_pass_unchanged_into_governance(self):
+        for tenant_ref in VALID_TENANT_REFS:
+            with self.subTest(tenant_ref=tenant_ref):
+                authenticator, _, authorizer, recorder = build_deps()
+                resolver = FixedTenantResolver(recorder, tenant_ref)
+                invocation = validate_tool_invocation(
+                    authenticator, resolver, authorizer, self.registry,
+                    "Bearer qualification-token", VALID_REQUEST,
+                )
+                self.assertEqual(invocation.tenant.tenant_ref, tenant_ref)
+
+                assessor = Mock()
+                assessor.assess.return_value = PromptInjectionAssessment(
+                    PromptInjectionOutcome.CLEAR, ()
+                )
+                policy = Mock()
+                policy.evaluate.return_value = ToolPolicyDecision(
+                    PolicyOutcome.ALLOW, "engine_allowed"
+                )
+                verifier = Mock()
+                governed = validate_and_govern_tool_invocation(
+                    authenticator, resolver, authorizer, assessor, policy,
+                    verifier, self.registry, "Bearer qualification-token",
+                    VALID_REQUEST, None,
+                    now=datetime(2026, 8, 15, tzinfo=timezone.utc),
+                )
+                self.assertEqual(governed.tenant.tenant_ref, tenant_ref)
+                self.assertEqual(policy.evaluate.call_args.args[0].tenant_ref, tenant_ref)
+                self.assertEqual(policy.evaluate.call_count, 1)
+                verifier.retrieve_verified.assert_not_called()
+
+    def test_invalid_tenant_references_block_before_tool_or_governance(self):
+        for case, tenant_ref in INVALID_TENANT_REFS:
+            with self.subTest(case=case):
+                authenticator, _, authorizer, recorder = build_deps()
+                resolver = FixedTenantResolver(recorder, tenant_ref)
+                with self.assertRaises(ControlFailure) as raised:
+                    validate_tool_invocation(
+                        authenticator, resolver, authorizer, self.registry,
+                        "Bearer qualification-token", VALID_REQUEST,
+                    )
+                self.assertEqual(
+                    (raised.exception.stage, raised.exception.category),
+                    ("tenant_context", "malformed_context"),
+                )
+                self.assertEqual(str(raised.exception), "tenant_context:malformed_context")
+                self.assertEqual(recorder.sequence, ["authentication", "tenant_context"])
+                self.assertEqual(authorizer.seen_actions, [])
+
+                authenticator, _, authorizer, recorder = build_deps()
+                resolver = FixedTenantResolver(recorder, tenant_ref)
+                assessor, policy, verifier = Mock(), Mock(), Mock()
+                with self.assertRaises(ControlFailure) as governed_failure:
+                    validate_and_govern_tool_invocation(
+                        authenticator, resolver, authorizer, assessor, policy,
+                        verifier, self.registry, "Bearer qualification-token",
+                        VALID_REQUEST, None,
+                        now=datetime(2026, 8, 15, tzinfo=timezone.utc),
+                    )
+                self.assertEqual(
+                    (governed_failure.exception.stage, governed_failure.exception.category),
+                    ("tenant_context", "malformed_context"),
+                )
+                self.assertEqual(str(governed_failure.exception), "tenant_context:malformed_context")
+                self.assertEqual(recorder.sequence, ["authentication", "tenant_context"])
+                self.assertEqual(authorizer.seen_actions, [])
+                assessor.assess.assert_not_called()
+                policy.evaluate.assert_not_called()
+                verifier.retrieve_verified.assert_not_called()
+                if isinstance(tenant_ref, str) and tenant_ref:
+                    self.assertFalse(tenant_ref in str(raised.exception))
+                    self.assertFalse(tenant_ref in str(governed_failure.exception))
 
     def test_valid_invocation_resolves(self):
         authenticator, tenant_resolver, authorizer, _ = build_deps()

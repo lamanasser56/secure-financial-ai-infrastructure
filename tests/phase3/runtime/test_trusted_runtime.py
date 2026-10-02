@@ -2,8 +2,10 @@ import json
 from pathlib import Path
 import unittest
 
-from runtime.phase3.mocks import build_mock_runtime
-from runtime.phase3.trusted_runtime import ControlFailure, STAGES
+from jsonschema import Draft202012Validator
+
+from runtime.phase3.mocks import MockGateway, build_mock_runtime
+from runtime.phase3.trusted_runtime import ControlFailure, STAGES, TenantContext
 
 
 REQUEST_ID = "qualification-request-0001"
@@ -11,9 +13,103 @@ VALID_BODY = {
     "action": "chat.complete",
     "input": {"message": "Synthetic summary only.", "response_format": "json"},
 }
+VALID_TENANT_REFS = (
+    "9f31a8c247bd10e6",
+    "0000000000000000",
+    "abcdef0123456789",
+)
+INVALID_TENANT_REFS = (
+    ("empty", ""),
+    ("whitespace", "   "),
+    ("short", "abcdef012345678"),
+    ("long", "abcdef01234567890"),
+    ("uppercase", "ABCDEF0123456789"),
+    ("nonhex", "ghijkl0123456789"),
+    ("hyphen", "abcdef01-2345678"),
+    ("underscore", "abcdef01_2345678"),
+    ("internal space", "abcdef01 2345678"),
+    ("tenant name", "demo-tenant"),
+    ("email", "demo@example.invalid"),
+    ("uuid", "00000000-0000-4000-8000-000000000000"),
+    ("numeric organization id", "123456"),
+    ("account shaped", "acct_demo_001"),
+    ("customer shaped", "customer_demo_001"),
+    ("leading space", " abcdef0123456789"),
+    ("trailing space", "abcdef0123456789 "),
+    ("null", None),
+    ("integer", 123456),
+)
+
+
+class FixedTenantResolver:
+    def __init__(self, recorder, tenant_ref):
+        self.recorder, self.tenant_ref = recorder, tenant_ref
+
+    def resolve(self, claims):
+        self.recorder.sequence.append("tenant_context")
+        return TenantContext(claims.tenant_claim, self.tenant_ref)
+
+
+class MetadataRecordingGateway(MockGateway):
+    def __init__(self, recorder):
+        super().__init__(recorder)
+        self.metadata = []
+
+    def complete(self, model_alias, redacted_text, metadata):
+        self.metadata.append(dict(metadata))
+        return super().complete(model_alias, redacted_text, metadata)
 
 
 class TrustedRuntimeTests(unittest.TestCase):
+    def test_valid_tenant_references_reach_gateway_and_schema_valid_trace_unchanged(self):
+        schema = json.loads(
+            Path("contracts/phase3/sanitized-trace-envelope.schema.json").read_text()
+        )
+        validator = Draft202012Validator(schema)
+        for tenant_ref in VALID_TENANT_REFS:
+            with self.subTest(tenant_ref=tenant_ref):
+                runtime, recorder = build_mock_runtime()
+                runtime.tenant_resolver = FixedTenantResolver(recorder, tenant_ref)
+                gateway = MetadataRecordingGateway(recorder)
+                runtime.gateway = gateway
+
+                runtime.execute("Bearer qualification-token", VALID_BODY, REQUEST_ID)
+
+                self.assertEqual(gateway.metadata[0]["tenant_ref"], tenant_ref)
+                self.assertEqual(recorder.traces[-1]["tenant_ref"], tenant_ref)
+                self.assertEqual(recorder.traces[-1]["outcome"], "success")
+                validator.validate(recorder.traces[-1])
+
+    def test_invalid_tenant_references_stop_before_presidio_gateway_and_trace_value(self):
+        schema = json.loads(
+            Path("contracts/phase3/sanitized-trace-envelope.schema.json").read_text()
+        )
+        validator = Draft202012Validator(schema)
+        for case, tenant_ref in INVALID_TENANT_REFS:
+            with self.subTest(case=case):
+                runtime, recorder = build_mock_runtime()
+                runtime.tenant_resolver = FixedTenantResolver(recorder, tenant_ref)
+                gateway = MetadataRecordingGateway(recorder)
+                runtime.gateway = gateway
+
+                with self.assertRaises(ControlFailure) as raised:
+                    runtime.execute("Bearer qualification-token", VALID_BODY, REQUEST_ID)
+
+                self.assertEqual(
+                    (raised.exception.stage, raised.exception.category),
+                    ("tenant_context", "malformed_context"),
+                )
+                self.assertEqual(str(raised.exception), "tenant_context:malformed_context")
+                self.assertEqual(recorder.sequence, ["authentication", "tenant_context"])
+                self.assertEqual((recorder.litellm_calls, recorder.provider_calls), (0, 0))
+                self.assertEqual(gateway.metadata, [])
+                self.assertEqual(recorder.traces[-1]["tenant_ref"], None)
+                self.assertEqual(recorder.traces[-1]["provider_called"], False)
+                validator.validate(recorder.traces[-1])
+                if isinstance(tenant_ref, str) and tenant_ref:
+                    self.assertFalse(tenant_ref in json.dumps(recorder.traces))
+                    self.assertFalse(tenant_ref in str(raised.exception))
+
     def execute(self, modes=None, body=None, token="Bearer qualification-token"):
         runtime, recorder = build_mock_runtime(modes)
         result = runtime.execute(token, body or VALID_BODY, REQUEST_ID)

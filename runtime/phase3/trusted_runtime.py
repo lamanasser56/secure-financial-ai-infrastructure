@@ -32,6 +32,7 @@ SUPPORTED_ENTITIES = {
     "SAUDI_VAT_ID",
 }
 TENANT_KEYS = {"tenant", "tenant_id", "tenantid", "tenant-id"}
+TENANT_REF_PATTERN = re.compile(r"^[0-9a-f]{16}$")
 CORRELATION_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$")
 
 
@@ -134,6 +135,11 @@ def _contains_tenant_key(value: Any) -> bool:
     if isinstance(value, list):
         return any(_contains_tenant_key(item) for item in value)
     return False
+
+
+def is_valid_tenant_ref(value: Any) -> bool:
+    """Accept only an already-created pseudonymous tenant reference."""
+    return isinstance(value, str) and TENANT_REF_PATTERN.fullmatch(value) is not None
 
 
 def validate_input(body: Any) -> ValidatedInput:
@@ -245,7 +251,11 @@ class TrustedRuntime:
 
             stage = "tenant_context"
             tenant = _call(stage, lambda: self.tenant_resolver.resolve(claims))
-            if not isinstance(tenant, TenantContext) or not tenant.tenant_id or not tenant.tenant_ref:
+            if (
+                not isinstance(tenant, TenantContext)
+                or not tenant.tenant_id
+                or not is_valid_tenant_ref(tenant.tenant_ref)
+            ):
                 raise ControlFailure(stage, "malformed_context")
             tenant_ref = tenant.tenant_ref
 

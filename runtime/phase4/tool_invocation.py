@@ -33,6 +33,7 @@ from runtime.phase3.trusted_runtime import (
     IdentityClaims,
     TenantContext,
     TenantResolver,
+    is_valid_tenant_ref,
 )
 from runtime.phase4.tool_registry import (
     ID_PATTERN as TOOL_ID_PATTERN,
@@ -242,7 +243,11 @@ def _authenticate_resolve_and_authorize(
 
     stage = "tenant_context"
     tenant = _call(stage, lambda: tenant_resolver.resolve(claims))
-    if not isinstance(tenant, TenantContext) or not tenant.tenant_id or not tenant.tenant_ref:
+    if (
+        not isinstance(tenant, TenantContext)
+        or not tenant.tenant_id
+        or not is_valid_tenant_ref(tenant.tenant_ref)
+    ):
         raise ControlFailure(stage, "malformed_context")
 
     tool = _lookup_tool_for_routing(
