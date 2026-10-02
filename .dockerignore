@@ -1,0 +1,14 @@
+**
+!requirements-google-sdp-runtime.txt
+!scripts/
+!scripts/evaluate-google-sdp.py
+!runtime/
+!runtime/phase3/
+!runtime/phase3/__init__.py
+!runtime/phase3/google_sdp_adapter.py
+!runtime/phase3/trusted_runtime.py
+!evaluation/
+!evaluation/google-sdp/
+!evaluation/google-sdp/corpus.json
+!evaluation/google-sdp/corpus.schema.json
+!evaluation/google-sdp/result.schema.json

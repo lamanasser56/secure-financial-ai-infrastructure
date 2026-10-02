@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "selected": {
+    "builder": "python:3.12.15-slim-trixie@sha256:29113dcae7aad06daa8e95260fa09f27d62be33b9687ea3774f771d601a02256",
+    "runtime": "gcr.io/distroless/base-debian13:nonroot@sha256:a0d70d6a97cd697d9362bc2aae4a6560dd65817e365d0043b07325a97975dc91"
+  },
+  "candidates": [
+    {
+      "source": "https://hub.docker.com/_/python",
+      "tag": "python:3.12.15-slim-bookworm",
+      "digest": "sha256:54c85f3c47607a77f32adec749d3c81d1348bf25833671f512b26a9b6d778cb3",
+      "architecture": "linux/amd64",
+      "compressed_size_bytes": 45898205,
+      "uncompressed_size_bytes": 45912187,
+      "high_fixable": 0,
+      "high_unfixable": 58,
+      "critical_fixable": 0,
+      "critical_unfixable": 5,
+      "result": "blocked",
+      "reason": "Base scan has 63 unapproved HIGH or CRITICAL findings."
+    },
+    {
+      "source": "https://hub.docker.com/_/python",
+      "tag": "python:3.12.15-slim-trixie",
+      "digest": "sha256:29113dcae7aad06daa8e95260fa09f27d62be33b9687ea3774f771d601a02256",
+      "architecture": "linux/amd64",
+      "compressed_size_bytes": 46220071,
+      "uncompressed_size_bytes": 46236570,
+      "high_fixable": 1,
+      "high_unfixable": 44,
+      "critical_fixable": 0,
+      "critical_unfixable": 0,
+      "result": "builder_only",
+      "reason": "Python 3.12 and locked wheels work; the full base is excluded from the final image because its scan has 45 unapproved HIGH findings."
+    },
+    {
+      "source": "https://hub.docker.com/_/python",
+      "tag": "python:3.12.15-alpine3.24",
+      "digest": "sha256:8a001d79e5a57ae4de7faa57af12f3d589058ea06ac42ec850c1cb0ac325bd21",
+      "architecture": "linux/amd64",
+      "compressed_size_bytes": 20625725,
+      "uncompressed_size_bytes": 20641918,
+      "high_fixable": 0,
+      "high_unfixable": 0,
+      "critical_fixable": 0,
+      "critical_unfixable": 0,
+      "result": "not_selected",
+      "reason": "Locked Google/gRPC wheels import and CA trust works, but the base contains a shell and package manager; the verified distroless runtime is smaller."
+    },
+    {
+      "source": "https://github.com/GoogleContainerTools/distroless",
+      "tag": "gcr.io/distroless/base-debian13:nonroot",
+      "digest": "sha256:a0d70d6a97cd697d9362bc2aae4a6560dd65817e365d0043b07325a97975dc91",
+      "architecture": "linux/amd64",
+      "compressed_size_bytes": 9483814,
+      "uncompressed_size_bytes": 9492990,
+      "high_fixable": 0,
+      "high_unfixable": 0,
+      "critical_fixable": 0,
+      "critical_unfixable": 0,
+      "result": "selected_runtime",
+      "reason": "Shell-free base; copied CPython 3.12 and native dependencies passed offline, Google SDK, gRPC, and CA tests."
+    }
+  ],
+  "qualification": {
+    "decision": "eligible",
+    "image_subject": "portfolio-google-sdp-evaluation@sha256:cdcea9c3a02080d4aebf01419d3a08a4064b2634a9c252e46fa82f89888c33f9",
+    "image_id": "sha256:cdcea9c3a02080d4aebf01419d3a08a4064b2634a9c252e46fa82f89888c33f9",
+    "image_size_bytes": 34234164,
+    "sbom_package_count": 1363,
+    "syft_version": "1.44.0",
+    "trivy_version": "0.72.0",
+    "offline_validation": "schema_valid_network_disabled",
+    "trivy_report_sha256": "sha256:a6005dc331e59a9428be2a13f8116b45bd1868c7eae8178327b87f6e237ba9a4",
+    "sbom_sha256": "sha256:fb89f76a9c1ed0ce48bfd112704e1899927e4654fa206892448e81a3ff7c5200",
+    "kev_feed_date": "2026-10-02T15:19:38.2945Z",
+    "trivy_db_updated_at": "2026-10-02T12:48:00.080865328Z",
+    "high_fixable": 0,
+    "high_unfixable": 0,
+    "critical_fixable": 0,
+    "critical_unfixable": 0,
+    "policy_result": "PASS: accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding"
+  }
+}

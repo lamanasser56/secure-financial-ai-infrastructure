@@ -1,0 +1,40 @@
+# Disabled Google SDP evaluation image
+
+This image runs only the synthetic corpus validator by default. It has no
+provider credentials, network service, production redaction route, or deployment
+manifest. A live evaluation still requires the runner's explicit `--live` mode,
+synthetic-only acknowledgment, a separately supplied trusted project identity,
+and a separate authorization. This Change Set performs none of those actions.
+
+The [Dockerfile](Dockerfile) pins the Python 3.12 builder and Debian 13
+distroless runtime by digest. The runtime copies CPython, the locked Python
+closure, and two native libraries needed by gRPC. It runs as UID:GID
+`65532:65532`, has no shell or package manager, and uses a read-only application
+tree. The [candidate record](candidates.json) records the bounded base-image
+comparison and local qualification evidence. Base digests and vulnerability
+results are point-in-time observations; refresh and requalify before use.
+
+Build on a linux/amd64 worker with Docker Buildx and Python 3.12:
+
+```bash
+bash scripts/build-google-sdp-evaluation-image.sh \
+  python:3.12.15-slim-trixie@sha256:29113dcae7aad06daa8e95260fa09f27d62be33b9687ea3774f771d601a02256 \
+  gcr.io/distroless/base-debian13:nonroot@sha256:a0d70d6a97cd697d9362bc2aae4a6560dd65817e365d0043b07325a97975dc91
+```
+
+The script checks both explicit references against the candidate record and
+Dockerfile, builds only for linux/amd64 with a fixed source date and rewritten
+file timestamps, checks the runtime UID and file list,
+and runs default offline validation with container networking disabled. It
+prints the local image tag, image ID, and RepoDigest if Docker supplies one.
+It does not push or sign an image. The local digest is the qualification
+subject for the local scan and SBOM; it is not a registry release digest.
+
+For qualification, scan that exact RepoDigest with Trivy 0.72.0, generate a
+CycloneDX SBOM with Syft 1.44.0, and run the existing
+[vulnerability policy evaluator](../../scripts/evaluate-container-vulnerability-policy.py)
+against the complete Trivy JSON, a current CISA KEV feed, and the empty
+[exception register](../../policy/empty-exceptions.json). The source
+[release policy](../../docs/security/container-vulnerability-release-policy.md)
+still requires provenance, signature, and same-digest promotion evidence for
+any future release. No registry publication or deployment is authorized here.

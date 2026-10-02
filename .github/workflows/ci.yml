@@ -61,7 +61,9 @@ jobs:
       - name: Install optional evaluation dependencies
         run: python -m pip install --require-hashes -r requirements-google-sdp.txt
       - name: Check optional dependency lock
-        run: bash scripts/check-google-sdp-lock.sh
+        run: |
+          bash scripts/check-google-sdp-lock.sh
+          bash scripts/check-google-sdp-runtime-lock.sh
       - name: Test offline adapter and runtime containment
         run: |
           python -B -m unittest discover -s tests/phase3/runtime -p 'test_google_sdp_adapter.py'

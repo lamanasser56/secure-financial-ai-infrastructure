@@ -5,6 +5,7 @@ export PYTHONDONTWRITEBYTECODE=1
 bash scripts/check-python-lock.sh
 if [ "${PORTFOLIO_CHECK_GOOGLE_SDP_LOCK:-0}" = 1 ]; then
   bash scripts/check-google-sdp-lock.sh
+  bash scripts/check-google-sdp-runtime-lock.sh
 fi
 python3 -B scripts/validate.py
 python3 -B scripts/check-references.py
