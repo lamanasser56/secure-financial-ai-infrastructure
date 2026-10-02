@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "positive_request": {
+    "schema_version": 1,
+    "request_id": "qualification-request-0001",
+    "tool_id": "example_get_cash_position",
+    "arguments": {"as_of_date": "2026-08-01"}
+  },
+  "negative_tenant_at_top_level": {
+    "schema_version": 1,
+    "request_id": "qualification-request-0002",
+    "tool_id": "example_get_cash_position",
+    "tenant_id": "attacker-controlled",
+    "arguments": {"as_of_date": "2026-08-01"}
+  },
+  "negative_tenant_nested_in_arguments": {
+    "schema_version": 1,
+    "request_id": "qualification-request-0003",
+    "tool_id": "example_get_cash_position",
+    "arguments": {"as_of_date": "2026-08-01", "context": {"tenant": {"id": "attacker-controlled"}}}
+  },
+  "positive_success_response": {
+    "schema_version": 1,
+    "request_id": "qualification-request-0001",
+    "tool_id": "example_get_cash_position",
+    "status": "success",
+    "result": {"as_of_date": "2026-08-01", "cash_position_minor_units": 1234560, "currency": "SAR"}
+  },
+  "positive_failure_response": {
+    "schema_version": 1,
+    "request_id": "qualification-request-0004",
+    "tool_id": "example_void_invoice",
+    "status": "failure",
+    "error": {"stage": "structured_input_validation", "category": "approval_required_no_decision"}
+  },
+  "negative_response_both_result_and_error": {
+    "schema_version": 1,
+    "request_id": "qualification-request-0001",
+    "tool_id": "example_get_cash_position",
+    "status": "success",
+    "result": {"as_of_date": "2026-08-01", "cash_position_minor_units": 1234560, "currency": "SAR"},
+    "error": {"stage": "authorization", "category": "denied"}
+  },
+  "negative_response_invalid_stage_category_combo": {
+    "schema_version": 1,
+    "request_id": null,
+    "tool_id": null,
+    "status": "failure",
+    "error": {"stage": "authorization", "category": "invalid_request"}
+  },
+  "positive_injection_failure_response": {
+    "schema_version": 1,
+    "request_id": "qualification-request-0001",
+    "tool_id": "example_get_cash_position",
+    "status": "failure",
+    "error": {"stage": "prompt_injection_assessment", "category": "suspected_injection"}
+  },
+  "positive_policy_failure_response": {
+    "schema_version": 1,
+    "request_id": "qualification-request-0001",
+    "tool_id": "example_get_cash_position",
+    "status": "failure",
+    "error": {"stage": "agent_policy_engine", "category": "malformed_decision"}
+  },
+  "positive_approval_failure_response": {
+    "schema_version": 1,
+    "request_id": "qualification-request-0001",
+    "tool_id": "example_get_cash_position",
+    "status": "failure",
+    "error": {"stage": "human_approval_verification", "category": "missing_decision"}
+  }
+}

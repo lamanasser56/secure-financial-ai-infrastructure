@@ -1,0 +1,70 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-approved-clients-to-presidio-analyzer
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: presidio-analyzer
+      app.kubernetes.io/component: redaction
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              portfolio.example/redaction-client: "true"
+      ports:
+        - protocol: TCP
+          port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-approved-clients-to-presidio-anonymizer
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: presidio-anonymizer
+      app.kubernetes.io/component: redaction
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              portfolio.example/redaction-client: "true"
+      ports:
+        - protocol: TCP
+          port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-approved-redaction-clients-to-presidio
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      portfolio.example/redaction-client: "true"
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: presidio-analyzer
+              app.kubernetes.io/component: redaction
+      ports:
+        - protocol: TCP
+          port: 3000
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: presidio-anonymizer
+              app.kubernetes.io/component: redaction
+      ports:
+        - protocol: TCP
+          port: 3000

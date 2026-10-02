@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: litellm
+  namespace: ai-platform
+  labels:
+    app.kubernetes.io/name: litellm
+    app.kubernetes.io/component: ai-gateway
+    app.kubernetes.io/part-of: ai-platform
+    app.kubernetes.io/managed-by: kustomize
+  annotations:
+    portfolio.example/litellm-version: v1.86.2
+    portfolio.example/image-source: ghcr.io/berriai/litellm:v1.86.2
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: litellm
+      app.kubernetes.io/component: ai-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: litellm
+        app.kubernetes.io/component: ai-gateway
+        app.kubernetes.io/part-of: ai-platform
+    spec:
+      serviceAccountName: litellm
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: litellm
+          image: ghcr.io/berriai/litellm@sha256:cae1ac3492d6d0bea69c26f4485381624e073eb753f3534ae7703a4204a4ce6b
+          imagePullPolicy: IfNotPresent
+          args:
+            - --config
+            - /etc/litellm/config.yaml
+            - --host
+            - 0.0.0.0
+            - --port
+            - "4000"
+            - --num_workers
+            - "1"
+          ports:
+            - name: http
+              containerPort: 4000
+              protocol: TCP
+          env:
+            - name: Portfolio_LITELLM_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: litellm-gateway-credentials
+                  key: Portfolio_LITELLM_MASTER_KEY
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          startupProbe:
+            httpGet:
+              path: /health/liveliness
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /health/liveliness
+              port: http
+            failureThreshold: 3
+            periodSeconds: 15
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: http
+            failureThreshold: 3
+            periodSeconds: 10
+            timeoutSeconds: 2
+          volumeMounts:
+            - name: config
+              mountPath: /etc/litellm
+              readOnly: true
+            - name: temporary
+              mountPath: /tmp
+            - name: cache
+              mountPath: /app/.cache
+      volumes:
+        - name: config
+          configMap:
+            name: litellm-config
+        - name: temporary
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}

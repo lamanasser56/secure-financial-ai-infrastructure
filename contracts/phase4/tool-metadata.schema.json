@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portfolio.invalid/contracts/phase4/tool-metadata.schema.json",
+  "title": "Portfolio Phase 4 Tool Metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id", "name", "description", "version", "owner", "enabled",
+    "risk_classification", "operation_type", "input_schema_ref",
+    "output_schema_ref", "authorization", "approval",
+    "audit_classification", "source_system", "execution_boundary"
+  ],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$", "minLength": 3, "maxLength": 64},
+    "name": {"type": "string", "minLength": 1, "maxLength": 120},
+    "description": {"type": "string", "minLength": 40, "maxLength": 500},
+    "version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "owner": {"type": "string", "minLength": 1, "maxLength": 120},
+    "enabled": {"type": "boolean"},
+    "risk_classification": {
+      "enum": ["low_risk_read", "sensitive_financial_read", "reversible_write", "irreversible_high_impact"]
+    },
+    "operation_type": {"enum": ["read", "write"]},
+    "input_schema_ref": {"type": "string", "minLength": 1, "maxLength": 200},
+    "output_schema_ref": {"type": "string", "minLength": 1, "maxLength": 200},
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_action"],
+      "properties": {
+        "required_action": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+          "minLength": 3,
+          "maxLength": 100
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "extension_point_ref"],
+      "properties": {
+        "required": {"type": "boolean"},
+        "extension_point_ref": {"type": ["string", "null"], "minLength": 1, "maxLength": 100}
+      }
+    },
+    "audit_classification": {"enum": ["standard", "sensitive", "high_sensitivity"]},
+    "source_system": {"enum": ["internal"]},
+    "execution_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeout_seconds", "max_calls_per_turn"],
+      "properties": {
+        "timeout_seconds": {"type": ["integer", "null"], "minimum": 1, "maximum": 120},
+        "max_calls_per_turn": {"type": ["integer", "null"], "minimum": 1, "maximum": 20}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"required": ["risk_classification"], "properties": {"risk_classification": {"const": "low_risk_read"}}},
+      "then": {"required": ["operation_type"], "properties": {"operation_type": {"const": "read"}}}
+    },
+    {
+      "if": {"required": ["risk_classification"], "properties": {"risk_classification": {"const": "sensitive_financial_read"}}},
+      "then": {"required": ["operation_type"], "properties": {"operation_type": {"const": "read"}}}
+    },
+    {
+      "if": {"required": ["risk_classification"], "properties": {"risk_classification": {"const": "reversible_write"}}},
+      "then": {
+        "required": ["operation_type", "approval"],
+        "properties": {
+          "operation_type": {"const": "write"},
+          "approval": {"required": ["required"], "properties": {"required": {"const": true}}}
+        }
+      }
+    },
+    {
+      "if": {"required": ["risk_classification"], "properties": {"risk_classification": {"const": "irreversible_high_impact"}}},
+      "then": {
+        "required": ["operation_type", "approval"],
+        "properties": {
+          "operation_type": {"const": "write"},
+          "approval": {"required": ["required"], "properties": {"required": {"const": true}}}
+        }
+      }
+    }
+  ]
+}

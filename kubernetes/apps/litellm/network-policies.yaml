@@ -1,0 +1,77 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-approved-clients-to-litellm
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: litellm
+      app.kubernetes.io/component: ai-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              portfolio.example/litellm-client: "true"
+      ports:
+        - protocol: TCP
+          port: 4000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-litellm-public-https-egress
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: litellm
+      app.kubernetes.io/component: ai-gateway
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 100.64.0.0/10
+              - 127.0.0.0/8
+              - 169.254.0.0/16
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 224.0.0.0/4
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 169.254.169.252/32
+      ports:
+        - protocol: TCP
+          port: 988
+        - protocol: TCP
+          port: 987
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-approved-litellm-clients-egress
+  namespace: ai-platform
+spec:
+  podSelector:
+    matchLabels:
+      portfolio.example/litellm-client: "true"
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: litellm
+              app.kubernetes.io/component: ai-gateway
+      ports:
+        - protocol: TCP
+          port: 4000

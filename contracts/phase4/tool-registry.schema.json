@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portfolio.invalid/contracts/phase4/tool-registry.schema.json",
+  "title": "Portfolio Phase 4 Tool Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "tools"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "tool-metadata.schema.json"}
+    }
+  }
+}

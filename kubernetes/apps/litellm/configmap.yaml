@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-config
+  namespace: ai-platform
+  labels:
+    app.kubernetes.io/name: litellm
+    app.kubernetes.io/component: ai-gateway
+    app.kubernetes.io/part-of: ai-platform
+    app.kubernetes.io/managed-by: kustomize
+data:
+  config.yaml: |
+    model_list:
+      - model_name: ai-platformroved-chat
+        litellm_params:
+          model: vertex_ai/REPLACE_WITH_APPROVED_MODEL
+          vertex_project: REPLACE_WITH_GCP_PROJECT_ID
+          vertex_location: REPLACE_WITH_APPROVED_REGION
+          rpm: 30
+          tpm: 30000
+          timeout: 30
+          max_retries: 0
+
+    general_settings:
+      master_key: os.environ/Portfolio_LITELLM_MASTER_KEY
+      disable_spend_logs: true
+
+    litellm_settings:
+      drop_params: true
+      request_timeout: 30
+      num_retries: 0
+      set_verbose: false
+
+    router_settings:
+      num_retries: 0
+      fallbacks: []
+      context_window_fallbacks: []

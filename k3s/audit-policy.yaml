@@ -1,0 +1,26 @@
+apiVersion: audit.k8s.io/v1
+kind: Policy
+omitStages:
+  - RequestReceived
+rules:
+  # Health probes are high-frequency and do not provide useful audit evidence.
+  - level: None
+    nonResourceURLs:
+      - /healthz
+      - /healthz/*
+      - /livez
+      - /livez/*
+      - /readyz
+      - /readyz/*
+
+  # Secret access is security-relevant, but Secret request and response bodies
+  # must never be captured by this policy.
+  - level: Metadata
+    resources:
+      - group: ""
+        resources:
+          - secrets
+
+  # Record request metadata only. This deliberately excludes all request and
+  # response bodies, including bodies for protected application resources.
+  - level: Metadata

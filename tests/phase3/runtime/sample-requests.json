@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "positive": {
+    "action": "chat.complete",
+    "input": {
+      "message": "Provide a synthetic account summary.",
+      "response_format": "json"
+    }
+  },
+  "negative_untrusted_tenant": {
+    "action": "chat.complete",
+    "tenant_id": "untrusted-tenant",
+    "input": {
+      "message": "Provide a synthetic account summary.",
+      "response_format": "json"
+    }
+  }
+}

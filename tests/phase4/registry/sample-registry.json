@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "tools": [
+    {
+      "id": "example_get_cash_position",
+      "name": "Example: Get Cash Position",
+      "description": "Illustrative Phase 4A example only, not a registered production tool. Input and output schemas are deferred until Phase 4B; this tool cannot resolve as executable.",
+      "version": "0.1.0",
+      "owner": "AI Infrastructure",
+      "enabled": true,
+      "risk_classification": "sensitive_financial_read",
+      "operation_type": "read",
+      "input_schema_ref": "contracts/phase4/tools/example_get_cash_position.input.schema.json",
+      "output_schema_ref": "contracts/phase4/tools/example_get_cash_position.output.schema.json",
+      "authorization": {"required_action": "example_get_cash_position.execute"},
+      "approval": {"required": false, "extension_point_ref": null},
+      "audit_classification": "sensitive",
+      "source_system": "internal",
+      "execution_boundary": {"timeout_seconds": 30, "max_calls_per_turn": 5}
+    },
+    {
+      "id": "example_edit_draft_invoice",
+      "name": "Example: Edit Draft Invoice",
+      "description": "Illustrative Phase 4A example only, not a registered production tool. Demonstrates the reversible-write tier, which requires approval and deferred schemas until Phase 4B/4C exist.",
+      "version": "0.1.0",
+      "owner": "AI Infrastructure",
+      "enabled": true,
+      "risk_classification": "reversible_write",
+      "operation_type": "write",
+      "input_schema_ref": "deferred-phase-4b",
+      "output_schema_ref": "deferred-phase-4b",
+      "authorization": {"required_action": "example_edit_draft_invoice.execute"},
+      "approval": {"required": true, "extension_point_ref": "phase-4c-human-approval-extension-point"},
+      "audit_classification": "sensitive",
+      "source_system": "internal",
+      "execution_boundary": {"timeout_seconds": 30, "max_calls_per_turn": 3}
+    },
+    {
+      "id": "example_void_invoice",
+      "name": "Example: Void Invoice",
+      "description": "Illustrative Phase 4A example only, not a registered production tool. Demonstrates the irreversible/high-impact tier, which requires approval and deferred schemas until Phase 4B/4C exist.",
+      "version": "0.1.0",
+      "owner": "AI Infrastructure",
+      "enabled": true,
+      "risk_classification": "irreversible_high_impact",
+      "operation_type": "write",
+      "input_schema_ref": "deferred-phase-4b",
+      "output_schema_ref": "deferred-phase-4b",
+      "authorization": {"required_action": "example_void_invoice.execute"},
+      "approval": {"required": true, "extension_point_ref": "phase-4c-human-approval-extension-point"},
+      "audit_classification": "high_sensitivity",
+      "source_system": "internal",
+      "execution_boundary": {"timeout_seconds": 30, "max_calls_per_turn": 1}
+    }
+  ]
+}

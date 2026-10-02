@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portfolio.invalid/contracts/phase4/tool-invocation-request.schema.json",
+  "title": "Portfolio Phase 4B Tool Invocation Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "request_id", "tool_id", "arguments"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "request_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"},
+    "tool_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$", "minLength": 3, "maxLength": 64},
+    "arguments": {"type": "object"}
+  }
+}

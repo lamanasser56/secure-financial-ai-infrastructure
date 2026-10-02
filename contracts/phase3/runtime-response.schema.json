@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portfolio.invalid/contracts/phase3/runtime-response.schema.json",
+  "title": "Portfolio Phase 3 Trusted Runtime Response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request_id", "model", "result"],
+  "properties": {
+    "request_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"},
+    "model": {"const": "ai-platformroved-chat"},
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "classification"],
+      "properties": {
+        "summary": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "classification": {"enum": ["informational", "action_required"]}
+      }
+    }
+  }
+}

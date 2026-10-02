@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portfolio.invalid/contracts/phase4/tool-approval-decision.schema.json",
+  "title": "Portfolio Phase 4C Server-Side Tool Approval Decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "approval_id", "decision", "request_id",
+    "tenant_ref", "subject_ref", "tool_id", "tool_version",
+    "required_action", "risk_classification", "arguments_digest",
+    "issued_at", "expires_at", "consumed"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "approval_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"},
+    "decision": {"enum": ["approved", "denied"]},
+    "request_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"},
+    "tenant_ref": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+    "subject_ref": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+    "tool_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$", "minLength": 3, "maxLength": 64},
+    "tool_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "required_action": {"type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$", "minLength": 3, "maxLength": 100},
+    "risk_classification": {
+      "enum": ["low_risk_read", "sensitive_financial_read", "reversible_write", "irreversible_high_impact"]
+    },
+    "arguments_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "consumed": {"type": "boolean"}
+  }
+}

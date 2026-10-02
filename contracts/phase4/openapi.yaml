@@ -1,0 +1,75 @@
+openapi: 3.1.0
+info:
+  title: Portfolio Phase 4 Trusted Tool Invocation Boundary (Contract Only)
+  version: "1.0.0"
+  description: >-
+    Defines the secure internal tool-invocation boundary as a contract only.
+    This document describes no deployed endpoint, no running service, and no
+    public exposure. Every item here is a Designed / Documented Extension
+    Point; nothing is Built and Running. Documenting a securityScheme below
+    does not claim authentication is implemented.
+servers:
+  - url: http://internal-trusted-runtime.invalid
+    description: >-
+      Placeholder only. No hostname, network path, ingress, or public
+      exposure is implied, approved, or deployed. Reachable, if ever built,
+      only from inside the Portfolio Trusted Platform Boundary by an already
+      authenticated internal caller (a future Backend/Coordinator, Phase 5).
+paths:
+  /v1/tools/invoke:
+    post:
+      operationId: invokeTool
+      summary: Invoke a registered tool (contract only; not implemented)
+      description: >-
+        Structural contract for a future internal invocation boundary. No
+        implementation of this operation exists anywhere in this repository.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: './tool-invocation-request.schema.json'
+      responses:
+        '200':
+          description: >-
+            Validated success or sanitized failure envelope. The closed
+            status field, not the transport status code, is the source of
+            truth for outcome. This mapping is illustrative and non-binding
+            until a real endpoint exists.
+          content:
+            application/json:
+              schema:
+                $ref: './tool-invocation-response.schema.json'
+        '401':
+          description: Authentication failed (sanitized; see error.category).
+          content:
+            application/json:
+              schema:
+                $ref: './tool-invocation-response.schema.json'
+        '403':
+          description: Authorization denied (sanitized; see error.category).
+          content:
+            application/json:
+              schema:
+                $ref: './tool-invocation-response.schema.json'
+        '422':
+          description: >-
+            Structured input validation failed: unknown tool, disabled tool,
+            deferred/missing schema, malformed request, or argument schema
+            mismatch (sanitized; see error.category).
+          content:
+            application/json:
+              schema:
+                $ref: './tool-invocation-response.schema.json'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: >-
+        Documents the intended credential shape only. No authentication
+        mechanism is implemented by this repository. See the Authenticator
+        Protocol in runtime/phase3/trusted_runtime.py, which has no real
+        implementation anywhere in this repository.

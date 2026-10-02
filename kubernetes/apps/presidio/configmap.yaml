@@ -1,0 +1,131 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: presidio-analyzer-config
+  namespace: ai-platform
+  labels:
+    app.kubernetes.io/name: presidio-analyzer
+    app.kubernetes.io/component: redaction
+    app.kubernetes.io/part-of: ai-platform
+    app.kubernetes.io/managed-by: kustomize
+data:
+  analyzer.yaml: |
+    supported_languages:
+      - en
+    default_score_threshold: 0.35
+
+  nlp.yaml: |
+    nlp_engine_name: spacy
+    models:
+      - lang_code: en
+        model_name: en_core_web_lg
+    ner_model_configuration:
+      model_to_presidio_entity_mapping:
+        PER: PERSON
+        PERSON: PERSON
+        NORP: NRP
+        FAC: LOCATION
+        LOC: LOCATION
+        GPE: LOCATION
+        LOCATION: LOCATION
+        ORG: ORGANIZATION
+        ORGANIZATION: ORGANIZATION
+        DATE: DATE_TIME
+        TIME: DATE_TIME
+      low_confidence_score_multiplier: 0.4
+      low_score_entity_names: []
+      labels_to_ignore:
+        - ORGANIZATION
+        - CARDINAL
+        - EVENT
+        - LANGUAGE
+        - LAW
+        - MONEY
+        - ORDINAL
+        - PERCENT
+        - PRODUCT
+        - QUANTITY
+        - WORK_OF_ART
+
+  recognizers.yaml: |
+    supported_languages:
+      - en
+    global_regex_flags: 26
+    recognizers:
+      - name: SpacyRecognizer
+        type: predefined
+        supported_languages:
+          - en
+      - name: CreditCardRecognizer
+        type: predefined
+        supported_languages:
+          - language: en
+            context: [credit, card, payment, visa, mastercard]
+      - name: EmailRecognizer
+        type: predefined
+        class_name: OfflineEmailRecognizer
+      - name: IbanRecognizer
+        type: predefined
+      - name: PhoneRecognizer
+        type: predefined
+      - name: SaudiNationalIdRecognizer
+        type: custom
+        supported_entity: SAUDI_NATIONAL_ID
+        supported_languages:
+          - language: en
+            context: [national, identity, id, saudi, هوية, الهوية]
+        patterns:
+          - name: contextual-saudi-national-id
+            regex: '\b1[0-9]{9}\b'
+            score: 0.65
+      - name: SaudiResidentIdRecognizer
+        type: custom
+        supported_entity: SAUDI_RESIDENT_ID
+        supported_languages:
+          - language: en
+            context: [resident, iqama, residency, إقامة, الاقامة, الإقامة]
+        patterns:
+          - name: contextual-saudi-resident-id
+            regex: '\b2[0-9]{9}\b'
+            score: 0.65
+      - name: SaudiVatIdRecognizer
+        type: custom
+        supported_entity: SAUDI_VAT_ID
+        supported_languages:
+          - language: en
+            context: [vat, tax, registration, ضريبة, الضريبي]
+        patterns:
+          - name: contextual-saudi-vat-id
+            regex: '\b3[0-9]{13}3\b'
+            score: 0.65
+      - name: SaudiBankAccountRecognizer
+        type: custom
+        supported_entity: SAUDI_BANK_ACCOUNT
+        supported_languages:
+          - language: en
+            context: [bank, account, banking, مصرفي, حساب, الحساب]
+        patterns:
+          - name: contextual-bank-account
+            regex: '\b[0-9]{10,18}\b'
+            score: 0.4
+
+  sitecustomize.py: |
+    # Portfolio-owned offline FQDN validation for Presidio's built-in EmailRecognizer.
+    # Upstream's validate_result() calls tldextract.extract(), whose default
+    # extractor attempts a live public-suffix-list fetch over HTTPS. Presidio's
+    # NetworkPolicy intentionally grants no external egress, so that call hangs
+    # instead of failing fast. This preserves 100% of upstream's patterns,
+    # context, entity, and scoring, replacing only the network-dependent
+    # validation call with tldextract's own supported offline mode.
+    from presidio_analyzer.predefined_recognizers.generic.email_recognizer import (
+        EmailRecognizer,
+    )
+    import tldextract
+
+    _OFFLINE_TLD_EXTRACT = tldextract.TLDExtract(suffix_list_urls=())
+
+
+    class OfflineEmailRecognizer(EmailRecognizer):
+        def validate_result(self, pattern_text: str):
+            result = _OFFLINE_TLD_EXTRACT(pattern_text)
+            return result.fqdn != ""

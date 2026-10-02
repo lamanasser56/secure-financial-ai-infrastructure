@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "case_id": "saudi-national-id-context",
+      "builder": "join",
+      "context": "synthetic national identity reference",
+      "fragments": ["1", "000", "000", "000"],
+      "expected_entity": "SAUDI_NATIONAL_ID"
+    },
+    {
+      "case_id": "saudi-resident-id-context",
+      "builder": "join",
+      "context": "synthetic resident iqama reference",
+      "fragments": ["2", "000", "000", "000"],
+      "expected_entity": "SAUDI_RESIDENT_ID"
+    },
+    {
+      "case_id": "saudi-iban-checksum",
+      "builder": "saudi_iban",
+      "context": "synthetic iban reference",
+      "fragments": ["00", "0000", "0000", "0000", "0000", "00"],
+      "expected_entity": "IBAN_CODE"
+    },
+    {
+      "case_id": "payment-card-checksum",
+      "builder": "join",
+      "context": "synthetic payment card reference",
+      "fragments": ["4111", "1111", "1111", "1111"],
+      "expected_entity": "CREDIT_CARD"
+    },
+    {
+      "case_id": "saudi-vat-context",
+      "builder": "join",
+      "context": "synthetic vat registration reference",
+      "fragments": ["3", "000", "000", "000", "000", "0", "3"],
+      "expected_entity": "SAUDI_VAT_ID"
+    },
+    {
+      "case_id": "bank-account-context",
+      "builder": "join",
+      "context": "synthetic bank account reference",
+      "fragments": ["900", "000", "000", "001"],
+      "expected_entity": "SAUDI_BANK_ACCOUNT"
+    },
+    {
+      "case_id": "email-address",
+      "builder": "email",
+      "context": "synthetic email reference",
+      "fragments": ["portfolio", "example", "com"],
+      "expected_entity": "EMAIL_ADDRESS"
+    },
+    {
+      "case_id": "phone-number",
+      "builder": "join",
+      "context": "synthetic phone reference",
+      "fragments": ["+966", "50", "000", "0000"],
+      "expected_entity": "PHONE_NUMBER"
+    }
+  ]
+}

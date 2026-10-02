@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portfolio.invalid/contracts/phase3/runtime-request.schema.json",
+  "title": "Portfolio Phase 3 Trusted Runtime Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["action", "input"],
+  "properties": {
+    "action": {"const": "chat.complete"},
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["message", "response_format"],
+      "properties": {
+        "message": {"type": "string", "minLength": 1, "maxLength": 4000},
+        "response_format": {"const": "json"}
+      }
+    }
+  }
+}

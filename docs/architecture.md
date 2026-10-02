@@ -1,0 +1,11 @@
+# Architecture and trust boundaries
+
+The reference runtime enforces the sequence in `runtime/phase3/trusted_runtime.py`. Authentication derives identity, and the tenant resolver derives tenant context from trusted claims. Caller-supplied tenant fields are rejected. Authorization and policy must succeed before Analyzer, Anonymizer, or LiteLLM is called. The runtime validates detector spans and verifies protected fragments are absent from redacted output before contacting the gateway. Provider output must satisfy the closed structured result shape. Any failed control stops the sequence and emits a sanitized failure category.
+
+`runtime/phase3/adapters.py` implements HTTP transport for in-cluster Presidio and LiteLLM services. It does not implement application authentication or a real provider account. The gateway key comes from an environment variable at call time; the repository contains no value for it.
+
+Phase 4 provides a registry and a governance coordinator for tool requests. Tool metadata binds an action, risk class, schemas, limits, and approval requirement. Unknown or disabled tools fail closed. Prompt-injection assessment, policy, and verified human approval are explicit boundaries before any product-owned execution. Audit events use a closed schema and exclude raw prompts, arguments, credentials, and tenant identifiers. The coordinator does not call product tools.
+
+The Kubernetes base combines a restricted namespace, quota and limits, default-deny network policies, and internal services for Presidio and LiteLLM. Client labels mark the pods allowed to reach each service. Gateway HTTPS egress and GKE metadata-server access require target-cluster verification; a NetworkPolicy alone does not guarantee cloud egress isolation. The `k3s/audit-policy.yaml` file captures API metadata only and requires cluster-owner installation.
+
+This repo is a reference control implementation. The security claims hold for the tested Python control path and declarative templates. Application integration, real tenant identity, live cloud isolation, and production operations need separate evidence.

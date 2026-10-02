@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portfolio.invalid/contracts/phase4/tools/example_get_cash_position.input.schema.json",
+  "title": "Illustrative input schema for example_get_cash_position (Phase 4A/4B example tool, not a production tool)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "as_of_date": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}
+  }
+}

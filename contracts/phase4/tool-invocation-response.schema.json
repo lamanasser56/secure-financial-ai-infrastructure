@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portfolio.invalid/contracts/phase4/tool-invocation-response.schema.json",
+  "title": "Portfolio Phase 4B Tool Invocation Response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "request_id", "tool_id", "status"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "request_id": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"},
+    "tool_id": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$", "minLength": 3, "maxLength": 64},
+    "status": {"enum": ["success", "failure"]},
+    "result": {"type": "object"},
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage", "category"],
+      "properties": {
+        "stage": {
+          "enum": [
+            "authentication", "tenant_context", "authorization",
+            "structured_input_validation", "prompt_injection_assessment",
+            "agent_policy_engine", "human_approval_verification",
+            "audit", "structured_output_validation"
+          ]
+        },
+        "category": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$", "minLength": 3, "maxLength": 64}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"required": ["status"], "properties": {"status": {"const": "success"}}},
+      "then": {"required": ["result"], "not": {"required": ["error"]}}
+    },
+    {
+      "if": {"required": ["status"], "properties": {"status": {"const": "failure"}}},
+      "then": {"required": ["error"], "not": {"required": ["result"]}}
+    },
+    {
+      "if": {"required": ["error"], "properties": {"error": {"properties": {"stage": {"const": "authentication"}}, "required": ["stage"]}}},
+      "then": {"properties": {"error": {"properties": {"category": {"enum": ["invalid_token", "malformed_claims", "timeout", "unavailable"]}}}}}
+    },
+    {
+      "if": {"required": ["error"], "properties": {"error": {"properties": {"stage": {"const": "tenant_context"}}, "required": ["stage"]}}},
+      "then": {"properties": {"error": {"properties": {"category": {"enum": ["malformed_context", "timeout", "unavailable"]}}}}}
+    },
+    {
+      "if": {"required": ["error"], "properties": {"error": {"properties": {"stage": {"const": "authorization"}}, "required": ["stage"]}}},
+      "then": {"properties": {"error": {"properties": {"category": {"enum": ["denied", "timeout", "unavailable"]}}}}}
+    },
+    {
+      "if": {"required": ["error"], "properties": {"error": {"properties": {"stage": {"const": "structured_input_validation"}}, "required": ["stage"]}}},
+      "then": {
+        "properties": {
+          "error": {
+            "properties": {
+              "category": {
+                "enum": [
+                  "invalid_request", "unknown_tool", "disabled_tool", "schema_deferred",
+                  "approval_required_no_decision", "malformed_metadata",
+                  "unsupported_risk_class", "missing_authorization", "registry_unreadable",
+                  "argument_schema_mismatch"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"required": ["error"], "properties": {"error": {"properties": {"stage": {"const": "prompt_injection_assessment"}}, "required": ["stage"]}}},
+      "then": {"properties": {"error": {"properties": {"category": {"enum": ["timeout", "unavailable", "malformed_assessment", "unsupported_indicator_category", "suspected_injection"]}}}}}
+    },
+    {
+      "if": {"required": ["error"], "properties": {"error": {"properties": {"stage": {"const": "agent_policy_engine"}}, "required": ["stage"]}}},
+      "then": {"properties": {"error": {"properties": {"category": {"enum": ["timeout", "unavailable", "denied", "malformed_decision", "argument_digest_failure"]}}}}}
+    },
+    {
+      "if": {"required": ["error"], "properties": {"error": {"properties": {"stage": {"const": "human_approval_verification"}}, "required": ["stage"]}}},
+      "then": {"properties": {"error": {"properties": {"category": {"enum": ["timeout", "unavailable", "missing_decision", "denied_decision", "expired_decision", "replayed_decision", "tenant_mismatch", "subject_mismatch", "tool_mismatch", "arguments_digest_mismatch", "malformed_decision"]}}}}}
+    },
+    {
+      "if": {"required": ["error"], "properties": {"error": {"properties": {"stage": {"const": "audit"}}, "required": ["stage"]}}},
+      "then": {"properties": {"error": {"properties": {"category": {"enum": ["invalid_event"]}}}}}
+    },
+    {
+      "if": {"required": ["error"], "properties": {"error": {"properties": {"stage": {"const": "structured_output_validation"}}, "required": ["stage"]}}},
+      "then": {"properties": {"error": {"properties": {"category": {"enum": ["output_schema_mismatch"]}}}}}
+    }
+  ]
+}

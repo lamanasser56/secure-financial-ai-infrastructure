@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portfolio.invalid/contracts/phase4/ai-audit-event.schema.json",
+  "title": "Portfolio Phase 4C Sanitized AI Audit Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "event_id", "event_type", "occurred_at", "request_id",
+    "tenant_ref", "subject_ref", "tool_id", "tool_version", "required_action",
+    "risk_classification", "authorization_result", "injection_result",
+    "indicator_categories", "policy_outcome", "policy_reason_code",
+    "approval_result", "governance_result", "failure_stage", "failure_category"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "event_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"},
+    "event_type": {"const": "tool_governance"},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "request_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"},
+    "tenant_ref": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+    "subject_ref": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+    "tool_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$", "minLength": 3, "maxLength": 64},
+    "tool_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "required_action": {"type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$", "minLength": 3, "maxLength": 100},
+    "risk_classification": {
+      "enum": ["low_risk_read", "sensitive_financial_read", "reversible_write", "irreversible_high_impact"]
+    },
+    "authorization_result": {"const": "allowed"},
+    "injection_result": {"enum": ["clear", "suspected", "failed"]},
+    "indicator_categories": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["instruction_override", "policy_evasion", "tool_manipulation", "data_exfiltration"]}
+    },
+    "policy_outcome": {"enum": ["allow", "deny", "require_approval"]},
+    "policy_reason_code": {"enum": ["engine_allowed", "engine_denied", "registry_requires_approval", "engine_require_approval"]},
+    "approval_result": {"enum": ["not_required", "approved", "denied", "failed"]},
+    "governance_result": {"enum": ["qualified", "blocked"]},
+    "failure_stage": {
+      "type": ["string", "null"],
+      "enum": [null, "prompt_injection_assessment", "agent_policy_engine", "human_approval_verification", "audit"]
+    },
+    "failure_category": {
+      "type": ["string", "null"],
+      "enum": [
+        null, "timeout", "unavailable", "malformed_assessment",
+        "unsupported_indicator_category", "suspected_injection", "denied",
+        "malformed_decision", "argument_digest_failure", "missing_decision",
+        "denied_decision", "expired_decision", "replayed_decision",
+        "tenant_mismatch", "subject_mismatch", "tool_mismatch",
+        "arguments_digest_mismatch", "invalid_event"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"policy_outcome": {"const": "allow"}}, "required": ["policy_outcome"]},
+      "then": {"properties": {"policy_reason_code": {"const": "engine_allowed"}}}
+    },
+    {
+      "if": {"properties": {"policy_outcome": {"const": "deny"}}, "required": ["policy_outcome"]},
+      "then": {"properties": {"policy_reason_code": {"const": "engine_denied"}}}
+    },
+    {
+      "if": {"properties": {"policy_outcome": {"const": "require_approval"}}, "required": ["policy_outcome"]},
+      "then": {"properties": {"policy_reason_code": {"enum": ["registry_requires_approval", "engine_require_approval"]}}}
+    },
+    {
+      "if": {"properties": {"governance_result": {"const": "qualified"}}, "required": ["governance_result"]},
+      "then": {"properties": {"failure_stage": {"const": null}, "failure_category": {"const": null}}}
+    },
+    {
+      "if": {"properties": {"governance_result": {"const": "blocked"}}, "required": ["governance_result"]},
+      "then": {"properties": {"failure_stage": {"type": "string"}, "failure_category": {"type": "string"}}}
+    },
+    {
+      "if": {"properties": {"failure_stage": {"const": "prompt_injection_assessment"}}, "required": ["failure_stage"]},
+      "then": {"properties": {"failure_category": {"enum": ["timeout", "unavailable", "malformed_assessment", "unsupported_indicator_category", "suspected_injection"]}}}
+    },
+    {
+      "if": {"properties": {"failure_stage": {"const": "agent_policy_engine"}}, "required": ["failure_stage"]},
+      "then": {"properties": {"failure_category": {"enum": ["timeout", "unavailable", "denied", "malformed_decision", "argument_digest_failure"]}}}
+    },
+    {
+      "if": {"properties": {"failure_stage": {"const": "human_approval_verification"}}, "required": ["failure_stage"]},
+      "then": {"properties": {"failure_category": {"enum": ["timeout", "unavailable", "missing_decision", "denied_decision", "expired_decision", "replayed_decision", "tenant_mismatch", "subject_mismatch", "tool_mismatch", "arguments_digest_mismatch", "malformed_decision"]}}}
+    },
+    {
+      "if": {"properties": {"failure_stage": {"const": "audit"}}, "required": ["failure_stage"]},
+      "then": {"properties": {"failure_category": {"const": "invalid_event"}}}
+    }
+  ]
+}

@@ -1,0 +1,214 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: presidio-analyzer
+  namespace: ai-platform
+  labels:
+    app.kubernetes.io/name: presidio-analyzer
+    app.kubernetes.io/component: redaction
+    app.kubernetes.io/part-of: ai-platform
+    app.kubernetes.io/managed-by: kustomize
+  annotations:
+    portfolio.example/presidio-version: 2.2.362
+    portfolio.example/image-source: ghcr.io/data-privacy-stack/presidio-analyzer:2.2.362
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: presidio-analyzer
+      app.kubernetes.io/component: redaction
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: presidio-analyzer
+        app.kubernetes.io/component: redaction
+        app.kubernetes.io/part-of: ai-platform
+    spec:
+      serviceAccountName: presidio-analyzer
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: analyzer
+          image: ghcr.io/data-privacy-stack/presidio-analyzer@sha256:286e3fa7f3a7426e775e8564fe1870f1ba8f999d3ab8bbb8cc46a44355d9d6e9
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ANALYZER_CONF_FILE
+              value: /etc/presidio/analyzer.yaml
+            - name: NLP_CONF_FILE
+              value: /etc/presidio/nlp.yaml
+            - name: RECOGNIZER_REGISTRY_CONF_FILE
+              value: /etc/presidio/recognizers.yaml
+            - name: HOME
+              value: /tmp
+            - name: LOG_LEVEL
+              value: WARNING
+            - name: PORT
+              value: "3000"
+            - name: WORKERS
+              value: "2"
+            - name: GUNICORN_CMD_ARGS
+              value: "--control-socket /tmp/gunicorn.ctl --worker-tmp-dir /tmp --timeout 60"
+            - name: PYTHONPATH
+              value: "/app:/etc/presidio"
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 3Gi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 3
+            periodSeconds: 15
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 3
+            periodSeconds: 10
+            timeoutSeconds: 2
+          volumeMounts:
+            - name: config
+              mountPath: /etc/presidio
+              readOnly: true
+            - name: temporary
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: presidio-analyzer-config
+        - name: temporary
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: presidio-anonymizer
+  namespace: ai-platform
+  labels:
+    app.kubernetes.io/name: presidio-anonymizer
+    app.kubernetes.io/component: redaction
+    app.kubernetes.io/part-of: ai-platform
+    app.kubernetes.io/managed-by: kustomize
+  annotations:
+    portfolio.example/presidio-version: 2.2.362
+    portfolio.example/image-source: ghcr.io/data-privacy-stack/presidio-anonymizer:2.2.362
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: presidio-anonymizer
+      app.kubernetes.io/component: redaction
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: presidio-anonymizer
+        app.kubernetes.io/component: redaction
+        app.kubernetes.io/part-of: ai-platform
+    spec:
+      serviceAccountName: presidio-anonymizer
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: anonymizer
+          image: ghcr.io/data-privacy-stack/presidio-anonymizer@sha256:a10a12a2a613d13cf29d3ad3641e3258444dd8c90403dd644a0a114c472c2483
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: HOME
+              value: /tmp
+            - name: LOG_LEVEL
+              value: WARNING
+            - name: PORT
+              value: "3000"
+            - name: WORKERS
+              value: "2"
+            - name: GUNICORN_CMD_ARGS
+              value: "--control-socket /tmp/gunicorn.ctl --worker-tmp-dir /tmp"
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 12
+            periodSeconds: 5
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 3
+            periodSeconds: 15
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 3
+            periodSeconds: 10
+            timeoutSeconds: 2
+          volumeMounts:
+            - name: temporary
+              mountPath: /tmp
+      volumes:
+        - name: temporary
+          emptyDir: {}
