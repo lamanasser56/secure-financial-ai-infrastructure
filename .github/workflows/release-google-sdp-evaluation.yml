@@ -1,0 +1,260 @@
+name: Manual Google SDP evaluation image release
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Approved full source commit SHA on main
+        required: true
+        type: string
+      region:
+        description: Approved Artifact Registry region
+        required: true
+        type: string
+      artifact_repository:
+        description: Existing immutable-tag Docker repository name
+        required: true
+        type: string
+      image_name:
+        description: Evaluation image name
+        required: true
+        type: string
+
+permissions: {}
+concurrency:
+  group: google-sdp-evaluation-release
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      image_id: ${{ steps.build.outputs.image_id }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Validate source and release inputs
+        shell: bash
+        env:
+          APPROVED_COMMIT: ${{ inputs.source_commit }}
+          RELEASE_REGION: ${{ inputs.region }}
+          ARTIFACT_REPOSITORY: ${{ inputs.artifact_repository }}
+          IMAGE_NAME: ${{ inputs.image_name }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main ]]
+          [[ "$APPROVED_COMMIT" =~ ^[0-9a-f]{40}$ && "$APPROVED_COMMIT" == "$GITHUB_SHA" ]]
+          [[ "$(git rev-parse HEAD)" == "$APPROVED_COMMIT" && -z "$(git status --porcelain)" ]]
+          [[ "$RELEASE_REGION" == me-central2 ]]
+          [[ "$ARTIFACT_REPOSITORY" =~ ^[a-z][a-z0-9-]{0,62}$ ]]
+          [[ "$IMAGE_NAME" =~ ^[a-z][a-z0-9._-]{0,127}$ ]]
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Verify all locks, tests, source contracts and lint
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --require-hashes -r requirements-google-sdp.txt
+          PORTFOLIO_CHECK_GOOGLE_SDP_LOCK=1 bash scripts/check.sh
+          bash scripts/lint-repository.sh
+      - name: Install pinned scanners and verify their versions
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$RUNNER_TEMP/qualification-tools" "$RUNNER_TEMP/prepush-evidence"
+          bash scripts/install-qualification-tools.sh "$RUNNER_TEMP/qualification-tools"
+          {
+            "$RUNNER_TEMP/qualification-tools/trivy" --version
+            "$RUNNER_TEMP/qualification-tools/syft" version
+            "$RUNNER_TEMP/qualification-tools/cosign" version 2>&1
+            docker version --format '{{.Client.Version}}'
+          } > "$RUNNER_TEMP/prepush-evidence/tool-versions.txt"
+      - name: Build and qualify local image before cloud authentication
+        id: build
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          export PATH="$RUNNER_TEMP/qualification-tools:$PATH"
+          python - <<'PY' > "$RUNNER_TEMP/selected-bases"
+          import json
+          record = json.load(open('docker/google-sdp-evaluation/candidates.json', encoding='utf-8'))
+          print(record['selected']['builder'])
+          print(record['selected']['runtime'])
+          PY
+          mapfile -t bases < "$RUNNER_TEMP/selected-bases"
+          bash scripts/build-google-sdp-evaluation-image.sh "${bases[0]}" "${bases[1]}" > "$RUNNER_TEMP/local-build.txt"
+          image_tag=$(sed -n 's/^Image tag: //p' "$RUNNER_TEMP/local-build.txt")
+          image_id=$(sed -n 's/^Image ID: //p' "$RUNNER_TEMP/local-build.txt")
+          [[ "$image_tag" =~ ^portfolio-google-sdp-evaluation:local-[0-9a-f]{16}$ ]]
+          [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ ]]
+          printf 'image_id=%s\n' "$image_id" >> "$GITHUB_OUTPUT"
+          trivy image --image-src docker --scanners vuln --format json --output "$RUNNER_TEMP/prepush-evidence/trivy.json" --no-progress --skip-version-check "$image_tag"
+          syft "docker:$image_tag" -o "cyclonedx-json=$RUNNER_TEMP/prepush-evidence/sbom.cdx.json"
+          python - "$RUNNER_TEMP/prepush-evidence" "$image_tag" "$image_id" <<'PY'
+          import json, pathlib, sys
+          evidence, tag, image_id = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+          report = json.loads((evidence / 'trivy.json').read_text())
+          if report.get('ArtifactName') != tag or not report.get('Results'):
+              raise SystemExit('incomplete local Trivy evidence')
+          (evidence / 'trivy-local-original.json').write_text(json.dumps(report, sort_keys=True))
+          subject = 'portfolio-google-sdp-evaluation@' + image_id
+          report['ArtifactName'] = subject
+          (evidence / 'trivy.json').write_text(json.dumps(report, sort_keys=True))
+          sbom = json.loads((evidence / 'sbom.cdx.json').read_text())
+          if sbom.get('bomFormat') != 'CycloneDX' or not sbom.get('components'):
+              raise SystemExit('incomplete local SBOM')
+          (evidence / 'local-subject.txt').write_text(subject + '\n')
+          (evidence / 'subject-note.txt').write_text('The local policy subject uses the image configuration ID. trivy-local-original.json retains the scanner target; trivy.json changes only ArtifactName for the exact-subject policy evaluator. The registry manifest digest is resolved and rescanned after push.\n')
+          PY
+          curl --fail --silent --show-error --location --output "$RUNNER_TEMP/kev.json" https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+          python -B scripts/evaluate-container-vulnerability-policy.py "$RUNNER_TEMP/prepush-evidence/trivy.json" "$(cat "$RUNNER_TEMP/prepush-evidence/local-subject.txt")" "$RUNNER_TEMP/kev.json" policy/empty-exceptions.json > "$RUNNER_TEMP/prepush-evidence/policy-result.txt"
+          trivy image --image-src docker --scanners vuln --format table --output "$RUNNER_TEMP/prepush-evidence/trivy.txt" --no-progress --skip-version-check "$image_tag"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: google-sdp-prepush-${{ github.sha }}
+          path: ${{ runner.temp }}/prepush-evidence/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: qualify
+    runs-on: ubuntu-24.04
+    environment: google-sdp-evaluation-release
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DOCKER_CONFIG: /tmp/portfolio-sdp-docker-config
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Rebuild qualified source before cloud authentication
+        shell: bash
+        env:
+          APPROVED_COMMIT: ${{ inputs.source_commit }}
+          QUALIFIED_IMAGE_ID: ${{ needs.qualify.outputs.image_id }}
+          RELEASE_REGION: ${{ inputs.region }}
+          ARTIFACT_REPOSITORY: ${{ inputs.artifact_repository }}
+          IMAGE_NAME: ${{ inputs.image_name }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main && "$APPROVED_COMMIT" == "$GITHUB_SHA" ]]
+          [[ "$(git rev-parse HEAD)" == "$APPROVED_COMMIT" && -z "$(git status --porcelain)" ]]
+          [[ "$RELEASE_REGION" == me-central2 ]]
+          [[ "$ARTIFACT_REPOSITORY" =~ ^[a-z][a-z0-9-]{0,62}$ && "$IMAGE_NAME" =~ ^[a-z][a-z0-9._-]{0,127}$ ]]
+          python - <<'PY' > "$RUNNER_TEMP/selected-bases"
+          import json
+          record = json.load(open('docker/google-sdp-evaluation/candidates.json', encoding='utf-8'))
+          print(record['selected']['builder'])
+          print(record['selected']['runtime'])
+          PY
+          mapfile -t bases < "$RUNNER_TEMP/selected-bases"
+          bash scripts/build-google-sdp-evaluation-image.sh "${bases[0]}" "${bases[1]}" > "$RUNNER_TEMP/local-build.txt"
+          image_id=$(sed -n 's/^Image ID: //p' "$RUNNER_TEMP/local-build.txt")
+          [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ && "$image_id" == "$QUALIFIED_IMAGE_ID" ]]
+          printf 'Verified reproducible image configuration: %s\n' "$image_id"
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        id: auth
+        with:
+          workload_identity_provider: ${{ vars.GOOGLE_SDP_RELEASE_WIF_PROVIDER }}
+          service_account: ${{ vars.GOOGLE_SDP_RELEASE_SERVICE_ACCOUNT }}
+          token_format: access_token
+          create_credentials_file: false
+          export_environment_variables: false
+      - name: Check immutable registry and push only the qualified image
+        id: push
+        shell: bash
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          PROJECT_ID: ${{ vars.GOOGLE_SDP_RELEASE_PROJECT_ID }}
+          ARTIFACT_REPOSITORY: ${{ inputs.artifact_repository }}
+          IMAGE_NAME: ${{ inputs.image_name }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$PROJECT_ID" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ && -n "$ACCESS_TOKEN" ]]
+          registry=me-central2-docker.pkg.dev
+          repository_url="https://artifactregistry.googleapis.com/v1/projects/$PROJECT_ID/locations/me-central2/repositories/$ARTIFACT_REPOSITORY"
+          curl --fail --silent --show-error --header "Authorization: Bearer $ACCESS_TOKEN" "$repository_url" > "$RUNNER_TEMP/repository.json"
+          python - "$RUNNER_TEMP/repository.json" <<'PY'
+          import json, sys
+          repo = json.load(open(sys.argv[1], encoding='utf-8'))
+          if repo.get('format') != 'DOCKER' or repo.get('mode') != 'STANDARD_REPOSITORY' or repo.get('dockerConfig', {}).get('immutableTags') is not True:
+              raise SystemExit('existing Docker repository must enforce immutable tags')
+          PY
+          mkdir -m 700 "$DOCKER_CONFIG"
+          printf '%s' "$ACCESS_TOKEN" | docker login "https://$registry" -u oauth2accesstoken --password-stdin >/dev/null
+          local_tag=$(sed -n 's/^Image tag: //p' "$RUNNER_TEMP/local-build.txt")
+          image="$registry/$PROJECT_ID/$ARTIFACT_REPOSITORY/$IMAGE_NAME"
+          commit_tag="$image:sha-$GITHUB_SHA"
+          docker tag "$local_tag" "$commit_tag"
+          docker push "$commit_tag" > "$RUNNER_TEMP/push.log"
+          digest=$(docker buildx imagetools inspect --raw "$commit_tag" | sha256sum | cut -d' ' -f1)
+          [[ "$digest" =~ ^[0-9a-f]{64}$ ]]
+          digest_ref="$image@sha256:$digest"
+          docker pull "$digest_ref" >/dev/null
+          [[ "$(docker image inspect "$digest_ref" --format '{{.Id}}')" == "${{ needs.qualify.outputs.image_id }}" ]]
+          mkdir -p "$RUNNER_TEMP/release-evidence"
+          printf '%s\n' "$digest_ref" > "$RUNNER_TEMP/release-evidence/resolved-digest.txt"
+          printf 'digest_ref=%s\n' "$digest_ref" >> "$GITHUB_OUTPUT"
+      - name: Qualify registry digest before signing
+        shell: bash
+        env:
+          DIGEST_REF: ${{ steps.push.outputs.digest_ref }}
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$RUNNER_TEMP/qualification-tools"
+          bash scripts/install-qualification-tools.sh "$RUNNER_TEMP/qualification-tools"
+          export PATH="$RUNNER_TEMP/qualification-tools:$PATH"
+          trivy image --image-src remote --scanners vuln --format json --output "$RUNNER_TEMP/release-evidence/trivy.json" --no-progress --skip-version-check "$DIGEST_REF"
+          trivy image --image-src remote --scanners vuln --format table --output "$RUNNER_TEMP/release-evidence/trivy.txt" --no-progress --skip-version-check "$DIGEST_REF"
+          syft "registry:$DIGEST_REF" -o "cyclonedx-json=$RUNNER_TEMP/release-evidence/sbom.cdx.json"
+          python - "$RUNNER_TEMP/release-evidence" "$DIGEST_REF" <<'PY'
+          import json, pathlib, sys
+          evidence, subject = pathlib.Path(sys.argv[1]), sys.argv[2]
+          report = json.loads((evidence / 'trivy.json').read_text())
+          sbom = json.loads((evidence / 'sbom.cdx.json').read_text())
+          if report.get('ArtifactName') != subject or not report.get('Results'):
+              raise SystemExit('incomplete digest-linked Trivy report')
+          if sbom.get('bomFormat') != 'CycloneDX' or not sbom.get('components'):
+              raise SystemExit('incomplete digest-linked CycloneDX SBOM')
+          metadata = json.dumps(sbom.get('metadata', {}).get('component', {}))
+          if subject.split('@')[1] not in metadata:
+              raise SystemExit('SBOM source metadata lacks registry digest')
+          PY
+          curl --fail --silent --show-error --location --output "$RUNNER_TEMP/kev.json" https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+          python -B scripts/evaluate-container-vulnerability-policy.py "$RUNNER_TEMP/release-evidence/trivy.json" "$DIGEST_REF" "$RUNNER_TEMP/kev.json" policy/empty-exceptions.json > "$RUNNER_TEMP/release-evidence/policy-result.txt"
+          {
+            trivy --version
+            syft version
+            cosign version 2>&1
+          } > "$RUNNER_TEMP/release-evidence/tool-versions.txt"
+      - name: Keyless sign and immediately verify the exact digest
+        shell: bash
+        env:
+          DIGEST_REF: ${{ steps.push.outputs.digest_ref }}
+        run: |
+          set -Eeuo pipefail
+          export PATH="$RUNNER_TEMP/qualification-tools:$PATH"
+          cosign sign --yes "$DIGEST_REF" > "$RUNNER_TEMP/sign-output.txt" 2>&1
+          cosign verify --certificate-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/release-google-sdp-evaluation.yml@refs/heads/main" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$DIGEST_REF" > "$RUNNER_TEMP/release-evidence/cosign-verification.json"
+          test -s "$RUNNER_TEMP/release-evidence/cosign-verification.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: google-sdp-signed-release-${{ github.sha }}
+          path: ${{ runner.temp }}/release-evidence/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove short-lived registry authentication
+        if: always()
+        shell: bash
+        run: rm -rf -- "$DOCKER_CONFIG"

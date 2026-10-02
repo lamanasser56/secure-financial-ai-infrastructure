@@ -1,0 +1,57 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: google-sdp-evaluation
+  namespace: google-sdp-evaluation
+  labels:
+    app.kubernetes.io/name: google-sdp-evaluation
+    portfolio.example/purpose: synthetic-evaluation
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 900
+  ttlSecondsAfterFinished: 3600
+  parallelism: 1
+  completions: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: google-sdp-evaluation
+        portfolio.example/purpose: synthetic-evaluation
+    spec:
+      serviceAccountName: google-sdp-evaluation
+      automountServiceAccountToken: true
+      restartPolicy: Never
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: evaluation
+          image: REPLACE_WITH_ARTIFACT_REGISTRY_DIGEST
+          imagePullPolicy: Always
+          args:
+            - --live
+          env:
+            - name: PORTFOLIO_GOOGLE_SDP_PROJECT_ID
+              value: REPLACE_WITH_PROJECT_ID
+            - name: PORTFOLIO_GOOGLE_SDP_SYNTHETIC_ONLY_ACK
+              value: I_ACKNOWLEDGE_SYNTHETIC_ONLY_GOOGLE_SDP_EVALUATION
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 64Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+              ephemeral-storage: 256Mi

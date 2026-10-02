@@ -1,6 +1,6 @@
 # Google SDP synthetic text evaluation plan
 
-**Status:** Disabled offline adapter and synthetic corpus validator implemented. A local, offline Job image has been qualified under the current zero-waiver HIGH/CRITICAL vulnerability gate. No Google API call, IAM grant, deployment, accuracy qualification, or production integration has occurred. This plan follows [ADR-004](../architecture/decisions/ADR-004-bounded-google-sdp-evaluation.md). Microsoft Presidio remains the authoritative redactor and default runtime path.
+**Status:** Disabled offline adapter and synthetic corpus validator implemented. A local, offline Job image has been qualified under the current zero-waiver HIGH/CRITICAL vulnerability gate. A manual signed-release workflow and unapplied GKE Job templates are prepared but have not run. No Google API call, IAM grant, registry push, signing, deployment, accuracy qualification, or production integration has occurred. This plan follows [ADR-004](../architecture/decisions/ADR-004-bounded-google-sdp-evaluation.md). Microsoft Presidio remains the authoritative redactor and default runtime path.
 
 ## Scope and execution authority
 
@@ -55,7 +55,7 @@ Any future custom detector needs an authoritative format source, safe synthetic-
 
 ## Evidence and gates
 
-Only the reviewed, generated synthetic seed corpus may be committed to Git. Future live-execution inputs and provider outputs belong in an approved evaluation workspace and must never appear in logs, traces, exception messages, LiteLLM metadata, audit envelopes, Git, or shared reports. Before execution, approve the bounded live corpus, expected high-risk cases, scoring method, and operational thresholds. No gate below is currently passed.
+Only the reviewed, generated synthetic seed corpus may be committed to Git. Future live-execution inputs and provider outputs belong in an approved evaluation workspace and must never appear in logs, traces, exception messages, LiteLLM metadata, audit envelopes, Git, or shared reports. Before execution, approve the bounded live corpus, expected high-risk cases, scoring method, and operational thresholds. Local image qualification has passed; the other release and live gates remain open. See the [live runbook](google-sdp-live-runbook.md) for the ordered gates and cleanup.
 
 | Gate | Required evidence for a future pass |
 | --- | --- |
@@ -63,7 +63,7 @@ Only the reviewed, generated synthetic seed corpus may be committed to Git. Futu
 | Detection quality | Record precision, recall, false negatives, and false positives separately for Arabic, English, mixed script, obfuscated text, OCR-corrupted synthetic text, and each identifier category. Require zero false negatives for mandatory high-risk cases in the approved bounded corpus. This does not establish real-world accuracy. |
 | Operations | Measure latency, timeouts, failure rate, regional endpoint behavior, response-schema stability, request-size behavior, and estimated evaluation cost against limits approved before execution. Do not infer results from this plan. |
 | Portability and rollback | Keep Google request/response types behind a provider-neutral redaction contract. Presidio remains installed and available as the rollback path until separate replacement approval. No automatic fallback within a request. |
-| Image qualification | The [local evaluation image](../../docker/google-sdp-evaluation/README.md) has a separate minimal hash lock, immutable bases, a digest-linked Trivy scan, CycloneDX SBOM, and a passing local policy evaluation. Registry provenance, signature or attestation, same-digest promotion, and deployment remain unperformed and require separate approval. |
+| Image qualification | The [local evaluation image](../../docker/google-sdp-evaluation/README.md) has a separate minimal hash lock, immutable bases, a digest-linked Trivy scan, CycloneDX SBOM, and a passing local policy evaluation. The [manual release workflow](../../.github/workflows/release-google-sdp-evaluation.yml) and [unapplied Job templates](../../kubernetes/apps/google-sdp-evaluation/README.md) prepare registry digest and keyless signature checks. Registry provenance, signature, GKE execution and live evaluation remain unproven. |
 
 The intended future identity path is GKE Workload Identity → Google IAM → the regional SDP endpoint. Binding and IAM authorization are not implemented or authorized here. Static service-account keys, embedded credentials, Git-committed credentials, LiteLLM keys, and application-managed provider secrets are prohibited. A future adapter must fail closed on missing configuration, wrong region, invalid endpoint, authentication or authorization failure, service unavailability, malformed response, incomplete de-identification, or failed policy validation, always with zero LiteLLM requests.
 
@@ -71,4 +71,4 @@ The intended future identity path is GKE Workload Identity → Google IAM → th
 
 After review, record exactly one outcome: **PASS FOR FURTHER BOUNDED INTEGRATION**, **FAIL AND RETAIN PRESIDIO**, or **INCONCLUSIVE — MORE EVIDENCE REQUIRED**. None authorizes automatic production cutover, Presidio deletion, customer-data processing, production deployment, or a compliance claim. A pass still requires a separate ADR and Change Set before Google SDP could become authoritative.
 
-Separate Change Sets are required before IAM, GKE execution, a live API call, image publication, or a provider authority change. AWS and Azure candidates could reuse the same sanitized result contract through the neutral `RedactorClient` boundary; no such adapter is implemented here.
+Separate authorization and Change Sets are required before IAM, registry publication, GKE execution, a live API call, or a provider authority change. AWS and Azure candidates could reuse the same sanitized result contract through the neutral `RedactorClient` boundary; no such adapter is implemented here.

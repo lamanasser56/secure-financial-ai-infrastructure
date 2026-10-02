@@ -9,6 +9,7 @@ if [ "${PORTFOLIO_CHECK_GOOGLE_SDP_LOCK:-0}" = 1 ]; then
 fi
 python3 -B scripts/validate.py
 python3 -B scripts/check-references.py
+bash scripts/validate-google-sdp-deployment.sh
 for suite in tests/phase3/runtime tests/phase3/evaluation tests/phase4/registry tests/phase4/invocation tests/phase4/governance tests/phase5; do
   python3 -B -m unittest discover -s "$suite" -p 'test_*.py'
 done

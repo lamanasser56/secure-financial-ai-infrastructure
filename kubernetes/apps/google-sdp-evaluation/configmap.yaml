@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: google-sdp-evaluation
+  namespace: google-sdp-evaluation
+data:
+  region: me-central2
+  endpoint: dlp.me-central2.rep.googleapis.com
+  synthetic_corpus_path: /app/evaluation/google-sdp/corpus.json

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: google-sdp-evaluation
+  namespace: google-sdp-evaluation
+spec:
+  hard:
+    pods: "1"
+    count/jobs.batch: "1"
+    requests.cpu: 500m
+    limits.cpu: "1"
+    requests.memory: 512Mi
+    limits.memory: 1Gi
+    requests.ephemeral-storage: 128Mi
+    limits.ephemeral-storage: 512Mi

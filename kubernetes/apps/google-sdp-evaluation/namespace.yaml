@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: google-sdp-evaluation
+  labels:
+    app.kubernetes.io/part-of: google-sdp-evaluation
+    portfolio.example/purpose: synthetic-evaluation
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
