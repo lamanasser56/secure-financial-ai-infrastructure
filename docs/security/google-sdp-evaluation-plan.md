@@ -1,10 +1,14 @@
 # Google SDP synthetic text evaluation plan
 
-**Status:** Plan only; no API call, implementation, deployment, or qualification has occurred. This plan follows [ADR-004](../architecture/decisions/ADR-004-bounded-google-sdp-evaluation.md). Microsoft Presidio remains the authoritative redactor and default runtime path.
+**Status:** Disabled offline adapter implemented; no Google API call, synthetic corpus execution, IAM grant, deployment, accuracy qualification, or production integration has occurred. This plan follows [ADR-004](../architecture/decisions/ADR-004-bounded-google-sdp-evaluation.md). Microsoft Presidio remains the authoritative redactor and default runtime path.
 
 ## Scope and execution authority
 
 Compare Presidio and Google Sensitive Data Protection (Google SDP) offline against the same reviewed, generated synthetic-text cases. Google SDP is disabled by default and limited to non-production text evaluation at Dammam `me-central2` through `dlp.me-central2.rep.googleapis.com`. Future execution requires separately reviewed identity, IAM, regional routing, budget, and test authorization. Never use a global endpoint, cross-region or automatic global fallback, silent endpoint substitution, or a request-selected endpoint. Invalid or unavailable regional configuration fails closed.
+
+The [candidate adapter](../../runtime/phase3/google_sdp_adapter.py) exists only for offline, fake-client contract tests. It is not wired into `TrustedRuntime`, production factories, or Kubernetes. Its fixed endpoint and trusted constructor project identity cannot be selected from request text or metadata. A real client would use Application Default Credentials through the optional Google library; a future GKE deployment would require separately reviewed Workload Identity and IAM. The adapter accepts no API key or credential file. It requests inspection before de-identification on the same regional client, with retries disabled and no global or cross-region fallback. Only closed neutral categories and redacted text leave the adapter. Failures emit `redaction:provider_failure` without raw values or provider details.
+
+The candidate currently configures only Google's generic email, phone, and payment-card infoTypes. This is an API shape for offline boundary tests, not evidence that those detectors work in Dammam or on any specific language or identifier. A separate Change Set is required for a reviewed synthetic corpus, live API execution, IAM, runtime wiring, or an authority change. No Saudi, Arabic, Iqama, national-ID, commercial-registration, OCR, mixed-script, regulatory, production, or Presidio replacement claim follows from this adapter.
 
 No customer or production data, real financial records, real tenant or personal identifiers, invoices, documents, uploaded files, images sent to Google SDP, or production OCR content are permitted. Only synthetic textual output from an upstream OCR simulation may be tested; this plan makes no claim about Google SDP image or OCR availability in Dammam. No compliance or real-world accuracy claim follows from these tests.
 

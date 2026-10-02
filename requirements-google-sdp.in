@@ -1,0 +1,3 @@
+# Optional, disabled Google SDP evaluation environment; portable core remains separate.
+-r requirements-dev.in
+google-cloud-dlp==3.40.0

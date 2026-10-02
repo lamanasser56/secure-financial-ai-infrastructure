@@ -26,7 +26,7 @@ class AIPathContainmentTests(unittest.TestCase):
         for prohibited in ("api.openai.com", "generativelanguage.googleapis.com", "google.generativeai", "vertexai.init("):
             self.assertNotIn(prohibited, source)
 
-    def test_presidio_is_the_only_concrete_redactor(self):
+    def test_presidio_is_the_only_runtime_wired_concrete_redactor(self):
         adapter_source = (ROOT / "runtime/phase3/adapters.py").read_text()
         classes = [
             node.name for node in ast.walk(ast.parse(adapter_source))
@@ -35,9 +35,25 @@ class AIPathContainmentTests(unittest.TestCase):
                     for member in node.body)
         ]
         self.assertEqual(classes, ["PresidioRedactor"])
-        runtime_source = "\n".join(p.read_text() for p in (ROOT / "runtime").rglob("*.py"))
+        candidate_source = (ROOT / "runtime/phase3/google_sdp_adapter.py").read_text()
+        candidate_classes = [
+            node.name for node in ast.walk(ast.parse(candidate_source))
+            if isinstance(node, ast.ClassDef)
+            and any(isinstance(member, ast.FunctionDef) and member.name == "redact"
+                    for member in node.body)
+        ]
+        self.assertEqual(candidate_classes, ["GoogleSDPRedactor"])
+        runtime_source = "\n".join(
+            (ROOT / path).read_text() for path in (
+                "runtime/phase3/trusted_runtime.py",
+                "runtime/phase3/adapters.py",
+                "runtime/phase3/mocks.py",
+                "runtime/phase3/__init__.py",
+            )
+        )
         for prohibited in ("google.cloud.dlp", "google_cloud_dlp", "dlp_v2", "GoogleSDPRedactor"):
             self.assertNotIn(prohibited, runtime_source)
+        self.assertNotIn("google_sdp_adapter", runtime_source)
 
     def test_authorization_denial_never_reaches_gateway(self):
         runtime, recorder = build_mock_runtime({"authorization": "deny"})
