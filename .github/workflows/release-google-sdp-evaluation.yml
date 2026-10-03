@@ -76,9 +76,23 @@ jobs:
             "$RUNNER_TEMP/qualification-tools/cosign" version 2>&1
             docker version --format '{{.Client.Version}}'
           } > "$RUNNER_TEMP/prepush-evidence/tool-versions.txt"
+      - name: Initialize qualified Docker archive builder
+        id: buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+        with:
+          version: v0.30.1
+          driver: docker-container
+          driver-opts: image=moby/buildkit@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea
+          # Suppress the action's security.insecure default; builds request no entitlements.
+          buildkitd-flags: --oci-worker-gc
+          platforms: linux/amd64
+          use: true
+          cache-binary: false
       - name: Build and qualify local image before cloud authentication
         id: build
         shell: bash
+        env:
+          BUILDX_BUILDER: ${{ steps.buildx.outputs.name }}
         run: |
           set -Eeuo pipefail
           export PATH="$RUNNER_TEMP/qualification-tools:$PATH"
@@ -141,9 +155,22 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
+      - name: Initialize qualified Docker archive builder
+        id: buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+        with:
+          version: v0.30.1
+          driver: docker-container
+          driver-opts: image=moby/buildkit@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea
+          # Suppress the action's security.insecure default; builds request no entitlements.
+          buildkitd-flags: --oci-worker-gc
+          platforms: linux/amd64
+          use: true
+          cache-binary: false
       - name: Rebuild qualified source before cloud authentication
         shell: bash
         env:
+          BUILDX_BUILDER: ${{ steps.buildx.outputs.name }}
           APPROVED_COMMIT: ${{ inputs.source_commit }}
           QUALIFIED_IMAGE_ID: ${{ needs.qualify.outputs.image_id }}
           RELEASE_REGION: ${{ inputs.region }}

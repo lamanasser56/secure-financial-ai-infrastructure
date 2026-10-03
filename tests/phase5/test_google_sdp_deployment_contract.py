@@ -28,6 +28,30 @@ def render(project=PROJECT, gsa=GSA, digest=DIGEST):
 
 
 class DeploymentContractTests(unittest.TestCase):
+    def test_both_release_jobs_select_qualified_archive_builder_before_build(self):
+        workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+        for name in ("qualify", "publish"):
+            with self.subTest(job=name):
+                steps = workflow["jobs"][name]["steps"]
+                setup = next(step for step in steps if step.get("id") == "buildx")
+                self.assertEqual(setup["uses"], "docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435")
+                self.assertEqual(setup["with"]["driver"], "docker-container")
+                self.assertEqual(setup["with"]["version"], "v0.30.1")
+                self.assertEqual(setup["with"]["driver-opts"],
+                                 "image=moby/buildkit@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea")
+                self.assertEqual(setup["with"]["buildkitd-flags"], "--oci-worker-gc")
+                self.assertEqual(setup["with"]["platforms"], "linux/amd64")
+                self.assertTrue(setup["with"]["use"])
+                builds = [step for step in steps if "build-google-sdp-evaluation-image.sh" in step.get("run", "")]
+                self.assertEqual(len(builds), 1)
+                for build in builds:
+                    self.assertLess(steps.index(setup), steps.index(build))
+                    self.assertEqual(build["env"]["BUILDX_BUILDER"], "${{ steps.buildx.outputs.name }}")
+                authentications = [step for step in steps if step.get("uses", "").startswith("google-github-actions/auth@")]
+                for authentication in authentications:
+                    self.assertLess(steps.index(builds[-1]), steps.index(authentication))
+                self.assertNotRegex(str(steps), r"--allow(?:=|\s)|--allow-insecure-entitlement")
+
     def test_templates_validate_offline(self):
         result = subprocess.run(["bash", str(VALIDATE)], cwd=ROOT, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)

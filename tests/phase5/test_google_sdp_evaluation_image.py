@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import re
+import subprocess
+import tempfile
 import unittest
 
 
@@ -22,6 +25,42 @@ CANDIDATE_FIELDS = {
 
 
 class GoogleSDPEvaluationImageTests(unittest.TestCase):
+    def test_archive_export_requires_explicit_container_builder(self):
+        text = BUILD.read_text(encoding="utf-8")
+        self.assertIn('--builder "$buildx_builder"', text)
+        self.assertLess(text.index('docker buildx inspect'), text.index('docker buildx build'))
+        self.assertIn('[[ "$buildx_driver" == docker-container ]]', text)
+        self.assertNotRegex(text, r"--allow(?:=|\s)|--allow-insecure-entitlement")
+        record = json.loads(RECORD.read_text(encoding="utf-8"))
+        bases = [record["selected"]["builder"], record["selected"]["runtime"]]
+        with tempfile.TemporaryDirectory() as directory:
+            temporary = Path(directory)
+            docker = temporary / "docker"
+            docker.write_text(
+                '#!/usr/bin/env bash\nset -euo pipefail\n'
+                'printf "%s\\n" "$*" >> "$DOCKER_CALLS"\n'
+                'case "$*" in\n'
+                '  "buildx version") printf "Buildx test fixture\\n" ;;\n'
+                '  "buildx inspect explicit-builder --bootstrap") '
+                'printf "Driver: %s\\n" "$TEST_DRIVER" ;;\n'
+                '  *) exit 91 ;;\n'
+                'esac\n', encoding="utf-8",
+            )
+            docker.chmod(0o700)
+            for builder, driver in (("", "docker-container"), ("explicit-builder", "docker"),
+                                    ("explicit-builder", "remote"), ("bad/name", "docker-container")):
+                with self.subTest(builder=builder, driver=driver):
+                    calls = temporary / "calls"
+                    calls.write_text("")
+                    environment = dict(os.environ, PATH=f"{temporary}:{os.environ['PATH']}",
+                                       BUILDX_BUILDER=builder, TEST_DRIVER=driver, DOCKER_CALLS=str(calls))
+                    result = subprocess.run(["bash", str(BUILD), *bases], cwd=ROOT,
+                                            env=environment, capture_output=True, text=True)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("ERROR:", result.stderr)
+                    self.assertNotIn("buildx build", calls.read_text())
+                    self.assertNotIn("load", calls.read_text())
+
     def test_dockerfile_uses_exact_immutable_bases_and_nonroot_runtime(self):
         text = DOCKERFILE.read_text(encoding="utf-8")
         record = json.loads(RECORD.read_text(encoding="utf-8"))

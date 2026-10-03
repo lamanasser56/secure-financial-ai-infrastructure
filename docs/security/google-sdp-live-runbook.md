@@ -29,6 +29,28 @@ After gates 1 and 2, dispatch the workflow on main with the reviewed full commit
 
 If registry scanning or signing fails after push, quarantine or remove the unsigned digest and its tag using a separately authorized cleanup process. Do not deploy it. Review CISA KEV and vulnerability database timestamps at release time. Retain only approved sanitized evidence for the approved retention period. No access token, OIDC token, request text, provider response text, or raw fixture output belongs in an artifact.
 
+### Docker archive export and repaired-source gate
+
+Both release jobs initialize an explicit `docker-container` builder with Buildx
+`0.30.1` and the qualified BuildKit `0.33.1` image pinned by digest. The build
+script requires `BUILDX_BUILDER`, inspects that named builder before export,
+rejects other drivers and passes the name to every archive build. Builds request
+no insecure entitlements. Explicit daemon flags suppress the setup action's
+`security.insecure` default. Buildx `0.30.1` itself adds `network.host` for its
+isolated container driver; this does not enable host networking in the Job.
+Local qualification must reproduce the actual
+Docker archive export, load, inspection and image configuration in two separate
+builder caches, then regenerate SBOM, Trivy and policy evidence for that source.
+The Dockerfile, runtime and dependencies remain unchanged by this builder repair.
+
+The deployed WIF condition also pins the approved source commit. A repaired
+commit requires a reviewed exact source-pin update before release; a builder
+repair alone does not authorize changing WIF or any IAM binding. Preserve all
+other trust conditions, the qualification-before-authentication order and the
+image-configuration equality checks. A different configuration blocks release
+pending evidence review. Never substitute a previous scan for a new build or
+assume the local configuration digest equals a registry manifest digest.
+
 ## GKE execution and containment
 
 The existing Calico cluster remains unchanged. The proposed target is the dedicated [native evaluation cluster](../../infra/gcp/google-sdp-evaluation-cluster/README.md), with Dataplane V2, kube-dns without NodeLocal and GKE metadata at `169.254.169.254:80`. Its dedicated node GSA receives repository reader rights independently of the runtime KSA/GSA binding. No existing MASAR node identity is granted evaluation registry access.

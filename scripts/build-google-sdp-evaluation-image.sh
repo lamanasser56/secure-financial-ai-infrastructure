@@ -21,6 +21,14 @@ command -v docker >/dev/null 2>&1 || fail 'Docker is required'
 command -v python3 >/dev/null 2>&1 || fail 'Python 3 is required'
 command -v tar >/dev/null 2>&1 || fail 'tar is required'
 docker buildx version >/dev/null 2>&1 || fail 'Docker Buildx is required'
+buildx_builder=${BUILDX_BUILDER:-}
+[[ "$buildx_builder" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] \
+  || fail 'BUILDX_BUILDER must explicitly name the qualified docker-container builder'
+buildx_inspection=$(docker buildx inspect "$buildx_builder" --bootstrap) \
+  || fail 'selected Buildx builder cannot be inspected'
+buildx_driver=$(printf '%s\n' "$buildx_inspection" | sed -n 's/^Driver:[[:space:]]*\([a-z-]*\)[[:space:]]*$/\1/p')
+[[ "$buildx_driver" == docker-container ]] \
+  || fail 'Docker archive export requires the docker-container driver'
 
 python3 - "$candidate_record" "$dockerfile" "$builder_ref" "$runtime_ref" <<'PY' \
   || fail 'candidate record or Dockerfile is not immutable and internally consistent'
@@ -84,6 +92,7 @@ cleanup() {
 trap cleanup EXIT
 
 SOURCE_DATE_EPOCH=0 DOCKER_BUILDKIT=1 docker buildx build \
+  --builder "$buildx_builder" \
   --build-arg SOURCE_DATE_EPOCH=0 \
   --platform linux/amd64 \
   --output "type=docker,dest=$temporary_directory/image.tar,rewrite-timestamp=true" \
@@ -127,3 +136,4 @@ printf 'Image tag: %s\nImage ID: %s\n' "$image_tag" "$image_id"
 printf 'Image configuration ID: %s\n' "$image_config_id"
 printf 'RepoDigest: %s\nRuntime UID:GID: %s\n' "${image_digest:-unavailable}" "$runtime_user"
 printf 'Offline synthetic validation: PASS (network disabled)\n'
+printf 'Buildx builder: %s\nBuildx driver: %s\n' "$buildx_builder" "$buildx_driver"
