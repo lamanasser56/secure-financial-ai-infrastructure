@@ -44,6 +44,16 @@ def validate(root=ROOT):
     require(not re.search(r'(?m)^\s*bucket\s*=', tf["backend.tf"]), "no committed backend bucket")
     require('version = "= 8.5.0"' in tf["versions.tf"] and 'version     = "8.5.0"' in (module / ".terraform.lock.hcl").read_text(), "existing provider lock")
     require((module / ".terraform.lock.hcl").read_bytes() == (root / "infra/gcp/google-sdp-evaluation/.terraform.lock.hcl").read_bytes(), "same qualified Google provider")
+    def resource_source(kind):
+        match = re.search(rf'(?ms)^resource "{kind}" "evaluation" \{{(.*?)(?=^resource |\Z)', tf["cluster.tf"])
+        require(match is not None, f"missing resource: {kind}")
+        return match.group(1)
+
+    cluster = resource_source("google_container_cluster")
+    pool = resource_source("google_container_node_pool")
+    require(not re.search(r'(?m)^\s*node_version\s*=', cluster), "removed default pool must not set cluster-level node_version")
+    require(re.search(r'(?m)^\s*min_master_version\s*=\s*var.gke_version\s*$', cluster), "approved control-plane version")
+    require(re.search(r'(?m)^\s*version\s*=\s*var.gke_version\s*$', pool), "explicit approved managed node-pool version")
     for field, value in (
         ("datapath_provider", '"ADVANCED_DATAPATH"'), ("enable_fqdn_network_policy", "true"),
         ("networking_mode", '"VPC_NATIVE"'), ("cluster_dns", '"KUBE_DNS"'),

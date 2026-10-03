@@ -116,6 +116,28 @@ class NativeExecutionTests(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         CONTRACT.validate(root)
 
+    def test_removed_default_pool_and_version_scopes_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(ROOT / "evaluation", root / "evaluation")
+            shutil.copytree(ROOT / "infra", root / "infra", ignore=shutil.ignore_patterns(".terraform"))
+            path = root / "infra/gcp/google-sdp-evaluation-cluster/cluster.tf"
+            original = path.read_text()
+            cluster, pool = original.split('resource "google_container_node_pool" "evaluation"', 1)
+            cases = {
+                "conflicting_default_version": cluster.replace("initial_node_count       = 1", "initial_node_count       = 1\n  node_version = var.gke_version") + 'resource "google_container_node_pool" "evaluation"' + pool,
+                "keep_default_pool": original.replace("remove_default_node_pool = true", "remove_default_node_pool = false"),
+                "missing_pool_version": cluster + 'resource "google_container_node_pool" "evaluation"' + pool.replace("  version    = var.gke_version\n", ""),
+                "unapproved_pool_version": cluster + 'resource "google_container_node_pool" "evaluation"' + pool.replace("version    = var.gke_version", 'version    = "unapproved"'),
+                "missing_master_version": cluster.replace("  min_master_version         = var.gke_version\n", "") + 'resource "google_container_node_pool" "evaluation"' + pool,
+                "unapproved_master_version": original.replace("min_master_version         = var.gke_version", 'min_master_version         = "unapproved"'),
+            }
+            for name, source in cases.items():
+                with self.subTest(name=name):
+                    path.write_text(source)
+                    with self.assertRaises(ValueError):
+                        CONTRACT.validate(root)
+
     def test_preflight_has_no_default_network_execution(self):
         with patch.object(PROBE, "observe", side_effect=AssertionError("network forbidden")), contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertEqual(PROBE.main([], {}), 2)

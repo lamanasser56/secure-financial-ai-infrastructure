@@ -155,7 +155,9 @@ resource "google_container_cluster" "evaluation" {
   }
   remove_default_node_pool = true
   initial_node_count       = 1
-  node_version             = var.gke_version
+  # Provider 8.5.0 rejects node_version when removing the default pool.
+  # The separately managed pool below pins its version; min_master_version
+  # above selects the approved control-plane version for initial creation.
   node_config {
     machine_type    = "e2-standard-2"
     disk_size_gb    = 20

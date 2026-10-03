@@ -16,6 +16,25 @@ The dedicated node GSA has the officially documented minimum [Kubernetes Engine 
 
 The qualified Google provider 8.5.0 binary's offline schema includes `enable_fqdn_network_policy`; it is explicitly set in Terraform. No beta provider, provider upgrade or imperative enablement workaround is needed. The cluster uses `ADVANCED_DATAPATH`, IPv4, standard kube-dns, no NodeLocal cache and no Cloud Service Mesh. Dataplane V2 already enforces NetworkPolicy; do not also configure Calico enforcement. The exact GKE 1.35 REGULAR-channel version is supplied from the private reviewed inventory, never guessed or committed as an environment value.
 
+### Version scopes and provider contract
+
+Keep `remove_default_node_pool=true` with `initial_node_count=1`. Provider
+8.5.0 rejects cluster-level `node_version` in this configuration because that
+field controls the default pool. The root therefore omits it, preserves
+`min_master_version=var.gke_version` for initial control-plane creation and
+pins the separate managed pool through its own `version=var.gke_version`.
+Inspect the temporary default pool's behavior and actual versions during
+creation; static validation does not prove the cloud API accepts every setting.
+See the [locked provider implementation](https://github.com/hashicorp/terraform-provider-google/blob/v8.5.0/google/services/container/resource_container_cluster.go).
+
+Record the reviewed infrastructure commit separately from image provenance.
+An infrastructure-only repair reuses a previously verified exact registry
+digest and signature whose workflow/source identity remains the image release
+commit. Its signature does not sign the newer Terraform source. Reverify that
+exact image provenance before applying the reviewed cloud-backed saved plan;
+do not move the release WIF source pin or dispatch another release solely for
+an infrastructure repair. No request-selected image or region is allowed.
+
 Only the IAM-authenticated DNS control-plane endpoint admits external operator traffic. Both IP-based endpoints and Kubernetes token/certificate authentication over DNS are disabled. Private nodes, shielded nodes, secure boot, integrity monitoring and GKE metadata mode are explicit. Cloud Shell can use the [DNS endpoint](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/latest/network-isolation); no Pod Kubernetes RBAC is granted. System/workload logs and system metrics remain enabled; managed Prometheus and unnecessary workload add-ons are disabled. Sampled VPC flow logs and NAT error logs complement the separately scoped NetworkLogging policy.
 
 ## Validation and state
