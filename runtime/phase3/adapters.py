@@ -50,6 +50,11 @@ _OUTPUT_INSTRUCTION = (
 )
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 def _post_json(
     url: str, payload: dict[str, Any], timeout: float, headers: dict[str, str] | None = None
 ) -> Any:
@@ -60,10 +65,14 @@ def _post_json(
         method="POST",
         headers={"Content-Type": "application/json", **(headers or {})},
     )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
+    with opener.open(request, timeout=timeout) as response:
         if response.status != 200:
             raise RuntimeError(f"unexpected status {response.status}")
-        return json.loads(response.read().decode("utf-8"))
+        raw = response.read(65_537)
+        if len(raw) > 65_536:
+            raise ValueError("http:response_too_large")
+        return json.loads(raw.decode("utf-8"))
 
 
 def _project_analyzer_result(raw_item: Any) -> dict[str, Any]:

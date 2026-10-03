@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "tools": [
+    {
+      "id": "read_ci_summary",
+      "name": "Read Ci Summary",
+      "description": "Read bounded sanitized synthetic fixture evidence through a server-owned context and a closed input/output contract.",
+      "version": "1.0.0",
+      "owner": "AI Infrastructure portfolio contributor",
+      "enabled": true,
+      "risk_classification": "low_risk_read",
+      "operation_type": "read",
+      "input_schema_ref": "contracts/agents/read_ci_summary.input.schema.json",
+      "output_schema_ref": "contracts/agents/read_ci_summary.output.schema.json",
+      "authorization": {
+        "required_action": "diagnostics.ci"
+      },
+      "approval": {
+        "required": false,
+        "extension_point_ref": null
+      },
+      "audit_classification": "standard",
+      "source_system": "internal",
+      "execution_boundary": {
+        "timeout_seconds": 2,
+        "max_calls_per_turn": 1
+      }
+    },
+    {
+      "id": "read_image_summary",
+      "name": "Read Image Summary",
+      "description": "Read bounded sanitized synthetic fixture evidence through a server-owned context and a closed input/output contract.",
+      "version": "1.0.0",
+      "owner": "AI Infrastructure portfolio contributor",
+      "enabled": true,
+      "risk_classification": "low_risk_read",
+      "operation_type": "read",
+      "input_schema_ref": "contracts/agents/read_image_summary.input.schema.json",
+      "output_schema_ref": "contracts/agents/read_image_summary.output.schema.json",
+      "authorization": {
+        "required_action": "diagnostics.image"
+      },
+      "approval": {
+        "required": false,
+        "extension_point_ref": null
+      },
+      "audit_classification": "standard",
+      "source_system": "internal",
+      "execution_boundary": {
+        "timeout_seconds": 2,
+        "max_calls_per_turn": 1
+      }
+    },
+    {
+      "id": "read_runbook_section",
+      "name": "Read Runbook Section",
+      "description": "Read bounded sanitized synthetic fixture evidence through a server-owned context and a closed input/output contract.",
+      "version": "1.0.0",
+      "owner": "AI Infrastructure portfolio contributor",
+      "enabled": true,
+      "risk_classification": "low_risk_read",
+      "operation_type": "read",
+      "input_schema_ref": "contracts/agents/read_runbook_section.input.schema.json",
+      "output_schema_ref": "contracts/agents/read_runbook_section.output.schema.json",
+      "authorization": {
+        "required_action": "diagnostics.runbook"
+      },
+      "approval": {
+        "required": false,
+        "extension_point_ref": null
+      },
+      "audit_classification": "standard",
+      "source_system": "internal",
+      "execution_boundary": {
+        "timeout_seconds": 2,
+        "max_calls_per_turn": 1
+      }
+    },
+    {
+      "id": "expense_summary",
+      "name": "Expense Summary",
+      "description": "Read bounded sanitized synthetic fixture evidence through a server-owned context and a closed input/output contract.",
+      "version": "1.0.0",
+      "owner": "AI Infrastructure portfolio contributor",
+      "enabled": true,
+      "risk_classification": "sensitive_financial_read",
+      "operation_type": "read",
+      "input_schema_ref": "contracts/agents/expense_summary.input.schema.json",
+      "output_schema_ref": "contracts/agents/expense_summary.output.schema.json",
+      "authorization": {
+        "required_action": "expenses.summary"
+      },
+      "approval": {
+        "required": false,
+        "extension_point_ref": null
+      },
+      "audit_classification": "sensitive",
+      "source_system": "internal",
+      "execution_boundary": {
+        "timeout_seconds": 2,
+        "max_calls_per_turn": 1
+      }
+    },
+    {
+      "id": "expense_categories",
+      "name": "Expense Categories",
+      "description": "Read bounded sanitized synthetic fixture evidence through a server-owned context and a closed input/output contract.",
+      "version": "1.0.0",
+      "owner": "AI Infrastructure portfolio contributor",
+      "enabled": true,
+      "risk_classification": "sensitive_financial_read",
+      "operation_type": "read",
+      "input_schema_ref": "contracts/agents/expense_categories.input.schema.json",
+      "output_schema_ref": "contracts/agents/expense_categories.output.schema.json",
+      "authorization": {
+        "required_action": "expenses.categories"
+      },
+      "approval": {
+        "required": false,
+        "extension_point_ref": null
+      },
+      "audit_classification": "sensitive",
+      "source_system": "internal",
+      "execution_boundary": {
+        "timeout_seconds": 2,
+        "max_calls_per_turn": 1
+      }
+    }
+  ]
+}

@@ -14,16 +14,21 @@ policy against real tool arguments below.
 
 This module executes no tool, calls no external system, and takes no
 financial action. validate_tool_invocation() stops at Structured Input
-Validation. The Agent Policy Engine extension, Presidio/redaction, LiteLLM,
-external-provider execution, and a real coordinator invoking any of this
-end-to-end are Phase 4C/Phase 5 work and do not exist in this repository.
+Validation. The bounded synthetic coordinator in runtime/agents/core.py
+composes the separate governance boundary before dispatching its read-only
+demo handlers. This module itself grants no execution authority.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from functools import partial
 from typing import Any
+
+from runtime.agents.schemas import (
+    TOOL_IDS, bound_metadata, validate as validate_agent_schema,
+)
 
 from runtime.phase3.trusted_runtime import (
     Authenticator,
@@ -155,9 +160,18 @@ def validate_example_get_cash_position_output(value: Any) -> dict[str, Any]:
 # unvalidated data.
 ARGUMENT_VALIDATORS = {"example_get_cash_position": _validate_example_get_cash_position_arguments}
 OUTPUT_VALIDATORS = {"example_get_cash_position": validate_example_get_cash_position_output}
+ARGUMENT_VALIDATORS.update({
+    tool: partial(validate_agent_schema, f"{tool}.input") for tool in TOOL_IDS
+})
+OUTPUT_VALIDATORS.update({
+    tool: partial(
+        validate_agent_schema, f"{tool}.output", stage="structured_output_validation"
+    ) for tool in TOOL_IDS
+})
 
 
 def _validate_tool_arguments(tool: ToolMetadata, arguments: dict[str, Any]) -> dict[str, Any]:
+    bound_metadata(tool)
     validator = ARGUMENT_VALIDATORS.get(tool.id)
     if validator is None:
         raise ControlFailure("structured_input_validation", "argument_schema_mismatch")
@@ -346,6 +360,7 @@ def build_validated_success_response(request_id: str, tool: ToolMetadata, raw_re
     ):
         raise ControlFailure("structured_output_validation", "output_schema_mismatch")
     validator = OUTPUT_VALIDATORS.get(tool.id)
+    bound_metadata(tool, "structured_output_validation")
     if validator is None:
         raise ControlFailure("structured_output_validation", "output_schema_mismatch")
     validated_result = validator(raw_result)

@@ -1,0 +1,18 @@
+{
+  "synthetic": true,
+  "source_id": "approved-demo-runbook-v1",
+  "sections": {
+    "archive-export": {
+      "repair": "Select a qualified docker-container builder explicitly; verify its driver before exporting the Docker archive.",
+      "limitations": "Suggestion only. Reproduce the real archive build, load, inspection and deterministic configuration before publication."
+    },
+    "docker-config": {
+      "repair": "Initialize and validate the shared private Docker configuration before Buildx uses it; remove credentials before preserving builder metadata for post cleanup.",
+      "limitations": "Suggestion only. Test existing/absent directories and failure cleanup; do not erase unknown files or print credentials."
+    },
+    "cluster-version": {
+      "repair": "Omit cluster-level node_version while removing the default pool; preserve min_master_version and set version on the separate managed pool.",
+      "limitations": "Suggestion only. Use the locked provider and review a real saved plan; do not upgrade providers or weaken controls."
+    }
+  }
+}

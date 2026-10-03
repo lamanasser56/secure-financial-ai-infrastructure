@@ -1,0 +1,21 @@
+{
+  "synthetic": true,
+  "source_id": "synthetic-ci-v1",
+  "scenarios": {
+    "archive-export": {
+      "failure": "Docker archive export failed with the selected builder driver.",
+      "observation": "Synthetic log: driver=docker; docker exporter is unavailable for this driver.",
+      "unverified": "Registry authentication, publication and signature were not exercised by this fixture."
+    },
+    "docker-config": {
+      "failure": "Registry login initialization stopped after Buildx created the configuration directory.",
+      "observation": "Synthetic log: a late mkdir encountered existing private Buildx metadata.",
+      "unverified": "This fixture does not describe current cloud state or reveal registry credentials."
+    },
+    "cluster-version": {
+      "failure": "Terraform cluster planning rejected default-pool node_version.",
+      "observation": "Synthetic log: remove_default_node_pool=true conflicts with cluster-level node_version.",
+      "unverified": "A static configuration repair does not prove a real cloud plan or apply will succeed."
+    }
+  }
+}

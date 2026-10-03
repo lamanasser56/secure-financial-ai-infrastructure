@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "tool"
+        },
+        "tool_id": {
+          "enum": [
+            "expense_categories",
+            "expense_summary",
+            "read_ci_summary",
+            "read_image_summary",
+            "read_runbook_section"
+          ]
+        },
+        "arguments": {
+          "type": "object",
+          "maxProperties": 2
+        }
+      },
+      "required": [
+        "kind",
+        "tool_id",
+        "arguments"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "final"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 600
+        },
+        "observed_failure": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 350
+        },
+        "suspected_cause": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 350
+        },
+        "proposed_repair": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 350
+        },
+        "limitations": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 350
+        },
+        "period": {
+          "const": null
+        },
+        "evidence_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "agent": {
+          "const": "infrastructure"
+        }
+      },
+      "required": [
+        "kind",
+        "summary",
+        "observed_failure",
+        "suspected_cause",
+        "proposed_repair",
+        "limitations",
+        "period",
+        "evidence_ids",
+        "agent"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "final"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 600
+        },
+        "limitations": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 350
+        },
+        "period": {
+          "type": "string",
+          "pattern": "^20[0-9]{2}-(0[1-9]|1[0-2])$",
+          "minLength": 7,
+          "maxLength": 7
+        },
+        "evidence_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "agent": {
+          "const": "financial"
+        }
+      },
+      "required": [
+        "kind",
+        "summary",
+        "limitations",
+        "period",
+        "evidence_ids",
+        "agent"
+      ]
+    }
+  ]
+}

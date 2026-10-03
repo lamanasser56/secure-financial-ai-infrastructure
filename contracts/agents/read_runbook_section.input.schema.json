@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "section_id": {
+      "enum": [
+        "archive-export",
+        "docker-config",
+        "cluster-version"
+      ]
+    }
+  },
+  "required": [
+    "section_id"
+  ]
+}

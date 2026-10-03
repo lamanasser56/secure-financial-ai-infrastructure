@@ -19,6 +19,8 @@ Application-owned identity and tenant adapters
 
 ### Implemented
 
+- Two bounded read-only [demo agents](docs/agents/README.md), shared canonical runtime/governance composition, separate tenant/profile controls, offline CLIs and a private Arabic RTL/English UI. Authentication, model responses and Presidio service doubles are explicitly simulated; no live provider result is claimed.
+
 - Python reference runtime with ordered, fail-closed controls, Presidio and LiteLLM HTTP adapters, sanitized trace envelopes, and synthetic qualification tests.
 - Tool registry, invocation, policy, prompt-injection assessment, approval verification, and audit-event contracts. The governance coordinator produces an eligible invocation; it does not execute a product tool.
 - JSON Schema and OpenAPI contracts for runtime and tool boundaries.
@@ -36,6 +38,8 @@ Application-owned identity and tenant adapters
 
 ### Integration-dependent
 
+- Live demo-agent identity, real Presidio qualification and scoped LiteLLM/Gemini integration require the separate [live integration gates](docs/agents/live-integration.md). No live model call or provider credential is enabled by the demo.
+
 - A product-owned authenticator, tenant resolver, authorizer, tool executor, and audit sink must be supplied and tested against a real application. The included mocks are only synthetic test fixtures. Product-table RLS coverage must be qualified separately against the authoritative schema.
 - Set an approved provider model, GCP project, region, and Workload Identity binding; inject the LiteLLM master key from an external secret manager. The placeholders deliberately block direct deployment.
 - Requalify image digests and vulnerability state, CNI NetworkPolicy behavior, DNS and egress, namespace quota, probes, monitoring access, and cluster audit configuration in the target environment.
@@ -47,6 +51,8 @@ Application-owned identity and tenant adapters
 | --- | --- |
 | `runtime/phase3/` | Trusted AI path and HTTP adapters |
 | `runtime/phase4/` | Governed tool contracts and audit boundary |
+| `runtime/agents/` | Bounded shared agent coordinator and offline entry points |
+| `demo/` | Own synthetic fixtures and private UI assets |
 | `contracts/` | JSON Schema and OpenAPI definitions |
 | `tests/` | Synthetic runtime and governance qualification |
 | `kubernetes/` | Namespaced security and AI service templates |
@@ -72,6 +78,16 @@ bash scripts/scan-secrets.sh  # requires Gitleaks 8.30.1
 ```
 
 The tests use synthetic fixtures and local loopback HTTP servers. They do not need cloud credentials or a running Kubernetes cluster. To run the live RLS behavior checks, provide a disposable PostgreSQL database named `portfolio_rls_test` through `PORTFOLIO_TEST_DATABASE_URL` and install `psql`; `scripts/check.sh` runs them automatically when both are available. The [supply-chain qualification](docs/supply-chain.md) requires pinned scanners and network access. Rendering manifests does not configure Workload Identity or authorize deployment; see [Operations](docs/operations.md).
+
+## Private agent demonstration
+
+```bash
+python3 -B scripts/diagnose-infrastructure.py --scenario archive-export
+python3 -B scripts/analyze-demo-expenses.py --period 2026-01
+python3 -B scripts/serve-demo-agents.py
+```
+
+Open `http://127.0.0.1:8765`. This is an offline synthetic simulation with simulated authentication. The server binds only to loopback; do not expose it publicly or enter real data. See the [agent guide](docs/agents/README.md) for startup identity selection, limits and evidence boundaries.
 
 ## Security and attribution
 

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Secure Agent Lab · مختبر الوكلاء</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a href="#workspace" class="skip">انتقل إلى مساحة العمل · Skip to workspace</a>
+  <main>
+    <header><div class="brand" dir="ltr">SECURE AGENT LAB <span>PRIVATE DEMO</span></div>
+      <h1>أدوات محدودة. أدلة واضحة.</h1>
+      <p dir="auto">Bounded tools. Visible evidence. A private demonstration of secure AI orchestration.</p>
+    </header>
+    <aside class="notice" aria-label="Demo limitations"><strong>محاكاة اصطناعية فقط · Offline synthetic simulation</strong>
+      <p>المصادقة محاكاة، والنتائج ليست مولدة من نموذج حي. لا توجد اتصالات سحابية أو بيانات حقيقية.</p>
+      <p dir="ltr">Simulated authentication and deterministic model responses. Presidio remains authoritative; detection here uses labelled test doubles.</p>
+    </aside>
+    <section id="workspace" aria-labelledby="workspace-title">
+      <h2 id="workspace-title">مساحة العمل · Workspace</h2>
+      <div class="tabs" role="tablist" aria-label="Agents">
+        <button type="button" role="tab" id="tab-infrastructure" aria-controls="panel-infrastructure" aria-selected="true">البنية التحتية · Infrastructure</button>
+        <button type="button" role="tab" id="tab-financial" aria-controls="panel-financial" aria-selected="false" tabindex="-1">المصاريف · Financial</button>
+      </div>
+      <div id="panel-infrastructure" role="tabpanel" aria-labelledby="tab-infrastructure">
+        <h3>تشخيص آمن · Infrastructure diagnostics</h3>
+        <p>اقرأ أدلة اصطناعية معتمدة، ثم اقترح إصلاحًا. لا تُنفذ أي أوامر.</p>
+        <label for="scenario">سيناريو اصطناعي · Synthetic scenario</label>
+        <select id="scenario">
+          <option value="archive-export">تصدير الصورة · Docker archive export</option>
+          <option value="docker-config">دورة إعداد Docker · Configuration lifecycle</option>
+          <option value="cluster-version">عقد إصدار GKE · Cluster version contract</option>
+        </select>
+      </div>
+      <div id="panel-financial" role="tabpanel" aria-labelledby="tab-financial" hidden>
+        <h3>تحليل مصاريف اصطناعية · Synthetic expenses</h3>
+        <p>السياق الخاص بالمستأجر يحدده الخادم. الحسابات والأرصدة تحسبها الأدوات.</p>
+        <label for="period">فترة التقرير · Reporting month</label>
+        <input id="period" type="month" value="2026-01" min="2000-01" max="2099-12">
+        <p class="muted">اترك الفترة فارغة لطلب توضيح · Clear the month to request clarification.</p>
+      </div>
+      <div class="controls"><label for="language">لغة الطلب · Request language</label>
+        <select id="language"><option value="ar">العربية</option><option value="en">English</option></select>
+        <button id="run" type="button" class="primary" disabled>تشغيل المحاكاة · Run simulation</button>
+      </div>
+    </section>
+    <p id="status" role="status" aria-live="polite">جارٍ تحميل العرض الخاص · Loading private demo…</p>
+    <section class="result" aria-labelledby="result-title" hidden id="result">
+      <div class="result-heading"><h2 id="result-title">النتيجة والأدلة · Result & evidence</h2><span id="badge"></span></div>
+      <div id="answer" dir="auto"></div>
+      <h3>حقائق الأدوات · Deterministic tool facts</h3><pre id="facts" dir="ltr"></pre>
+      <details><summary>تتبع التدقيق المنقح · Sanitized audit trace</summary><pre id="audit" dir="ltr"></pre></details>
+      <p class="muted">النص النموذجي غير موثوق؛ راجع حقائق الأدوات والأدلة · Model text is untrusted; review the cited tool facts.</p>
+    </section>
+    <footer dir="auto">Read-only tools · Four model requests maximum · No retries · Synthetic data only</footer>
+  </main>
+</body>
+</html>

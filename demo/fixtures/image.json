@@ -1,0 +1,8 @@
+{
+  "source_id": "synthetic-image-v1",
+  "synthetic": true,
+  "status": "qualified_fixture",
+  "high": 0,
+  "critical": 0,
+  "limitations": "Invented qualification summary for offline demonstration; no current digest, scan or signature assertion."
+}

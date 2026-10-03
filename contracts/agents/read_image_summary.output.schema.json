@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "source_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "synthetic": {
+      "const": true
+    },
+    "status": {
+      "enum": [
+        "qualified_fixture"
+      ]
+    },
+    "high": {
+      "const": 0
+    },
+    "critical": {
+      "const": 0
+    },
+    "limitations": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 600
+    }
+  },
+  "required": [
+    "source_id",
+    "synthetic",
+    "status",
+    "high",
+    "critical",
+    "limitations"
+  ]
+}

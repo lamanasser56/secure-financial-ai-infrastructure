@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Protocol
 
-from runtime.phase3.trusted_runtime import ControlFailure
+from runtime.phase3.trusted_runtime import ControlFailure, PolicyDecision
 from runtime.phase4.tool_registry import ToolMetadata
 
 
@@ -46,6 +46,45 @@ class ToolPolicyDecision:
 
 class ToolPolicyEngine(Protocol):
     def evaluate(self, policy_input: ToolPolicyInput) -> ToolPolicyDecision: ...
+
+
+class ReadOnlyAgentPolicy:
+    """Concrete profile for the existing Phase 3/4 interfaces, not a new engine.
+
+    Tool identity/action/risk come from the canonical registry. Writes and
+    approval-required operations are denied by this bounded demo profile.
+    """
+
+    def __init__(self, tools: dict[str, ToolMetadata]):
+        self.tools = dict(tools)
+
+    def evaluate(self, request):
+        if isinstance(request, ToolPolicyInput):
+            tool = self.tools.get(request.tool_id)
+            allowed = (
+                tool is not None
+                and tool.enabled
+                and tool.operation_type.value == "read"
+                and not tool.approval.required
+                and not request.registry_requires_approval
+                and request.tool_version == tool.version
+                and request.required_action == tool.authorization.required_action
+                and request.risk_classification == tool.risk_classification.value
+            )
+            return ToolPolicyDecision(
+                PolicyOutcome.ALLOW if allowed else PolicyOutcome.DENY,
+                "engine_allowed" if allowed else "engine_denied",
+            )
+        allowed = (
+            isinstance(request, dict)
+            and set(request) == {"action", "message_length", "response_format", "redaction_required"}
+            and request["action"] == "chat.complete"
+            and type(request["message_length"]) is int
+            and 1 <= request["message_length"] <= 4000
+            and request["response_format"] == "json"
+            and request["redaction_required"] is True
+        )
+        return PolicyDecision(allowed, "phase3_chat_allowed" if allowed else "engine_denied")
 
 
 def validate_policy_decision(

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "source_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "synthetic": {
+      "const": true
+    },
+    "period": {
+      "type": "string",
+      "pattern": "^20[0-9]{2}-(0[1-9]|1[0-2])$",
+      "minLength": 7,
+      "maxLength": 7
+    },
+    "currency": {
+      "const": "SAR"
+    },
+    "total_minor_units": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100000000
+    },
+    "expense_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 20
+    }
+  },
+  "required": [
+    "source_id",
+    "synthetic",
+    "period",
+    "currency",
+    "total_minor_units",
+    "expense_count"
+  ]
+}

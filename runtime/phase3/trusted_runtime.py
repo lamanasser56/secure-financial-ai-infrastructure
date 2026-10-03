@@ -87,6 +87,7 @@ class PolicyDecision:
 class GatewayResult:
     output: Any
     provider_called: bool
+    execution_mode: str = "live"
 
 
 @dataclass(frozen=True)
@@ -188,6 +189,21 @@ def _contains_tenant_key(value: Any) -> bool:
     return False
 
 
+def redact_checked(redactor: RedactorClient, text: str) -> RedactionResult:
+    """Reuse the authoritative redactor and its closed result/failure contract."""
+    redaction = _call_redactor(redactor, text)
+    if (
+        type(redaction) is not RedactionResult
+        or not isinstance(redaction.text, str)
+        or not redaction.text.strip()
+        or not _valid_categories(redaction.categories)
+    ):
+        raise ControlFailure("presidio_anonymizer", "malformed_result")
+    if redaction.categories and redaction.text == text:
+        raise ControlFailure("presidio_anonymizer", "incomplete_redaction")
+    return redaction
+
+
 def is_valid_tenant_ref(value: Any) -> bool:
     """Accept only an already-created pseudonymous tenant reference."""
     return isinstance(value, str) and TENANT_REF_PATTERN.fullmatch(value) is not None
@@ -231,7 +247,11 @@ class TrustedRuntime:
         redactor: RedactorClient,
         gateway: GatewayClient,
         trace_sink: TraceSink,
+        *,
+        allow_offline_simulation: bool = False,
     ):
+        if type(allow_offline_simulation) is not bool:
+            raise ValueError("runtime:invalid_configuration")
         self.authenticator = authenticator
         self.tenant_resolver = tenant_resolver
         self.authorizer = authorizer
@@ -239,6 +259,7 @@ class TrustedRuntime:
         self.redactor = redactor
         self.gateway = gateway
         self.trace_sink = trace_sink
+        self.allow_offline_simulation = allow_offline_simulation
 
     def execute(
         self, authorization: str, body: Any, correlation_id: str
@@ -296,16 +317,7 @@ class TrustedRuntime:
             # Preserve the existing trace stages while the concrete redactor
             # owns its internal analyzer/anonymizer sequence.
             stage = "presidio_anonymizer"
-            redaction = _call_redactor(self.redactor, validated.message)
-            if (
-                type(redaction) is not RedactionResult
-                or not isinstance(redaction.text, str)
-                or not redaction.text.strip()
-                or not _valid_categories(redaction.categories)
-            ):
-                raise ControlFailure(stage, "malformed_result")
-            if redaction.categories and redaction.text == validated.message:
-                raise ControlFailure(stage, "incomplete_redaction")
+            redaction = redact_checked(self.redactor, validated.message)
             categories = list(redaction.categories)
             redacted = redaction.text
 
@@ -318,9 +330,20 @@ class TrustedRuntime:
                     {"correlation_id": correlation_id, "tenant_ref": tenant.tenant_ref},
                 ),
             )
-            if not isinstance(gateway_result, GatewayResult) or gateway_result.provider_called is not True:
+            if not isinstance(gateway_result, GatewayResult):
                 raise ControlFailure(stage, "malformed_result")
-            provider_called = True
+            live = (
+                gateway_result.execution_mode == "live"
+                and gateway_result.provider_called is True
+            )
+            simulated = (
+                self.allow_offline_simulation
+                and gateway_result.execution_mode == "offline_simulation"
+                and gateway_result.provider_called is False
+            )
+            if not (live or simulated):
+                raise ControlFailure(stage, "malformed_result")
+            provider_called = gateway_result.provider_called
 
             stage = "structured_output_validation"
             output = validate_output(gateway_result.output)
