@@ -12,7 +12,7 @@ const states = {
   financial: {id: null, records: [], budget: null, draft: ''}
 };
 const tabs = [byId('tab-infrastructure'), byId('tab-financial')];
-const technical = /\x60[^\x60]{1,240}\x60|https?:\/\/[^\s<>]{1,240}|SAR [0-9]+\.[0-9]{2}|[A-Za-z0-9][A-Za-z0-9_./:@=+-]*/g;
+const technical = /\x60[^\x60]{1,240}\x60|https?:\/\/[^\s<>]{1,240}|SAR [0-9]+\.[0-9]{2}|[A-Za-z0-9][A-Za-z0-9_./:@=+-]*(?:[ \t]+[A-Za-z0-9][A-Za-z0-9_./:@=+-]*)*/g;
 function t(key, lang = language, values = {}) {
   const source = catalog ? catalog[lang][key] : null;
   if (typeof source !== 'string') throw new Error('Invalid localization');
@@ -221,7 +221,16 @@ function addMessage(profile, lang, role, value, frame = null) {
   node.dir = lang === 'ar' ? 'rtl' : 'ltr';
   node.append(element('h3', t(role === 'user' ? 'you' : 'assistant', lang)));
   if (frame) node.append(element('p', t(frame.response.mode === 'offline_simulation' ? 'offline' : 'live', lang), 'muted'));
-  node.append(element('p', value));
+  const paragraph = element('p', value);
+  if (role === 'user') {
+    // Input language is independent of the selected interface language.
+    // Technical bdi children do not participate in native dir=auto detection.
+    const letter = String(value).match(/\p{L}/u);
+    const arabic = letter && /\p{Script=Arabic}/u.test(letter[0]);
+    paragraph.dir = arabic ? 'rtl' : 'ltr';
+    paragraph.lang = arabic ? 'ar' : 'en';
+  }
+  node.append(paragraph);
   const state = states[profile];
   state.records.push({language: lang, element: node, frame});
   state.records = state.records.slice(-16);
