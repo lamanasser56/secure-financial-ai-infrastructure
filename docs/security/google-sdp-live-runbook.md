@@ -51,6 +51,31 @@ image-configuration equality checks. A different configuration blocks release
 pending evidence review. Never substitute a previous scan for a new build or
 assume the local configuration digest equals a registry manifest digest.
 
+### Private registry configuration lifecycle
+
+The publish job initializes its shared `DOCKER_CONFIG` before Buildx setup.
+The configuration manager accepts an absent directory or private existing
+Buildx metadata, checks ownership and a `0700` root, and requires a `0600`
+authentication file. It rejects symlinks, hard links, special files, unexpected
+top-level entries, writable metadata, other registries and credential helpers.
+It never repairs or deletes an unexpected existing directory or prints its
+contents. The initial registry placeholder prevents automatic external
+credential-helper selection. Login uses `--password-stdin`; checks bracket login.
+
+The final `always()` step removes only the validated authentication file.
+Buildx metadata remains available until the pinned setup action's post step
+removes the builder. Its private noncredential directory remains on the
+ephemeral runner until runner disposal; no recursive directory deletion is
+performed. This ordering also applies after a failed push or scan. If filesystem
+validation fails, stop and investigate; do not erase unexpected files blindly.
+
+Worker qualification exercises real Docker login with dummy credentials against
+an isolated loopback registry, real archive export/load and Buildx inspection,
+and success/failure cleanup for both initially absent and Buildx-populated
+directories. Local login demonstrates configuration handling, not Google
+Artifact Registry authentication, registry publication or Cosign signing.
+Those gates require fresh evidence from the single authorized manual release.
+
 ## GKE execution and containment
 
 The existing Calico cluster remains unchanged. The proposed target is the dedicated [native evaluation cluster](../../infra/gcp/google-sdp-evaluation-cluster/README.md), with Dataplane V2, kube-dns without NodeLocal and GKE metadata at `169.254.169.254:80`. Its dedicated node GSA receives repository reader rights independently of the runtime KSA/GSA binding. No existing MASAR node identity is granted evaluation registry access.

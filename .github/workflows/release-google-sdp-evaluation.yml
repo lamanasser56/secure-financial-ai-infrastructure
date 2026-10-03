@@ -155,6 +155,9 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
+      - name: Initialize private Docker configuration before Buildx
+        shell: bash
+        run: python -B scripts/google-sdp-docker-config.py init "$DOCKER_CONFIG"
       - name: Initialize qualified Docker archive builder
         id: buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
@@ -222,8 +225,9 @@ jobs:
           if repo.get('format') != 'DOCKER' or repo.get('mode') != 'STANDARD_REPOSITORY' or repo.get('dockerConfig', {}).get('immutableTags') is not True:
               raise SystemExit('existing Docker repository must enforce immutable tags')
           PY
-          mkdir -m 700 "$DOCKER_CONFIG"
+          python -B scripts/google-sdp-docker-config.py check "$DOCKER_CONFIG"
           printf '%s' "$ACCESS_TOKEN" | docker login "https://$registry" -u oauth2accesstoken --password-stdin >/dev/null
+          python -B scripts/google-sdp-docker-config.py check "$DOCKER_CONFIG"
           local_tag=$(sed -n 's/^Image tag: //p' "$RUNNER_TEMP/local-build.txt")
           image="$registry/$PROJECT_ID/$ARTIFACT_REPOSITORY/$IMAGE_NAME"
           commit_tag="$image:sha-$GITHUB_SHA"
@@ -291,4 +295,5 @@ jobs:
       - name: Remove short-lived registry authentication
         if: always()
         shell: bash
-        run: rm -rf -- "$DOCKER_CONFIG"
+        # The Buildx action removes its builder in post; retain its metadata.
+        run: python -B scripts/google-sdp-docker-config.py clear-auth "$DOCKER_CONFIG"
