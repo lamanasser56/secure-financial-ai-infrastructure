@@ -6,14 +6,14 @@ loaded only when a caller explicitly constructs a real evaluation client.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 import re
 from typing import Any, Callable
 
 from .trusted_runtime import RedactionResult
 
 
-REGION = "me-central2"
-ENDPOINT = "dlp.me-central2.rep.googleapis.com"
 RPC_TIMEOUT_SECONDS = 20
 _PROJECT_ID = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
 _INFO_TYPES = {
@@ -37,6 +37,25 @@ def _guarded(operation: Callable[[], Any]) -> Any:
     except Exception:
         pass
     raise GoogleSDPFailure()
+
+
+def _deployment() -> tuple[str, str]:
+    """Read only the committed artifact contract, never request or environment data."""
+    path = Path(__file__).resolve().parents[2] / "evaluation/google-sdp/deployment.json"
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if (
+        type(value) is not dict
+        or set(value) != {"schema_version", "region", "endpoint"}
+        or type(value["schema_version"]) is not int
+        or value["schema_version"] != 1
+        or value["region"] != "us-east1"
+        or value["endpoint"] != "dlp.us-east1.rep.googleapis.com"
+    ):
+        raise ValueError
+    return value["region"], value["endpoint"]
+
+
+REGION, ENDPOINT = _guarded(_deployment)
 
 
 def _create_client() -> Any:

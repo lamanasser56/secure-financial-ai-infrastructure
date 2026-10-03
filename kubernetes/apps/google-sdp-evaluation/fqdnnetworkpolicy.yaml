@@ -9,7 +9,7 @@ spec:
   podSelector: {}
   egress:
     - matches:
-        - name: dlp.me-central2.rep.googleapis.com
+        - name: dlp.us-east1.rep.googleapis.com
       ports:
         - protocol: TCP
           port: 443

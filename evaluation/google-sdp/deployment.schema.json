@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Trusted synthetic Google SDP deployment selection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "region",
+    "endpoint"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "region": {
+      "type": "string",
+      "const": "us-east1"
+    },
+    "endpoint": {
+      "type": "string",
+      "const": "dlp.us-east1.rep.googleapis.com"
+    }
+  }
+}

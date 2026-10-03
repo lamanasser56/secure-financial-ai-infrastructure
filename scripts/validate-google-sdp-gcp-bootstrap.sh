@@ -91,7 +91,7 @@ require("artifactregistry" not in runtime.lower() and "roles/dlp.user" not in ru
 
 variables = tf["variables.tf"]
 for name, expected in (
-    ("region", "me-central2"), ("github_owner", "lamanasser56"),
+    ("region", "us-east1"), ("github_owner", "lamanasser56"),
     ("github_repository", "secure-financial-ai-infrastructure"),
     ("github_branch", "main"), ("github_workflow", "release-google-sdp-evaluation.yml"),
     ("namespace", "google-sdp-evaluation"), ("ksa_name", "google-sdp-evaluation"),

@@ -17,7 +17,7 @@ RENDER = ROOT / "scripts/render-google-sdp-evaluation-job.sh"
 VALIDATE = ROOT / "scripts/validate-google-sdp-deployment.sh"
 PROJECT = "synthetic-eval-123"
 GSA = f"google-sdp-runtime@{PROJECT}.iam.gserviceaccount.com"
-DIGEST = f"me-central2-docker.pkg.dev/{PROJECT}/synthetic-repo/evaluation@sha256:" + "a" * 64
+DIGEST = f"us-east1-docker.pkg.dev/{PROJECT}/synthetic-repo/evaluation@sha256:" + "a" * 64
 
 
 def render(project=PROJECT, gsa=GSA, digest=DIGEST):
@@ -66,7 +66,7 @@ class DeploymentContractTests(unittest.TestCase):
         self.assertEqual(text.count('[[ "$GITHUB_RUN_ATTEMPT" == 1 ]]'), 2)
         self.assertIn("workload_identity_provider:", text)
         self.assertNotRegex(text, r"credentials_json:|service_account_key|kubectl apply|gcloud compute|--push\b|dlp\.projects")
-        self.assertIn("me-central2", text)
+        self.assertIn("us-east1", text)
 
     def test_render_exact_digest_and_cleanup(self):
         result = render()
@@ -92,7 +92,8 @@ class DeploymentContractTests(unittest.TestCase):
             (PROJECT, "x@example.com", DIGEST),
             (PROJECT, "sdp-evaluation@" + "other-project-123" + ".iam.gserviceaccount.com", DIGEST),
             (PROJECT, GSA, DIGEST.split("@sha256:")[0] + ":latest"),
-            (PROJECT, GSA, DIGEST.replace("me-central2-docker.pkg.dev", "us-docker.pkg.dev")),
+            (PROJECT, GSA, DIGEST.replace("us-east1-docker.pkg.dev", "us-docker.pkg.dev")),
+            (PROJECT, GSA, DIGEST.replace("us-east1-docker.pkg.dev", "me-central2-docker.pkg.dev")),
             (PROJECT, GSA, DIGEST.replace(PROJECT, "other-project-123")),
             (PROJECT, GSA, "docker.io/example/evaluation@sha256:" + "a" * 64),
             (PROJECT, GSA, "credentials.json"),
@@ -155,12 +156,12 @@ class DeploymentContractTests(unittest.TestCase):
         self.assertTrue(container["securityContext"]["readOnlyRootFilesystem"])
         self.assertNotIn("ports", container)
         self.assertEqual(docs["NetworkPolicy"]["spec"]["podSelector"], {})
-        self.assertEqual(docs["FQDNNetworkPolicy"]["spec"]["egress"], [{"matches": [{"name": "dlp.me-central2.rep.googleapis.com"}], "ports": [{"protocol": "TCP", "port": 443}]}])
+        self.assertEqual(docs["FQDNNetworkPolicy"]["spec"]["egress"], [{"matches": [{"name": "dlp.us-east1.rep.googleapis.com"}], "ports": [{"protocol": "TCP", "port": 443}]}])
         self.assertNotIn("ingress", docs["NetworkPolicy"]["spec"])
         for rule in docs["NetworkPolicy"]["spec"]["egress"]:
             self.assertIn("ports", rule)
-        self.assertEqual(docs["ConfigMap"]["data"]["region"], "me-central2")
-        self.assertEqual(docs["ConfigMap"]["data"]["endpoint"], "dlp.me-central2.rep.googleapis.com")
+        self.assertEqual(docs["ConfigMap"]["data"]["region"], "us-east1")
+        self.assertEqual(docs["ConfigMap"]["data"]["endpoint"], "dlp.us-east1.rep.googleapis.com")
 
     def test_no_project_credentials_or_mutating_commands_in_package(self):
         source = "\n".join(path.read_text() for path in PACKAGE.glob("*.yaml"))

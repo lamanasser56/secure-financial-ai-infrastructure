@@ -19,10 +19,10 @@ variable "project_number" {
 variable "region" {
   description = "Approved Artifact Registry and SDP region."
   type        = string
-  default     = "me-central2"
+  default     = "us-east1"
   validation {
-    condition     = var.region == "me-central2"
-    error_message = "Only me-central2 is approved."
+    condition     = var.region == "us-east1"
+    error_message = "Only us-east1 is approved."
   }
 }
 

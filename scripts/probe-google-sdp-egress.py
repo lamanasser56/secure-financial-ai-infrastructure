@@ -13,7 +13,7 @@ import sys
 import urllib.request
 
 
-ENDPOINT = "dlp.me-central2.rep.googleapis.com"
+ENDPOINT = "dlp.us-east1.rep.googleapis.com"
 ACK = "I_ACKNOWLEDGE_SYNTHETIC_NETWORK_PREFLIGHT"
 LIMITATIONS = ["dns_derived_ip_port_only", "shared_ip_not_hostname_isolation", "dns_names_not_restricted", "sdk_authentication_not_proven"]
 TIMEOUT = 5

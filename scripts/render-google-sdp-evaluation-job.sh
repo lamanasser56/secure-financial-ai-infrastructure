@@ -24,9 +24,9 @@ image=$3
   || fail 'invalid GSA email'
 [[ "$gsa" == *"@$project.iam.gserviceaccount.com" ]] || fail 'GSA must belong to the supplied project'
 [[ "$gsa" == "google-sdp-runtime@$project.iam.gserviceaccount.com" ]] || fail 'GSA must be the dedicated runtime identity'
-[[ "$image" =~ ^me-central2-docker\.pkg\.dev/[a-z][a-z0-9-]{4,28}[a-z0-9]/[a-z][a-z0-9-]{0,62}/[a-z][a-z0-9._-]{0,127}@sha256:[0-9a-f]{64}$ ]] \
-  || fail 'image must be a me-central2 Artifact Registry sha256 digest'
-[[ "$image" == "me-central2-docker.pkg.dev/$project/"* ]] || fail 'image project must match trusted project ID'
+[[ "$image" =~ ^us-east1-docker\.pkg\.dev/[a-z][a-z0-9-]{4,28}[a-z0-9]/[a-z][a-z0-9-]{0,62}/[a-z][a-z0-9._-]{0,127}@sha256:[0-9a-f]{64}$ ]] \
+  || fail 'image must be a us-east1 Artifact Registry sha256 digest'
+[[ "$image" == "us-east1-docker.pkg.dev/$project/"* ]] || fail 'image project must match trusted project ID'
 
 command -v python3 >/dev/null || fail 'Python 3 is required'
 python3 -c 'import yaml' >/dev/null || fail 'PyYAML is required'

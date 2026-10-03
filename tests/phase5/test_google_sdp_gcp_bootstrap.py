@@ -68,6 +68,7 @@ class GCPBootstrapContractTests(unittest.TestCase):
                 (target / "actual.tfvars").write_text('project_id = "real-project-name"\n')
             else:
                 filename, before, after = {
+                    "unapproved_region": ("variables.tf", 'var.region == "us-east1"', 'var.region == "me-central2"'),
                     "service_key": ("github-wif.tf", 'resource "google_service_account" "release"', 'resource "google_service_account_key" "bad" {}\nresource "google_service_account" "release"'),
                     "owner_role": ("artifact-registry.tf", 'roles/artifactregistry.writer', 'roles/owner'),
                     "public_member": ("artifact-registry.tf", 'member     = "serviceAccount:${google_service_account.release.email}"', 'member     = "allUsers"'),
@@ -99,7 +100,7 @@ class GCPBootstrapContractTests(unittest.TestCase):
             "alternate_namespace", "alternate_ksa", "unrelated_api", "backend_bucket",
             "node_writer", "runtime_pull_identity", "weak_environment_trust",
             "weak_source_trust",
-            "legacy_subject",
+            "legacy_subject", "unapproved_region",
         )
         for case in cases:
             with self.subTest(case=case):

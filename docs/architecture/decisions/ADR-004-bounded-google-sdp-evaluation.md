@@ -1,6 +1,6 @@
 # ADR-004: Bounded Google SDP redaction evaluation
 
-**Status:** Accepted for evaluation only.
+**Status:** Accepted for evaluation only; regional selection superseded by [ADR-005](ADR-005-us-east1-synthetic-sdp-evaluation.md). All authority and data prohibitions remain.
 
 ## Decision
 
@@ -10,7 +10,7 @@ Google Sensitive Data Protection (Google SDP) is a candidate for a bounded, non-
 
 ## Regional and data boundary
 
-The candidate location is Dammam `me-central2`, using only the regional endpoint `dlp.me-central2.rep.googleapis.com`. A future adapter must take this endpoint from trusted deployment configuration, never from request data. Global endpoints, automatic global or cross-region fallback, silent endpoint substitution, and sending evaluation data to another region are prohibited. An unavailable or invalid regional endpoint must fail closed. The regional behavior still requires independent verification; naming an endpoint does not prove residency.
+Historical decision (superseded for active preparation): the candidate location was Dammam `me-central2`, using only the regional endpoint `dlp.me-central2.rep.googleapis.com`. A future adapter must take this endpoint from trusted deployment configuration, never from request data. Global endpoints, automatic global or cross-region fallback, silent endpoint substitution, and sending evaluation data to another region are prohibited. An unavailable or invalid regional endpoint must fail closed. The regional behavior still requires independent verification; naming an endpoint does not prove residency.
 
 Only generated synthetic text may enter a future evaluation. Customer or production data, real financial records, tenant identifiers, national IDs, Iqama numbers, commercial-registration numbers, IBANs, phone numbers, invoices, documents, uploaded customer files, images sent to Google SDP, and production OCR content are prohibited. Synthetic text may represent OCR corruption; OCR itself remains upstream. This decision does not claim regional Google SDP image or OCR processing in Dammam.
 

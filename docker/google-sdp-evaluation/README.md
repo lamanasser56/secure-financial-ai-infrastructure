@@ -1,8 +1,8 @@
 # Disabled Google SDP evaluation image
 
 This image runs only the synthetic corpus validator by default. It has no
-provider credentials, network service, production redaction route, or deployment
-manifest. A live evaluation still requires the runner's explicit `--live` mode,
+provider credentials, network service or production redaction route. Its separate
+execution package remains unapplied. A live evaluation still requires the runner's explicit `--live` mode,
 synthetic-only acknowledgment, a separately supplied trusted project identity,
 and a separate authorization. This Change Set performs none of those actions.
 
@@ -45,7 +45,7 @@ observed image-store ID, local subject and configuration digest. A fresh
 uncached build reproduced the same configuration and rootfs identities;
 registry digest equality is not assumed.
 
-For qualification, scan that exact RepoDigest with Trivy 0.72.0, generate a
+For qualification, scan the exact local image subject with Trivy 0.72.0, generate a
 CycloneDX SBOM with Syft 1.44.0, and run the existing
 [vulnerability policy evaluator](../../scripts/evaluate-container-vulnerability-policy.py)
 against the complete Trivy JSON, a current CISA KEV feed, and the empty
@@ -53,3 +53,31 @@ against the complete Trivy JSON, a current CISA KEV feed, and the empty
 [release policy](../../docs/security/container-vulnerability-release-policy.md)
 still requires provenance, signature, and same-digest promotion evidence for
 any future release. No registry publication or deployment is authorized here.
+
+## Trusted evaluation location
+
+The image includes the closed [deployment contract](../../evaluation/google-sdp/deployment.json)
+and its [schema](../../evaluation/google-sdp/deployment.schema.json). The disabled
+adapter selects only `us-east1` and `dlp.us-east1.rep.googleapis.com` at startup;
+requests and environment variables cannot select another location. Missing or
+invalid configuration fails closed before SDK construction. The build content
+key covers these files. [ADR-005](../../docs/architecture/decisions/ADR-005-us-east1-synthetic-sdp-evaluation.md)
+supersedes the historical Dammam location; its previous qualification evidence
+remains preserved outside Git and in source history. Image contents changed, so
+fresh configuration reproduction, SBOM, scan and unchanged policy evidence are
+required for this amended image. No registry digest, signature, regional live
+access, Saudi residency, SDP accuracy or Presidio cutover is proven locally.
+
+## Amended local qualification
+
+Worker-only qualification reproduced configuration digest
+`sha256:8646533e6d89a7ff58773bd77b0752d8203a94e6a838bf4b3a59b4b0769444ef`
+in a separate fresh BuildKit cache. The observed Docker image-store identity is
+`sha256:8ed226a3b5f310aa06bf02ac3fd85b5eeddd108fb2f89cf8bb14d52ae5bdd5cc`.
+The exact local policy subject uses the configuration digest; the original
+Trivy target is preserved in private evidence and only `ArtifactName` is
+relabeled for the unchanged exact-subject evaluator. SBOM contains 1363
+components; Trivy reports zero HIGH/CRITICAL, 15 MEDIUM and eight LOW, with zero
+exceptions. See [qualification hashes and scanner timestamps](candidates.json).
+The historical Dammam image/configuration/scan evidence remains preserved.
+No registry manifest digest equality, signature or live result is asserted.

@@ -51,7 +51,7 @@ jobs:
           [[ "$GITHUB_RUN_ATTEMPT" == 1 ]]
           [[ "$APPROVED_COMMIT" =~ ^[0-9a-f]{40}$ && "$APPROVED_COMMIT" == "$GITHUB_SHA" ]]
           [[ "$(git rev-parse HEAD)" == "$APPROVED_COMMIT" && -z "$(git status --porcelain)" ]]
-          [[ "$RELEASE_REGION" == me-central2 ]]
+          [[ "$RELEASE_REGION" == us-east1 ]]
           [[ "$ARTIFACT_REPOSITORY" =~ ^[a-z][a-z0-9-]{0,62}$ ]]
           [[ "$IMAGE_NAME" =~ ^[a-z][a-z0-9._-]{0,127}$ ]]
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -154,7 +154,7 @@ jobs:
           [[ "$GITHUB_REF" == refs/heads/main && "$APPROVED_COMMIT" == "$GITHUB_SHA" ]]
           [[ "$GITHUB_RUN_ATTEMPT" == 1 ]]
           [[ "$(git rev-parse HEAD)" == "$APPROVED_COMMIT" && -z "$(git status --porcelain)" ]]
-          [[ "$RELEASE_REGION" == me-central2 ]]
+          [[ "$RELEASE_REGION" == us-east1 ]]
           [[ "$ARTIFACT_REPOSITORY" =~ ^[a-z][a-z0-9-]{0,62}$ && "$IMAGE_NAME" =~ ^[a-z][a-z0-9._-]{0,127}$ ]]
           python - <<'PY' > "$RUNNER_TEMP/selected-bases"
           import json
@@ -186,8 +186,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           [[ "$PROJECT_ID" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ && -n "$ACCESS_TOKEN" ]]
-          registry=me-central2-docker.pkg.dev
-          repository_url="https://artifactregistry.googleapis.com/v1/projects/$PROJECT_ID/locations/me-central2/repositories/$ARTIFACT_REPOSITORY"
+          registry=us-east1-docker.pkg.dev
+          repository_url="https://artifactregistry.googleapis.com/v1/projects/$PROJECT_ID/locations/us-east1/repositories/$ARTIFACT_REPOSITORY"
           curl --fail --silent --show-error --header "Authorization: Bearer $ACCESS_TOKEN" "$repository_url" > "$RUNNER_TEMP/repository.json"
           python - "$RUNNER_TEMP/repository.json" <<'PY'
           import json, sys

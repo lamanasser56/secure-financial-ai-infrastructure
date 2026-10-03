@@ -13,6 +13,7 @@ import unittest
 from unittest.mock import patch
 
 import yaml
+from jsonschema import ValidationError
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -50,6 +51,36 @@ def log(ip, port, disposition):
 class NativeExecutionTests(unittest.TestCase):
     def test_current_proposed_contract_passes(self):
         CONTRACT.validate()
+        CONTRACT.validate_region()
+
+    def test_regional_amendment_rejects_drift_without_request_fallback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ("evaluation", "kubernetes", "scripts", ".github", "infra", "docker"):
+                shutil.copytree(ROOT / name, root / name, ignore=shutil.ignore_patterns(".terraform"))
+            CONTRACT.validate_region(root)
+            cases = (
+                ("evaluation/google-sdp/deployment.json", "us-east1", "me-central2"),
+                ("kubernetes/apps/google-sdp-evaluation/configmap.yaml", "us-east1", "me-central2"),
+                ("kubernetes/apps/google-sdp-evaluation/fqdnnetworkpolicy.yaml", "us-east1", "me-central2"),
+                ("scripts/probe-google-sdp-egress.py", "us-east1", "me-central2"),
+                (".github/workflows/release-google-sdp-evaluation.yml", "us-east1", "me-central2"),
+                ("infra/gcp/google-sdp-evaluation/variables.tf", "us-east1", "me-central2"),
+                ("scripts/render-google-sdp-evaluation-job.sh", "us-east1", "me-central2"),
+                ("docker/google-sdp-evaluation/Dockerfile", "deployment.json", "missing.json"),
+                ("scripts/build-google-sdp-evaluation-image.sh", "deployment.json", "missing.json"),
+            )
+            for filename, before, after in cases:
+                with self.subTest(filename=filename):
+                    path = root / filename
+                    original = path.read_text()
+                    self.assertIn(before, original)
+                    path.write_text(original.replace(before, after))
+                    try:
+                        with self.assertRaises((ValueError, ValidationError)):
+                            CONTRACT.validate_region(root)
+                    finally:
+                        path.write_text(original)
 
     def test_owner_profile_cannot_promote_itself_or_expand_authority(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -156,7 +187,7 @@ class NativeExecutionTests(unittest.TestCase):
 
     def test_preflight_render_uses_same_digest_and_readonly_reviewed_code(self):
         project = "synthetic-eval-123"
-        digest = f"me-central2-docker.pkg.dev/{project}/synthetic-repo/evaluation@sha256:" + "a" * 64
+        digest = f"us-east1-docker.pkg.dev/{project}/synthetic-repo/evaluation@sha256:" + "a" * 64
         result = subprocess.run(["bash", str(ROOT / "scripts/render-google-sdp-evaluation-job.sh"), project, ENV["PORTFOLIO_GOOGLE_SDP_EXPECTED_GSA"], digest], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         directory = Path(next(line.split(": ", 1)[1] for line in result.stdout.splitlines() if line.startswith("Rendered manifest:"))).parent

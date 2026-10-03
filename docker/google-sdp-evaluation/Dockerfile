@@ -30,7 +30,7 @@ COPY --from=builder /lib/x86_64-linux-gnu/libstdc++.so.6 /lib/x86_64-linux-gnu/
 WORKDIR /app
 COPY scripts/evaluate-google-sdp.py /app/scripts/
 COPY runtime/phase3/__init__.py runtime/phase3/google_sdp_adapter.py runtime/phase3/trusted_runtime.py /app/runtime/phase3/
-COPY evaluation/google-sdp/corpus.json evaluation/google-sdp/corpus.schema.json evaluation/google-sdp/result.schema.json /app/evaluation/google-sdp/
+COPY evaluation/google-sdp/deployment.json evaluation/google-sdp/deployment.schema.json evaluation/google-sdp/corpus.json evaluation/google-sdp/corpus.schema.json evaluation/google-sdp/result.schema.json /app/evaluation/google-sdp/
 
 ENV LD_LIBRARY_PATH=/usr/local/lib \
     PYTHONDONTWRITEBYTECODE=1 \

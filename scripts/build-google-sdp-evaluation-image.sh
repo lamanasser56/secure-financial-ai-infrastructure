@@ -65,6 +65,8 @@ content_key=$(sha256sum \
   runtime/phase3/__init__.py \
   runtime/phase3/google_sdp_adapter.py \
   runtime/phase3/trusted_runtime.py \
+  evaluation/google-sdp/deployment.json \
+  evaluation/google-sdp/deployment.schema.json \
   evaluation/google-sdp/corpus.json \
   evaluation/google-sdp/corpus.schema.json \
   evaluation/google-sdp/result.schema.json \

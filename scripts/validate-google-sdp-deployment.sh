@@ -47,7 +47,7 @@ if rendered:
 else:
     assert annotation == "REPLACE_WITH_GSA_EMAIL"
 config = by_kind["ConfigMap"]["data"]
-assert config == {"region": "me-central2", "endpoint": "dlp.me-central2.rep.googleapis.com", "synthetic_corpus_path": "/app/evaluation/google-sdp/corpus.json"}
+assert config == {"region": "us-east1", "endpoint": "dlp.us-east1.rep.googleapis.com", "synthetic_corpus_path": "/app/evaluation/google-sdp/corpus.json"}
 job = by_kind["Job"]["spec"]
 assert job["suspend"] is True
 assert job["backoffLimit"] == 0 and job["parallelism"] == job["completions"] == 1
@@ -64,7 +64,7 @@ container = pod["containers"][0]
 assert container["args"] == ["--live"] and "ports" not in container
 image = container["image"]
 if rendered:
-    match = re.fullmatch(r"me-central2-docker\.pkg\.dev/([a-z][a-z0-9-]{4,28}[a-z0-9])/[a-z][a-z0-9-]{0,62}/[a-z][a-z0-9._-]{0,127}@sha256:[0-9a-f]{64}", image)
+    match = re.fullmatch(r"us-east1-docker\.pkg\.dev/([a-z][a-z0-9-]{4,28}[a-z0-9])/[a-z][a-z0-9-]{0,62}/[a-z][a-z0-9._-]{0,127}@sha256:[0-9a-f]{64}", image)
     assert match and annotation.endswith(f"@{match.group(1)}.iam.gserviceaccount.com")
 else:
     assert image == "REPLACE_WITH_ARTIFACT_REGISTRY_DIGEST"
@@ -91,7 +91,7 @@ assert policy["egress"] == [
 ]
 fqdn = by_kind["FQDNNetworkPolicy"]
 assert fqdn["apiVersion"] == "networking.gke.io/v1alpha1"
-assert fqdn["spec"] == {"podSelector": {}, "egress": [{"matches": [{"name": "dlp.me-central2.rep.googleapis.com"}], "ports": [{"protocol": "TCP", "port": 443}]}]}
+assert fqdn["spec"] == {"podSelector": {}, "egress": [{"matches": [{"name": "dlp.us-east1.rep.googleapis.com"}], "ports": [{"protocol": "TCP", "port": 443}]}]}
 assert fqdn["metadata"]["name"] == "google-sdp-evaluation-regional-egress"
 for kind in ("FQDNNetworkPolicy", "NetworkPolicy"):
     assert by_kind[kind]["metadata"]["annotations"] == {"policy.network.gke.io/enable-logging": "true"}

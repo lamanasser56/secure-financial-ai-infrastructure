@@ -1,6 +1,8 @@
 """Offline qualification of the disabled Google SDP candidate boundary."""
 
 import importlib
+import json
+from pathlib import Path
 import sys
 import types
 import unittest
@@ -66,6 +68,31 @@ class GoogleSDPAdapterTests(unittest.TestCase):
         for value in (MARKER, "raw-provider-marker", PROJECT, adapter.ENDPOINT):
             self.assertNotIn(value, repr(error))
 
+    def test_trusted_deployment_file_is_closed_and_schema_valid(self):
+        from jsonschema import validate
+
+        directory = Path(adapter.__file__).resolve().parents[2] / "evaluation/google-sdp"
+        value = json.loads((directory / "deployment.json").read_text())
+        validate(value, json.loads((directory / "deployment.schema.json").read_text()))
+        self.assertEqual(adapter._deployment(), ("us-east1", "dlp.us-east1.rep.googleapis.com"))
+        with patch.dict("os.environ", {"GOOGLE_SDP_REGION": "me-central2", "GOOGLE_SDP_ENDPOINT": "dlp.googleapis.com"}):
+            self.assertEqual(adapter._deployment(), (adapter.REGION, adapter.ENDPOINT))
+
+    def test_bad_or_missing_deployment_configuration_has_no_fallback(self):
+        valid = {"schema_version": 1, "region": "us-east1", "endpoint": "dlp.us-east1.rep.googleapis.com"}
+        invalid = (None, {}, {**valid, "schema_version": True},
+                   {**valid, "region": "me-central2"}, {**valid, "region": "us-west1"},
+                   {**valid, "endpoint": "dlp.googleapis.com"},
+                   {**valid, "endpoint": "dlp.me-central2.rep.googleapis.com"},
+                   {**valid, "credentials": "forbidden"})
+        with patch.object(adapter, "_create_client") as create:
+            for value in invalid:
+                with self.subTest(value=value), patch.object(Path, "read_text", return_value=json.dumps(value)):
+                    self.assert_sanitized(lambda: adapter._guarded(adapter._deployment))
+            with patch.object(Path, "read_text", side_effect=FileNotFoundError):
+                self.assert_sanitized(lambda: adapter._guarded(adapter._deployment))
+            create.assert_not_called()
+
     def test_synthetic_text_returns_only_neutral_result(self):
         client = FakeClient()
         result = adapter.GoogleSDPRedactor(PROJECT, client=client).redact(TEXT)
@@ -73,7 +100,7 @@ class GoogleSDPAdapterTests(unittest.TestCase):
         self.assertEqual([event[0] for event in client.events], ["inspect", "deidentify"])
         self.assertEqual(len(client.events), 2)
         for _, request, retry in client.events:
-            self.assertEqual(request["parent"], f"projects/{PROJECT}/locations/me-central2")
+            self.assertEqual(request["parent"], f"projects/{PROJECT}/locations/us-east1")
             self.assertEqual(request["item"], {"value": TEXT})
             self.assertIsNone(retry)
             self.assertEqual(
@@ -121,16 +148,16 @@ class GoogleSDPAdapterTests(unittest.TestCase):
     def test_fixed_endpoint_and_region_reject_overrides_before_client_creation(self):
         invalid = (
             {"endpoint": "dlp.googleapis.com"},
-            {"endpoint": "dlp.us-east1.rep.googleapis.com"},
-            {"endpoint": "https://dlp.me-central2.rep.googleapis.com/path"},
-            {"endpoint": "user@dlp.me-central2.rep.googleapis.com"},
+            {"endpoint": "dlp.me-central2.rep.googleapis.com"},
+            {"endpoint": "https://dlp.us-east1.rep.googleapis.com/path"},
+            {"endpoint": "user@dlp.us-east1.rep.googleapis.com"},
             {"endpoint": adapter.ENDPOINT + "?query=1"},
             {"endpoint": adapter.ENDPOINT + "#fragment"},
             {"endpoint": adapter.ENDPOINT + "\n"},
             {"endpoint": object()},
             {"region": "global"},
             {"region": object()},
-            {"region": "us-east1"},
+            {"region": "me-central2"},
             {"project_id": "bad/project"},
         )
         with patch.object(adapter, "_create_client", side_effect=AssertionError("client created")) as create:
@@ -162,7 +189,7 @@ class GoogleSDPAdapterTests(unittest.TestCase):
         adapter.GoogleSDPRedactor(PROJECT, client=client).redact(text)
         self.assertEqual(client.api_endpoint, adapter.ENDPOINT)
         self.assertEqual({event[1]["parent"] for event in client.events},
-                         {f"projects/{PROJECT}/locations/me-central2"})
+                         {f"projects/{PROJECT}/locations/us-east1"})
         for _, request, _ in client.events:
             self.assertNotIn("credentials", request)
             self.assertNotIn("endpoint", request)
