@@ -83,7 +83,7 @@ class BoundedInjectionAssessor:
         for category, pattern in (
             (
                 "instruction_override",
-                r"ignore (?:all |previous )?instructions|تجاهل التعليمات",
+                r"ignore (?:all |previous )?instructions|تجاهل التعليمات|(?:use|set|override|change) (?:the )?(?:gateway|endpoint|model|credentials)|(?:غير|غيّر|استخدم) (?:المزود|النموذج|نقطة الاتصال|بيانات الاعتماد)",
             ),
             (
                 "policy_evasion",
@@ -92,7 +92,7 @@ class BoundedInjectionAssessor:
             ("tool_manipulation", r"execute shell|run kubectl|terraform apply"),
             (
                 "data_exfiltration",
-                r"send credentials|another tenant|tenant[_ -]?id|other tenant",
+                r"send credentials|another tenant|tenant[_ -]?id|other tenant|show (?:the )?(?:credentials|private key)|مستأجر آخر|مستاجر اخر|ارسل بيانات الاعتماد|أرسل بيانات الاعتماد",
             ),
         ):
             if re.search(pattern, text):

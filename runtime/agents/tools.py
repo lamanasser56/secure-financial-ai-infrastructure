@@ -54,6 +54,7 @@ class DemoTools:
                 "synthetic": True,
                 "period": args["period"],
                 "currency": data["currency"],
+                "data_available": bool(rows),
             }
             if tid == "expense_summary":
                 return common | {

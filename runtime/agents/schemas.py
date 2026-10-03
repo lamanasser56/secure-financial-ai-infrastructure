@@ -57,7 +57,7 @@ def validate(name, value, stage="structured_input_validation"):
     )
     try:
         # Names are code-selected and never taken from a request or tool result.
-        if name not in {"request", "decision"} | {
+        if name not in {"request", "decision", "conversation", "conversation-reset"} | {
             f"{tool}.{direction}"
             for tool in TOOL_IDS
             for direction in ("input", "output")

@@ -1,21 +1,23 @@
 """Loopback-only, single-thread private demo UI with fixed startup identities.
 
 This is simulated authentication, not a production user-authentication service.
-No cloud/provider credentials, upload, arbitrary prompt or live switch exist.
+Free text is bounded and governed. No cloud credentials, upload or live switch.
 """
 
 import hmac
+from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
-import secrets
+import re
+from runtime.agents.conversations import ConversationRejected, ConversationStore
 from runtime.agents.demo import make_demo
-from runtime.agents.presentation import present
 from runtime.agents.schemas import ROOT, read_fixed
 
 ASSETS = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/style.css": ("style.css", "text/css; charset=utf-8"),
+    "/i18n.json": ("i18n.json", "application/json; charset=utf-8"),
 }
 
 
@@ -30,9 +32,14 @@ class DemoServer(HTTPServer):
         ):
             raise ValueError("ui:loopback_only")
         self.agents = {p: make_demo(p, user) for p in ("infrastructure", "financial")}
-        self.csrf = secrets.token_urlsafe(32)
+        self.conversations = ConversationStore(self.agents)
         super().__init__(address, Handler)
         self.origin = f"http://127.0.0.1:{self.server_port}"
+        self.cookie_name = f"demo_session_{self.server_port}"
+
+    def server_close(self):
+        self.conversations.sessions.clear()
+        super().server_close()
 
     def get_request(self):
         connection, address = super().get_request()
@@ -52,7 +59,14 @@ class Handler(BaseHTTPRequestHandler):
         # No request bodies, headers, credentials or filesystem paths in logs.
         pass
 
-    def respond(self, status, value, content_type="application/json; charset=utf-8"):
+    def respond(
+        self,
+        status,
+        value,
+        content_type="application/json; charset=utf-8",
+        *,
+        cookie=None,
+    ):
         body = (
             value
             if isinstance(value, bytes)
@@ -69,6 +83,11 @@ class Handler(BaseHTTPRequestHandler):
             "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
         )
         self.send_header("Connection", "close")
+        if cookie is not None:
+            self.send_header(
+                "Set-Cookie",
+                f"{self.server.cookie_name}={cookie}; HttpOnly; SameSite=Strict; Path=/api",
+            )
         self.end_headers()
         self.wfile.write(body)
         self.close_connection = True
@@ -102,37 +121,72 @@ class Handler(BaseHTTPRequestHandler):
         if not self.boundary():
             return
         if self.path == "/api/bootstrap":
+            try:
+                token, session = self.server.conversations.bootstrap(
+                    self.session_token()
+                )
+            except ConversationRejected:
+                self.respond(503, {"error": "session_capacity"})
+                return
             self.respond(
                 200,
                 {
-                    "csrf": self.server.csrf,
+                    "csrf": session.csrf,
                     "mode": "offline_simulation",
                     "authentication": "simulated",
                     "synthetic_only": True,
                 },
+                cookie=token,
             )
         elif self.path in ASSETS:
             name, kind = ASSETS[self.path]
             try:
                 self.respond(
-                    200, read_fixed(ROOT / "demo/ui" / name, 32768).encode(), kind
+                    200,
+                    read_fixed(
+                        (
+                            ROOT / "demo/i18n.json"
+                            if name == "i18n.json"
+                            else ROOT / "demo/ui" / name
+                        ),
+                        32768,
+                    ).encode(),
+                    kind,
                 )
             except Exception:
                 self.respond(500, {"error": "asset_unavailable"})
         else:
             self.respond(404, {"error": "not_found"})
 
+    def session_token(self):
+        cookies = self.headers.get_all("Cookie", [])
+        if len(cookies) != 1 or len(cookies[0]) > 512:
+            return None
+        cookie = SimpleCookie()
+        try:
+            cookie.load(cookies[0])
+            value = cookie[self.server.cookie_name].value
+            return value if re.fullmatch(r"[A-Za-z0-9_-]{43}", value) else None
+        except Exception:
+            return None
+
     def do_POST(self):
         if not self.boundary(post=True):
             return
-        if self.path != "/api/run":
+        if self.path not in {"/api/conversation", "/api/reset"}:
             self.respond(404, {"error": "not_found"})
+            return
+        token = self.session_token()
+        try:
+            session = self.server.conversations.session(token)
+        except ConversationRejected:
+            self.respond(403, {"error": "session_required"})
             return
         tokens = self.headers.get_all("X-Demo-CSRF", [])
         if (
             len(tokens) != 1
             or not tokens[0].isascii()
-            or not hmac.compare_digest(tokens[0], self.server.csrf)
+            or not hmac.compare_digest(tokens[0], session.csrf)
         ):
             self.respond(403, {"error": "csrf_rejected"})
             return
@@ -155,29 +209,14 @@ class Handler(BaseHTTPRequestHandler):
             if len(body) != int(lengths[0]):
                 raise ValueError
             request = json.loads(body)
-            if (
-                not isinstance(request, dict)
-                or set(request) != {"agent", "period", "scenario_id"}
-                or request["agent"] not in self.server.agents
-            ):
-                raise ValueError
-            profile = request["agent"]
-            message = (
-                "Diagnose this synthetic infrastructure failure."
-                if profile == "infrastructure"
-                else "Analyze synthetic expenses."
+            result = (
+                self.server.conversations.turn(token, request)
+                if self.path == "/api/conversation"
+                else self.server.conversations.reset(token, request)
             )
-            core, authorization = self.server.agents[profile]
-            result = core.run(
-                authorization,
-                {
-                    "agent": profile,
-                    "message": message,
-                    "period": request["period"],
-                    "scenario_id": request["scenario_id"],
-                },
-            )
-            result["presentation"] = present(result)
+        except ConversationRejected as failure:
+            self.respond(403, {"error": str(failure)})
+            return
         except Exception:
             self.respond(400, {"error": "invalid_request"})
             return

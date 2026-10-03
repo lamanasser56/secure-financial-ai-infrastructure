@@ -5,6 +5,9 @@ Only the current fixture's SAR currency is supported (ISO 4217 scale 2).
 Unknown currencies fail closed instead of silently assuming two decimals.
 """
 
+from copy import deepcopy
+from runtime.agents.localization import fixture_text, text
+
 CURRENCY_SCALES = {"SAR": 2}
 REDACTION_NOTICE = (
     "Simulated redaction completion using synthetic service doubles. "
@@ -20,8 +23,9 @@ def format_minor_units(value, currency):
     return f"{currency} {whole}.{fraction:0{scale}d}"
 
 
-def present(result):
+def present(result, language=None):
     """Called only after the existing core has validated/minimized/redacted."""
+    language = language or result.get("language", "en")
     view = {
         "usage": {
             "simulated_model_requests": result["model_requests"],
@@ -32,7 +36,7 @@ def present(result):
             "tool_dispatch_attempts": result["tool_executions"],
             "token_usage": None,
             "cost": None,
-            "redaction_notice": REDACTION_NOTICE,
+            "redaction_notice": text("redaction", language),
         }
     }
     if result["status"] != "completed":
@@ -46,25 +50,38 @@ def present(result):
         )
         view.update(
             diagnosis=[
-                {"label": "Observed failure", "value": ci["failure"]},
-                {"label": "Suspected cause", "value": ci["observation"]},
-                {"label": "Proposed repair", "value": runbook["repair"]},
+                {
+                    "label": text("observedFailure", language),
+                    "value": fixture_text(ci["failure"], language),
+                },
+                {
+                    "label": text("suspectedCause", language),
+                    "value": fixture_text(ci["observation"], language),
+                },
+                {
+                    "label": text("proposedRepair", language),
+                    "value": fixture_text(runbook["repair"], language),
+                },
             ],
             supporting_evidence=[
-                {"source_id": ci["source_id"], "purpose": "Synthetic CI failure"},
+                {"source_id": ci["source_id"], "purpose": text("ciPurpose", language)},
                 {
                     "source_id": runbook["source_id"],
-                    "purpose": "Approved suggestion-only runbook section",
+                    "purpose": text("runbookPurpose", language),
                 },
             ],
             supplemental_context={
                 "source_id": image["source_id"],
                 "status": image["status"],
+                "status_label": text("fixtureQualified", language),
                 "high": image["high"],
                 "critical": image["critical"],
-                "limitations": image["limitations"],
+                "limitations": fixture_text(image["limitations"], language),
             },
-            unverified_points=[ci["unverified"], runbook["limitations"]],
+            unverified_points=[
+                fixture_text(ci["unverified"], language),
+                fixture_text(runbook["limitations"], language),
+            ],
         )
     else:
         summary, grouped = facts["expense_summary"], facts["expense_categories"]
@@ -72,8 +89,15 @@ def present(result):
         if (
             any(
                 summary[key] != grouped[key]
-                for key in ("source_id", "synthetic", "period", "currency")
+                for key in (
+                    "source_id",
+                    "synthetic",
+                    "period",
+                    "currency",
+                    "data_available",
+                )
             )
+            or summary["data_available"] is not True
             or sum(g["total_minor_units"] for g in groups)
             != summary["total_minor_units"]
             or sum(g["expense_count"] for g in groups) != summary["expense_count"]
@@ -89,6 +113,7 @@ def present(result):
             "categories": [
                 {
                     **group,
+                    "category_label": text(group["category"], language),
                     "rank": rank,
                     "amount": format_minor_units(group["total_minor_units"], currency),
                 }
@@ -96,3 +121,32 @@ def present(result):
             ],
         }
     return view
+
+
+def sanitized_report(result):
+    """No question, model answer, history, session token or conversation handle.
+
+    Only closed audit events, validated fixture facts and their deterministic
+    presentation enter downloads. Even redacted model prose is not exported.
+    """
+    fields = (
+        "request_id",
+        "agent",
+        "status",
+        "mode",
+        "authentication",
+        "language",
+        "tenant_ref",
+        "model_requests",
+        "tool_executions",
+        "audit",
+        "facts",
+        "availability",
+        "presentation",
+        "limitations",
+        "reason_code",
+    )
+    return {
+        "schema_version": 1,
+        **deepcopy({key: result[key] for key in fields if key in result}),
+    }

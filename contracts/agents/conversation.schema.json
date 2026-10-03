@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agent": {
+      "enum": [
+        "infrastructure",
+        "financial"
+      ]
+    },
+    "language": {
+      "enum": [
+        "en",
+        "ar"
+      ]
+    },
+    "question": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "\\S"
+    },
+    "evidence_source": {
+      "enum": [
+        "archive-export",
+        "docker-config",
+        "cluster-version",
+        null
+      ]
+    },
+    "conversation_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "minLength": 36,
+          "maxLength": 36
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "agent",
+    "language",
+    "question",
+    "evidence_source",
+    "conversation_id"
+  ]
+}

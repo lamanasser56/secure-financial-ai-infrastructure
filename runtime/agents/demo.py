@@ -7,6 +7,7 @@ import re
 from runtime.agents.controls import DemoIdentity, PROFILES
 from runtime.agents.core import AgentCore
 from runtime.agents.schemas import ROOT
+from runtime.agents.localization import fixture_text, text
 from runtime.phase3.adapters import (
     CLIENT_KEY_ENV_VAR,
     HttpLiteLLMGateway,
@@ -20,6 +21,8 @@ from runtime.phase4.tool_registry import load_registry
 
 class SyntheticAnalyzer:
     """Test-double recognition; NOT real Presidio detection evidence."""
+
+    offline_simulation = True
 
     def analyze(self, text):
         return [
@@ -36,6 +39,8 @@ class SyntheticAnalyzer:
 
 
 class SyntheticAnonymizer:
+    offline_simulation = True
+
     def anonymize(self, text, analyzer_results):
         for item in reversed(analyzer_results):
             text = text[: item["start"]] + "[REDACTED]" + text[item["end"] :]
@@ -49,6 +54,7 @@ class FakeGateway:
 
     def complete(self, model_alias, redacted_text, metadata):
         p = json.loads(redacted_text)
+        language = p.get("language", "en")
         obs = p["observations"]
         seen = {o["tool_id"] for o in obs}
         sequence = (
@@ -77,6 +83,7 @@ class FakeGateway:
             decision = {
                 "kind": "final",
                 "agent": p["agent"],
+                "language": language,
                 "period": p["period"] if p["agent"] == "financial" else None,
                 "evidence_ids": list(
                     dict.fromkeys(
@@ -85,24 +92,26 @@ class FakeGateway:
                         if o["tool_id"] != "read_image_summary"
                     )
                 ),
-                "limitations": "Offline synthetic simulation. No real model, cloud state or production readiness is proven.",
+                "limitations": text("simulationLimit", language),
             }
             if p["agent"] == "infrastructure":
                 ci, runbook = facts["read_ci_summary"], facts["read_runbook_section"]
                 decision.update(
-                    summary="Synthetic diagnosis based on the cited fixture evidence.",
-                    observed_failure=ci["failure"],
-                    suspected_cause=ci["observation"],
-                    proposed_repair=runbook["repair"],
+                    summary=text("infraSummary", language),
+                    observed_failure=fixture_text(ci["failure"], language),
+                    suspected_cause=fixture_text(ci["observation"], language),
+                    proposed_repair=fixture_text(runbook["repair"], language),
                 )
             else:
                 summary = facts["expense_summary"]
                 categories = facts["expense_categories"]["categories"]
-                highest = categories[0]["category"] if categories else "none"
-                decision["summary"] = (
-                    f"Synthetic reporting period {summary['period']}: {summary['expense_count']} expenses. "
-                    f"Highest category by tool-calculated total: {highest}. "
-                    "Amounts and rankings below come from deterministic tools, not model arithmetic."
+                highest = categories[0]["category"]
+                decision["summary"] = text(
+                    "financeSummary",
+                    language,
+                    period=summary["period"],
+                    count=summary["expense_count"],
+                    category=text(highest, language),
                 )
         return GatewayResult(
             {

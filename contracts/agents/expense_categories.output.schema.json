@@ -51,6 +51,9 @@
           "expense_count"
         ]
       }
+    },
+    "data_available": {
+      "type": "boolean"
     }
   },
   "required": [
@@ -58,6 +61,32 @@
     "synthetic",
     "period",
     "currency",
-    "categories"
+    "categories",
+    "data_available"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "data_available": {
+            "const": false
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "categories": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "categories": {
+            "minItems": 1
+          }
+        }
+      }
+    }
   ]
 }

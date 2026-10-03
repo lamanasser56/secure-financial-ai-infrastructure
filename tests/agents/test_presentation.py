@@ -101,11 +101,11 @@ class PresentationTests(unittest.TestCase):
         self.assertEqual(view["usage"]["simulated_model_requests"], 0)
         self.assertEqual(view["usage"]["tool_dispatch_attempts"], 0)
 
-    def test_empty_month_reports_zero_with_no_categories(self):
-        finance = present(self.result(period="2026-03"))["financial"]
-        self.assertEqual(finance["total"], "SAR 0.00")
-        self.assertEqual(finance["expense_count"], 0)
-        self.assertEqual(finance["categories"], [])
+    def test_unavailable_month_never_displays_inferred_totals(self):
+        result = self.result(period="2026-03")
+        self.assertEqual(result["status"], "unavailable")
+        self.assertNotIn("facts", result)
+        self.assertNotIn("financial", present(result))
 
     def test_accounting_is_explicitly_simulated_and_unavailable(self):
         usage = present(self.result())["usage"]

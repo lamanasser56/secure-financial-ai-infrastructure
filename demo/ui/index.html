@@ -8,58 +8,74 @@
   <script src="/app.js" defer></script>
 </head>
 <body>
-  <a href="#workspace" class="skip">Skip to workspace</a>
+  <a href="#workspace" class="skip" data-i18n="skip">Skip to workspace</a>
   <main>
     <header>
-      <div class="brand">SECURE AGENT LAB <span>PRIVATE DEMO</span></div>
-      <h1>Bounded tools. Visible evidence.</h1>
-      <p>A private demonstration of secure AI orchestration.</p>
+      <div class="brand"><span data-i18n="pageTitle">Secure Agent Lab</span><span class="pill" data-i18n="privateDemo">Private demo</span></div>
+      <div class="language-control">
+        <label for="language" data-i18n="language">Language</label>
+        <select id="language" disabled><option value="en">English</option><option value="ar">Arabic</option></select>
+      </div>
+      <h1 data-i18n="hero">Bounded tools. Visible evidence.</h1>
+      <p data-i18n="intro">Ask a question using approved synthetic evidence. Repairs are suggestions only.</p>
     </header>
-    <aside class="notice" aria-label="Demo limitations">
-      <strong>Offline synthetic simulation</strong>
-      <p>Authentication is simulated. Model responses are deterministic fixtures, not results from a live model. No cloud calls or real data.</p>
-      <p>Presidio remains authoritative. This demo uses synthetic analyzer and anonymizer doubles; simulated redaction does not prove live detection.</p>
+    <aside class="notice">
+      <strong data-i18n="offline">Offline synthetic simulation</strong>
+      <p data-i18n="notice">Simulated authentication and deterministic model responses. No live model, cloud access or real data.</p>
+      <p data-i18n="redaction">Simulated redaction uses synthetic service doubles. Live Presidio detection is unproven; Presidio remains authoritative.</p>
     </aside>
     <section id="workspace" aria-labelledby="workspace-title">
-      <h2 id="workspace-title">Workspace</h2>
+      <h2 id="workspace-title" data-i18n="workspace">Workspace</h2>
       <div class="tabs" role="tablist" aria-label="Agents">
-        <button type="button" role="tab" id="tab-infrastructure" aria-controls="panel-infrastructure" aria-selected="true">Infrastructure</button>
-        <button type="button" role="tab" id="tab-financial" aria-controls="panel-financial" aria-selected="false" tabindex="-1">Financial</button>
+        <button type="button" role="tab" id="tab-infrastructure" aria-controls="panel-infrastructure" aria-selected="true" data-i18n="infrastructure">Infrastructure</button>
+        <button type="button" role="tab" id="tab-financial" aria-controls="panel-financial" aria-selected="false" tabindex="-1" data-i18n="financial">Financial</button>
       </div>
       <div id="panel-infrastructure" role="tabpanel" aria-labelledby="tab-infrastructure">
-        <h3>Infrastructure diagnostics</h3>
-        <p>Read approved synthetic evidence and suggest a repair. No repair is executed.</p>
-        <label for="scenario">Synthetic scenario</label>
+        <p data-i18n="infraHelp">Ask about approved CI evidence and runbook sections. No commands or repairs are executed.</p>
+        <label for="scenario" data-i18n="evidence">Approved evidence source (optional)</label>
         <select id="scenario">
-          <option value="archive-export">Docker archive export</option>
-          <option value="docker-config">Docker configuration lifecycle</option>
-          <option value="cluster-version">GKE cluster version contract</option>
+          <option value="" data-i18n="autoSource">Ask or clarify the source</option>
+          <option value="archive-export" data-i18n="archive-export">Docker archive export</option>
+          <option value="docker-config" data-i18n="docker-config">Docker configuration lifecycle</option>
+          <option value="cluster-version" data-i18n="cluster-version">GKE cluster version contract</option>
         </select>
       </div>
       <div id="panel-financial" role="tabpanel" aria-labelledby="tab-financial" hidden>
-        <h3>Synthetic expense analysis</h3>
-        <p>The server selects the trusted tenant context. Read-only tools calculate totals and category rankings.</p>
-        <label for="period">Reporting month</label>
-        <input id="period" type="month" value="2026-01" min="2000-01" max="2099-12" aria-describedby="period-help">
-        <p id="period-help" class="muted">Clear the month to request clarification before any financial tool runs.</p>
+        <p data-i18n="financeHelp">Ask about synthetic tenant-scoped expenses. Tools calculate totals and rankings.</p>
+        <label for="period" data-i18n="exampleMonth">Example reporting month</label>
+        <input id="period" type="month" value="2026-01" min="2000-01" max="2099-12" dir="ltr">
       </div>
-      <div class="controls">
-        <button id="run" type="button" class="primary" disabled>Run simulation</button>
-        <span class="muted">Manual runs only. No automatic retries.</span>
-      </div>
+      <details class="examples"><summary data-i18n="examples">Optional examples</summary>
+        <button id="example" type="button" data-i18n="useExample">Use example question</button>
+      </details>
+      <form id="question-form">
+        <label for="question" data-i18n="questionLabel">Your question or clarification reply</label>
+        <textarea id="question" maxlength="500" rows="3" dir="auto" placeholder="Why did Docker archive export fail?" required></textarea>
+        <div class="controls">
+          <button id="send" type="submit" class="primary" data-i18n="send" disabled>Send</button>
+          <button id="new-conversation" type="button" data-i18n="newConversation" disabled>New conversation</button>
+        </div>
+      </form>
     </section>
-    <p id="status" role="status" aria-live="polite">Loading private demo…</p>
-    <section class="result" aria-labelledby="result-title" hidden id="result">
-      <div class="result-heading"><h2 id="result-title">Result and evidence</h2><span id="badge"></span></div>
-      <div id="answer"></div>
+    <p id="status" role="status" aria-live="polite" data-i18n="loading">Loading private demo…</p>
+    <section class="conversation" aria-labelledby="conversation-title">
+      <h2 id="conversation-title" data-i18n="conversation">Conversation</h2>
+      <p id="empty-conversation" class="muted" data-i18n="emptyConversation">Type a question to begin. This is a limited offline simulation, not a live agent.</p>
+      <p id="other-language" class="muted" data-i18n="otherLanguage" hidden>Messages in the other language view are preserved and hidden. Switching does not translate or submit them.</p>
+      <ol id="history" aria-live="polite" aria-relevant="additions"></ol>
+      <div id="budget"></div>
+    </section>
+    <section id="result" class="result" aria-labelledby="result-title" hidden>
+      <div class="result-heading"><h2 id="result-title" data-i18n="result">Turn facts and evidence</h2><span id="badge" class="pill"></span></div>
+      <p id="mode" class="muted"></p>
       <div id="facts"></div>
       <div id="usage"></div>
-      <details id="report-details"><summary>Raw sanitized JSON report</summary><pre id="report-json" tabindex="0"></pre></details>
-      <details id="audit-details"><summary>Sanitized audit trace</summary><pre id="audit" tabindex="0"></pre></details>
-      <button id="download" type="button" disabled>Download sanitized report</button>
-      <p class="muted">Model text is untrusted. Review deterministic tool facts, source IDs and unverified points.</p>
+      <details id="report-details"><summary data-i18n="rawReport">Raw sanitized turn report (no conversation text)</summary><pre id="report-json" dir="ltr" lang="en" tabindex="0"></pre></details>
+      <details id="audit-details"><summary data-i18n="audit">Sanitized audit trace</summary><pre id="audit" dir="ltr" lang="en" tabindex="0"></pre></details>
+      <button id="download" type="button" data-i18n="download" disabled>Download sanitized turn report</button>
+      <p class="muted" data-i18n="untrusted">Model text and retained context are untrusted. Review the tool facts and cited sources.</p>
     </section>
-    <footer>Read-only tools · Maximum four simulated model requests and four tool dispatches per run · Synthetic data only</footer>
+    <footer data-i18n="footer">Read-only tools. Maximum four model requests and four tool dispatches per turn. No automatic retries. Synthetic data only.</footer>
   </main>
 </body>
 </html>

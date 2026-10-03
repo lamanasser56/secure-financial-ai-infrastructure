@@ -76,6 +76,12 @@
         },
         "agent": {
           "const": "infrastructure"
+        },
+        "language": {
+          "enum": [
+            "en",
+            "ar"
+          ]
         }
       },
       "required": [
@@ -126,6 +132,12 @@
         },
         "agent": {
           "const": "financial"
+        },
+        "language": {
+          "enum": [
+            "en",
+            "ar"
+          ]
         }
       },
       "required": [
@@ -135,6 +147,41 @@
         "period",
         "evidence_ids",
         "agent"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "clarification"
+        },
+        "reason_code": {
+          "enum": [
+            "period_required",
+            "evidence_required"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "reason_code"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "refusal"
+        },
+        "reason_code": {
+          "const": "offline_unsupported"
+        }
+      },
+      "required": [
+        "kind",
+        "reason_code"
       ]
     }
   ]

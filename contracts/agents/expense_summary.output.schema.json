@@ -29,6 +29,9 @@
       "type": "integer",
       "minimum": 0,
       "maximum": 20
+    },
+    "data_available": {
+      "type": "boolean"
     }
   },
   "required": [
@@ -37,6 +40,38 @@
     "period",
     "currency",
     "total_minor_units",
-    "expense_count"
+    "expense_count",
+    "data_available"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "data_available": {
+            "const": false
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "total_minor_units": {
+            "const": 0
+          },
+          "expense_count": {
+            "const": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "expense_count": {
+            "minimum": 1
+          },
+          "total_minor_units": {
+            "minimum": 1
+          }
+        }
+      }
+    }
   ]
 }

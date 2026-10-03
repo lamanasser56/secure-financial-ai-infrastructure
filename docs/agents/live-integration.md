@@ -19,3 +19,5 @@ No model version, regional availability, IAM role grant, deployment endpoint or 
 ## Unresolved blockers
 
 Real identity adapters, real Presidio/language qualification, approved Gemini model/processing region, gateway/provider workload identity, scoped client-key evidence, durable audit persistence and production deployment controls are not supplied by these demonstrations. The private UI is not authorized for public exposure. None of its simulated output proves live Gemini behavior, SDP accuracy, production readiness or full CS6 completion.
+
+The [single follow-up bundle](live-follow-up-bundle.md) records the actual adapter protocol, default English Presidio limitation, proposed private services, identity/key gates, cloud deltas that require exact review, synthetic operation/cost ceilings and cleanup. Arabic interface support does not remove any of these blockers. Current CLI/UI remain offline-only.
