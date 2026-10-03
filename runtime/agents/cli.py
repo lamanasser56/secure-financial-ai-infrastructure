@@ -15,7 +15,6 @@ def main(profile):
         default="demo-alpha",
         help="Trusted startup simulated identity",
     )
-    parser.add_argument("--language", choices=("en", "ar"), default="en")
     if profile == "infrastructure":
         parser.add_argument(
             "--scenario",
@@ -28,13 +27,10 @@ def main(profile):
         )
     args = parser.parse_args()
     message = (
-        {
-            "en": "Diagnose this synthetic infrastructure failure.",
-            "ar": "شخّص فشل البنية التحتية الاصطناعي.",
-        }
+        "Diagnose this synthetic infrastructure failure."
         if profile == "infrastructure"
-        else {"en": "Analyze synthetic expenses.", "ar": "حلل المصاريف الاصطناعية."}
-    )[args.language]
+        else "Analyze synthetic expenses."
+    )
     core, authorization = make_demo(profile, args.user)
     result = core.run(
         authorization,

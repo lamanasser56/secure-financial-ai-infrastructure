@@ -19,7 +19,7 @@ Application-owned identity and tenant adapters
 
 ### Implemented
 
-- Two bounded read-only [demo agents](docs/agents/README.md), shared canonical runtime/governance composition, separate tenant/profile controls, offline CLIs and a private Arabic RTL/English UI. Authentication, model responses and Presidio service doubles are explicitly simulated; no live provider result is claimed.
+- Two bounded read-only [demo agents](docs/agents/README.md), shared canonical runtime/governance composition, separate tenant/profile controls, offline CLIs and a private English-only LTR UI. Authentication, model responses and Presidio service doubles are explicitly simulated; no live provider result is claimed.
 
 - Python reference runtime with ordered, fail-closed controls, Presidio and LiteLLM HTTP adapters, sanitized trace envelopes, and synthetic qualification tests.
 - Tool registry, invocation, policy, prompt-injection assessment, approval verification, and audit-event contracts. The governance coordinator produces an eligible invocation; it does not execute a product tool.

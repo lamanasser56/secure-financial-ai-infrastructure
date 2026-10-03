@@ -58,6 +58,14 @@ Limits can be reduced at trusted startup and cannot be expanded. No automatic mo
 
 The existing HTTP adapters reject redirects and ignore ambient proxy settings, avoiding silent credential forwarding/rerouting. Inputs cannot select an endpoint. The private UI binds only to `127.0.0.1`, validates exact Host and same-origin POST requests, rejects forwarded/identity headers, requires a per-process CSRF token, disallows uploads/chunked/oversized bodies and serves only fixed assets. It uses CSP, no-store, no-referrer, nosniff and DOM text rendering. It records no request logs, persists no browser data and exposes no agent/provider credential. Other processes on the same host are outside its authentication guarantee; production use requires a separately secured service.
 
+## English UI presentation
+
+The private English LTR UI sends only agent, scenario and period selectors. English fixed messages are selected server-side; there is no language selector or request-selected identity/provider. A display projection runs after core validation and redaction. It adds no policy engine or tool permissions and preserves the original structured facts and canonical audit events.
+
+Infrastructure supporting evidence consists of the synthetic CI source and approved runbook section. The invented image qualification fixture is labelled supplemental context with no current image-scan claim. Financial cards and rankings use tool aggregates; integer division and remainder with the SAR currency scale produce monetary strings. The projection rejects inconsistent aggregate/source/period/ranking results. It never derives amounts from model-written text.
+
+Sanitized reports and audit traces are collapsed by default and downloadable without CSRF/provider credentials. Every displayed value is DOM text. The UI distinguishes simulated model request attempts, external provider calls and tool dispatch attempts; token usage and cost remain unavailable. Redaction accounting explicitly describes synthetic service doubles, not proven live Presidio detection.
+
 ## Remaining limitations
 
 The illustrative injection assessor matches four categories; it does not prove complete detection. Independent authorization and tool/schema containment remain mandatory. Offline redaction doubles do not prove production Presidio coverage. Audit events qualify attempted tools and are kept in memory; durable delivery is not implemented. Real user authentication, production tenant/RLS integration, real model response quality, Arabic language coverage, gateway key scope and live network containment remain unproven. Google SDP's separate inconclusive evaluation is not a provider-authority decision.

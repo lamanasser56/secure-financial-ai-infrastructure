@@ -9,6 +9,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import secrets
 from runtime.agents.demo import make_demo
+from runtime.agents.presentation import present
 from runtime.agents.schemas import ROOT, read_fixed
 
 ASSETS = {
@@ -156,23 +157,16 @@ class Handler(BaseHTTPRequestHandler):
             request = json.loads(body)
             if (
                 not isinstance(request, dict)
-                or set(request) != {"agent", "period", "scenario_id", "language"}
+                or set(request) != {"agent", "period", "scenario_id"}
                 or request["agent"] not in self.server.agents
-                or request["language"] not in {"ar", "en"}
             ):
                 raise ValueError
             profile = request["agent"]
             message = (
-                {
-                    "en": "Diagnose this synthetic infrastructure failure.",
-                    "ar": "شخّص فشل البنية التحتية الاصطناعي.",
-                }
+                "Diagnose this synthetic infrastructure failure."
                 if profile == "infrastructure"
-                else {
-                    "en": "Analyze synthetic expenses.",
-                    "ar": "حلل المصاريف الاصطناعية.",
-                }
-            )[request["language"]]
+                else "Analyze synthetic expenses."
+            )
             core, authorization = self.server.agents[profile]
             result = core.run(
                 authorization,
@@ -183,6 +177,7 @@ class Handler(BaseHTTPRequestHandler):
                     "scenario_id": request["scenario_id"],
                 },
             )
+            result["presentation"] = present(result)
         except Exception:
             self.respond(400, {"error": "invalid_request"})
             return

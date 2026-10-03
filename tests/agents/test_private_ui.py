@@ -55,14 +55,16 @@ class PrivateUITests(unittest.TestCase):
             "agent": "financial",
             "period": "2026-01",
             "scenario_id": None,
-            "language": "ar",
         }
         return self.call("POST", "/api/run", json.dumps(payload), standard)
 
     def test_private_assets_and_security_headers(self):
         status, headers, body = self.call("GET", "/")
         self.assertEqual(status, 200)
-        self.assertIn('dir="rtl"', body.decode())
+        self.assertIn('dir="ltr"', body.decode())
+        self.assertIn('lang="en"', body.decode())
+        self.assertNotIn('id="language"', body.decode())
+        self.assertNotRegex(body.decode(), r"[\u0600-\u06ff]")
         self.assertIn('role="tablist"', body.decode())
         self.assertIn('aria-live="polite"', body.decode())
         self.assertIn("frame-ancestors 'none'", headers["Content-Security-Policy"])
@@ -90,13 +92,11 @@ class PrivateUITests(unittest.TestCase):
                 "agent": "financial",
                 "period": "2026-01",
                 "scenario_id": None,
-                "language": "ar",
             },
             {
                 "agent": "infrastructure",
                 "period": None,
                 "scenario_id": "cluster-version",
-                "language": "en",
             },
         ):
             status, _, body = self.post(payload)
@@ -110,11 +110,32 @@ class PrivateUITests(unittest.TestCase):
                 "agent": "financial",
                 "period": None,
                 "scenario_id": None,
-                "language": "en",
             }
         )
         self.assertEqual(status, 200)
-        self.assertEqual(json.loads(body)["status"], "clarification_required")
+        value = json.loads(body)
+        self.assertEqual(value["status"], "clarification_required")
+        self.assertEqual((value["model_requests"], value["tool_executions"]), (0, 0))
+        self.assertNotIn("facts", value)
+        self.assertNotIn("financial", value["presentation"])
+
+    def test_report_preserves_raw_minor_units_and_truthful_usage(self):
+        status, _, body = self.post()
+        self.assertEqual(status, 200)
+        value = json.loads(body)
+        self.assertEqual(value["facts"][0]["result"]["total_minor_units"], 24000)
+        finance = value["presentation"]["financial"]
+        self.assertEqual(finance["total"], "SAR 240.00")
+        self.assertEqual(
+            [c["amount"] for c in finance["categories"]], ["SAR 200.00", "SAR 40.00"]
+        )
+        usage = value["presentation"]["usage"]
+        self.assertEqual(usage["simulated_model_requests"], 3)
+        self.assertEqual(usage["external_provider_calls"], 0)
+        self.assertIsNone(usage["token_usage"])
+        self.assertIsNone(usage["cost"])
+        self.assertNotIn("csrf", value)
+        self.assertNotRegex(body.decode(), r"[\u0600-\u06ff]")
 
     def test_hostname_rebinding_and_cross_origin_are_rejected(self):
         for headers in (
@@ -151,12 +172,18 @@ class PrivateUITests(unittest.TestCase):
             "X-Forwarded-Proto",
         ):
             self.assertEqual(self.post(headers={header: "untrusted"})[0], 403)
-        for key in ("tenant_id", "gateway_url", "model", "credential", "message"):
+        for key in (
+            "tenant_id",
+            "gateway_url",
+            "model",
+            "credential",
+            "message",
+            "language",
+        ):
             payload = {
                 "agent": "financial",
                 "period": "2026-01",
                 "scenario_id": None,
-                "language": "en",
                 key: "untrusted",
             }
             self.assertEqual(self.post(payload)[0], 400)

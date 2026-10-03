@@ -79,7 +79,11 @@ class FakeGateway:
                 "agent": p["agent"],
                 "period": p["period"] if p["agent"] == "financial" else None,
                 "evidence_ids": list(
-                    dict.fromkeys(o["result"]["source_id"] for o in obs)
+                    dict.fromkeys(
+                        o["result"]["source_id"]
+                        for o in obs
+                        if o["tool_id"] != "read_image_summary"
+                    )
                 ),
                 "limitations": "Offline synthetic simulation. No real model, cloud state or production readiness is proven.",
             }
@@ -96,7 +100,9 @@ class FakeGateway:
                 categories = facts["expense_categories"]["categories"]
                 highest = categories[0]["category"] if categories else "none"
                 decision["summary"] = (
-                    f"Synthetic reporting period {summary['period']}: total {summary['total_minor_units']} SAR minor units across {summary['expense_count']} expenses. Highest category: {highest}."
+                    f"Synthetic reporting period {summary['period']}: {summary['expense_count']} expenses. "
+                    f"Highest category by tool-calculated total: {highest}. "
+                    "Amounts and rankings below come from deterministic tools, not model arithmetic."
                 )
         return GatewayResult(
             {

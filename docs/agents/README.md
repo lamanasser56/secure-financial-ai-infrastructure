@@ -8,7 +8,7 @@ Two read-only demonstrations reuse the existing secure runtime. They were built 
 - Infrastructure diagnostics reads three approved synthetic CI scenarios, a synthetic image qualification summary and bounded runbook sections. It suggests repairs and executes none.
 - Financial analysis uses two isolated synthetic tenant fixtures. Tools calculate integer SAR minor-unit totals, counts and category rankings. The simulated model explains those facts.
 - Separate server-selected identities, policy profiles and tool allowlists. The financial profile has no infrastructure permissions.
-- Runnable CLIs and a loopback-only Arabic RTL/English UI with keyboard-operated tabs, labelled controls, status announcements and text-only result rendering.
+- Runnable CLIs and a loopback-only English LTR UI with keyboard-operated tabs, labelled controls, status announcements and text-only result rendering.
 - Offline adversarial tests for request/proposal/schema containment, tenant context, redaction, evidence references, budgets, deadlines and HTTP boundaries.
 
 **Every CLI/UI result is an offline simulation.** Authentication is simulated. The deterministic `FakeGateway` sends no HTTP request and truthfully records `provider_called=false`. The demo exercises the existing `PresidioRedactor` composition with explicitly synthetic analyzer/anonymizer test doubles. Its email pattern is not evidence of real Presidio coverage, Arabic detection, production security or model accuracy.
@@ -28,7 +28,7 @@ Real authentication and trusted tenant resolution, scoped gateway virtual keys, 
 Use the repository's existing locked Python 3.12 environment. No new dependency, browser package, asset CDN or build system is required.
 
 ```bash
-python3 -B scripts/diagnose-infrastructure.py --scenario docker-config --language ar
+python3 -B scripts/diagnose-infrastructure.py --scenario docker-config
 python3 -B scripts/analyze-demo-expenses.py --period 2026-01 --user demo-alpha
 python3 -B scripts/analyze-demo-expenses.py --period 2026-01 --user demo-beta
 python3 -B scripts/analyze-demo-expenses.py  # requests a reporting period
@@ -48,8 +48,16 @@ bash scripts/check.sh
 
 [CI fixtures](../../demo/fixtures/ci.json) cover archive exporter/driver mismatch, Docker configuration lifecycle and GKE default-pool/version conflict. They are synthetic examples inspired by reviewed failures, not retained operational logs or current cloud state. [Image evidence](../../demo/fixtures/image.json) is invented qualification data, not a registry-digest claim. [Runbook sections](../../demo/fixtures/runbooks.json) are bounded, suggestion-only excerpts created for these demonstrations.
 
-[Expenses](../../demo/fixtures/expenses.json) contain two tenants and two months, no product schema or real account/customer records. For January 2026, demo-alpha totals 24,000 SAR minor units across three expenses; demo-beta totals 9,000 across two. Tool results omit raw tenant IDs and individual rows. Empty months return an explicit zero/count-zero dataset, not a guessed reporting period.
+[Expenses](../../demo/fixtures/expenses.json) contain two tenants and two months, no product schema or real account/customer records. For January 2026, demo-alpha totals 24,000 SAR minor units (SAR 240.00) across three expenses: Software SAR 200.00 and Transport SAR 40.00. Demo-beta totals 9,000 minor units (SAR 90.00) across two. Tool results omit raw tenant IDs and individual rows. Empty months return an explicit zero/count-zero dataset, not a guessed reporting period.
 
-Responses include the reporting period, actual source IDs, deterministic tool facts, sanitized pseudonymous traces and qualification-only governance events. A governance event is not proof that a tool executed successfully; `tool_executions` counts attempted dispatches, and only validated successful results enter `facts`. On a required-control failure, no partial unsafe result is returned and no operation is retried.
+Financial responses include the reporting period. Infrastructure responses show failure, cause, repair, supporting CI/runbook source IDs and unverified points; the invented image fixture is supplemental context, never a current scan assertion. Responses preserve actual source IDs, deterministic tool facts, sanitized pseudonymous traces and qualification-only governance events. A governance event is not proof that a tool executed successfully; `tool_executions` counts attempted dispatches, and only validated successful results enter `facts`. On a required-control failure, no partial unsafe result is returned and no operation is retried.
 
 See [architecture and limits](architecture.md) and the [decision record](adr-001-bounded-demo-agents.md).
+
+## UI reports and accounting
+
+Tool facts appear as readable cards and tables. The server formats SAR amounts with the currency's defined scale of two decimal places using integer division and remainder; it never parses model text or uses floating-point arithmetic for money. Unsupported currencies fail closed. Original integer minor units and canonical audit events remain in expandable sanitized JSON and the downloadable report. Financial aggregate/source/period consistency is checked before presentation.
+
+Each predefined scenario can be run again manually; there are no automatic retries. A missing financial month asks for clarification before any financial tool or simulated model request. The demo accepts only English predefined requests; browser-supplied language, identity, tenant, model and gateway fields are rejected.
+
+Run accounting separates simulated model requests from external provider calls. Token usage and cost are unavailable, not estimated as zero. Simulated redaction completion with test doubles is not evidence of live Presidio detection. Reports exclude the bootstrap CSRF token and private startup credentials; downloads do not enable persistence or a live provider.
