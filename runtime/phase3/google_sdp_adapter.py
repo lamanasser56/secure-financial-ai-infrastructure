@@ -30,22 +30,81 @@ _INFO_TYPES = {
     "EMAIL_ADDRESS": "EMAIL_ADDRESS",
     "PHONE_NUMBER": "PHONE_NUMBER",
 }
+DIAGNOSTIC_CODES = frozenset({
+    "UNKNOWN", "INVALID_INPUT", "CONFIGURATION_REJECTED", "BUSY",
+    "BUDGET_EXHAUSTED", "RPC_TIMEOUT", "OVERALL_TIMEOUT", "RPC_STATUS",
+    "RPC_FAILURE", "MALFORMED_RESPONSE", "INCOMPLETE_TRANSFORMATION",
+    "OUTPUT_MISMATCH", "RESIDUAL_VALUE", "OUTPUT_LIMIT",
+})
+DIAGNOSTIC_STAGES = frozenset({
+    "startup", "input", "budget", "inspect", "inspect_response",
+    "deidentify", "output", "normalize", "sequence",
+})
+RPC_STATUSES = frozenset({
+    "CANCELLED", "UNKNOWN", "INVALID_ARGUMENT", "DEADLINE_EXCEEDED",
+    "NOT_FOUND", "ALREADY_EXISTS", "PERMISSION_DENIED", "UNAUTHENTICATED",
+    "RESOURCE_EXHAUSTED", "FAILED_PRECONDITION", "ABORTED", "OUT_OF_RANGE",
+    "UNIMPLEMENTED", "INTERNAL", "UNAVAILABLE", "DATA_LOSS",
+})
 
 
 class GoogleSDPFailure(RuntimeError):
-    """A fixed failure with no provider data or configuration detail."""
+    """Fixed public error; evaluation diagnostics contain finite constants only."""
 
-    def __init__(self):
+    def __init__(self, code="UNKNOWN", stage="startup", rpc_status=None):
         super().__init__("redaction:provider_failure")
+        self._code = code if type(code) is str and code in DIAGNOSTIC_CODES else "UNKNOWN"
+        self._stage = (
+            stage if type(stage) is str and stage in DIAGNOSTIC_STAGES else "startup"
+        )
+        self._rpc_status = (
+            rpc_status if type(rpc_status) is str and rpc_status in RPC_STATUSES else None
+        )
+
+    @property
+    def diagnostic(self):
+        value = {"code": self._code, "stage": self._stage}
+        if self._rpc_status is not None:
+            value["rpc_status"] = self._rpc_status
+        return value
 
 
-def _guarded(operation: Callable[[], Any]) -> Any:
+def _guarded(operation: Callable[[], Any], *, code="UNKNOWN", stage="startup") -> Any:
     """Discard provider exceptions, including their potentially sensitive context."""
     try:
         return operation()
-    except Exception:
-        pass
-    raise GoogleSDPFailure()
+    except Exception as error:
+        diagnostic = (
+            error.diagnostic if type(error) is GoogleSDPFailure
+            else {"code": code, "stage": stage}
+        )
+    # Raise outside the handler: no raw exception context/cause is retained.
+    raise GoogleSDPFailure(**diagnostic)
+
+
+def _rpc_guarded(operation, stage):
+    """Never serialize exceptions, status messages, metadata or response bodies."""
+    try:
+        return operation()
+    except Exception as error:
+        diagnostic = {"code": "RPC_FAILURE", "stage": stage}
+        if isinstance(error, TimeoutError):
+            diagnostic["code"] = "RPC_TIMEOUT"
+        else:
+            try:
+                from google.api_core import exceptions
+            except ImportError:
+                exceptions = None
+            if exceptions is not None and isinstance(error, exceptions.GoogleAPICallError):
+                # Read the trusted exception CLASS's enum; no message or code() call.
+                status = getattr(type(error), "grpc_status_code", None)
+                name = getattr(status, "name", None)
+                diagnostic.update(code="RPC_STATUS", rpc_status=(
+                    name if type(name) is str and name in RPC_STATUSES else "UNKNOWN"
+                ))
+                if isinstance(error, exceptions.DeadlineExceeded):
+                    diagnostic["code"] = "RPC_TIMEOUT"
+    raise GoogleSDPFailure(**diagnostic)
 
 
 def _deployment() -> tuple[str, str]:
@@ -99,7 +158,7 @@ class ContentAttemptBudget:
     def reserve(self) -> "_Reservation":
         with self._lock:
             if self._used + self._reserved + 2 > self.limit:
-                raise GoogleSDPFailure()
+                raise GoogleSDPFailure("BUDGET_EXHAUSTED", "budget")
             self._reserved += 2
         return _Reservation(self)
 
@@ -111,7 +170,7 @@ class _Reservation:
     def attempt(self) -> None:
         with self.budget._lock:
             if self.remaining <= 0:
-                raise GoogleSDPFailure()
+                raise GoogleSDPFailure("BUDGET_EXHAUSTED", "budget")
             self.remaining -= 1
             self.budget._reserved -= 1
             self.budget._used += 1
@@ -216,29 +275,38 @@ def _output(
 ) -> str:
     allowed_types = _INFO_TYPES if allowed_types is None else allowed_types
     if not _present(response, "item"):
-        raise ValueError
+        raise GoogleSDPFailure("MALFORMED_RESPONSE", "output")
     protobuf = getattr(response.item, "_pb", None)
     if protobuf is not None and protobuf.WhichOneof("data_item") != "value":
-        raise ValueError
+        raise GoogleSDPFailure("MALFORMED_RESPONSE", "output")
     value = response.item.value
     if (
         type(value) is not str
         or not value.strip()
         or len(value.encode("utf-8")) > MAX_OUTPUT_BYTES
     ):
-        raise ValueError
-    # ReplaceWithInfoTypeConfig produces the bare type name, not [TYPE]. Exact
-    # reconstruction preserves all allowed text and detects partial/extra changes.
-    cursor, pieces = 0, []
+        code = (
+            "OUTPUT_LIMIT"
+            if type(value) is str and len(value.encode("utf-8")) > MAX_OUTPUT_BYTES
+            else "MALFORMED_RESPONSE"
+        )
+        raise GoogleSDPFailure(code, "output")
+    # Official REST examples use [TYPE]; the transformation reference also
+    # describes bare TYPE. Accept only either WHOLE exact reconstruction, with
+    # every finding replaced and every nonsensitive codepoint preserved.
+    cursor, pieces, wrapped = 0, [], []
     for span in spans:
         pieces.extend((original[cursor : span.start], span.info_type))
+        wrapped.extend((original[cursor : span.start], "[" + span.info_type + "]"))
         cursor = span.end
     pieces.append(original[cursor:])
-    if value != "".join(pieces):
-        raise ValueError
+    wrapped.append(original[cursor:])
     normalized = _canonical(value)
     if any(_canonical(original[span.start : span.end]) in normalized for span in spans):
-        raise ValueError
+        raise GoogleSDPFailure("RESIDUAL_VALUE", "output")
+    expected_output = "".join(pieces)
+    if value not in (expected_output, "".join(wrapped)):
+        raise GoogleSDPFailure("OUTPUT_MISMATCH", "output")
     overview = response.overview
     total = overview.transformed_bytes
     summaries = list(overview.transformation_summaries)
@@ -247,7 +315,7 @@ def _output(
         or not 0 <= total <= MAX_INPUT_BYTES
         or len(summaries) > len(allowed_types)
     ):
-        raise ValueError
+        raise GoogleSDPFailure("MALFORMED_RESPONSE", "output")
     expected = Counter(span.info_type for span in spans)
     actual = Counter()
     byte_total = 0
@@ -257,7 +325,7 @@ def _output(
             or _present(summary, "record_suppress")
             or getattr(summary, "field_transformations", ())
         ):
-            raise ValueError
+            raise GoogleSDPFailure("MALFORMED_RESPONSE", "output")
         name = summary.info_type.name
         size = summary.transformed_bytes
         if (
@@ -266,19 +334,19 @@ def _output(
             or type(size) is not int
             or not 0 < size <= MAX_INPUT_BYTES
         ):
-            raise ValueError
+            raise GoogleSDPFailure("INCOMPLETE_TRANSFORMATION", "output")
         transformation = summary.transformation
         if not _present(transformation, "replace_with_info_type_config"):
-            raise ValueError
+            raise GoogleSDPFailure("INCOMPLETE_TRANSFORMATION", "output")
         protobuf = getattr(transformation, "_pb", None)
         if (
             protobuf is not None
             and protobuf.WhichOneof("transformation") != "replace_with_info_type_config"
         ):
-            raise ValueError
+            raise GoogleSDPFailure("INCOMPLETE_TRANSFORMATION", "output")
         results = list(summary.results)
         if len(results) != 1:
-            raise ValueError
+            raise GoogleSDPFailure("INCOMPLETE_TRANSFORMATION", "output")
         result = results[0]
         # SUCCESS=1 in the locked proto; no warning/error detail is accepted.
         if (
@@ -288,12 +356,13 @@ def _output(
             or result.code != 1
             or result.details
         ):
-            raise ValueError
+            raise GoogleSDPFailure("INCOMPLETE_TRANSFORMATION", "output")
         actual[name] = result.count
         byte_total += size
     if actual != expected or byte_total != total or (bool(spans) != (total > 0)):
-        raise ValueError
-    return value
+        raise GoogleSDPFailure("INCOMPLETE_TRANSFORMATION", "output")
+    # Normalize only after exact provider output and all statistics were checked.
+    return expected_output
 
 
 class GoogleSDPRedactor:
@@ -316,10 +385,10 @@ class GoogleSDPRedactor:
             or type(region) is not str
             or region != REGION
         ):
-            raise GoogleSDPFailure()
+            raise GoogleSDPFailure("CONFIGURATION_REJECTED", "startup")
         self._parent = f"projects/{project_id}/locations/{REGION}"
         if budget is not None and type(budget) is not ContentAttemptBudget:
-            raise GoogleSDPFailure()
+            raise GoogleSDPFailure("CONFIGURATION_REJECTED", "startup")
         self._budget = budget if budget is not None else ContentAttemptBudget()
         self._operation_counts = {"inspect_attempted": 0, "deidentify_attempted": 0}
         self._test_counts = dict(self._operation_counts)
@@ -327,7 +396,7 @@ class GoogleSDPRedactor:
         self._busy = threading.Lock()
         self._client = client if client is not None else _guarded(_create_client)
         if _guarded(lambda: self._client.api_endpoint == ENDPOINT) is not True:
-            raise GoogleSDPFailure()
+            raise GoogleSDPFailure("CONFIGURATION_REJECTED", "startup")
 
     @property
     def operation_counts(self) -> dict[str, int]:
@@ -345,19 +414,23 @@ class GoogleSDPRedactor:
 
     def redact(self, text: str) -> RedactionResult:
         # No provider exception context, invalid Unicode or response escapes.
-        return _guarded(lambda: self._redact(text))
+        return _guarded(lambda: self._redact(text), code="UNKNOWN", stage="sequence")
 
     def _redact(self, text: str) -> RedactionResult:
         started = time.monotonic()
         deadline = started + OVERALL_TIMEOUT_SECONDS
-        if (
-            type(text) is not str
-            or not text.strip()
-            or len(text.encode("utf-8")) > MAX_INPUT_BYTES
-        ):
-            raise GoogleSDPFailure()
+        invalid_input = _guarded(
+            lambda: (
+                type(text) is not str
+                or not text.strip()
+                or len(text.encode("utf-8")) > MAX_INPUT_BYTES
+            ),
+            code="INVALID_INPUT", stage="input",
+        )
+        if invalid_input:
+            raise GoogleSDPFailure("INVALID_INPUT", "input")
         if not self._busy.acquire(blocking=False):
-            raise GoogleSDPFailure()
+            raise GoogleSDPFailure("BUSY", "input")
         reservation = None
         try:
             reservation = self._budget.reserve()
@@ -370,7 +443,7 @@ class GoogleSDPRedactor:
     def _remaining(self, deadline: float) -> float:
         remaining = deadline - time.monotonic()
         if not math.isfinite(remaining) or remaining <= 0:
-            raise GoogleSDPFailure()
+            raise GoogleSDPFailure("OVERALL_TIMEOUT", "sequence")
         return remaining
 
     def _invoke(
@@ -384,9 +457,11 @@ class GoogleSDPRedactor:
         reservation.attempt()
         counts = self._operation_counts if self._real_sdk else self._test_counts
         counts[name + "_attempted"] += 1
-        result = operation(request=request, retry=None, timeout=timeout)
+        result = _rpc_guarded(
+            lambda: operation(request=request, retry=None, timeout=timeout), name
+        )
         if time.monotonic() - started >= timeout:
-            raise GoogleSDPFailure()
+            raise GoogleSDPFailure("RPC_TIMEOUT", name)
         self._remaining(deadline)
         return result
 
@@ -407,10 +482,13 @@ class GoogleSDPRedactor:
             deadline,
             reservation,
         )
-        spans = (
-            inspection_spans(inspected, text)
-            if type_map is _INFO_TYPES
-            else inspection_spans(inspected, text, type_map)
+        spans = _guarded(
+            lambda: (
+                inspection_spans(inspected, text)
+                if type_map is _INFO_TYPES
+                else inspection_spans(inspected, text, type_map)
+            ),
+            code="MALFORMED_RESPONSE", stage="inspect_response",
         )
         self._remaining(deadline)
         transformed = self._invoke(
@@ -436,14 +514,24 @@ class GoogleSDPRedactor:
             deadline,
             reservation,
         )
-        redacted = (
-            _output(transformed, text, spans)
-            if type_map is _INFO_TYPES
-            else _output(transformed, text, spans, type_map)
+        redacted = _guarded(
+            lambda: (
+                _output(transformed, text, spans)
+                if type_map is _INFO_TYPES
+                else _output(transformed, text, spans, type_map)
+            ),
+            code="MALFORMED_RESPONSE", stage="output",
         )
-        redacted = self._normalized_output(text, spans, redacted)
-        if len(redacted.encode("utf-8")) > MAX_OUTPUT_BYTES:
-            raise GoogleSDPFailure()
+        redacted = _guarded(
+            lambda: self._normalized_output(text, spans, redacted),
+            code="MALFORMED_RESPONSE", stage="normalize",
+        )
+        output_size = _guarded(
+            lambda: len(redacted.encode("utf-8")),
+            code="MALFORMED_RESPONSE", stage="normalize",
+        )
+        if output_size > MAX_OUTPUT_BYTES:
+            raise GoogleSDPFailure("OUTPUT_LIMIT", "normalize")
         self._remaining(deadline)
         return RedactionResult(
             redacted, tuple(sorted({type_map[span.info_type] for span in spans}))

@@ -31,6 +31,9 @@ ACK_ENV = "PORTFOLIO_SDP_CONTEXT_SYNTHETIC_ONLY_ACK"
 ACK_VALUE = "I_ACKNOWLEDGE_CONTEXT_PATTERN_SYNTHETIC_ONLY"
 PROJECT_ENV = "PORTFOLIO_GOOGLE_SDP_PROJECT_ID"
 CAMPAIGN_SECONDS = 900
+DIAGNOSTIC_ACK_ENV = "PORTFOLIO_SDP_CONTEXT_DIAGNOSTIC_ONLY_ACK"
+DIAGNOSTIC_ACK_VALUE = "I_ACKNOWLEDGE_CONTEXT_001_ONLY_TWO_ATTEMPTS"
+DIAGNOSTIC_SECONDS = 30
 
 
 def load_corpus():
@@ -66,13 +69,22 @@ class EvaluationRedactor(GoogleSDPContextRedactor):
         return super()._normalized_output(original, spans, validated_output)
 
 
-def evaluate(live=False, *, client=None, clock=time.monotonic):
+def evaluate(live=False, *, client=None, clock=time.monotonic, first_case_only=False):
     corpus = load_corpus()
-    budget = ContentAttemptBudget(2 * len(corpus["cases"]))
+    if type(first_case_only) is not bool:
+        raise GoogleSDPFailure("CONFIGURATION_REJECTED", "startup")
+    cases = corpus["cases"]
+    if first_case_only:
+        if cases[0]["case_id"] != "context-001":
+            raise GoogleSDPFailure("CONFIGURATION_REJECTED", "startup")
+        cases = cases[:1]  # Fixed committed input; no arbitrary case/text selector.
+    budget = ContentAttemptBudget(2 * len(cases))
     redactor = None
     if live:
         if client is not None or os.environ.get(ACK_ENV) != ACK_VALUE:
             raise GoogleSDPFailure()
+        if first_case_only and os.environ.get(DIAGNOSTIC_ACK_ENV) != DIAGNOSTIC_ACK_VALUE:
+            raise GoogleSDPFailure("CONFIGURATION_REJECTED", "startup")
         redactor = EvaluationRedactor(os.environ.get(PROJECT_ENV), budget=budget)
     elif client is not None:
         redactor = EvaluationRedactor("synthetic-eval", client=client, budget=budget)
@@ -89,11 +101,13 @@ def evaluate(live=False, *, client=None, clock=time.monotonic):
         "required_pass": 0,
         "required_fail": 0,
         "observations": 0,
-        "unexecuted": len(corpus["cases"]),
+        "unexecuted": len(cases),
         "cases": [],
     }
-    for case in corpus["cases"]:
-        if clock() - started >= CAMPAIGN_SECONDS:
+    if first_case_only:
+        result["scope"] = "context_001_diagnostic_only"
+    for case in cases:
+        if clock() - started >= (DIAGNOSTIC_SECONDS if first_case_only else CAMPAIGN_SECONDS):
             result["required_fail"] += 1
             break
         expected = {
@@ -129,7 +143,7 @@ def evaluate(live=False, *, client=None, clock=time.monotonic):
             result["unexecuted"] -= 1
             if status == "FAIL":
                 break
-        except Exception:
+        except Exception as error:
             result["required_fail"] += 1
             result["cases"].append(
                 {
@@ -138,6 +152,10 @@ def evaluate(live=False, *, client=None, clock=time.monotonic):
                     "tp": 0,
                     "fp": 0,
                     "fn": 0,
+                    "diagnostic": (
+                        error.diagnostic if type(error) is GoogleSDPFailure
+                        else {"code": "UNKNOWN", "stage": "sequence"}
+                    ),
                 }
             )
             result["unexecuted"] -= 1
@@ -166,16 +184,30 @@ def validate_result(result):
     ).validate(result)
     if len(json.dumps(result).encode()) > 16384:
         raise ValueError
+    if result.get("scope") == "context_001_diagnostic_only" and (
+        result["sdk_attempts"] + result["injected_attempts"] > 2
+        or len(result["cases"]) > 1
+        or any(c["case_id"] != "context-001" for c in result["cases"])
+        or result["required_pass"] + result["required_fail"] > 1
+        or result["unexecuted"] > 1
+        or result["observations"] != 0
+    ):
+        raise ValueError
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--live", action="store_true")
+    parser.add_argument("--diagnostic-first-case", action="store_true",
+                        help="Only fixed context-001; at most two attempts, not qualification")
     args = parser.parse_args()
     try:
-        result = evaluate(args.live)
-    except Exception:
-        print('{"status":"blocked","reason":"redaction:provider_failure"}')
+        result = evaluate(args.live, first_case_only=args.diagnostic_first_case)
+    except Exception as error:
+        diagnostic = (error.diagnostic if type(error) is GoogleSDPFailure
+                      else {"code": "UNKNOWN", "stage": "startup"})
+        print(json.dumps({"status": "blocked", "reason": "redaction:provider_failure",
+                          "diagnostic": diagnostic}, sort_keys=True))
         return 1
     print(json.dumps(result, sort_keys=True, separators=(",", ":")))
     return int(result["outcome"] == "FAIL_CLOSED")

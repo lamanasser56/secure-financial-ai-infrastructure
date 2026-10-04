@@ -122,12 +122,15 @@ class QualificationTests(unittest.TestCase):
                             / "evaluation/google-sdp-context/qualification.json"
                         ).read_text()
                     )
-                    self.assertEqual(
+                    self.assertNotEqual(
                         hashlib.sha256(
                             (qualification.ROOT / path).read_bytes()
                         ).hexdigest(),
                         current["source_input_sha256"][path],
                     )
+                    self.assertEqual(current["source_input_sha256"][path],
+                                     "83ccb313ff70b109b571327c730497d88a0cd7cf12ec5f295db38d0456a673ed")
+                    # Both retained subjects precede the unqualified diagnostic helper.
                     continue
                 self.assertEqual(
                     hashlib.sha256(

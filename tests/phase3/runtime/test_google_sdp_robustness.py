@@ -121,7 +121,7 @@ class RobustnessTests(unittest.TestCase):
             TEXT,
             "Contact EMAIL_ADDRESS extra",
             "EMAIL_ADDRESS",
-            "Contact [EMAIL_ADDRESS]",
+            "Contact [[EMAIL_ADDRESS]]",
             "Contact Zml4dHVyZUBleGFtcGxlLmludmFsaWQ=",
             "x" * 4097,
         ):
@@ -380,8 +380,9 @@ class LockedSDKShapeTests(unittest.TestCase):
         transformed.item = dlp_v2.ContentItem(
             table={"headers": [{"name": "unsupported"}]}
         )
-        with self.assertRaises(ValueError):
+        with self.assertRaises(adapter.GoogleSDPFailure) as caught:
             adapter._output(transformed, text, spans)
+        self.assertEqual(caught.exception.diagnostic["code"], "MALFORMED_RESPONSE")
 
 
 if __name__ == "__main__":

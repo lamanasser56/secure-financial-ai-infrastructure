@@ -4,6 +4,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "policy_id", "policy_sha256", "mode", "google_quality", "authority_changed", "sdk_attempts", "injected_attempts", "required_pass", "required_fail", "observations", "unexecuted", "cases", "outcome"],
   "properties": {
+    "scope": {"const": "context_001_diagnostic_only"},
     "schema_version": {"const": 1},
     "policy_id": {"const": "context-pattern-v1"},
     "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
@@ -27,8 +28,18 @@
           "status": {"enum": ["PASS", "FAIL", "FAIL_CLOSED", "OBSERVATION"]},
           "tp": {"type": "integer", "minimum": 0, "maximum": 1000},
           "fp": {"type": "integer", "minimum": 0, "maximum": 1000},
-          "fn": {"type": "integer", "minimum": 0, "maximum": 1000}
-        }
+          "fn": {"type": "integer", "minimum": 0, "maximum": 1000},
+          "diagnostic": {
+            "type": "object", "additionalProperties": false,
+            "required": ["code", "stage"],
+            "properties": {
+              "code": {"enum": ["UNKNOWN", "INVALID_INPUT", "CONFIGURATION_REJECTED", "BUSY", "BUDGET_EXHAUSTED", "RPC_TIMEOUT", "OVERALL_TIMEOUT", "RPC_STATUS", "RPC_FAILURE", "MALFORMED_RESPONSE", "INCOMPLETE_TRANSFORMATION", "OUTPUT_MISMATCH", "RESIDUAL_VALUE", "OUTPUT_LIMIT"]},
+              "stage": {"enum": ["startup", "input", "budget", "inspect", "inspect_response", "deidentify", "output", "normalize", "sequence"]},
+              "rpc_status": {"enum": ["CANCELLED", "UNKNOWN", "INVALID_ARGUMENT", "DEADLINE_EXCEEDED", "NOT_FOUND", "ALREADY_EXISTS", "PERMISSION_DENIED", "UNAUTHENTICATED", "RESOURCE_EXHAUSTED", "FAILED_PRECONDITION", "ABORTED", "OUT_OF_RANGE", "UNIMPLEMENTED", "INTERNAL", "UNAVAILABLE", "DATA_LOSS"]}
+            }
+          }
+        },
+        "allOf": [{"if": {"required": ["diagnostic"]}, "then": {"properties": {"status": {"const": "FAIL_CLOSED"}}}}]
       }
     }
   }

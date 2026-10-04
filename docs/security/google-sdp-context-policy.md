@@ -79,6 +79,13 @@ unsupported obfuscation/OCR-like representations stay unqualified.
 
 ## Remaining gates
 
+The completed run stopped at `context-001` after two invocation attempts. Its
+original cause remains unknown; the remaining 85 cases were not executed.
+The [offline diagnostic assessment](google-sdp-context-diagnostics.md) records a
+documented replacement-format compatibility defect and a proposed first-case-only
+diagnostic bundle. Current diagnostic source requires fresh image qualification;
+the retained qualification record applies to its historical source only.
+
 Actual RE2/custom capture execution, built-in email behavior, cross-detector overlap,
 exact Unicode/UTF-8 positions, complete substitution/statistics, leakage rejection,
 latency and observed SDK attempts remain unproven. Local SDK object construction is
