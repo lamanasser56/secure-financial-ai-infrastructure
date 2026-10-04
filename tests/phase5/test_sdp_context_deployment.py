@@ -32,7 +32,7 @@ class ContextDeploymentTests(unittest.TestCase):
         )
         trigger = workflow.get("on", workflow.get(True))
         profile = trigger["workflow_dispatch"]["inputs"]["evaluation_profile"]
-        self.assertEqual(profile["options"], ["seed", "context-pattern-v1"])
+        self.assertEqual(profile["options"], ["seed", "context-pattern-v1", "context-001-diagnostic-v1"])
         self.assertEqual(profile["default"], "seed")
         for name in ("qualify", "publish"):
             steps = workflow["jobs"][name]["steps"]

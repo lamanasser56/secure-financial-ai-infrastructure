@@ -1,4 +1,4 @@
-# Context-001 fail-closed diagnosis and proposed diagnostic run
+# Context-001 fail-closed diagnosis and prepared diagnostic contract
 
 **Offline preparation; no execution authority.** Presidio remains authoritative,
 its remediation remains paused, and Google SDP remains unwired from the agents.
@@ -29,9 +29,11 @@ contain the new diagnostic implementation. Its manifest is
 its different configuration identity is
 `sha256:8c0a7f6042abeb3f811a1f01aa0440a0bb0a67399ef2ae7ab9e346855126b62d`.
 The [retained qualification record](../../evaluation/google-sdp-context/qualification.json)
-cannot qualify changed adapter, harness or schema bytes. Future image qualification
-must bind the final source and every new image input; old scan/SBOM evidence must
-not be relabelled as evidence for that image.
+cannot qualify changed adapter, harness or schema bytes. The separate
+[diagnostic qualification record](../../evaluation/google-sdp-context/diagnostic-qualification.json)
+binds new image inputs and fresh local evidence. Old scan/SBOM evidence must not
+be relabelled as evidence for that image; no new registry manifest/signature is
+created by local preparation.
 
 ## Failure paths after inspection
 
@@ -119,12 +121,16 @@ The provider-neutral redactor boundary, per-call limits, operation accounting,
 fail-closed output handling and lack of production wiring remain intact. Raw
 conversation, response and exception content stays out of logs and reports.
 
-## Proposed first-case-only diagnostic bundle
+## Prepared first-case-only diagnostic bundle
 
-**Preparation proposal only; a separately approved, fully frozen bundle is required.**
+**Preparation only; a separately approved, fully frozen bundle is required.**
 The earlier 172-attempt approval was consumed by its completed execution and does
 not authorize a new two-attempt run. Do not rerun the 86-case campaign to obtain
-diagnostics.
+diagnostics. The [dedicated execution bundle](google-sdp-context-diagnostic-execution-bundle.md)
+defines exact release profile `context-001-diagnostic-v1`, intended image
+`google-sdp-context-diagnostic`, resources/IAM, gates and cleanup. Final source SHA,
+qualified image subjects and private project/state names are bound in the owner
+handoff outside Git.
 
 | Boundary | Proposed limit or exact existing contract |
 | --- | --- |
@@ -132,42 +138,38 @@ diagnostics.
 | Policy/corpus | `context-pattern-v1`; preserve the committed policy and all 86 cases byte-for-byte, but dispatch only the first case. |
 | SDK attempts | At most one inspect and one deidentify: **two content attempts total**, including failures; zero SDP metadata SDK calls. |
 | Retries | Zero application, content-SDK and Job retries; one Job/Pod, no automatic restart/recreation. |
-| Text/deadlines | Input/output at most 4,096 UTF-8 bytes; RPC three seconds; combined monotonic eight seconds. Proposed Job deadline 120 seconds. |
+| Text/deadlines | Input/output at most 4,096 UTF-8 bytes; RPC three seconds; combined monotonic eight seconds; diagnostic admission 30 seconds; suspended Job deadline 120 seconds. |
 | Location | Only `us-east1`, `dlp.us-east1.rep.googleapis.com`, and `projects/PROJECT_ID/locations/us-east1`; no fallback, request-selected location or alternate project. |
 | Identity | Existing runtime GSA and namespace/KSA `google-sdp-evaluation` / `google-sdp-evaluation`; no new keys, permissions or identities. |
 | Kubernetes controls | Existing restricted PSA, nonroot UID/GID 65532, read-only root, no escalation, dropped capabilities, RuntimeDefault seccomp, bounded resources and one-Job/Pod quota. |
-| Output | Fixed case/policy/source identity, neutral outcome, finite diagnostic values and operation counts only; no raw text, findings, spans or provider detail. |
+| Output | Fixed case/policy identity, neutral outcome, finite diagnostic values and operation counts only; source provenance is separate image evidence. No raw text, findings, spans or provider detail. |
 | Decision | Diagnose the first failure only. A pass permits review of the next qualification proposal; it does not authorize that campaign or replacement. |
 
-Before the single execution checkpoint, preparation must resolve the following:
+The [diagnostic renderer](../../scripts/render-sdp-context-diagnostic-job.sh) fixes
+`--live --diagnostic-first-case`, both exact acknowledgement controls and the
+120-second suspended Job. Its [validator](../../scripts/validate-sdp-context-diagnostic-deployment.py)
+rejects full-campaign execution, arbitrary selectors and changes to the inherited
+security contract. The original [context renderer](../../scripts/render-sdp-context-job.sh)
+is a full-campaign contract and must not be used unchanged for this run.
 
-1. Freeze and locally qualify the final diagnostic source. Bind the unchanged
-   policy/corpus hashes, fixed `--diagnostic-first-case` selector, both the existing
-   synthetic acknowledgement and its distinct diagnostic acknowledgement,
-   minimized result schema and exact operation budget in regression tests.
-2. Produce new deterministic image archives/configuration evidence, fresh SBOM,
-   scan and unchanged zero-exception vulnerability policy on the worker. The existing
-   signed image cannot be reused to claim execution of new diagnostics.
-3. Freeze one reviewed manual release, its exact inputs and source-SHA-only WIF
-   proposal. Preserve every other trust condition, attribute mapping, IAM binding,
-   registry rule and GitHub protection. Resolve and verify the actual new manifest
-   signature before deployment; configuration digest is not a manifest digest.
-4. Prepare a reviewed first-case-only rendered Job and offline validator. The current
-   [context renderer](../../scripts/render-sdp-context-job.sh) sets `--live` for the
-   whole campaign and must not be used unchanged for this diagnostic run. A selector
-   added to the harness must be fixed and bounded, with no general corpus override.
-5. Bind exact private project, names, source/configuration hashes and proposed image
-   subject outside Git. Recheck authenticated inventory and review complete saved
-   creation and cleanup plans before any mutation. Stop on drift or unrelated actions.
-   No new API, billing arrangement, role or alternate resource is proposed.
+Fresh deterministic archive/configuration qualification, SBOM, Trivy and unchanged
+zero-exception policy evidence bind only the new local subject. They do not prove
+Artifact Registry publication, signature issuance, live Google quality or current
+cloud inventory. The final approval handoff must bind the exact qualified source
+and image inputs. No unspecified future image, acknowledgement or saved plan is
+approved by this document.
 
-The execution checkpoint is **not ready** until these exact subjects and reviewed
-rendering/plan differences are available. Do not approve or execute an unspecified
-future image, source commit, acknowledgement or saved plan.
+After approval, authenticate and recheck inventory, privately save/review exact
+plans and update only the WIF source-SHA pin. Preserve every other trust condition,
+mapping, binding, registry rule and GitHub protection. Publish once under the
+dedicated profile and verify the actual registry digest/source signature before
+deployment. Configuration digest is not a manifest digest. Stop on drift or
+unrelated plan/refresh differences; preparation authorizes no new API, billing
+arrangement, role, alternate resource or live call.
 
 ### Resources and execution order
 
-Reuse the existing [enumerated identity and infrastructure boundary](google-sdp-context-execution-bundle.md):
+Reuse the [diagnostic bundle's enumerated identity and infrastructure boundary](google-sdp-context-diagnostic-execution-bundle.md):
 15 retained identity-root resources, the disabled node GSA, both private state
 prefixes and the separately retained state bucket. Create only these eight previously
 removed temporary resources and enable the retained node GSA for their lifetime:

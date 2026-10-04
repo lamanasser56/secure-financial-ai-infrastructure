@@ -83,8 +83,10 @@ The completed run stopped at `context-001` after two invocation attempts. Its
 original cause remains unknown; the remaining 85 cases were not executed.
 The [offline diagnostic assessment](google-sdp-context-diagnostics.md) records a
 documented replacement-format compatibility defect and a proposed first-case-only
-diagnostic bundle. Current diagnostic source requires fresh image qualification;
-the retained qualification record applies to its historical source only.
+diagnostic bundle. The separately [qualified diagnostic image](../../evaluation/google-sdp-context/diagnostic-qualification.json)
+binds the changed source to fresh offline build/scan evidence for `context-001` only;
+the retained qualification record applies to its historical source only. Neither
+record measures current Google detection quality or authorizes execution.
 
 Actual RE2/custom capture execution, built-in email behavior, cross-detector overlap,
 exact Unicode/UTF-8 positions, complete substitution/statistics, leakage rejection,

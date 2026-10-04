@@ -1,17 +1,57 @@
 # Google SDP synthetic live evaluation: gated operator runbook
 
-**Current state:** Local offline image qualification is complete. The manual release workflow, GKE package, and [Terraform GCP bootstrap contract](../../infra/gcp/google-sdp-evaluation/README.md) are prepared and unapplied. No GCP resource, GitHub setting, or GKE binding has been changed. Presidio remains authoritative. This document grants no real-data authorization and does not approve provider cutover.
+**Current state:** Historical seed and `context-pattern-v1` signed releases and
+bounded live executions completed. The seed recorded six passes and three
+inconclusive cases. The context campaign stopped fail closed on `context-001`
+after two content SDK invocation attempts, leaving 85 cases unexecuted; its cause
+remains UNKNOWN. Historical native cleanup was verified. A separate fixed
+first-case diagnostic is prepared for a new approval; it has not been released
+or run. Current native inventory/authentication is not established by offline
+preparation. Presidio remains authoritative and its remediation remains paused.
+This document grants no real-data authorization or provider cutover.
 
 | Gate | Status | Required operator evidence |
 | --- | --- | --- |
-| 1. Local image qualification | Completed | [Candidate inventory](../../docker/google-sdp-evaluation/candidates.json), immutable bases, local SBOM, Trivy and zero-waiver policy decision. |
-| 2. GCP identity and registry prerequisites | Terraform contract drafted; not applied | Approved project and budget, remote state, required APIs, exact repository/workflow WIF trust, protected GitHub environment, immutable-tag Docker repository, bounded IAM. |
-| 3. Manual signed registry release | Not run | Approved `main` commit, `us-east1` and repository/image inputs; successful [manual workflow](../../.github/workflows/release-google-sdp-evaluation.yml). |
-| 4. Digest and signature verification | Not proven | Registry digest, digest-linked SBOM/Trivy/policy result, Cosign verification of workflow identity and issuer. |
-| 5. GKE Workload Identity binding | Terraform contract drafted; not applied | Exact namespace/KSA-to-GSA binding, node image pull rights, regional network and metadata path review. |
-| 6. Synthetic live evaluation | Not run | Separate approval, reviewed synthetic corpus and costs, temporarily rendered [Job package](../../kubernetes/apps/google-sdp-evaluation/README.md), bounded execution. |
-| 7. Evidence review and outcome decision | Not completed | Sanitized result schema, false negatives/positives, operations, costs and one recorded outcome in the [evaluation plan](google-sdp-evaluation-plan.md). |
+| 1. Local image qualification | Historical subjects retained; fresh diagnostic subject separate | [Candidate inventory](../../docker/google-sdp-evaluation/candidates.json), historical [context record](../../evaluation/google-sdp-context/qualification.json), fresh [diagnostic record](../../evaluation/google-sdp-context/diagnostic-qualification.json); each binds only its own bytes. |
+| 2. GCP identity and registry prerequisites | Historically implemented; fresh read-only checks required | Approved project/budget, private state, existing APIs, exact WIF/IAM and GitHub protections, immutable repository. |
+| 3. Manual signed registry release | Historical releases complete; diagnostic release not run | One separately approved release of final diagnostic source through the [manual workflow](../../.github/workflows/release-google-sdp-evaluation.yml). |
+| 4. Digest and signature verification | Historical subjects verified; diagnostic subject not proven | New actual registry digest, fresh digest-linked SBOM/Trivy/policy and exact-source Cosign verification. |
+| 5. GKE Workload Identity binding | Historically verified; temporary cluster removed | Fresh identity/version inventory and successfully reviewed saved creation plan; same namespace/KSA and node image-pull contract. |
+| 6. Synthetic live evaluation | Historical seed/context runs completed; diagnostic not run | Only `context-001` under the [diagnostic execution bundle](google-sdp-context-diagnostic-execution-bundle.md), maximum two content attempts and zero retries. |
+| 7. Evidence review and outcome decision | Context qualification failed closed; historical cause UNKNOWN | Minimized result/finite diagnostics, operation counts, verified cleanup; no pass is a replacement decision. |
 | 8. Provider-authority change | Prohibited | Separate ADR and explicit approval; this runbook cannot grant it. |
+
+## Dedicated first-case diagnostic profile
+
+The [diagnostic assessment](google-sdp-context-diagnostics.md) separates a confirmed
+bracket-format compatibility defect from the UNKNOWN original live cause. Use only
+the dedicated [renderer](../../scripts/render-sdp-context-diagnostic-job.sh) and
+[validator](../../scripts/validate-sdp-context-diagnostic-deployment.py), with release
+profile `context-001-diagnostic-v1` and image `google-sdp-context-diagnostic`.
+The suspended Job fixes `--live --diagnostic-first-case`, both synthetic/diagnostic
+acknowledgements, maximum two content SDK attempts, zero metadata SDK calls/retries,
+4,096-byte input/output, three/eight-second RPC/overall limits and a 120-second Job
+deadline. It rejects arbitrary inputs and the full campaign.
+
+One new approval must bind the final qualified source/image, SHA-only WIF update,
+one release, exact saved plans/resources, native network evidence and cleanup.
+Preparation makes no cloud mutation or provider call. Reverify current native
+inventory/authentication and each future digest/signature before execution. The
+diagnostic bundle uses a **two-hour** infrastructure lifetime with cleanup starting
+by **minute 90** or immediately on failure, preserving the USD 5 incremental
+operator stop rule. These are operator-managed limits, not automated guarantees;
+owner takeover is necessary after disconnect. A Job TTL does not clean up a cluster.
+
+On diagnostic failure, retain only schema-valid sanitized code/stage/status and
+counts, then stop and clean up; do not rerun. On pass, review the result without
+starting a full campaign, live agents or Presidio retirement. Historical image
+evidence never qualifies changed diagnostic source. No raw data, findings, response
+bodies, exception messages or credentials belong in evidence.
+
+The following seed procedures retain their historical preparation/approval context.
+Their nine-case, 18-attempt and four-/six-hour bounds must not replace the dedicated
+diagnostic bundle's first-case, two-attempt and minute-90/two-hour contract. Historical
+status statements are not a fresh cloud inventory or a new execution approval.
 
 ## External prerequisites and trust boundaries
 
@@ -100,6 +140,17 @@ The proposed profile does not close independent review, project-wide GKE workloa
 
 The trusted [deployment contract](../../evaluation/google-sdp/deployment.json) selects `us-east1` and `dlp.us-east1.rep.googleapis.com`. The adapter reads only that committed artifact at startup and constructs `projects/PROJECT_ID/locations/us-east1`. No request, environment override, alternate configuration path or automatic fallback can select a location. ConfigMap, native FQDN policy, zero-call probe, Terraform, release workflow and renderer must match it. Image contents changed, so local image qualification must be regenerated before release; preserved Dammam image evidence remains historical.
 
-Cloud Shell was actually started and session-authorized for the failed Storage bootstrap. Credentials stayed within the native authorization broker and were not copied to the worker. The latest read-only environment GET reports `SUSPENDED`; no authenticated Cloud Shell session is available now. Start and authorize it only after amended approval. Browser reauthentication and owner-only GitHub administrative-bypass settings/release review can still require handoffs. Bootstrap the approved bucket with uniform access, public-access prevention, versioning, seven-day soft delete and noncurrent lifecycle; then initialize both committed remote-state prefixes. Save and inspect each plan for exact resources, IAM scopes, region and source SHA before applying that same binary plan. No cloud plan is produced during preparation.
+At the regional-preparation checkpoint, Cloud Shell was started and
+session-authorized for the failed Storage bootstrap, then its read-only environment
+GET reported `SUSPENDED`. This historical observation does not establish current
+authenticated availability. Credentials stayed within the native authorization
+broker and were not copied to the worker. Reverify owner authentication after new
+approval. Browser reauthentication and protected-release review can still require
+handoffs. The historical bootstrap contract used uniform access, public-access
+prevention, versioning, seven-day soft delete and noncurrent lifecycle; the diagnostic
+bundle reuses the already retained bucket and both state prefixes without new
+bootstrap. Save and inspect each future plan for exact resources, IAM scopes,
+region and source SHA before applying that same complete binary plan. No cloud plan
+is produced during preparation.
 
 Cluster cleanup starts by hour four and must finish within six hours from creation. The operator starts it; the agent performs it only while connected. There is no automated cluster expiry or billing cap. If the session disconnects, the owner must resume or take over cleanup. Job completion TTL deletes Job objects, not clusters, disks, NAT or IPs. Stop on the USD 5 incremental operator limit and clean up on any gate failure. Retain only the documented state, disabled node identity/inactive reader grant, release/runtime identities and WIF, immutable image/signature and evidence; their storage costs continue.

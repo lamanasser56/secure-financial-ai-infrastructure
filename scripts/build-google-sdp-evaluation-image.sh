@@ -72,6 +72,9 @@ case "${PORTFOLIO_SDP_IMAGE_PROFILE:-seed}" in
   context-pattern-v1)
     exec bash scripts/qualify-sdp-context-release.sh "$buildx_builder"
     ;;
+  context-001-diagnostic-v1)
+    exec bash scripts/qualify-sdp-context-diagnostic-release.sh "$buildx_builder"
+    ;;
   *) fail 'unknown committed evaluation profile' ;;
 esac
 

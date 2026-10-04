@@ -1,0 +1,25 @@
+{
+  "authority_changed": false,
+  "cases": [
+    {
+      "case_id": "context-001",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    }
+  ],
+  "google_quality": "unmeasured",
+  "injected_attempts": 0,
+  "mode": "offline_reference",
+  "observations": 0,
+  "outcome": "OFFLINE_REFERENCE_PASS_GOOGLE_UNPROVEN",
+  "policy_id": "context-pattern-v1",
+  "policy_sha256": "c1b782c6fd051243dec4173f903cb33607893010c7d38a6b35bc1372ddb2d4db",
+  "required_fail": 0,
+  "required_pass": 1,
+  "schema_version": 1,
+  "scope": "context_001_diagnostic_only",
+  "sdk_attempts": 0,
+  "unexecuted": 0
+}

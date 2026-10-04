@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "evaluation_profile": "context-001-diagnostic-v1",
+  "scope": "context_001_diagnostic_only",
+  "case_id": "context-001",
+  "sdk_attempt_ceiling": 2,
+  "metadata_attempts": 0,
+  "retries": 0,
+  "job_deadline_seconds": 120,
+  "max_input_bytes": 4096,
+  "max_output_bytes": 4096,
+  "rpc_timeout_seconds": 3,
+  "redaction_deadline_seconds": 8,
+  "acknowledgements": {
+    "PORTFOLIO_SDP_CONTEXT_SYNTHETIC_ONLY_ACK": "I_ACKNOWLEDGE_CONTEXT_PATTERN_SYNTHETIC_ONLY",
+    "PORTFOLIO_SDP_CONTEXT_DIAGNOSTIC_ONLY_ACK": "I_ACKNOWLEDGE_CONTEXT_001_ONLY_TWO_ATTEMPTS"
+  },
+  "assessment_utc": "2026-10-04T20:18:24.609345+00:00",
+  "source_baseline": "4df3686c708d0e00107a3226d18ff5b2536ee53d",
+  "status": "unpromoted_context_001_diagnostic_offline_google_unproven",
+  "source_input_sha256": {
+    "docker/google-sdp-context/Dockerfile": "a995307751f80059d9767e5599d214e57b4069bacaa425c99ace77090481fbef",
+    "docker/google-sdp-context/Dockerfile.dockerignore": "86f8d2a46419e8fad458877321c47e0369bcc8689edb30c8d3adb738954586e2",
+    "requirements-google-sdp-runtime.txt": "c232eac3a105050d5406a7cc80f5aa276c4fbbed52f3e8d5ff7892c548199a29",
+    "scripts/build-sdp-context-image.sh": "d8e5c81c2cbef8739d1c4417d5fade86b8433f11f427fca54120898b19bda31e",
+    "scripts/evaluate-sdp-context-policy.py": "6ff68b521ba434dc205b42a5c6b470c2c0bf08c2017b687f93fdf39d45f9245f",
+    "runtime/phase3/__init__.py": "e77baf7bc54661c9dd022cd54d4c9bf5186e5546d8b8945bee56dfbf900fdcab",
+    "runtime/phase3/google_sdp_adapter.py": "bfd7b930fcd070ffa06daf5ee4df495dfed69cae0414548ecb25e90e47d0b8d4",
+    "runtime/phase3/sdp_context_policy.py": "a4c67023d43e94e64092f233579f5a5002a333a4d7dab69b8e8965b5e2fdcb6a",
+    "runtime/phase3/trusted_runtime.py": "958fe191230951184811302c38d5344d9c15aecb19719a2df94d7b4a4a9166c3",
+    "evaluation/google-sdp/deployment.json": "4722cc0a349fb28ddc607b429e7b340d191df6e8e574a01e05c23258f116101a",
+    "evaluation/google-sdp-context/policy.json": "c1b782c6fd051243dec4173f903cb33607893010c7d38a6b35bc1372ddb2d4db",
+    "evaluation/google-sdp-context/corpus.json": "0c07aa1e8b480e732cdcaa6e9f406661058220ad41de607af7124198e5e71eb9",
+    "evaluation/google-sdp-context/corpus.schema.json": "d22c8251e85f9a9e30aa9a7020d54f021bfcbd3949a29e8543fd8168c811fafb",
+    "evaluation/google-sdp-context/result.schema.json": "87bec1f6b72c4f29b0ee98c98a227e013652b5a537cfaa12d514bb6d3b517c53"
+  },
+  "policy_id": "context-pattern-v1",
+  "policy_sha256": "c1b782c6fd051243dec4173f903cb33607893010c7d38a6b35bc1372ddb2d4db",
+  "corpus_sha256": "0c07aa1e8b480e732cdcaa6e9f406661058220ad41de607af7124198e5e71eb9",
+  "candidate": {
+    "configuration_digest": "sha256:1dca35ce2cc901f9a5ada7f27dd1efd06a0b351eb44ba0d82eda34d188b6e409",
+    "local_store_image_id": "sha256:9ec016aad492677ee2832adf8bd98d204c120bc086b2be2bdd79b955f3af0a15",
+    "archive_sha256": [
+      "c5479c4415c6c176a2e2cd58da9bf305192e91ab33ff18c81c177e9674a7ab13",
+      "c5479c4415c6c176a2e2cd58da9bf305192e91ab33ff18c81c177e9674a7ab13"
+    ],
+    "registry_manifest_digest": null,
+    "signature": null,
+    "user": "65532:65532",
+    "architecture": "amd64",
+    "reproducible_archives": true,
+    "source_epoch": 0,
+    "sbom_components": 1363,
+    "vulnerabilities": {
+      "MEDIUM": 15,
+      "LOW": 8
+    },
+    "policy_exit": 0,
+    "exceptions": 0,
+    "evidence_sha256": {
+      "sbom.json": "66aea9c7c7f5569b8fcc6f2e5af27c9fcd4974547838f1804ffdae92bc543a57",
+      "trivy-original.json": "347da6f6395bacf2086f1b161848336adc8e090b9a0e61f65038d8078b82bd80",
+      "trivy-policy-copy.json": "542720dfd6bb961ddc196b0c4f279c973eef9be5a6e5aa23e947e2c74d579172",
+      "kev.json": "f51fed1c9213e7b797104fcd6dbeb1b0dc0c7073a80467b9d4b1fc25e7dd786b",
+      "policy-result.txt": "6bdfaf12a56a16a31ae507419476ce560bd4734105d92fde9b4e4a2f9cd5cba3",
+      "image-offline-result.json": "8f79c97b136cce4b246c499319b197b89a4f7994b1f3e977902fc60a513f1fa0",
+      "image-content-findings.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "image-content-scan.log": "78c9596643b6a8c2c19f56a2c116c06179e494c1a1f2967b124b246d92831367"
+    },
+    "tools": {
+      "buildx": "0.30.1",
+      "buildkit": "0.33.1",
+      "trivy": "0.72.0",
+      "syft": "1.44.0"
+    },
+    "secret_scanning": {
+      "tool": "gitleaks",
+      "version": "8.30.1",
+      "image_filesystem_findings": 0,
+      "scope": "regular files in the freshly exported candidate filesystem; not a universal credential assessment"
+    },
+    "vulnerability_database": {
+      "sha256": "56541703ce09940d1c86efc66a3f5abcf459c3f3bd405974f56b4611462aaae5",
+      "updated_at": "2026-10-04T14:28:15.152965452Z",
+      "downloaded_at": "2026-10-04T20:18:19.931572517Z"
+    }
+  },
+  "corpus": {
+    "cases": 86,
+    "required_cases": 70,
+    "observation_cases": 16,
+    "required_redaction_cases": 63,
+    "sdk_attempt_ceiling": 2,
+    "selected_cases": 1,
+    "metadata_attempts": 0,
+    "sdk_attempts_executed": 0
+  },
+  "published": false,
+  "signed": false,
+  "authority_changed": false,
+  "google_detection_proven": false
+}
