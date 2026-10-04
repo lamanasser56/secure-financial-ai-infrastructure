@@ -2,6 +2,16 @@
 
 ## Current checkpoint
 
+The current [context-pattern preparation](../security/google-sdp-context-policy.md)
+adds a separate 86-case synthetic policy and proposed SDP-only execution bundle.
+The [new ADR](../architecture/decisions/ADR-007-context-pattern-redaction-candidate.md)
+records its accepted offline scope, including bounded canonical label/variant
+coverage; `العوية` is one regression case. No live execution or authority selection
+occurred. Independent key-to-HTTP binding and operator-only subject revocation are
+prepared locally; actual proxy database/key and real issuer gates stay unresolved.
+The validation counts below belong to the preceding checkpoint; current worker
+totals and exact source are in the new owner handoff. UI assets remain unchanged.
+
 The [independent identity/gateway candidates](identity-and-gateway-preparation.md)
 and [bounded research decision](../security/google-sdp-provenance-decision.md)
 advance the current checkpoint without replacing the running offline UI. JWT

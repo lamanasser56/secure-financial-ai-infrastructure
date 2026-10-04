@@ -1,0 +1,1263 @@
+{
+  "schema_version": 1,
+  "policy_id": "context-pattern-v1",
+  "cases": [
+    {
+      "case_id": "context-001",
+      "language": "en",
+      "text": "National ID: 0000000000",
+      "expected_spans": [
+        {
+          "start": 13,
+          "end": 23,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-002",
+      "language": "ar",
+      "text": "هوية： ٠٠٠٠٠٠٠٠٠٠",
+      "expected_spans": [
+        {
+          "start": 6,
+          "end": 16,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-003",
+      "language": "mixed",
+      "text": "National ID = 0000000000; المبلغ SAR 240.00؛ التاريخ 2026-01-31",
+      "expected_spans": [
+        {
+          "start": 14,
+          "end": 24,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-004",
+      "language": "en",
+      "text": "ID number: 0000000000",
+      "expected_spans": [
+        {
+          "start": 11,
+          "end": 21,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-005",
+      "language": "ar",
+      "text": "رقم الهوية: 0000000000",
+      "expected_spans": [
+        {
+          "start": 12,
+          "end": 22,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-006",
+      "language": "ar",
+      "text": "الهوية الوطنية: 0000000000",
+      "expected_spans": [
+        {
+          "start": 16,
+          "end": 26,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-007",
+      "language": "ar",
+      "text": "العوية: 0000000000",
+      "expected_spans": [
+        {
+          "start": 8,
+          "end": 18,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-008",
+      "language": "en",
+      "text": "Iqama: 0000000000",
+      "expected_spans": [
+        {
+          "start": 7,
+          "end": 17,
+          "info_type": "PORTFOLIO_RESIDENT_ID",
+          "category": "SAUDI_RESIDENT_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-009",
+      "language": "ar",
+      "text": "إقامة： ٠٠٠٠٠٠٠٠٠٠",
+      "expected_spans": [
+        {
+          "start": 7,
+          "end": 17,
+          "info_type": "PORTFOLIO_RESIDENT_ID",
+          "category": "SAUDI_RESIDENT_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-010",
+      "language": "mixed",
+      "text": "Iqama = 0000000000; المبلغ SAR 240.00؛ التاريخ 2026-01-31",
+      "expected_spans": [
+        {
+          "start": 8,
+          "end": 18,
+          "info_type": "PORTFOLIO_RESIDENT_ID",
+          "category": "SAUDI_RESIDENT_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-011",
+      "language": "en",
+      "text": "residency number: 0000000000",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 28,
+          "info_type": "PORTFOLIO_RESIDENT_ID",
+          "category": "SAUDI_RESIDENT_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-012",
+      "language": "ar",
+      "text": "اقامة: 0000000000",
+      "expected_spans": [
+        {
+          "start": 7,
+          "end": 17,
+          "info_type": "PORTFOLIO_RESIDENT_ID",
+          "category": "SAUDI_RESIDENT_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-013",
+      "language": "ar",
+      "text": "رقم الإقامة: 0000000000",
+      "expected_spans": [
+        {
+          "start": 13,
+          "end": 23,
+          "info_type": "PORTFOLIO_RESIDENT_ID",
+          "category": "SAUDI_RESIDENT_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-014",
+      "language": "ar",
+      "text": "رقم الاقامة: 0000000000",
+      "expected_spans": [
+        {
+          "start": 13,
+          "end": 23,
+          "info_type": "PORTFOLIO_RESIDENT_ID",
+          "category": "SAUDI_RESIDENT_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-015",
+      "language": "ar",
+      "text": "هوية مقيم: 0000000000",
+      "expected_spans": [
+        {
+          "start": 11,
+          "end": 21,
+          "info_type": "PORTFOLIO_RESIDENT_ID",
+          "category": "SAUDI_RESIDENT_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-016",
+      "language": "en",
+      "text": "IBAN: SA0000000000000000000000",
+      "expected_spans": [
+        {
+          "start": 6,
+          "end": 30,
+          "info_type": "PORTFOLIO_IBAN_CONTEXT",
+          "category": "IBAN_CODE"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "invalid_iban_mod97_check_digits_00"
+    },
+    {
+      "case_id": "context-017",
+      "language": "ar",
+      "text": "آيبان： SA٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠",
+      "expected_spans": [
+        {
+          "start": 7,
+          "end": 31,
+          "info_type": "PORTFOLIO_IBAN_CONTEXT",
+          "category": "IBAN_CODE"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "invalid_iban_mod97_check_digits_00"
+    },
+    {
+      "case_id": "context-018",
+      "language": "mixed",
+      "text": "IBAN = SA0000000000000000000000; المبلغ SAR 240.00؛ التاريخ 2026-01-31",
+      "expected_spans": [
+        {
+          "start": 7,
+          "end": 31,
+          "info_type": "PORTFOLIO_IBAN_CONTEXT",
+          "category": "IBAN_CODE"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "invalid_iban_mod97_check_digits_00"
+    },
+    {
+      "case_id": "context-019",
+      "language": "ar",
+      "text": "ايبان: SA0000000000000000000000",
+      "expected_spans": [
+        {
+          "start": 7,
+          "end": 31,
+          "info_type": "PORTFOLIO_IBAN_CONTEXT",
+          "category": "IBAN_CODE"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "invalid_iban_mod97_check_digits_00"
+    },
+    {
+      "case_id": "context-020",
+      "language": "en",
+      "text": "bank account: 0000000000000000",
+      "expected_spans": [
+        {
+          "start": 14,
+          "end": 30,
+          "info_type": "PORTFOLIO_BANK_ACCOUNT",
+          "category": "SAUDI_BANK_ACCOUNT"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-021",
+      "language": "ar",
+      "text": "رقم الحساب： ٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠",
+      "expected_spans": [
+        {
+          "start": 12,
+          "end": 28,
+          "info_type": "PORTFOLIO_BANK_ACCOUNT",
+          "category": "SAUDI_BANK_ACCOUNT"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-022",
+      "language": "mixed",
+      "text": "bank account = 0000000000000000; المبلغ SAR 240.00؛ التاريخ 2026-01-31",
+      "expected_spans": [
+        {
+          "start": 15,
+          "end": 31,
+          "info_type": "PORTFOLIO_BANK_ACCOUNT",
+          "category": "SAUDI_BANK_ACCOUNT"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-023",
+      "language": "en",
+      "text": "bank account number: 0000000000000000",
+      "expected_spans": [
+        {
+          "start": 21,
+          "end": 37,
+          "info_type": "PORTFOLIO_BANK_ACCOUNT",
+          "category": "SAUDI_BANK_ACCOUNT"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-024",
+      "language": "ar",
+      "text": "الحساب البنكي: 0000000000000000",
+      "expected_spans": [
+        {
+          "start": 15,
+          "end": 31,
+          "info_type": "PORTFOLIO_BANK_ACCOUNT",
+          "category": "SAUDI_BANK_ACCOUNT"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-025",
+      "language": "en",
+      "text": "VAT number: 000000000000000",
+      "expected_spans": [
+        {
+          "start": 12,
+          "end": 27,
+          "info_type": "PORTFOLIO_VAT_ID",
+          "category": "SAUDI_VAT_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-026",
+      "language": "ar",
+      "text": "الرقم الضريبي： ٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠",
+      "expected_spans": [
+        {
+          "start": 15,
+          "end": 30,
+          "info_type": "PORTFOLIO_VAT_ID",
+          "category": "SAUDI_VAT_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-027",
+      "language": "mixed",
+      "text": "VAT number = 000000000000000; المبلغ SAR 240.00؛ التاريخ 2026-01-31",
+      "expected_spans": [
+        {
+          "start": 13,
+          "end": 28,
+          "info_type": "PORTFOLIO_VAT_ID",
+          "category": "SAUDI_VAT_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-028",
+      "language": "en",
+      "text": "tax ID: 000000000000000",
+      "expected_spans": [
+        {
+          "start": 8,
+          "end": 23,
+          "info_type": "PORTFOLIO_VAT_ID",
+          "category": "SAUDI_VAT_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-029",
+      "language": "ar",
+      "text": "رقم ضريبي: 000000000000000",
+      "expected_spans": [
+        {
+          "start": 11,
+          "end": 26,
+          "info_type": "PORTFOLIO_VAT_ID",
+          "category": "SAUDI_VAT_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-030",
+      "language": "en",
+      "text": "phone number: 0000000000",
+      "expected_spans": [
+        {
+          "start": 14,
+          "end": 24,
+          "info_type": "PORTFOLIO_PHONE_CONTEXT",
+          "category": "PHONE_NUMBER"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-031",
+      "language": "ar",
+      "text": "رقم الهاتف： ٠٠٠٠٠٠٠٠٠٠",
+      "expected_spans": [
+        {
+          "start": 12,
+          "end": 22,
+          "info_type": "PORTFOLIO_PHONE_CONTEXT",
+          "category": "PHONE_NUMBER"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-032",
+      "language": "mixed",
+      "text": "phone number = 0000000000; المبلغ SAR 240.00؛ التاريخ 2026-01-31",
+      "expected_spans": [
+        {
+          "start": 15,
+          "end": 25,
+          "info_type": "PORTFOLIO_PHONE_CONTEXT",
+          "category": "PHONE_NUMBER"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-033",
+      "language": "ar",
+      "text": "هاتف: 0000000000",
+      "expected_spans": [
+        {
+          "start": 6,
+          "end": 16,
+          "info_type": "PORTFOLIO_PHONE_CONTEXT",
+          "category": "PHONE_NUMBER"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-034",
+      "language": "en",
+      "text": "card number: 4242424242424242",
+      "expected_spans": [
+        {
+          "start": 13,
+          "end": 29,
+          "info_type": "PORTFOLIO_CARD_CONTEXT",
+          "category": "CREDIT_CARD"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "stripe_official_test_card"
+    },
+    {
+      "case_id": "context-035",
+      "language": "ar",
+      "text": "رقم البطاقة： ٤٢٤٢٤٢٤٢٤٢٤٢٤٢٤٢",
+      "expected_spans": [
+        {
+          "start": 13,
+          "end": 29,
+          "info_type": "PORTFOLIO_CARD_CONTEXT",
+          "category": "CREDIT_CARD"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "stripe_official_test_card"
+    },
+    {
+      "case_id": "context-036",
+      "language": "mixed",
+      "text": "card number = 4242424242424242; المبلغ SAR 240.00؛ التاريخ 2026-01-31",
+      "expected_spans": [
+        {
+          "start": 14,
+          "end": 30,
+          "info_type": "PORTFOLIO_CARD_CONTEXT",
+          "category": "CREDIT_CARD"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "stripe_official_test_card"
+    },
+    {
+      "case_id": "context-037",
+      "language": "en",
+      "text": "National ID 0000000000",
+      "expected_spans": [
+        {
+          "start": 12,
+          "end": 22,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-038",
+      "language": "en",
+      "text": "National ID\n0000000000",
+      "expected_spans": [
+        {
+          "start": 12,
+          "end": 22,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-039",
+      "language": "en",
+      "text": "National ID\t:\t0000000000",
+      "expected_spans": [
+        {
+          "start": 14,
+          "end": 24,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-040",
+      "language": "en",
+      "text": "National ID:   0000000000",
+      "expected_spans": [
+        {
+          "start": 15,
+          "end": 25,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-041",
+      "language": "en",
+      "text": "National  ID： 0000000000",
+      "expected_spans": [
+        {
+          "start": 14,
+          "end": 24,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-042",
+      "language": "ar",
+      "text": "رقم\tالهوية： 0000000000",
+      "expected_spans": [
+        {
+          "start": 12,
+          "end": 22,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-043",
+      "language": "en",
+      "text": "VAT   number： 0000000000",
+      "expected_spans": [
+        {
+          "start": 14,
+          "end": 24,
+          "info_type": "PORTFOLIO_VAT_ID",
+          "category": "SAUDI_VAT_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-044",
+      "language": "en",
+      "text": "ID number: 11100000000000000000000",
+      "expected_spans": [
+        {
+          "start": 11,
+          "end": 34,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberately_overlength_invalid_identity_policy_shape"
+    },
+    {
+      "case_id": "context-045",
+      "language": "en",
+      "text": "ID number: 11200000000000000000000",
+      "expected_spans": [
+        {
+          "start": 11,
+          "end": 34,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberately_overlength_invalid_identity_policy_shape"
+    },
+    {
+      "case_id": "context-046",
+      "language": "en",
+      "text": "ID number: 2100000000000000000000",
+      "expected_spans": [
+        {
+          "start": 11,
+          "end": 33,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberately_overlength_invalid_identity_policy_shape"
+    },
+    {
+      "case_id": "context-047",
+      "language": "en",
+      "text": "Synthetic\nNational ID: 0000000000\nرقم الإقامة: ٠٠٠٠٠٠٠٠٠٠\nIBAN: SA0000000000000000000000\namount: SAR 240.00\ndate: 2026-01-31\nevidence: ci-docker-config-v1\ntenant_ref: 0123456789abcdef",
+      "expected_spans": [
+        {
+          "start": 23,
+          "end": 33,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        },
+        {
+          "start": 47,
+          "end": 57,
+          "info_type": "PORTFOLIO_RESIDENT_ID",
+          "category": "SAUDI_RESIDENT_ID"
+        },
+        {
+          "start": 64,
+          "end": 88,
+          "info_type": "PORTFOLIO_IBAN_CONTEXT",
+          "category": "IBAN_CODE"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "invalid_iban_and_zero_filled_multifield"
+    },
+    {
+      "case_id": "context-048",
+      "language": "ar",
+      "text": "تجريبي\nNational ID: 0000000000\nرقم الإقامة: ٠٠٠٠٠٠٠٠٠٠\nIBAN: SA0000000000000000000000\namount: SAR 240.00\ndate: 2026-01-31\nevidence: ci-docker-config-v1\ntenant_ref: 0123456789abcdef",
+      "expected_spans": [
+        {
+          "start": 20,
+          "end": 30,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        },
+        {
+          "start": 44,
+          "end": 54,
+          "info_type": "PORTFOLIO_RESIDENT_ID",
+          "category": "SAUDI_RESIDENT_ID"
+        },
+        {
+          "start": 61,
+          "end": 85,
+          "info_type": "PORTFOLIO_IBAN_CONTEXT",
+          "category": "IBAN_CODE"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "invalid_iban_and_zero_filled_multifield"
+    },
+    {
+      "case_id": "context-049",
+      "language": "mixed",
+      "text": "🧪 تجريبي é\nNational ID: 0000000000\nرقم الإقامة: ٠٠٠٠٠٠٠٠٠٠\nIBAN: SA0000000000000000000000\namount: SAR 240.00\ndate: 2026-01-31\nevidence: ci-docker-config-v1\ntenant_ref: 0123456789abcdef",
+      "expected_spans": [
+        {
+          "start": 25,
+          "end": 35,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        },
+        {
+          "start": 49,
+          "end": 59,
+          "info_type": "PORTFOLIO_RESIDENT_ID",
+          "category": "SAUDI_RESIDENT_ID"
+        },
+        {
+          "start": 66,
+          "end": 90,
+          "info_type": "PORTFOLIO_IBAN_CONTEXT",
+          "category": "IBAN_CODE"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "invalid_iban_and_zero_filled_multifield"
+    },
+    {
+      "case_id": "context-050",
+      "language": "en",
+      "text": "National ID: 0000000000\nNational ID: 0000000000",
+      "expected_spans": [
+        {
+          "start": 13,
+          "end": 23,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        },
+        {
+          "start": 37,
+          "end": 47,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    },
+    {
+      "case_id": "context-051",
+      "language": "en",
+      "text": "SA0000000000000000000000",
+      "expected_spans": [
+        {
+          "start": 0,
+          "end": 24,
+          "info_type": "PORTFOLIO_IBAN_STANDALONE",
+          "category": "IBAN_CODE"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "invalid_iban_mod97_check_digits_00"
+    },
+    {
+      "case_id": "context-052",
+      "language": "ar",
+      "text": "SA٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠",
+      "expected_spans": [
+        {
+          "start": 0,
+          "end": 24,
+          "info_type": "PORTFOLIO_IBAN_STANDALONE",
+          "category": "IBAN_CODE"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "invalid_iban_mod97_check_digits_00"
+    },
+    {
+      "case_id": "context-053",
+      "language": "mixed",
+      "text": "SA٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠٠",
+      "expected_spans": [
+        {
+          "start": 0,
+          "end": 24,
+          "info_type": "PORTFOLIO_IBAN_STANDALONE",
+          "category": "IBAN_CODE"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "invalid_iban_mod97_check_digits_00"
+    },
+    {
+      "case_id": "context-054",
+      "language": "en",
+      "text": "+12025550123",
+      "expected_spans": [
+        {
+          "start": 0,
+          "end": 12,
+          "info_type": "PORTFOLIO_PHONE_STANDALONE",
+          "category": "PHONE_NUMBER"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "nanpa_fictional_555_0100_0199"
+    },
+    {
+      "case_id": "context-055",
+      "language": "ar",
+      "text": "+١٢٠٢٥٥٥٠١٢٣",
+      "expected_spans": [
+        {
+          "start": 0,
+          "end": 12,
+          "info_type": "PORTFOLIO_PHONE_STANDALONE",
+          "category": "PHONE_NUMBER"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "nanpa_fictional_555_0100_0199"
+    },
+    {
+      "case_id": "context-056",
+      "language": "mixed",
+      "text": "+١٢٠٢٥٥٥٠١٢٣",
+      "expected_spans": [
+        {
+          "start": 0,
+          "end": 12,
+          "info_type": "PORTFOLIO_PHONE_STANDALONE",
+          "category": "PHONE_NUMBER"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "nanpa_fictional_555_0100_0199"
+    },
+    {
+      "case_id": "context-057",
+      "language": "en",
+      "text": "Contact fixture [at] example [dot] invalid",
+      "expected_spans": [
+        {
+          "start": 8,
+          "end": 42,
+          "info_type": "PORTFOLIO_OBFUSCATED_EMAIL",
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "rfc2606_reserved_domain"
+    },
+    {
+      "case_id": "context-058",
+      "language": "ar",
+      "text": "رسالة fixture [at] example [dot] invalid",
+      "expected_spans": [
+        {
+          "start": 6,
+          "end": 40,
+          "info_type": "PORTFOLIO_OBFUSCATED_EMAIL",
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "rfc2606_reserved_domain"
+    },
+    {
+      "case_id": "context-059",
+      "language": "mixed",
+      "text": "🧪 رسالة fixture [at] example [dot] invalid",
+      "expected_spans": [
+        {
+          "start": 8,
+          "end": 42,
+          "info_type": "PORTFOLIO_OBFUSCATED_EMAIL",
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "rfc2606_reserved_domain"
+    },
+    {
+      "case_id": "context-060",
+      "language": "en",
+      "text": "amount: fixture@example.invalid",
+      "expected_spans": [
+        {
+          "start": 8,
+          "end": 31,
+          "info_type": "EMAIL_ADDRESS",
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "rfc2606_reserved_domain_no_amount_exemption"
+    },
+    {
+      "case_id": "context-061",
+      "language": "ar",
+      "text": "المبلغ: fixture@example.invalid",
+      "expected_spans": [
+        {
+          "start": 8,
+          "end": 31,
+          "info_type": "EMAIL_ADDRESS",
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "rfc2606_reserved_domain_no_amount_exemption"
+    },
+    {
+      "case_id": "context-062",
+      "language": "mixed",
+      "text": "amount المبلغ: fixture@example.invalid",
+      "expected_spans": [
+        {
+          "start": 15,
+          "end": 38,
+          "info_type": "EMAIL_ADDRESS",
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "rfc2606_reserved_domain_no_amount_exemption"
+    },
+    {
+      "case_id": "context-063",
+      "language": "en",
+      "text": "ID: 240",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "ambiguous_label",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-064",
+      "language": "en",
+      "text": "account: 24000",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "ambiguous_label",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-065",
+      "language": "en",
+      "text": "bank account balance: SAR 240.00",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "ordinary_finance",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-066",
+      "language": "en",
+      "text": "amount: SAR 240.00\ndate: 2026-01-31\nID: evidence-123\ntenant_ref: 0123456789abcdef",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "ordinary_metadata",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-067",
+      "language": "en",
+      "text": "الهوية التجارية للمنتج",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "ordinary_language",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-068",
+      "language": "en",
+      "text": "حساب المبلغ 240.00 ر.س.",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "ordinary_finance",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-069",
+      "language": "en",
+      "text": "National ID:",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "missing_value",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-070",
+      "language": "en",
+      "text": "National ID: 00",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "unsupported_partial",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-071",
+      "language": "en",
+      "text": "National ID: 00X00",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "unsupported_malformed",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-072",
+      "language": "en",
+      "text": "National ID: 000000000000000000000000000000000",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "unsupported_overlength",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-073",
+      "language": "en",
+      "text": "National ID:     0000000000",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "unsupported_separator",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-074",
+      "language": "en",
+      "text": "not a National ID: 0000000000",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "unsupported_negation",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-075",
+      "language": "en",
+      "text": "\"National ID\": 0000000000",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "unsupported_quoted_label",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-076",
+      "language": "en",
+      "text": "National ID: \"0000000000\"",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "unsupported_quoted_value",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-077",
+      "language": "en",
+      "text": "National ID: ٠٠ ٠٠ ٠٠",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "unsupported_obfuscation",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-078",
+      "language": "en",
+      "text": "National I.D.: 0000000000",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "unsupported_label_punctuation",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-079",
+      "language": "en",
+      "text": "رقم العويه: 0000000000",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "unsupported_spelling",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-080",
+      "language": "en",
+      "text": "VAT number: 00-00",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "unsupported_malformed",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-081",
+      "language": "en",
+      "text": "IBAN: SA00...",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "unsupported_partial",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-082",
+      "language": "en",
+      "text": "0000000000",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "unsupported_unlabelled",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-083",
+      "language": "en",
+      "text": "رقم‌الهوية: 0000000000",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "unsupported_label_unicode_spacing",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-084",
+      "language": "en",
+      "text": "fixture (at) example (dot) invalid",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "unsupported_obfuscation",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-085",
+      "language": "en",
+      "text": "National ID:\n\n0000000000",
+      "expected_spans": [],
+      "expected_action": "retain",
+      "classification": "unsupported_context_gap",
+      "provenance": "synthetic_negative_no_real_records"
+    },
+    {
+      "case_id": "context-086",
+      "language": "en",
+      "text": "National ID: 0000000000; not a real issued identity",
+      "expected_spans": [
+        {
+          "start": 13,
+          "end": 23,
+          "info_type": "PORTFOLIO_NATIONAL_ID",
+          "category": "SAUDI_NATIONAL_ID"
+        }
+      ],
+      "expected_action": "redact",
+      "classification": "required_policy_positive",
+      "provenance": "deliberate_zero_filled_policy_shape"
+    }
+  ]
+}

@@ -19,8 +19,18 @@ on:
         description: Evaluation image name
         required: true
         type: string
+      evaluation_profile:
+        description: Committed evaluation subject (context profile requires separate approval)
+        required: true
+        default: seed
+        type: choice
+        options:
+          - seed
+          - context-pattern-v1
 
 permissions: {}
+env:
+  PORTFOLIO_SDP_IMAGE_PROFILE: ${{ inputs.evaluation_profile }}
 concurrency:
   group: google-sdp-evaluation-release
   cancel-in-progress: false
@@ -54,6 +64,11 @@ jobs:
           [[ "$RELEASE_REGION" == us-east1 ]]
           [[ "$ARTIFACT_REPOSITORY" =~ ^[a-z][a-z0-9-]{0,62}$ ]]
           [[ "$IMAGE_NAME" =~ ^[a-z][a-z0-9._-]{0,127}$ ]]
+          case "$PORTFOLIO_SDP_IMAGE_PROFILE" in
+            seed) ;;
+            context-pattern-v1) [[ "$IMAGE_NAME" == google-sdp-context && "$ARTIFACT_REPOSITORY" == sdp-evaluation-images ]] ;;
+            *) exit 1 ;;
+          esac
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
@@ -186,6 +201,11 @@ jobs:
           [[ "$(git rev-parse HEAD)" == "$APPROVED_COMMIT" && -z "$(git status --porcelain)" ]]
           [[ "$RELEASE_REGION" == us-east1 ]]
           [[ "$ARTIFACT_REPOSITORY" =~ ^[a-z][a-z0-9-]{0,62}$ && "$IMAGE_NAME" =~ ^[a-z][a-z0-9._-]{0,127}$ ]]
+          case "$PORTFOLIO_SDP_IMAGE_PROFILE" in
+            seed) ;;
+            context-pattern-v1) [[ "$IMAGE_NAME" == google-sdp-context && "$ARTIFACT_REPOSITORY" == sdp-evaluation-images ]] ;;
+            *) exit 1 ;;
+          esac
           python - <<'PY' > "$RUNNER_TEMP/selected-bases"
           import json
           record = json.load(open('docker/google-sdp-evaluation/candidates.json', encoding='utf-8'))

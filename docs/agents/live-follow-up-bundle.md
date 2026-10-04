@@ -2,6 +2,12 @@
 
 ## Checkpoint: technically blocked
 
+The separately accepted [context-pattern candidate](../architecture/decisions/ADR-007-context-pattern-redaction-candidate.md)
+now has its own [SDP-only execution proposal](../security/google-sdp-context-execution-bundle.md)
+and fresh offline image evidence. That proposal does not include live agents,
+Vertex, key issuance or a provider-authority change. This live-agent boundary remains
+blocked on independent identity/gateway/audit and broader redaction acceptance.
+
 See the [current independent preparation](identity-and-gateway-preparation.md),
 [per-class research decision](../security/google-sdp-provenance-decision.md) and
 [proposed scope ADR](../architecture/decisions/ADR-006-redaction-qualification-scope.md).

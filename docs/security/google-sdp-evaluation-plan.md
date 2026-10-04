@@ -1,5 +1,10 @@
 # Google SDP synthetic text evaluation plan
 
+Current separately accepted preparation: [context-pattern policy](google-sdp-context-policy.md)
+and its [new synthetic execution proposal](google-sdp-context-execution-bundle.md).
+Its 86-case/172-attempt scope does not amend the historical nine-case result or
+fulfil the original eight-class/87-case campaign. Presidio remains authoritative.
+
 **Status, 2026-10-04:** The separately approved us-east1 signed release and one nine-case synthetic GKE execution completed: six PASS, zero FAIL, three INCONCLUSIVE; 18 SDK attempts, zero retries. Temporary evaluation resources were removed and the node identity disabled. The adapter remains disabled/unwired in the agents; replacement readiness is unproven. Presidio remains authoritative. The [agent qualification and conditional retirement plan](google-sdp-agent-qualification-plan.md) records actual evidence and supersedes the next action. Further Presidio remediation is paused. Preserve [ADR-004](../architecture/decisions/ADR-004-bounded-google-sdp-evaluation.md) and [ADR-005](../architecture/decisions/ADR-005-us-east1-synthetic-sdp-evaluation.md) as historical decisions.
 
 ## Scope and execution authority

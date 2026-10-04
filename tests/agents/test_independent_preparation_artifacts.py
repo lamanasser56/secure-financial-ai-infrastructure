@@ -38,6 +38,24 @@ class PreparationEvidenceTests(unittest.TestCase):
             (ROOT / "evaluation/google-sdp-agent/qualification.json").read_text()
         )
         for path, expected in record["image_source_input_sha256"].items():
+            if path == "runtime/phase3/google_sdp_adapter.py":
+                # Historical seed-image evidence is not qualification of the
+                # changed helper. The separate context artifact binds current
+                # bytes; never rewrite the completed historical record.
+                self.assertEqual(
+                    expected,
+                    "e0bdc6bc845498842c6c7d439ebc95e9a12652583c9c54aecf5a8dba0dcdb524",
+                )
+                current = json.loads(
+                    (
+                        ROOT / "evaluation/google-sdp-context/qualification.json"
+                    ).read_text()
+                )
+                self.assertEqual(
+                    hashlib.sha256((ROOT / path).read_bytes()).hexdigest(),
+                    current["source_input_sha256"][path],
+                )
+                continue
             self.assertEqual(
                 hashlib.sha256((ROOT / path).read_bytes()).hexdigest(), expected, path
             )

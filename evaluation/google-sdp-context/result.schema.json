@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "policy_id", "policy_sha256", "mode", "google_quality", "authority_changed", "sdk_attempts", "injected_attempts", "required_pass", "required_fail", "observations", "unexecuted", "cases", "outcome"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "policy_id": {"const": "context-pattern-v1"},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "mode": {"enum": ["offline_reference", "live_synthetic"]},
+    "google_quality": {"enum": ["unmeasured", "synthetic_policy_observations_only"]},
+    "authority_changed": {"const": false},
+    "sdk_attempts": {"type": "integer", "minimum": 0, "maximum": 172},
+    "injected_attempts": {"type": "integer", "minimum": 0, "maximum": 172},
+    "required_pass": {"type": "integer", "minimum": 0, "maximum": 86},
+    "required_fail": {"type": "integer", "minimum": 0, "maximum": 86},
+    "observations": {"type": "integer", "minimum": 0, "maximum": 86},
+    "unexecuted": {"type": "integer", "minimum": 0, "maximum": 86},
+    "outcome": {"enum": ["FAIL_CLOSED", "SYNTHETIC_POLICY_ONLY_REVIEW_REQUIRED", "OFFLINE_REFERENCE_PASS_GOOGLE_UNPROVEN"]},
+    "cases": {
+      "type": "array", "maxItems": 86,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["case_id", "status", "tp", "fp", "fn"],
+        "properties": {
+          "case_id": {"type": "string", "pattern": "^context-[0-9]{3}$"},
+          "status": {"enum": ["PASS", "FAIL", "FAIL_CLOSED", "OBSERVATION"]},
+          "tp": {"type": "integer", "minimum": 0, "maximum": 1000},
+          "fp": {"type": "integer", "minimum": 0, "maximum": 1000},
+          "fn": {"type": "integer", "minimum": 0, "maximum": 1000}
+        }
+      }
+    }
+  }
+}

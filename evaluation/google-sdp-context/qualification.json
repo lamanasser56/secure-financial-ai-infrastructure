@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "assessment_utc": "2026-10-04T16:05:59.095840+00:00",
+  "source_baseline": "b8b150b80ddf3899c2d5bcbb74fc474bf21a0fa1",
+  "status": "unpromoted_context_policy_offline_google_unproven",
+  "source_input_sha256": {
+    "docker/google-sdp-context/Dockerfile": "a995307751f80059d9767e5599d214e57b4069bacaa425c99ace77090481fbef",
+    "docker/google-sdp-context/Dockerfile.dockerignore": "86f8d2a46419e8fad458877321c47e0369bcc8689edb30c8d3adb738954586e2",
+    "requirements-google-sdp-runtime.txt": "c232eac3a105050d5406a7cc80f5aa276c4fbbed52f3e8d5ff7892c548199a29",
+    "scripts/build-sdp-context-image.sh": "d8e5c81c2cbef8739d1c4417d5fade86b8433f11f427fca54120898b19bda31e",
+    "scripts/evaluate-sdp-context-policy.py": "f569e7d69bee1a27a03a47ec9ee13c57cc19dc1da87e82a29412a525171f2b8a",
+    "runtime/phase3/__init__.py": "e77baf7bc54661c9dd022cd54d4c9bf5186e5546d8b8945bee56dfbf900fdcab",
+    "runtime/phase3/google_sdp_adapter.py": "83ccb313ff70b109b571327c730497d88a0cd7cf12ec5f295db38d0456a673ed",
+    "runtime/phase3/sdp_context_policy.py": "a4c67023d43e94e64092f233579f5a5002a333a4d7dab69b8e8965b5e2fdcb6a",
+    "runtime/phase3/trusted_runtime.py": "958fe191230951184811302c38d5344d9c15aecb19719a2df94d7b4a4a9166c3",
+    "evaluation/google-sdp/deployment.json": "4722cc0a349fb28ddc607b429e7b340d191df6e8e574a01e05c23258f116101a",
+    "evaluation/google-sdp-context/policy.json": "c1b782c6fd051243dec4173f903cb33607893010c7d38a6b35bc1372ddb2d4db",
+    "evaluation/google-sdp-context/corpus.json": "0c07aa1e8b480e732cdcaa6e9f406661058220ad41de607af7124198e5e71eb9",
+    "evaluation/google-sdp-context/corpus.schema.json": "d22c8251e85f9a9e30aa9a7020d54f021bfcbd3949a29e8543fd8168c811fafb",
+    "evaluation/google-sdp-context/result.schema.json": "9b72b601ad26fdbac05c912b349f9fac280331b64b62959a320a98de5e52933c"
+  },
+  "policy_id": "context-pattern-v1",
+  "policy_sha256": "c1b782c6fd051243dec4173f903cb33607893010c7d38a6b35bc1372ddb2d4db",
+  "corpus_sha256": "0c07aa1e8b480e732cdcaa6e9f406661058220ad41de607af7124198e5e71eb9",
+  "candidate": {
+    "configuration_digest": "sha256:8c0a7f6042abeb3f811a1f01aa0440a0bb0a67399ef2ae7ab9e346855126b62d",
+    "local_store_image_id": "sha256:2376d78c88b125cf8234321a112f7b60e7f3808d182c356fae6e7556c50a0075",
+    "archive_sha256": [
+      "8e9f9ade9402cd9ec2f686f5d9130bfbe062487cf335ad66e3e8da9ca4f807b2",
+      "8e9f9ade9402cd9ec2f686f5d9130bfbe062487cf335ad66e3e8da9ca4f807b2"
+    ],
+    "registry_manifest_digest": null,
+    "signature": null,
+    "user": "65532:65532",
+    "architecture": "amd64",
+    "reproducible_archives": true,
+    "source_epoch": 0,
+    "sbom_components": 1363,
+    "vulnerabilities": {
+      "MEDIUM": 15,
+      "LOW": 8
+    },
+    "policy_exit": 0,
+    "exceptions": 0,
+    "evidence_sha256": {
+      "sbom.json": "8798674ba800aafcb020e70e0512dc0625b979525531af564408e552a40536ab",
+      "trivy-original.json": "d09d2756fa3a817b5fbffa03e84a60ef64dc472c4d3c945baec333494ad0232e",
+      "trivy-policy-copy.json": "50c58f678085bb1cf09f0173f04c90e89646e62cbba7b66f01c9b992dd8528c5",
+      "kev.json": "d2c8c6cb23291b46ff2b086197641a6b1fa35e6b746bba714cc280a1778f9e48",
+      "policy-result.txt": "6bdfaf12a56a16a31ae507419476ce560bd4734105d92fde9b4e4a2f9cd5cba3",
+      "image-offline-result.json": "e7abc12c1652bd7907c7333eb3f57ce49232eb9d8573940834452e32908d6ee7"
+    },
+    "tools": {
+      "buildx": "0.30.1",
+      "buildkit": "0.33.1",
+      "trivy": "0.72.0",
+      "syft": "1.44.0"
+    }
+  },
+  "corpus": {
+    "cases": 86,
+    "required_cases": 70,
+    "observation_cases": 16,
+    "required_redaction_cases": 63,
+    "sdk_attempt_ceiling": 172,
+    "metadata_attempts": 0,
+    "sdk_attempts_executed": 0
+  },
+  "published": false,
+  "signed": false,
+  "authority_changed": false,
+  "google_detection_proven": false
+}

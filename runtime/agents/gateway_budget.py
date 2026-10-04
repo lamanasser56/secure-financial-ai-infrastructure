@@ -2,8 +2,12 @@
 
 import threading
 import time
+import hmac
+import os
 
 from runtime.phase3.trusted_runtime import APPROVED_MODEL_ALIAS, ControlFailure
+from runtime.phase3.adapters import HttpLiteLLMGateway
+from runtime.agents.credentials import FORBIDDEN_APPLICATION_ENVIRONMENTS
 
 
 class RunAttemptBudget:
@@ -65,3 +69,33 @@ class BudgetedGateway:
         self._credential.value(self._profile)
         self._budget.reserve(self._subject)
         return self._gateway.complete(model_alias, redacted_text, metadata)
+
+
+class ScopedHTTPGateway(BudgetedGateway):
+    """Unwired trusted factory binding the checked handle to the actual HTTP key.
+
+    Rotation requires a new factory with the same run budget after revocation.
+    A lifecycle guard for one key cannot authorize an adapter using another key.
+    These local guards do not qualify server/database key enforcement.
+    """
+
+    def __init__(self, base_url, budget, credential, *, subject, profile, timeout=20):
+        if (
+            FORBIDDEN_APPLICATION_ENVIRONMENTS & os.environ.keys()
+            or not isinstance(subject, str)
+            or not 1 <= len(subject) <= 128
+            or type(timeout) not in (int, float)
+            or not 0 < timeout <= 20
+            or not isinstance(budget, RunAttemptBudget)
+        ):
+            raise ControlFailure("litellm", "invalid_configuration")
+        self._bound_key = credential.value(profile)
+        gateway = HttpLiteLLMGateway(base_url, timeout, client_key=self._bound_key)
+        super().__init__(gateway, budget, credential, subject=subject, profile=profile)
+
+    def complete(self, model_alias, redacted_text, metadata):
+        if not hmac.compare_digest(
+            self._credential.value(self._profile), self._bound_key
+        ):
+            raise ControlFailure("litellm", "invalid_configuration")
+        return super().complete(model_alias, redacted_text, metadata)

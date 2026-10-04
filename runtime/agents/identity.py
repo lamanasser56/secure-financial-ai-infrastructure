@@ -12,6 +12,7 @@ import hmac
 import json
 import re
 import time
+import threading
 from urllib.parse import urlsplit
 
 from runtime.agents.controls import PROFILES
@@ -111,6 +112,7 @@ class TrustedJWTIdentity:
         self._decode = jwt.decode
         self._profile, self._issuer, self._audience = profile, issuer, audience
         self._certificates, self._subjects = dict(certificates), dict(subjects)
+        self._revoked, self._revocation_lock = set(), threading.Lock()
         self._expires, self._key, self._clock = (
             snapshot_expires_at,
             tenant_reference_key,
@@ -123,10 +125,24 @@ class TrustedJWTIdentity:
         )
 
     def _claims(self, subject):
+        with self._revocation_lock:
+            if subject in self._revoked:
+                raise ValueError("subject")
         grant = self._subjects.get(subject)
         if grant is None or self._profile not in grant.profiles:
             raise ValueError("subject")
         return IdentityClaims(subject, grant.tenant_id, self._actions)
+
+    def revoke_subject(self, subject):
+        """Trusted operator-only, monotonic local denial; no browser endpoint.
+
+        Authentication and existing conversation ownership rechecks consult it.
+        This neither revokes an issuer token nor persists after process restart.
+        """
+        if not isinstance(subject, str) or subject not in self._subjects:
+            raise ValueError("identity:invalid_trust_configuration")
+        with self._revocation_lock:
+            self._revoked.add(subject)
 
     def authenticate(self, authorization):
         valid = None

@@ -67,6 +67,14 @@ if froms != [builder, runtime] or re.search(r"\blatest\b", dockerfile, re.IGNORE
     raise SystemExit("Dockerfile bases differ or use a floating tag")
 PY
 
+case "${PORTFOLIO_SDP_IMAGE_PROFILE:-seed}" in
+  seed) ;;
+  context-pattern-v1)
+    exec bash scripts/qualify-sdp-context-release.sh "$buildx_builder"
+    ;;
+  *) fail 'unknown committed evaluation profile' ;;
+esac
+
 content_key=$(sha256sum \
   "$dockerfile" requirements-google-sdp-runtime.txt \
   scripts/evaluate-google-sdp.py \

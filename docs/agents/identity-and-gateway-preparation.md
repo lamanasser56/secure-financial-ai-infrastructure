@@ -25,6 +25,12 @@ identity/tenant/profile binding. This adapter is not wired into the offline UI.
 Local RSA signing proves signature verification behavior, **not** a real issuer
 login or production authentication. No private signing key is written to source.
 
+The unwired adapter now has monotonic operator-only `revoke_subject` denial.
+Existing tokens, resolved contexts and conversation ownership rechecks deny the
+revoked subject; another subject's server-side grants stay unchanged. There is no
+browser revocation/grant endpoint. This process-local denial neither revokes issuer
+tokens nor proves durable revocation after restart; a real issuer/session gate remains.
+
 Still required: select the actual owner/application issuer, audience and permitted
 subjects; independently verify its published keys and token profile, transport,
 revocation and session lifecycle. Refresh trusted public snapshots out of band
@@ -68,6 +74,21 @@ the existing measured counters and does not fabricate provider receipts or cost.
 Local expiry/revocation blocks before dispatch. Process restart does not establish
 durable quota enforcement; a reviewed ledger/owner takeover gate remains. No
 current key/database has been created.
+
+`ScopedHTTPGateway` now constructs the real existing HTTP adapter from the exact
+checked scoped handle. It rejects administrative/provider environments and
+unbounded timeout, checks key continuity before every dispatch, and preserves the
+same run budget when a revoked key is replaced. A guard for one key cannot silently
+authorize another cached adapter key. Actual loopback HTTP tests cover this
+composition without cloud/model traffic; they are not LiteLLM virtual-key issuance
+or server route/model/expiry/spend enforcement evidence.
+
+Current read-only source inspection of the exact retained proxy confirms virtual
+key authentication raises `No connected db.` (HTTP 400) when `prisma_client` is
+absent, before regular virtual-key lookup. No in-memory allowlist, custom-auth bypass
+or administrator key substitution was added to conceal this blocker. A qualified
+private PostgreSQL/key lifecycle is still required; no new gateway image design,
+database, credential or server key was created in this context-policy preparation.
 
 ## Two bounded gateway candidates
 

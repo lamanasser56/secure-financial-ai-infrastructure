@@ -96,7 +96,7 @@ class QualificationTests(unittest.TestCase):
                 with self.assertRaises(qualification.QualificationFailure):
                     qualification.preparation_summary()
 
-    def test_fresh_candidate_record_binds_exact_inputs_without_inheriting_signature(
+    def test_historical_candidate_inputs_remain_separate_without_inheriting_signature(
         self,
     ):
         record = json.loads(
@@ -111,6 +111,24 @@ class QualificationTests(unittest.TestCase):
         self.assertFalse(record["authority_changed"])
         for group in ("image_source_input_sha256", "qualification_source_input_sha256"):
             for path, expected in record[group].items():
+                if path == "runtime/phase3/google_sdp_adapter.py":
+                    self.assertEqual(
+                        expected,
+                        "e0bdc6bc845498842c6c7d439ebc95e9a12652583c9c54aecf5a8dba0dcdb524",
+                    )
+                    current = json.loads(
+                        (
+                            qualification.ROOT
+                            / "evaluation/google-sdp-context/qualification.json"
+                        ).read_text()
+                    )
+                    self.assertEqual(
+                        hashlib.sha256(
+                            (qualification.ROOT / path).read_bytes()
+                        ).hexdigest(),
+                        current["source_input_sha256"][path],
+                    )
+                    continue
                 self.assertEqual(
                     hashlib.sha256(
                         (qualification.ROOT / path).read_bytes()

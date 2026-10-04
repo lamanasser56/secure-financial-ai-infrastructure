@@ -69,7 +69,7 @@ class DeploymentContractTests(unittest.TestCase):
             for step in job["steps"]:
                 if "uses" in step:
                     self.assertRegex(step["uses"], r"^[\w-]+/[\w-]+@[0-9a-f]{40}$")
-        self.assertEqual(set(triggers["workflow_dispatch"]["inputs"]), {"source_commit", "region", "artifact_repository", "image_name"})
+        self.assertEqual(set(triggers["workflow_dispatch"]["inputs"]), {"source_commit", "region", "artifact_repository", "image_name", "evaluation_profile"})
 
     def test_workflow_gate_order_and_digest_signing(self):
         text = WORKFLOW.read_text(encoding="utf-8")

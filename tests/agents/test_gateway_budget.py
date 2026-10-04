@@ -4,8 +4,14 @@ import unittest
 from unittest import mock
 
 from runtime.agents.credentials import ScopedCredential
-from runtime.agents.gateway_budget import BudgetedGateway, RunAttemptBudget
+from runtime.agents.gateway_budget import (
+    BudgetedGateway,
+    RunAttemptBudget,
+    ScopedHTTPGateway,
+)
 from runtime.phase3.trusted_runtime import ControlFailure
+
+PROMPT = '{"agent":"financial","observations":[],"period":"2026-01"}'
 
 
 class BudgetTests(unittest.TestCase):
@@ -90,3 +96,90 @@ class BudgetTests(unittest.TestCase):
             wrapper.measurement_snapshot(), {"http_attempts": 1, "usage_unavailable": 1}
         )
         self.assertNotIn("cost", wrapper.measurement_snapshot())
+
+    def test_scoped_http_factory_uses_exact_handle_and_measured_loopback_requests(self):
+        from test_live_preparation import boundary_fixture
+
+        with boundary_fixture() as (url, records), mock.patch.dict(
+            "os.environ", {}, clear=True
+        ):
+            credential = self.credential()
+            gateway = ScopedHTTPGateway(
+                url,
+                RunAttemptBudget(total=1),
+                credential,
+                subject="verified-subject",
+                profile="financial",
+                timeout=1,
+            )
+            gateway.complete("secure-financial-chat", PROMPT, {})
+            self.assertEqual(
+                gateway._gateway._authorization, "Bearer invalid-fixture-key-only"
+            )
+            self.assertEqual(gateway.call_count, 1)
+            self.assertEqual(len(records), 1)
+            credential.revoke()
+            with self.assertRaises(ValueError):
+                gateway.complete("secure-financial-chat", "redacted fixture", {})
+            self.assertEqual(len(records), 1)
+
+    def test_rotation_retains_budget_and_static_credential_mismatch_denies_before_http(
+        self,
+    ):
+        from test_live_preparation import boundary_fixture
+
+        with boundary_fixture() as (url, records), mock.patch.dict(
+            "os.environ", {}, clear=True
+        ):
+            budget = RunAttemptBudget(total=1)
+            old = self.credential()
+            gateway = ScopedHTTPGateway(
+                url, budget, old, subject="subject", profile="financial", timeout=1
+            )
+            gateway.complete("secure-financial-chat", PROMPT, {})
+            replacement = old.rotate(
+                ScopedCredential(
+                    "financial", "invalid-new-fixture-key-only", 200, clock=lambda: 100
+                )
+            )
+            with self.assertRaises(ValueError):
+                gateway.complete("secure-financial-chat", "redacted fixture", {})
+            rotated = ScopedHTTPGateway(
+                url,
+                budget,
+                replacement,
+                subject="subject",
+                profile="financial",
+                timeout=1,
+            )
+            with self.assertRaises(ControlFailure):
+                rotated.complete("secure-financial-chat", "redacted fixture", {})
+            replacement._value = "invalid-unexpected-fixture-key"
+            with self.assertRaises(ControlFailure):
+                rotated.complete("secure-financial-chat", "redacted fixture", {})
+            self.assertEqual(len(records), 1)
+
+    def test_factory_rejects_administrative_environment_and_unbounded_timeout(self):
+        with mock.patch.dict(
+            "os.environ",
+            {"PORTFOLIO_LITELLM_MASTER_KEY": "invalid-fixture-only"},
+            clear=True,
+        ):
+            with self.assertRaises(ControlFailure):
+                ScopedHTTPGateway(
+                    "http://127.0.0.1:4000",
+                    RunAttemptBudget(),
+                    self.credential(),
+                    subject="subject",
+                    profile="financial",
+                )
+        with mock.patch.dict("os.environ", {}, clear=True):
+            with self.assertRaises(ControlFailure):
+                ScopedHTTPGateway(
+                    "http://127.0.0.1:4000",
+                    RunAttemptBudget(),
+                    self.credential(),
+                    subject="subject",
+                    profile="financial",
+                    timeout=21,
+                )

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
 from pathlib import Path
 import re
@@ -129,10 +129,15 @@ class InspectionSpan:
     start: int
     end: int
     info_type: str
+    category_name: str | None = field(default=None, repr=False, compare=False)
 
     @property
     def category(self) -> str:
-        return _INFO_TYPES[self.info_type]
+        return (
+            self.category_name
+            if self.category_name is not None
+            else _INFO_TYPES[self.info_type]
+        )
 
 
 def _present(value: Any, field: str) -> bool:
@@ -141,13 +146,16 @@ def _present(value: Any, field: str) -> bool:
     return protobuf.HasField(field) if protobuf is not None else hasattr(value, field)
 
 
-def inspection_spans(response: Any, text: str) -> tuple[InspectionSpan, ...]:
+def inspection_spans(
+    response: Any, text: str, allowed_types=None
+) -> tuple[InspectionSpan, ...]:
     """Validate documented half-open Unicode offsets, cross-check UTF-8 bytes.
 
     This evaluation-only helper exposes coordinates to the in-memory scorer.
     Runtime callers receive only a neutral result, never spans or provider data.
     Byte-only, nested/table locations and ambiguous overlaps are rejected.
     """
+    allowed_types = _INFO_TYPES if allowed_types is None else allowed_types
     if not _present(response, "result"):
         raise ValueError
     if response.result.findings_truncated is not False:
@@ -158,7 +166,7 @@ def inspection_spans(response: Any, text: str) -> tuple[InspectionSpan, ...]:
     spans = []
     for finding in found:
         name = finding.info_type.name
-        if name not in _INFO_TYPES or getattr(finding, "quote", ""):
+        if name not in allowed_types or getattr(finding, "quote", ""):
             raise ValueError
         location = finding.location
         if not _present(location, "codepoint_range") or getattr(
@@ -185,7 +193,7 @@ def inspection_spans(response: Any, text: str) -> tuple[InspectionSpan, ...]:
                 or (byte_span.start, byte_span.end) != expected
             ):
                 raise ValueError
-        spans.append(InspectionSpan(start, end, name))
+        spans.append(InspectionSpan(start, end, name, allowed_types[name]))
     ordered = tuple(
         sorted(spans, key=lambda value: (value.start, value.end, value.info_type))
     )
@@ -203,7 +211,10 @@ def _canonical(value: str) -> str:
     )
 
 
-def _output(response: Any, original: str, spans: tuple[InspectionSpan, ...]) -> str:
+def _output(
+    response: Any, original: str, spans: tuple[InspectionSpan, ...], allowed_types=None
+) -> str:
+    allowed_types = _INFO_TYPES if allowed_types is None else allowed_types
     if not _present(response, "item"):
         raise ValueError
     protobuf = getattr(response.item, "_pb", None)
@@ -234,7 +245,7 @@ def _output(response: Any, original: str, spans: tuple[InspectionSpan, ...]) -> 
     if (
         type(total) is not int
         or not 0 <= total <= MAX_INPUT_BYTES
-        or len(summaries) > len(_INFO_TYPES)
+        or len(summaries) > len(allowed_types)
     ):
         raise ValueError
     expected = Counter(span.info_type for span in spans)
@@ -382,12 +393,9 @@ class GoogleSDPRedactor:
     def _sequence(
         self, text: str, deadline: float, reservation: _Reservation
     ) -> RedactionResult:
-        info_types = [{"name": name} for name in _INFO_TYPES]
-        inspect_config = {
-            "info_types": info_types,
-            "include_quote": False,
-            "min_likelihood": "POSSIBLE",
-        }
+        type_map = self._type_map()
+        info_types = [{"name": name} for name in type_map]
+        inspect_config = self._inspect_configuration()
         item = {"value": text}
         inspected = self._invoke(
             "inspect",
@@ -399,7 +407,11 @@ class GoogleSDPRedactor:
             deadline,
             reservation,
         )
-        spans = inspection_spans(inspected, text)
+        spans = (
+            inspection_spans(inspected, text)
+            if type_map is _INFO_TYPES
+            else inspection_spans(inspected, text, type_map)
+        )
         self._remaining(deadline)
         transformed = self._invoke(
             "deidentify",
@@ -424,8 +436,28 @@ class GoogleSDPRedactor:
             deadline,
             reservation,
         )
-        redacted = _output(transformed, text, spans)
+        redacted = (
+            _output(transformed, text, spans)
+            if type_map is _INFO_TYPES
+            else _output(transformed, text, spans, type_map)
+        )
+        redacted = self._normalized_output(text, spans, redacted)
+        if len(redacted.encode("utf-8")) > MAX_OUTPUT_BYTES:
+            raise GoogleSDPFailure()
         self._remaining(deadline)
         return RedactionResult(
-            redacted, tuple(sorted({span.category for span in spans}))
+            redacted, tuple(sorted({type_map[span.info_type] for span in spans}))
         )
+
+    def _type_map(self):
+        return _INFO_TYPES
+
+    def _inspect_configuration(self):
+        return {
+            "info_types": [{"name": name} for name in _INFO_TYPES],
+            "include_quote": False,
+            "min_likelihood": "POSSIBLE",
+        }
+
+    def _normalized_output(self, original, spans, validated_output):
+        return validated_output

@@ -175,6 +175,40 @@ class TrustedIdentityTests(unittest.TestCase):
                 IdentityClaims(claims.subject, "fixture-b", claims.scopes)
             )
 
+    def test_operator_revocation_denies_tokens_and_previously_resolved_context(self):
+        claims = self.identity.authenticate(self.token())
+        tenant = self.identity.resolve(claims)
+        self.identity.revoke_subject("subject-alpha")
+        self.identity.revoke_subject("subject-alpha")  # Idempotent denial only.
+        self.denied(self.token())
+        self.assertFalse(self.identity.authorize(claims, tenant, "expenses.summary"))
+        with self.assertRaises(ControlFailure):
+            self.identity.resolve(claims)
+        with self.assertRaises(ValueError):
+            self.identity.revoke_subject("unknown")
+        self.assertEqual(
+            self.identity.authenticate(self.token(sub="subject-beta")).tenant_claim,
+            "fixture-b",
+        )
+
+    def test_revocation_denies_existing_conversation_without_more_tools(self):
+        core, _ = make_demo("financial")
+        core.authenticator = core.resolver = core.authorizer = self.identity
+        store = ConversationStore({"financial": (core, self.token())})
+        session, _ = store.bootstrap()
+        request = {
+            "agent": "financial",
+            "question": "Show expenses",
+            "evidence_source": None,
+            "language": "en",
+            "conversation_id": None,
+        }
+        response = store.turn(session, request)
+        request["conversation_id"] = response["conversation_id"]
+        self.identity.revoke_subject("subject-alpha")
+        with self.assertRaises(ControlFailure):
+            store.turn(session, request)
+
     def test_existing_conversation_binding_rechecks_verified_subject(self):
         core, _ = make_demo("financial")
         core.authenticator = core.resolver = core.authorizer = self.identity
