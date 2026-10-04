@@ -176,7 +176,10 @@
           "const": "refusal"
         },
         "reason_code": {
-          "const": "offline_unsupported"
+          "enum": [
+            "offline_unsupported",
+            "out_of_scope"
+          ]
         }
       },
       "required": [

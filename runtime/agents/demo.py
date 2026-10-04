@@ -11,7 +11,7 @@ from runtime.agents.localization import fixture_text, text
 from runtime.phase3.adapters import (
     CLIENT_KEY_ENV_VAR,
     HttpLiteLLMGateway,
-    HttpPresidioAnalyzer,
+    BilingualPresidioAnalyzer,
     HttpPresidioAnonymizer,
     PresidioRedactor,
 )
@@ -180,7 +180,7 @@ def prepare_gateway_core(
     if not key or key == master or getattr(authenticator, "simulated", False):
         raise ValueError("agent:invalid_live_integration")
     redactor = PresidioRedactor(
-        HttpPresidioAnalyzer(analyzer_url, timeout=4),
+        BilingualPresidioAnalyzer(analyzer_url, timeout=4),
         HttpPresidioAnonymizer(anonymizer_url, timeout=4),
     )
     return AgentCore(

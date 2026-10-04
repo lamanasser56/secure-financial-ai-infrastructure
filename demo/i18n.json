@@ -9,7 +9,7 @@
     "enName": "English",
     "arName": "Arabic",
     "offline": "Offline synthetic simulation",
-    "live": "Live model through LiteLLM — qualification not established",
+    "live": "Gateway response — live provider qualification not established",
     "notice": "Simulated authentication and deterministic model responses. No live model, cloud access or real data.",
     "redaction": "Simulated redaction uses synthetic service doubles. Live Presidio detection is unproven; Presidio remains authoritative.",
     "workspace": "Workspace",
@@ -111,7 +111,10 @@
     "exampleFinancial": "Show my expense totals and categories for {period}.",
     "exampleFinanceMissing": "Show my expense totals and categories.",
     "availabilitySource": "Unavailable reporting period",
-    "availableMonths": "Available synthetic months: 2026-01 and 2026-02."
+    "availableMonths": "Available synthetic months: 2026-01 and 2026-02.",
+    "out_of_scope": "This request cannot be answered from the approved evidence or synthetic expenses. Choose an available source and an explicit reporting month.",
+    "gatewayRequests": "Gateway HTTP attempts",
+    "realRedactionRequired": "Real Presidio services are required. Detector coverage and image qualification remain separate gates."
   },
   "ar": {
     "pageTitle": "مختبر الوكلاء الآمن",
@@ -123,7 +126,7 @@
     "enName": "الإنجليزية",
     "arName": "العربية",
     "offline": "محاكاة اصطناعية دون اتصال بنموذج",
-    "live": "نموذج حي عبر LiteLLM — لم تثبت صلاحية التكامل",
+    "live": "استجابة من البوابة — لم يثبت تأهيل المزود الحي",
     "notice": "المصادقة محاكاة وإجابات النموذج محددة مسبقًا. لا نموذج حي ولا وصول سحابي ولا بيانات حقيقية.",
     "redaction": "التنقيح محاكاة بخدمات اختبار اصطناعية. لم يثبت الكشف الحي بواسطة Presidio، وهو المرجع المعتمد للتنقيح.",
     "workspace": "مساحة العمل",
@@ -225,7 +228,10 @@
     "exampleFinancial": "اعرض إجمالي مصاريفي وفئاتها في {period}.",
     "exampleFinanceMissing": "اعرض إجمالي مصاريفي وفئاتها.",
     "availabilitySource": "فترة التقرير غير المتاحة",
-    "availableMonths": "الأشهر الاصطناعية المتاحة: 2026-01 و2026-02."
+    "availableMonths": "الأشهر الاصطناعية المتاحة: 2026-01 و2026-02.",
+    "out_of_scope": "لا يمكن الإجابة عن هذا الطلب من الأدلة المعتمدة أو المصاريف الاصطناعية. اختر مصدرًا متاحًا وشهرًا واضحًا للتقرير.",
+    "gatewayRequests": "محاولات HTTP للبوابة",
+    "realRedactionRequired": "خدمات Presidio الحقيقية مطلوبة. تغطية الكشف وتأهيل الصور بوابتان مستقلتان للتحقق."
   },
   "fixture_ar": {
     "Docker archive export failed with the selected builder driver.": "فشل تصدير أرشيف صورة Docker باستخدام برنامج البناء المحدد.",

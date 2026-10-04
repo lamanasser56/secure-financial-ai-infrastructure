@@ -1,50 +1,222 @@
-# Bounded live-agent qualification follow-up bundle
+# Bounded live-agent execution boundary
 
-## Status and scope
+## Checkpoint: technically blocked
 
-Prepared, not executed. The present UI/CLI are offline-only. Their text boxes and Arabic translations do not establish live agent capability. Preserve Presidio authority, separate read-only tool profiles, synthetic tenants, private loopback/SSH access, exact source/schema confinement, bounded context and no retries. No existing SDP publication/evaluation approval authorizes Vertex model calls, new identity bindings, billing or new services for this bundle.
+Local preparation is complete for the independent changes in the
+[handoff](live-preparation-status.md). **Do not execute this bundle or request
+approval for unspecified resources.** Redactor/gateway image gates and real
+identity prerequisites remain unresolved. The [qualification artifact](../../evaluation/presidio-bounded/qualification.json)
+contains exact locally assessed image subjects; all are unpromoted. The final
+local source commit and worker validation evidence are recorded in the owner
+handoff. No GitHub push is authorized for this milestone.
 
-One follow-up should prepare and qualify the complete boundary below before a single concrete execution checkpoint. Do not split it into implicit permissions for individual services. There is no live enablement switch in the current UI.
+Preserve the existing conversation UI, Arabic/English views, free-text questions,
+ephemeral context, read-only profiles, tenant isolation and deterministic finance.
+The UI/CLI remain offline simulations. No old SDP execution approval supplies
+Vertex calls, an agent budget, new identities or new persistent services.
 
-## Existing adapter inspection
+## Exact source and artifact boundary
 
-The [LiteLLM adapter](../../runtime/phase3/adapters.py) posts to trusted startup `/chat/completions` with alias `secure-financial-chat`, `PORTFOLIO_LITELLM_CLIENT_KEY`, `response_format=json_object`, the closed `{summary, classification}` envelope and pseudonymous tenant/correlation metadata. It does not send native provider function declarations, parse native `tool_calls`, report usage/prices or permit redirect/proxy routing. The agent instead parses a closed JSON decision inside `summary`; this protocol must be qualified with the actual model. Application governance, not a provider SDK, executes tools.
+| Input | Selection and status |
+| --- | --- |
+| Completed conversation baseline | `de4325c36bfdbb0a9522b89269affb9ea919a187` |
+| Prepared integration source | Local commit containing this bundle; exact SHA in final handoff; not pushed |
+| Presidio bounded candidate | Local configuration digest `sha256:016631eb3baa6df8d81031720de99776f493ea52259c6bca3ce61967c2887efa`; 31 actual HTTP cases PASS, 47 HIGH findings BLOCK |
+| Existing gateway reference | `ghcr.io/berriai/litellm@sha256:cae1ac3492d6d0bea69c26f4485381624e073eb753f3534ae7703a4204a4ce6b`; fresh assessment blocked |
+| Presidio upstream alternatives | Exact committed/new upstream digests and findings in the qualification artifact; none accepted |
+| Retained SDP image | Separate signed evaluation image with source e5ddb647; not a redactor or agent/gateway image; no reuse as agent provenance |
+| Runtime locks | Existing three locks unchanged; separate `requirements-presidio-runtime.in/.txt` for the candidate |
 
-The prompt now carries the actual redacted question, language, untrusted redacted history, profile allowlist, bounded arguments and validated observations. A real model still needs qualified tool purpose/schema descriptions and examples of this nested decision envelope. Unknown proposals must fail, never fall back to canned results. The current live prototype asks for an explicit source/month before dispatch; the offline grammar must not masquerade as a real model interpreter. Qualify trusted continuation and model-proposed clarification/extraction separately before wiring it to the conversation server.
+The local candidate has no registry manifest subject or signature. Its configuration
+bytes are verified against the actual Docker archive. The original scan is retained;
+a labelled policy copy binds the archive subject to that configuration digest.
+Any image-content change requires new scan/SBOM/KEV/policy and behavior evidence.
+No signing, publishing or expected-digest substitution is part of preparation.
 
-`prepare_gateway_core` rejects simulated identities, synthetic redaction service doubles and a client key equal to a supplied master key. It currently constructs `HttpPresidioAnalyzer` with its default `language="en"`. **This does not qualify Arabic or mixed-language input/output.** Presidio defaults to English models/recognizers; other languages require configured NLP and language-specific recognizers. Qualify a trusted server-selected multi-language strategy for input, tool output, history and final answers; do not let browser language disable detectors. [Official Presidio language configuration](https://github.com/microsoft/presidio/blob/main/docs/analyzer/languages.md).
+## Resources and prerequisite differences
 
-## Proposed local services and trusted configuration
-
-| Boundary | Concrete proposed contract | Qualification required |
+| Resource boundary | Existing reuse / proposed exact local boundary | Execution gate |
 | --- | --- | --- |
-| Agent application | Existing worker, private `127.0.0.1:8765`, SSH access, same two profiles | Real authenticator/resolver/authorizer, issuer/audience/signature/expiry validation; trusted tenant map; per-identity quotas independent of reset |
-| LiteLLM gateway | Private `127.0.0.1:4000`, only alias `secure-financial-chat`, Gemini via `vertex_ai/` | Pinned qualified release/image; actual structured decision compliance; no retry/fallback; approved model/location and provider request bounds |
-| Presidio Analyzer / Anonymizer | Private `127.0.0.1:5001` / `127.0.0.1:5002` | Pinned images/NLP artifacts; English/Arabic/mixed-language synthetic detection tests; outage/malformed/incomplete result blocks every model stage |
-| Gateway key database | Private PostgreSQL on `127.0.0.1:15432`, dedicated gateway-key database | Existing approved database reuse only if isolation/ownership permits; otherwise reviewed ephemeral local instance, separate role, private temporary volume and deletion |
-| Application key | Separate virtual key per profile, only `/chat/completions` and approved alias | Short expiry, no administrative ownership/routes, model/rate/spend restrictions verified by real deny tests; stored only in private startup secret handling |
-| Audit sink | Bounded local private sanitized-event destination | No prompts, question/history, tokens or credential material; durable failure handling and explicit retention/deletion proof |
+| Worker | Existing `secure-infra-worker`; isolated checkout; preserve dirty original | No VM identity, firewall, disk or MASAR modification |
+| Offline UI | Existing loopback `127.0.0.1:8765`, SSH access | Still simulated; no live toggle |
+| Future agent application | Same private listener after separately qualified identity/core wiring | Qualified source, issuer/audience and trusted capability/tenant map absent |
+| Future gateway | Private `127.0.0.1:4000`; alias `secure-financial-chat` only | Qualified LiteLLM digest/provenance, real no-retry and key-denial evidence absent |
+| Future real redaction | Private `127.0.0.1:5001` / `127.0.0.1:5002` | Candidate policy must pass; no promotion of blocked image |
+| Future key database | Dedicated private PostgreSQL on `127.0.0.1:15432`, database `agent_gateway_qualification` | Exact qualified image/role/temporary-volume plan absent; no reuse of product tables |
+| Future audit | Private bounded sanitized-event destination, proposed seven-day retention | Durable fail-closed delivery/cleanup not implemented |
+| Vertex API | `aiplatform.googleapis.com` already enabled: read-only project check | Model entitlement/quota and gateway identity remain unproven |
+| GCP resources | No new cluster, bucket, registry, VM, IAM grant or workflow selected/applied | Exact identity transport/resource diff must be resolved before a saved-plan approval |
 
-The [LiteLLM virtual-key documentation](https://docs.litellm.ai/docs/proxy/virtual_keys) requires PostgreSQL and describes model access, key expiry and budget/rate controls. Key-management administrative credentials remain gateway/operator-only; neither browser nor agents receive them. Opaque-key inequality alone is insufficient. No source/report embeds credentials or database URLs with passwords.
+The reviewed project is supplied privately by the owner; environment-specific
+project/account values are not imported into source. Existing SDP GSAs, WIF
+source-SHA trust, registry policy, retained state and deleted cluster are outside
+this integration. Do not use those identities or approvals as model authority.
 
-Keep gateway URL, alias, client key and provider configuration trusted at startup. Gateway-owned ADC/workload identity handles Google access; agents have no Google SDK or provider credentials. The documented `vertex_ai/` route supports the intended gateway boundary. [Official LiteLLM Vertex documentation](https://docs.litellm.ai/docs/providers/vertex), [Google authentication](https://docs.cloud.google.com/vertex-ai/docs/authentication).
+## Identity, IAM and credentials
 
-## Cloud and identity delta: hard prerequisites, no authorized mutation
+The current UI uses startup-selected simulated personas and fixture tenants. Its
+SSH/loopback boundary does not independently authenticate other local processes.
+Conversation cookie, CSRF and opaque handle bind the server-resolved identity,
+tenant and profile; these are confinement controls, not production login.
+The live factory continues rejecting simulated identity and redaction doubles.
 
-The execution checkpoint must name a verified project, exact supported model, processing region, gateway principal and complete IAM plan. These are currently **unselected/unverified**; never derive them from browser text, the SDP GSA or an old evaluation approval. No regional fallback or Saudi-residency claim is proposed.
+A future execution must provide a real application `Authenticator`, `TenantResolver`
+and `Authorizer`: exact trusted issuer, audience, verified subjects, signature/expiry
+validation, fixed server-side subject-to-tenant/action mapping and reset-independent
+identity quota. These values/adapters are **not supplied**. No request/browser can
+choose identity, tenant, profile capabilities, provider URL, model or credentials.
+Synthetic tenant mapping stays explicitly synthetic, even with genuine login.
 
-Read-only project/API/model/region/organization-policy eligibility assessment comes first. If new cloud access is needed, the one reviewed plan must enumerate only the required model API (`aiplatform.googleapis.com`), gateway identity and proven prediction permissions/bindings for that selected project. The official prediction RPC lists `aiplatform.endpoints.predict`; this is a candidate permission to verify against the selected operation and custom-role support, not an invented role or applied grant. Existing SDP release/runtime/node identities and their IAM/WIF restrictions remain unchanged. [Official prediction API permission reference](https://docs.cloud.google.com/vertex-ai/docs/reference/rpc/google.cloud.aiplatform.v1).
+For the gateway alone, the proposed principal name is `portfolio-agent-gateway`
+(GSA not created). Google [access-control documentation](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/access-control)
+lists `aiplatform.endpoints.predict` for prompt requests. Read-only project testing
+listed that permission. Custom-role eligibility and an exact keyless trust route
+must still be verified. No broad `roles/aiplatform.user`, administrator role,
+operator credential reuse, static JSON key or impersonation grant is applied.
+There is no reviewed binding/principal transport to authorize yet. A concrete
+future IAM plan must enumerate the exact role, project, subject and trust conditions;
+no wildcard or existing SDP WIF reuse may be inferred from this proposal.
 
-No cluster, registry, image release, public listener, firewall change, billing change, storage bucket or new GCP service account is presumed necessary for a loopback worker qualification. If the verified identity route requires one, enumerate its exact scope/retention in the saved-plan review at that single checkpoint. Do not execute an unspecified alternative. A real application identity issuer/audience and tenant-capability mapping are also blockers; the existing demo cookie is simulated authentication, not a substitute.
+The application needs two separately scoped, short-lived virtual keys: one per
+agent profile, only `/chat/completions` and `secure-financial-chat`, no administrative
+routes, no model override, no retries/fallback, one-hour maximum expiry, rate/token/
+spend limits shared with an identity-wide run ceiling. Generate them through the
+operator-only gateway admin boundary, store only in private startup handling and
+never browser/source/reports. Revoke both after qualification or first failing gate;
+rotate by revocation/new issuance, never reuse expired qualification keys.
 
-## Qualification and bounded execution proposal
+`PORTFOLIO_LITELLM_CLIENT_KEY` has no master-key fallback. The gateway alone owns
+`PORTFOLIO_LITELLM_MASTER_KEY` and Google workload identity. Key inequality does
+not prove scope: actual denied route/model/expiry/spend tests are mandatory.
+The [virtual-key documentation](https://docs.litellm.ai/docs/proxy/virtual_keys)
+describes the PostgreSQL-backed boundary. No keys/database were created here.
 
-1. Implement and test real identity adapters and bilingual fail-closed redaction locally on the worker, then qualify the exact LiteLLM gateway build and scoped-key restrictions with a local fake upstream. No external model request at this stage.
-2. Prepare exact private service/image/NLP versions, issuer/audience, startup addresses, selected cloud model/project/location, necessary IAM/API diff, cost estimate and cleanup commands. Scan source/history/evidence; render no secret into reports. Stop if any value or required grant remains unknown.
-3. Present one saved-plan/service launch and synthetic live-test bundle for owner review. Proposed live ceiling: eight committed synthetic turns total across both profiles/languages, at most 32 external model attempts, at most 32 read-only tool attempts, no retries, one-hour service lifetime and a USD 1 operator stop threshold. These are proposals, not inherited approval or guaranteed billing caps. Gateway-side expiry/rate/spend and input/output token bounds must be proven; billed cost/token usage remain unavailable until authenticated evidence exists.
-4. Reverify exact identity, real Presidio and scoped client key, then run only the approved synthetic cases once. Prove clarification without premature finance access, unavailable data, tenant/profile/context denial, endpoint/key override rejection, genuine tool selection, evidence-grounded explanation and Arabic/English output. Failed required controls stop the run.
-5. Revoke qualification client keys, stop temporary local services, remove their private volumes/credentials, return any explicitly temporary IAM grant to the reviewed prior state and verify cleanup. Retain sanitized event/qualification summaries only for the owner-selected retention; never retain transcripts or tokens. No production rollout or broader data access follows automatically.
+## Proposed provider selection, verified official capability and limits
 
-## Remaining blockers
+The intended provider remains Gemini through Vertex AI via LiteLLM `vertex_ai/`.
+No direct provider SDK is added. Proposed bounded model: **`gemini-2.5-flash`**, regional
+request location **`us-east1`**, endpoint `us-east1-aiplatform.googleapis.com`.
+This is a proposal, not a silently selected replacement for an approved model.
+The repository gateway still has trusted deployment placeholders.
 
-Real identity/tenant adapters, bilingual Presidio detector qualification, actual gateway/key database, verified scoped keys, exact Gemini model/processing location/Google identity, structured-proposal compliance, durable audit, live token/cost evidence and independent network enforcement remain unproven. The separate SDP evaluation was inconclusive and supplies no replacement-redactor or live-model authorization. This proposal changes no running cloud resource and requests no unspecified execution approval.
+Google's [model reference](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-flash)
+lists structured output, function calling and us-east1 availability. It also lists
+retirement on **2026-10-20** and US multi-region ML processing. Regional endpoint
+availability is not proof of South Carolina-only processing. This proposal expires
+before retirement; reverify availability/entitlement immediately before any approved
+run. Do not migrate to global/newer models automatically. No Saudi-residency claim.
+
+The existing HTTP adapter uses JSON decisions inside the closed Phase 3 envelope;
+it does not execute native function calls. Canonical tool purposes and input schemas
+are now supplied. Actual Gemini decision compliance, Arabic answers, malicious/
+malformed output containment and gateway translation remain untested. Unsupported
+scope must refuse; unavailable periods must return no invented expense report.
+
+Keep all [existing limits](architecture.md): four model/four tool attempts and 60
+seconds per turn; model stage 20 seconds, tool/identity/governance two seconds,
+redaction ten seconds; 500 characters/1,500 UTF-8 input bytes; 4,000-byte model prompt;
+4,096-byte tool/final JSON; bounded response/context. Eight turns, sixteen model/
+twelve tool attempts, 240 execution seconds and fifteen-minute nonrenewing session
+per conversation remain. Explicit calendar/source slots clarify before tools and
+never guess an old/relative month. Reset is not a live account-wide budget control.
+
+The adapter now fixes `max_tokens=1024`; gateway/model enforcement, including any
+thinking tokens, must be proven. Router/provider retries, fallbacks, streaming,
+parallel calls, search/URL/code tools and request-selected provider options stay
+forbidden. All provider requests must pass through the qualified gateway.
+
+## Network and service lifetime
+
+Keep every local listener private and use authenticated SSH forwarding. Local HTTP
+is proposed only on the same worker loopback; it is not encrypted host/process
+isolation. Separate containers/process credentials and qualified real authentication
+are required before calling that path secure. Remote/provider traffic needs verified
+TLS, regional endpoint pinning and gateway-only credential access. Redirects and
+ambient proxies remain disabled in the application HTTP adapter.
+
+There is no new network-enforcement evidence for this model bundle. The prior GKE
+SDP DNS-derived IP/port tests do not prove gateway containment. No firewall/public
+port/IAM change was made. A future gateway host/identity route needs exact reviewed
+egress/DNS/TLS controls and genuine allow/deny tests before live calls. Application
+URL pinning alone is not infrastructure-level FQDN or credential-store isolation.
+
+Proposed temporary service lifetime: one hour; begin cleanup by minute 45 and
+immediately on a required-control failure. An operator starts/verifies cleanup;
+there is no automatic guarantee after disconnection. The owner must take over.
+No Kubernetes Job TTL is described as host/service cleanup.
+
+## Committed synthetic qualification matrix
+
+These are intended cases for one future approved run, not executed provider calls.
+Local protocol fixtures exercise the same shapes without provider access.
+
+| Scenario ID | Case and required evidence |
+| --- | --- |
+| infra-en-docker-config | Exact approved synthetic CI/runbook diagnosis; failure/cause/IDs/repair/unverified points; image fixture supplemental |
+| infra-ar-archive | Arabic question/answer with unchanged technical IDs and approved source; no executed repair |
+| finance-en-january | Trusted tenant summary/ranking; 24,000 minor units = SAR 240.00, software 200.00, transport 40.00 |
+| finance-ar-clarify | Missing month then explicit Arabic January 2026 reply in the same conversation; zero tool/model HTTP attempts before slot completion |
+| finance-no-march | Unavailable March data; one summary lookup at most, no invented totals/categories |
+| pre-model-denials | Wrong identity/context, other session/tenant/profile, endpoint/credential overrides; zero gateway HTTP attempts |
+| post-model-denied-tool | A forbidden proposal after one gateway reply; preceding attempt retained, zero forbidden-tool executions |
+| malformed-output | Invalid decision/unknown fields/citations; no unauthorized tool and no partial unsafe answer |
+
+The eight scenario IDs include a clarification follow-up and separately bounded
+negative vectors. Proposed **global ceiling**: 32 model HTTP attempts and 32
+read-only tool attempts across the entire run, regardless of conversation resets;
+zero automatic retries. Stop before dispatch if a remaining budget cannot cover
+the next turn. Model-generated forbidden/malformed proposals are not guaranteed;
+controlled local injection proves coordinator behavior, while future observed live
+behavior must be reported separately rather than fabricated.
+
+The live corpus may contain only synthetic approved questions/fixtures. No real
+financial records, customer identifiers, uploads or raw operational credential/log
+material. Retain only scenario/config/version/evidence IDs, control outcomes,
+actual attempts and validated available usage; never replay raw conversations,
+model answers or protected tool results. Invalid/missing usage and actual cost are
+unavailable. A gateway response does not independently prove upstream receipts;
+transport failure must not be reported as zero provider activity.
+
+## Cost and cleanup proposal
+
+Official [standard text pricing](https://cloud.google.com/vertex-ai/generative-ai/pricing)
+for the proposed model lists USD 0.30/M input tokens and USD 2.50/M output tokens,
+including reasoning. An illustrative 32 requests at 4,096 input and 1,024 output
+tokens each gives about **USD 0.122 model cost**. This is an estimate using assumed
+token counts, not measured usage, an enforced input-token cap or a guaranteed bill.
+Existing worker, retained state/registry and MASAR costs are outside that estimate;
+new service disk/log/network and any verified identity-host resources must be priced
+before their authorization. No new cloud resources are presumed free.
+
+Proposed incremental operator stop threshold: **USD 1**, separate from the completed
+SDP USD 5 milestone. Not inherited approval, not an automated cap. Identity-wide
+quotas, key expiry/spend enforcement and operator timing must be qualified before
+approval. No billed live usage was observed in this preparation.
+
+On any approved-run finish/failure: revoke both client keys, stop temporary gateway/
+real-redactor/application/database processes, remove private credential files and
+temporary key database volumes, verify loopback listeners/processes are absent,
+restore explicitly temporary IAM to its saved prior state, and verify any newly
+owned cloud-resource deletion. Preserve the existing offline demo and original
+worker/MASAR resources. Retain sanitized qualification/event summaries for the
+reviewed seven days; no transcript/token retention. No current local candidate
+container remains running after preparation. Actual cloud/IAM cleanup instructions
+require the still-missing exact resource plan; never delete unrelated retained SDP
+resources or apply an incomplete plan.
+
+## Required gates before one execution checkpoint
+
+1. Fix redactor dependency/base blockers without exceptions and regenerate exact
+   image qualification. A passing detection corpus does not override policy.
+2. Qualify the exact gateway image and valid complete policy evidence, scoped keys,
+   no-retry translation, private database and sanitized audit delivery.
+3. Supply real issuer/audience/subject/tenant mapping and verify isolation; select
+   a gateway-owned keyless identity route and exact IAM/API/resource plan.
+4. Reverify supported model/location, project entitlement/quota, token/cost controls
+   and native network/TLS boundaries without an unapproved model request.
+5. Present exact final source/image/identity/resource values and a successful
+   saved plan for any mutations, plus this scenario/limit/cleanup contract, once.
+
+Those gates remain unmet. No execution approval is requested at this blocked
+checkpoint. No production readiness, comprehensive detection, Saudi residency,
+full portability, independent review or CS6 closure is established.

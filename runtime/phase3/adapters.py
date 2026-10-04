@@ -26,6 +26,7 @@ from .trusted_runtime import (
     GatewayResult,
     RedactionFailure,
     RedactionResult,
+    APPROVED_MODEL_ALIAS,
     SUPPORTED_ENTITIES,
 )
 
@@ -115,6 +116,29 @@ class HttpPresidioAnonymizer:
             self._timeout,
         )
         return {"text": response["text"]}
+
+
+class BilingualPresidioAnalyzer:
+    """Both trusted language passes are mandatory, independent of UI language.
+
+    Deduplicate identical detections only. Conflicting/overlapping findings
+    remain subject to the existing fail-closed span validator. This class
+    does not supply recognizers or establish detector coverage.
+    """
+
+    def __init__(self, url: str, timeout: float = 4):
+        self.clients = tuple(HttpPresidioAnalyzer(url, timeout, lang) for lang in ("en", "ar"))
+        self.call_count = 0
+
+    def analyze(self, text: str) -> Any:
+        findings = {}
+        for client in self.clients:
+            self.call_count += 1
+            for item in _validate_analysis(client.analyze(text), len(text)):
+                key = (item["entity_type"], item["start"], item["end"])
+                if key not in findings or item["score"] > findings[key]["score"]:
+                    findings[key] = item
+        return _validate_analysis(list(findings.values()), len(text))
 
 
 class AnalyzerClient(Protocol):
@@ -267,7 +291,17 @@ class HttpLiteLLMGateway:
         self._timeout = timeout
         self.call_count = 0
 
+        self.http_responses = 0
+        self.usage_unavailable = 0
+        self.usage_totals = {key: 0 for key in ("prompt_tokens", "completion_tokens", "total_tokens")}
+
+    def measurement_snapshot(self) -> dict[str, Any]:
+        return {"http_attempts": self.call_count, "http_responses": self.http_responses,
+                "usage_unavailable": self.usage_unavailable, "usage_totals": dict(self.usage_totals)}
+
     def complete(self, model_alias: str, redacted_text: str, metadata: dict[str, str]) -> GatewayResult:
+        if model_alias != APPROVED_MODEL_ALIAS:
+            raise GatewayConfigurationError()
         self.call_count += 1
         payload = {
             "model": model_alias,
@@ -276,6 +310,7 @@ class HttpLiteLLMGateway:
                 {"role": "user", "content": redacted_text},
             ],
             "response_format": {"type": "json_object"},
+            "max_tokens": 1024,
             "metadata": {
                 "correlation_id": metadata.get("correlation_id"),
                 "tenant_ref": metadata.get("tenant_ref"),
@@ -287,6 +322,18 @@ class HttpLiteLLMGateway:
             self._timeout,
             headers={"Authorization": self._authorization},
         )
+        self.http_responses += 1
+        usage = response.get("usage") if isinstance(response, dict) else None
+        if (
+            isinstance(usage, dict)
+            and all(type(usage.get(key)) is int and 0 <= usage[key] <= 2_000_000
+                    for key in self.usage_totals)
+            and usage["prompt_tokens"] + usage["completion_tokens"] == usage["total_tokens"]
+        ):
+            for key in self.usage_totals:
+                self.usage_totals[key] += usage[key]
+        else:
+            self.usage_unavailable += 1
         content = response["choices"][0]["message"]["content"]
         try:
             parsed: Any = json.loads(content)

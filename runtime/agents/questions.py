@@ -176,3 +176,42 @@ def select_scope(profile, message, period=None, scenario_id=None, previous=None)
     if profile == "financial":
         return financial_scope(message, period, previous)
     return infrastructure_scope(message, scenario_id, previous)
+
+
+def select_live_scope(profile, message, period=None, scenario_id=None, previous=None):
+    """Bind explicit slots; leave interpretation and answers to LiteLLM.
+
+    No canned answer, default/relative month or history-selected permission.
+    Missing/ambiguous slots clarify before model or tool calls. The caller
+    already validated, assessed and redacted text; slots still pass schemas.
+    """
+    if (
+        BIDI_CONTROLS.search(message)
+        or len(message.encode()) > 1500
+        or any(ord(c) < 32 and c not in "\n\t\r" for c in message)
+    ):
+        raise ValueError("agent:invalid_text")
+    value = normalized(message)
+    if profile == "financial":
+        dates, _ = periods_and_remainder(value)
+        if period is not None:
+            dates = sorted(set(dates + [period]))
+        if len(dates) != 1 or re.search(
+            r"last month|this month|الشهر الماضي|هذا الشهر", value
+        ):
+            return Scope(
+                "clarification_required", "period_required", intent="financial"
+            )
+        return Scope("ready", period=dates[0], intent="financial")
+    found = {
+        source
+        for source, topic in TOPICS.items()
+        if re.search(r"(?<!\w)" + topic + r"(?!\w)", value) or value == source
+    }
+    if scenario_id is not None:
+        found.add(scenario_id)
+    if len(found) != 1 or not found.issubset(SCENARIOS):
+        return Scope(
+            "clarification_required", "evidence_required", intent="infrastructure"
+        )
+    return Scope("ready", scenario_id=found.pop(), intent="infrastructure")

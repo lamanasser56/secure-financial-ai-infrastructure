@@ -26,17 +26,21 @@ def format_minor_units(value, currency):
 def present(result, language=None):
     """Called only after the existing core has validated/minimized/redacted."""
     language = language or result.get("language", "en")
+    simulated = result["mode"] == "offline_simulation"
+    measurement = result.get("gateway_measurement", {})
     view = {
         "usage": {
-            "simulated_model_requests": result["model_requests"],
-            "external_provider_calls": sum(
-                event["provider_called"] is True
-                for event in result["audit"]["model_traces"]
+            "simulated_model_requests": result["model_requests"] if simulated else 0,
+            "gateway_http_attempts": measurement.get("http_attempts"),
+            "external_provider_calls": (
+                0 if simulated else measurement.get("provider_receipts")
             ),
             "tool_dispatch_attempts": result["tool_executions"],
-            "token_usage": None,
+            "token_usage": measurement.get("usage_tokens") if not simulated else None,
             "cost": None,
-            "redaction_notice": text("redaction", language),
+            "redaction_notice": text(
+                "redaction" if simulated else "realRedactionRequired", language
+            ),
         }
     }
     if result["status"] != "completed":
@@ -140,6 +144,7 @@ def sanitized_report(result):
         "model_requests",
         "tool_executions",
         "audit",
+        "gateway_measurement",
         "facts",
         "availability",
         "presentation",

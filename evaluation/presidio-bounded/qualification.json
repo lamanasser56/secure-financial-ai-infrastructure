@@ -1,0 +1,669 @@
+{
+  "schema_version": 1,
+  "assessment_utc": "2026-10-04T10:03:57.731144+00:00",
+  "promotion": "prohibited",
+  "external_model_requests": 0,
+  "policy_register": "policy/empty-exceptions.json",
+  "image_candidates": [
+    {
+      "candidate_id": "analyzer-old",
+      "subject": "ghcr.io/data-privacy-stack/presidio-analyzer@sha256:286e3fa7f3a7426e775e8564fe1870f1ba8f999d3ab8bbb8cc46a44355d9d6e9",
+      "subject_kind": "registry_digest",
+      "severity_counts": {
+        "LOW": 186,
+        "HIGH": 154,
+        "MEDIUM": 243,
+        "CRITICAL": 9,
+        "UNKNOWN": 2
+      },
+      "fixable_high_critical": 111,
+      "scan_sha256": "60938348affd31f23f628d659fb6e5c089f08bae247cd6a079ac82fa5a060012",
+      "sbom_sha256": "72280539ba110689e8a81176b20da528b913e9820d7d8a55d1bcb94c03f1cbe4",
+      "policy": "BLOCK"
+    },
+    {
+      "candidate_id": "anonymizer-old",
+      "subject": "ghcr.io/data-privacy-stack/presidio-anonymizer@sha256:a10a12a2a613d13cf29d3ad3641e3258444dd8c90403dd644a0a114c472c2483",
+      "subject_kind": "registry_digest",
+      "severity_counts": {
+        "LOW": 195,
+        "HIGH": 156,
+        "MEDIUM": 241,
+        "CRITICAL": 9,
+        "UNKNOWN": 2
+      },
+      "fixable_high_critical": 113,
+      "scan_sha256": "a6eaa221a81d3e646168e5f9f55ea4505d0ab429f1dc94efb05f9ceb857954cb",
+      "sbom_sha256": "0182d91f45dfefd73feb20460691738e8b970130da62f8f91179a5281673c47e",
+      "policy": "BLOCK"
+    },
+    {
+      "candidate_id": "analyzer-current",
+      "subject": "ghcr.io/data-privacy-stack/presidio-analyzer@sha256:ae8f6f111ac2f04e3fec552f7f80edd0dcbfa2dd69ee1b9e030475be31669885",
+      "subject_kind": "registry_digest",
+      "severity_counts": {
+        "LOW": 181,
+        "HIGH": 123,
+        "MEDIUM": 215,
+        "UNKNOWN": 2,
+        "CRITICAL": 7
+      },
+      "fixable_high_critical": 78,
+      "scan_sha256": "d7c1f096dae535190d58f1fd9ddee42f99963f3579fa5e7c082afd71e80a0c7e",
+      "sbom_sha256": "f0a00667f03b8593518125016683b91f07b68d0bea90e730b7705982c7adab47",
+      "policy": "BLOCK"
+    },
+    {
+      "candidate_id": "anonymizer-current",
+      "subject": "ghcr.io/data-privacy-stack/presidio-anonymizer@sha256:e567013893ebc80994e3799f6f55c86aa1f0b0fadb779571ab346f0ec45365c1",
+      "subject_kind": "registry_digest",
+      "severity_counts": {
+        "LOW": 190,
+        "HIGH": 110,
+        "MEDIUM": 207,
+        "UNKNOWN": 2,
+        "CRITICAL": 3
+      },
+      "fixable_high_critical": 61,
+      "scan_sha256": "21e5ce507038c9f47b74979812ced1b94d2490723c2ac0a80e791ffe77ee6bca",
+      "sbom_sha256": "e744f3653489939cac427108fdf18d744468c64ba3d880cbc57485c5650c61f5",
+      "policy": "BLOCK"
+    },
+    {
+      "candidate_id": "gateway",
+      "subject": "ghcr.io/berriai/litellm@sha256:cae1ac3492d6d0bea69c26f4485381624e073eb753f3534ae7703a4204a4ce6b",
+      "subject_kind": "registry_digest",
+      "severity_counts": {
+        "HIGH": 82,
+        "MEDIUM": 133,
+        "LOW": 52,
+        "CRITICAL": 5
+      },
+      "fixable_high_critical": 86,
+      "scan_sha256": "d347c1dcfe4333ddc9acbbd75770e8953dc9f802a453edb676123ff245809665",
+      "sbom_sha256": "25197e60bf9d40c27842f44159537747e18d882dcee656b1755880a111852444",
+      "policy": "BLOCK_INVALID_EVIDENCE_DUPLICATE_FINDING"
+    },
+    {
+      "candidate_id": "candidate",
+      "subject": "portfolio-presidio-bounded@sha256:016631eb3baa6df8d81031720de99776f493ea52259c6bca3ce61967c2887efa",
+      "subject_kind": "local_image_configuration_digest",
+      "severity_counts": {
+        "LOW": 62,
+        "HIGH": 47,
+        "MEDIUM": 71,
+        "UNKNOWN": 2
+      },
+      "fixable_high_critical": 3,
+      "scan_sha256": "5eb804d3dc9cbf90bc9a8fc4637bcdad9f7c4d1b98a542c1224e7097d51f1e7d",
+      "sbom_sha256": "4e97e2a87a83d68b092ca9baaddc3860f68a4d4254c65dfc3d1f8640d241a68f",
+      "policy": "BLOCK",
+      "findings": [
+        {
+          "PkgName": "bsdutils",
+          "InstalledVersion": "1:2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-76642",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "bsdutils",
+          "InstalledVersion": "1:2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78408",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "bsdutils",
+          "InstalledVersion": "1:2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78409",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "bsdutils",
+          "InstalledVersion": "1:2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78410",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libacl1",
+          "InstalledVersion": "2.3.2-2+b1",
+          "VulnerabilityID": "CVE-2026-54369",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libblkid1",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-76642",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libblkid1",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78408",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libblkid1",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78409",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libblkid1",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78410",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "liblastlog2-2",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-76642",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "liblastlog2-2",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78408",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "liblastlog2-2",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78409",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "liblastlog2-2",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78410",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libmount1",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-76642",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libmount1",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78408",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libmount1",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78409",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libmount1",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78410",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libncursesw6",
+          "InstalledVersion": "6.5+20250216-2",
+          "VulnerabilityID": "CVE-2025-69720",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libpcre2-8-0",
+          "InstalledVersion": "10.46-1~deb13u2",
+          "VulnerabilityID": "CVE-2026-103111",
+          "Severity": "HIGH",
+          "FixedVersion": "10.46-1~deb13u3"
+        },
+        {
+          "PkgName": "libsmartcols1",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-76642",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libsmartcols1",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78408",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libsmartcols1",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78409",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libsmartcols1",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78410",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libsystemd0",
+          "InstalledVersion": "257.13-1~deb13u1",
+          "VulnerabilityID": "CVE-2026-16742",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libtinfo6",
+          "InstalledVersion": "6.5+20250216-2",
+          "VulnerabilityID": "CVE-2025-69720",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libudev1",
+          "InstalledVersion": "257.13-1~deb13u1",
+          "VulnerabilityID": "CVE-2026-16742",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libuuid1",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-76642",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libuuid1",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78408",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libuuid1",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78409",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "libuuid1",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78410",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "login",
+          "InstalledVersion": "1:4.16.0-2+really2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-76642",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "login",
+          "InstalledVersion": "1:4.16.0-2+really2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78408",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "login",
+          "InstalledVersion": "1:4.16.0-2+really2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78409",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "login",
+          "InstalledVersion": "1:4.16.0-2+really2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78410",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "mount",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-76642",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "mount",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78408",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "mount",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78409",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "mount",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78410",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "ncurses-base",
+          "InstalledVersion": "6.5+20250216-2",
+          "VulnerabilityID": "CVE-2025-69720",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "ncurses-bin",
+          "InstalledVersion": "6.5+20250216-2",
+          "VulnerabilityID": "CVE-2025-69720",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "perl-base",
+          "InstalledVersion": "5.40.1-6+deb13u1",
+          "VulnerabilityID": "CVE-2026-9538",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "util-linux",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-76642",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "util-linux",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78408",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "util-linux",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78409",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "util-linux",
+          "InstalledVersion": "2.41.5-0+deb13u1",
+          "VulnerabilityID": "CVE-2026-78410",
+          "Severity": "HIGH",
+          "FixedVersion": ""
+        },
+        {
+          "PkgName": "cryptography",
+          "InstalledVersion": "48.0.1",
+          "VulnerabilityID": "CVE-2026-69247",
+          "Severity": "HIGH",
+          "FixedVersion": "50.0.0"
+        },
+        {
+          "PkgName": "cryptography",
+          "InstalledVersion": "48.0.1",
+          "VulnerabilityID": "CVE-2026-69249",
+          "Severity": "HIGH",
+          "FixedVersion": "49.0.0"
+        }
+      ],
+      "detection": {
+        "mode": "real_presidio_local_http",
+        "external_model_requests": 0,
+        "cases": [
+          {
+            "case_id": "saudi-national-id-context-en",
+            "passed": true,
+            "categories": [
+              "SAUDI_NATIONAL_ID"
+            ]
+          },
+          {
+            "case_id": "saudi-national-id-context-ar",
+            "passed": true,
+            "categories": [
+              "SAUDI_NATIONAL_ID"
+            ]
+          },
+          {
+            "case_id": "saudi-national-id-context-mixed",
+            "passed": true,
+            "categories": [
+              "SAUDI_NATIONAL_ID"
+            ]
+          },
+          {
+            "case_id": "saudi-resident-id-context-en",
+            "passed": true,
+            "categories": [
+              "SAUDI_RESIDENT_ID"
+            ]
+          },
+          {
+            "case_id": "saudi-resident-id-context-ar",
+            "passed": true,
+            "categories": [
+              "SAUDI_RESIDENT_ID"
+            ]
+          },
+          {
+            "case_id": "saudi-resident-id-context-mixed",
+            "passed": true,
+            "categories": [
+              "SAUDI_RESIDENT_ID"
+            ]
+          },
+          {
+            "case_id": "saudi-iban-checksum-en",
+            "passed": true,
+            "categories": [
+              "IBAN_CODE"
+            ]
+          },
+          {
+            "case_id": "saudi-iban-checksum-ar",
+            "passed": true,
+            "categories": [
+              "IBAN_CODE"
+            ]
+          },
+          {
+            "case_id": "saudi-iban-checksum-mixed",
+            "passed": true,
+            "categories": [
+              "IBAN_CODE"
+            ]
+          },
+          {
+            "case_id": "payment-card-checksum-en",
+            "passed": true,
+            "categories": [
+              "CREDIT_CARD"
+            ]
+          },
+          {
+            "case_id": "payment-card-checksum-ar",
+            "passed": true,
+            "categories": [
+              "CREDIT_CARD"
+            ]
+          },
+          {
+            "case_id": "payment-card-checksum-mixed",
+            "passed": true,
+            "categories": [
+              "CREDIT_CARD"
+            ]
+          },
+          {
+            "case_id": "saudi-vat-context-en",
+            "passed": true,
+            "categories": [
+              "SAUDI_VAT_ID"
+            ]
+          },
+          {
+            "case_id": "saudi-vat-context-ar",
+            "passed": true,
+            "categories": [
+              "SAUDI_VAT_ID"
+            ]
+          },
+          {
+            "case_id": "saudi-vat-context-mixed",
+            "passed": true,
+            "categories": [
+              "SAUDI_VAT_ID"
+            ]
+          },
+          {
+            "case_id": "bank-account-context-en",
+            "passed": true,
+            "categories": [
+              "SAUDI_BANK_ACCOUNT"
+            ]
+          },
+          {
+            "case_id": "bank-account-context-ar",
+            "passed": true,
+            "categories": [
+              "SAUDI_BANK_ACCOUNT"
+            ]
+          },
+          {
+            "case_id": "bank-account-context-mixed",
+            "passed": true,
+            "categories": [
+              "SAUDI_BANK_ACCOUNT"
+            ]
+          },
+          {
+            "case_id": "email-address-en",
+            "passed": true,
+            "categories": [
+              "EMAIL_ADDRESS"
+            ]
+          },
+          {
+            "case_id": "email-address-ar",
+            "passed": true,
+            "categories": [
+              "EMAIL_ADDRESS"
+            ]
+          },
+          {
+            "case_id": "email-address-mixed",
+            "passed": true,
+            "categories": [
+              "EMAIL_ADDRESS"
+            ]
+          },
+          {
+            "case_id": "phone-number-en",
+            "passed": true,
+            "categories": [
+              "PHONE_NUMBER"
+            ]
+          },
+          {
+            "case_id": "phone-number-ar",
+            "passed": true,
+            "categories": [
+              "PHONE_NUMBER"
+            ]
+          },
+          {
+            "case_id": "phone-number-mixed",
+            "passed": true,
+            "categories": [
+              "PHONE_NUMBER"
+            ]
+          },
+          {
+            "case_id": "saudi_national_id-arabic-digits",
+            "passed": true,
+            "categories": [
+              "SAUDI_NATIONAL_ID"
+            ]
+          },
+          {
+            "case_id": "saudi_resident_id-arabic-digits",
+            "passed": true,
+            "categories": [
+              "SAUDI_RESIDENT_ID"
+            ]
+          },
+          {
+            "case_id": "saudi_vat_id-arabic-digits",
+            "passed": true,
+            "categories": [
+              "SAUDI_VAT_ID"
+            ]
+          },
+          {
+            "case_id": "plain-en",
+            "passed": true,
+            "categories": []
+          },
+          {
+            "case_id": "plain-ar",
+            "passed": true,
+            "categories": []
+          },
+          {
+            "case_id": "structured-facts",
+            "passed": true,
+            "categories": []
+          },
+          {
+            "case_id": "ipv4",
+            "passed": true,
+            "categories": []
+          }
+        ],
+        "passed": 31,
+        "total": 31
+      }
+    }
+  ],
+  "source_files_sha256": {
+    "docker/presidio-bounded/Dockerfile": "2ef4bcec9ee2f1bfc552a3437de296a96d6829929707147198c659d9235f76c5",
+    "docker/presidio-bounded/Dockerfile.dockerignore": "11a236c8ced8d032a2aa7aa71c7727dc810c179e8ef49de8caebd3771709fd3e",
+    "docker/presidio-bounded/server.py": "b0837cf28f7d210c6ddf83cf846ce9a4f2bb5256e53a107de67c989b1feaf53b",
+    "requirements-presidio-runtime.in": "e97cd7fb274044b83acd44ba6c1e5c3a995662f72e0b789d10dbd8ffd588f55a",
+    "requirements-presidio-runtime.txt": "6744460125f1b19e09f416d1ce212ef12042b423e03b03d75a0d4adfa96a7747"
+  },
+  "tools": {
+    "Trivy": "0.72.0",
+    "Syft": "1.44.0",
+    "Python": "3.12.3",
+    "pip-tools": "7.6.1"
+  },
+  "limitations": [
+    "Synthetic coverage only; no names/addresses/OCR/obfuscation/comprehensive detection claim.",
+    "Configuration digest is not a published registry manifest.",
+    "Runtime redaction authority and committed Kubernetes images are unchanged."
+  ]
+}

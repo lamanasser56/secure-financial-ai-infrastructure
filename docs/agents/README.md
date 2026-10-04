@@ -89,3 +89,7 @@ python3 -B scripts/analyze-demo-expenses.py --question 'اعرض مصاريفي 
 ```
 
 Technical identifiers remain unchanged. Arabic prose stays RTL; identifiers, SAR amounts, dates, URLs, commands and expandable JSON use explicit LTR bidi isolation. Earlier messages are never silently translated on a language switch. See the [conversation decision](adr-002-ephemeral-conversations.md) and the [single live follow-up bundle](live-follow-up-bundle.md).
+
+## Live preparation checkpoint
+
+The [current handoff](live-preparation-status.md) distinguishes tested protocol changes, real local Presidio detection, blocked image policy and unresolved real identities. The candidate passed 31 bounded synthetic HTTP cases but remains unpromoted because its fresh image scan fails the unchanged release policy. Neither its successful detections nor loopback model fixtures enable a live UI. The [execution boundary](live-follow-up-bundle.md) remains technically blocked; no model call, new cloud resource, push or automatic SDP replacement is authorized by these preparations.

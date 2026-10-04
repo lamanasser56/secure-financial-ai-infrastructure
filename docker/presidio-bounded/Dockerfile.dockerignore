@@ -1,0 +1,5 @@
+**
+!requirements-presidio-runtime.txt
+!docker/
+!docker/presidio-bounded/
+!docker/presidio-bounded/server.py

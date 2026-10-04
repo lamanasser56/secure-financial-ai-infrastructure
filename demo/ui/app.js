@@ -137,9 +137,10 @@ function renderFacts(frame) {
   }
   const usage = view.usage;
   byId('usage').append(element('h3', t('accounting')));
-  cards(byId('usage'), [[t('modelRequests'), usage.simulated_model_requests],
-    [t('providerCalls'), usage.external_provider_calls], [t('toolAttempts'), usage.tool_dispatch_attempts],
-    [t('tokens'), t('unknown')], [t('cost'), t('unknown')]]);
+  cards(byId('usage'), [[t(data.mode === 'offline_simulation' ? 'modelRequests' : 'gatewayRequests'),
+    data.mode === 'offline_simulation' ? usage.simulated_model_requests : (usage.gateway_http_attempts ?? t('unknown'))],
+    [t('providerCalls'), usage.external_provider_calls ?? t('unknown')], [t('toolAttempts'), usage.tool_dispatch_attempts],
+    [t('tokens'), usage.token_usage?.total_tokens ?? t('unknown')], [t('cost'), t('unknown')]]);
   byId('usage').append(element('p', usage.redaction_notice, 'muted'));
   byId('report-json').textContent = JSON.stringify(frame.report, null, 2);
   byId('audit').textContent = JSON.stringify(frame.report.audit, null, 2);

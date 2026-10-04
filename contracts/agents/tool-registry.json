@@ -4,7 +4,7 @@
     {
       "id": "read_ci_summary",
       "name": "Read Ci Summary",
-      "description": "Read bounded sanitized synthetic fixture evidence through a server-owned context and a closed input/output contract.",
+      "description": "Read the selected synthetic CI failure and observation; source_id supports diagnosis, not current live state.",
       "version": "1.0.0",
       "owner": "AI Infrastructure portfolio contributor",
       "enabled": true,
@@ -29,7 +29,7 @@
     {
       "id": "read_image_summary",
       "name": "Read Image Summary",
-      "description": "Read bounded sanitized synthetic fixture evidence through a server-owned context and a closed input/output contract.",
+      "description": "Read invented image qualification as supplemental context only; never proves a current image scan or release.",
       "version": "1.0.0",
       "owner": "AI Infrastructure portfolio contributor",
       "enabled": true,
@@ -54,7 +54,7 @@
     {
       "id": "read_runbook_section",
       "name": "Read Runbook Section",
-      "description": "Read bounded sanitized synthetic fixture evidence through a server-owned context and a closed input/output contract.",
+      "description": "Read a bounded suggestion-only runbook section for the selected CI source; repairs are never executed.",
       "version": "1.0.0",
       "owner": "AI Infrastructure portfolio contributor",
       "enabled": true,
@@ -79,7 +79,7 @@
     {
       "id": "expense_summary",
       "name": "Expense Summary",
-      "description": "Read bounded sanitized synthetic fixture evidence through a server-owned context and a closed input/output contract.",
+      "description": "Calculate trusted-tenant synthetic count and integer SAR total for the explicit month; data_available=false means no report.",
       "version": "2.0.0",
       "owner": "AI Infrastructure portfolio contributor",
       "enabled": true,
@@ -104,7 +104,7 @@
     {
       "id": "expense_categories",
       "name": "Expense Categories",
-      "description": "Read bounded sanitized synthetic fixture evidence through a server-owned context and a closed input/output contract.",
+      "description": "After an available expense_summary, calculate trusted-tenant synthetic category rankings in integer SAR minor units for the same explicit month.",
       "version": "2.0.0",
       "owner": "AI Infrastructure portfolio contributor",
       "enabled": true,

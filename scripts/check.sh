@@ -3,6 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 export PYTHONDONTWRITEBYTECODE=1
 bash scripts/check-python-lock.sh
+bash scripts/check-presidio-runtime-lock.sh
 if [ "${PORTFOLIO_CHECK_GOOGLE_SDP_LOCK:-0}" = 1 ]; then
   bash scripts/check-google-sdp-lock.sh
   bash scripts/check-google-sdp-runtime-lock.sh
