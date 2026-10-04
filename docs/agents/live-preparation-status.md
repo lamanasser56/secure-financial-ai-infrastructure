@@ -73,14 +73,19 @@ worker's existing identity are not authorization for this model milestone.
 
 ## Next action
 
-First resolve the exact [redactor dependency/base blockers](redactor-qualification.md)
-without a policy exception. Then qualify the gateway image/key restrictions and
-an actual identity route. The [complete follow-up boundary](live-follow-up-bundle.md)
-records intended resources, model/region, scenarios, budgets, costs and cleanup,
-including every unresolved execution field. It is **not an executable approval
-request** while these gates remain unresolved. Do not ask the owner to approve
-unspecified trust, credentials or resources. Present one fully resolved bundle
-only after qualification and exact identity/resource planning are complete.
+2026-10-04 owner steering: **stop further Presidio remediation**. Preserve its
+source, 31 passing local detector cases, blocked image/SBOM/scan evidence and all
+completed agent changes. No replacement image is promoted; Presidio remains
+authoritative. SDP replacement evaluation is the intended direction; follow the
+[bounded qualification and conditional retirement plan](../security/google-sdp-agent-qualification-plan.md).
+
+Qualify all required classes and privacy/runtime/operational gates before a separate
+provider-selection ADR. Gateway/key restrictions, real identity, durable audit and
+model qualification remain independent blockers. The
+[follow-up boundary](live-follow-up-bundle.md) preserves their preparation; its
+Presidio remediation path is paused. This is **not an executable approval request**.
+No new live call, cloud change or cutover is authorized here. Present one resolved
+bundle after exact qualification, identities, resources, budgets and cleanup are ready.
 
 Historical SDP cleanup is complete and its result was INCONCLUSIVE, not a live
 model or Presidio-selection qualification. State/registry/identity retention and

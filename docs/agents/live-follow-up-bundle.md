@@ -2,6 +2,13 @@
 
 ## Checkpoint: technically blocked
 
+**Direction update, 2026-10-04:** Presidio remediation and this bundle's proposed
+real-Presidio service path are paused by owner instruction. Preserve source and
+candidate evidence; Presidio remains authoritative. The
+[SDP qualification plan](../security/google-sdp-agent-qualification-plan.md)
+supersedes that next action with conditional integration/retirement. Gateway,
+identity, tenant, audit, model and budget gates remain independent requirements.
+
 Local preparation is complete for the independent changes in the
 [handoff](live-preparation-status.md). **Do not execute this bundle or request
 approval for unspecified resources.** Redactor/gateway image gates and real
@@ -206,8 +213,10 @@ resources or apply an incomplete plan.
 
 ## Required gates before one execution checkpoint
 
-1. Fix redactor dependency/base blockers without exceptions and regenerate exact
-   image qualification. A passing detection corpus does not override policy.
+1. Complete separately bounded SDP qualification and a reviewed provider-selection
+   decision before conditional integration. Presidio remediation is paused; no
+   blocked candidate is a live fallback. Detector success does not override image,
+   privacy or runtime policy.
 2. Qualify the exact gateway image and valid complete policy evidence, scoped keys,
    no-retry translation, private database and sanitized audit delivery.
 3. Supply real issuer/audience/subject/tenant mapping and verify isolation; select
