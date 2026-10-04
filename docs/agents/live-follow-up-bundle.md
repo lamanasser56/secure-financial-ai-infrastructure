@@ -9,6 +9,12 @@ candidate evidence; Presidio remains authoritative. The
 supersedes that next action with conditional integration/retirement. Gateway,
 identity, tenant, audit, model and budget gates remain independent requirements.
 
+The [SDP preparation checkpoint](../security/google-sdp-agent-preparation-checkpoint.md)
+now supplies adapter robustness, exact partial fixture provenance, frozen scoring
+and fresh candidate image evidence. It makes a precise BLOCKED decision for the
+full campaign. The [consumer inventory](../security/google-sdp-agent-integration-retirement.md)
+defines subsequent conditional steps; neither selects SDP nor retires Presidio.
+
 Local preparation is complete for the independent changes in the
 [handoff](live-preparation-status.md). **Do not execute this bundle or request
 approval for unspecified resources.** Redactor/gateway image gates and real

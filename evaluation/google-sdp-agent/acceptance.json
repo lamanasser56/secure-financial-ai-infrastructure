@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "scope": "proposed_eight_class_synthetic_text_campaign",
+  "planned_cases": 87,
+  "required_languages": ["en", "ar", "mixed"],
+  "required_categories": ["EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD", "IBAN_CODE", "SAUDI_NATIONAL_ID", "SAUDI_RESIDENT_ID", "SAUDI_VAT_ID", "SAUDI_BANK_ACCOUNT"],
+  "max_false_negatives_per_class_language": 0,
+  "max_false_positives_per_class_language": 0,
+  "max_leaked_spans": 0,
+  "mandatory_negatives_preserved": true,
+  "mandatory_positives_must_redact": true,
+  "rejected_input_is_true_positive": false,
+  "missing_coverage_is_pass": false,
+  "live_accuracy": "unmeasured",
+  "approved_for_execution": false
+}

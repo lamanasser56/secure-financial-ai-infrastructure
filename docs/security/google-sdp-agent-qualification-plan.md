@@ -6,6 +6,17 @@ This plan authorizes no execution, cloud mutation, real-data processing, provide
 cutover or deletion. Presidio remains authoritative; the private demo remains
 offline. Preserve completed source, quarantined candidates and original evidence.
 
+## Current preparation decision
+
+The [exact coverage/provenance matrix](google-sdp-agent-coverage.md) records 42
+safe **offline** cases and 45 unprepared cases in five required classes. The
+87-case live campaign is **BLOCKED**, not replaced with a three-class campaign.
+The [candidate checkpoint](google-sdp-agent-preparation-checkpoint.md) records
+fresh artifact evidence and precise execution blockers. There is no execution
+approval request while required provenance and detector configuration are absent.
+The [consumer inventory](google-sdp-agent-integration-retirement.md) preserves
+independent gateway/authentication gates and an ordered conditional retirement.
+
 ## Actual historical result
 
 Agent preparation is preserved at `50240d04be9ae3337620b115df036d46ac851d89`.
@@ -176,12 +187,12 @@ not a billing cap. Existing worker/MASAR and retained storage costs are separate
 
 | Gate | Required evidence / current gap |
 | --- | --- |
-| Scope and safe corpus | All eight classes, authoritative formats, safe reviewed synthetic inputs, exact spans and supported representations frozen. Five mappings and safe phone/Saudi fixtures remain absent or unqualified. |
+| Scope and safe corpus | All eight classes, authoritative formats, safe reviewed synthetic inputs, exact spans and supported representations frozen. Three classes have safe partial offline fixtures; five mappings/fixture sets and Saudi phone variants remain blocked. |
 | Detection and preservation | Zero missed mandatory spans or protected-fragment leakage, including declared variants. TP/FP/FN and precision/recall per class/language with denominators. All mandatory negatives retain safe amounts, dates, evidence IDs and pseudonymous tenant references. Missing coverage is INCONCLUSIVE. |
-| Complete responses | Reject truncated findings, unknown types, invalid Unicode offsets, duplicates/conflicting spans, malformed/oversized output and inconsistent transformations. The current adapter omits truncation checks; reported-fragment checks cannot reveal undetected spans. |
+| Complete responses | Candidate now rejects truncated/missing results, unknown types, invalid Unicode/UTF-8 offsets, duplicates/conflicting spans, malformed/oversized output and inconsistent transformations. Locked SDK/offline checks do not prove real response compatibility; returned-fragment checks cannot reveal undetected spans. |
 | Fail closed | Auth/config/timeout/quota/provider/output/audit failure gives a fixed sanitized refusal, zero subsequent LiteLLM/tool activity, no raw/partial output or fallback. Distinguish offline injection from real service evidence. |
 | Neutral runtime contracts | Preserve `RedactorClient`/`RedactionResult` and closed categories. Review migration of Presidio-specific trace/error labels and schemas; never label Google calls as Presidio. Leave current authority factories unchanged until separately approved integration. |
-| Deadlines and sizes | UTF-8 bounds compatible with prompt/tool/final JSON limits; latency within existing ten-second redaction and per-turn/conversation deadlines. Current two 20-second RPC deadlines conflict. |
+| Deadlines and sizes | Candidate now uses three-second RPC deadlines capped by the remaining eight-second monotonic budget, replacing incompatible historical 20-second deadlines; UTF-8 bounds and offline timeout tests are prepared. Real latency/availability within existing ten-second redaction and conversation bounds remains unproven. |
 | Agent amplification | Count redactions of user input, context, assembled prompts, tools and final answers; global SDK/cost budget independent of resets. Four model calls do not imply eight SDP calls. Cancellation does not undo a remote accepted operation. |
 | Privacy/location | Google receives original text before redaction. Review processor/data-egress, retention, region and allowed classes before real data. Synthetic US tests establish neither Saudi residency nor production/privacy approval. |
 | Identity and network | Reverify exact keyless binding, least privilege, no static credentials, TLS, private boundaries and genuine native allow/deny evidence. Historical nine-case authentication does not qualify a new topology or agent identity. |

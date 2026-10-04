@@ -1,0 +1,942 @@
+{
+  "schema_version": 1,
+  "scope": "offline_only_partial_fixtures_not_live_corpus",
+  "planned_live_case_count": 87,
+  "unprepared_case_count": 45,
+  "blocked_categories": [
+    "IBAN_CODE",
+    "SAUDI_NATIONAL_ID",
+    "SAUDI_RESIDENT_ID",
+    "SAUDI_VAT_ID",
+    "SAUDI_BANK_ACCOUNT"
+  ],
+  "cases": [
+    {
+      "case_id": "safe-email-address-en-001",
+      "language": "en",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "Synthetic review: fixture@example.invalid; SAR 240.00; 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 41,
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "safe-email-address-en-002",
+      "language": "en",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "Synthetic review: sample@example.org; SAR 240.00; 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 36,
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "negative-email-address-en-003",
+      "language": "en",
+      "synthetic": true,
+      "kind": "negative",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "Synthetic review: No email: example.invalid without a mailbox.; SAR 240.00; 2026-01; evidence-fixture-001.",
+      "expected_spans": [],
+      "provenance_ids": [
+        "rfc2606",
+        "synthetic-business-controls"
+      ],
+      "expected_action": "retain"
+    },
+    {
+      "case_id": "safe-email-address-ar-004",
+      "language": "ar",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "مراجعة تجريبية: fixture@example.invalid؛ المبلغ SAR 240.00؛ الفترة 2026-01؛ evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 16,
+          "end": 39,
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "safe-email-address-ar-005",
+      "language": "ar",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "مراجعة تجريبية: sample@example.org؛ المبلغ SAR 240.00؛ الفترة 2026-01؛ evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 16,
+          "end": 34,
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "negative-email-address-ar-006",
+      "language": "ar",
+      "synthetic": true,
+      "kind": "negative",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "مراجعة تجريبية: No email: example.invalid without a mailbox.؛ المبلغ SAR 240.00؛ الفترة 2026-01؛ evidence-fixture-001.",
+      "expected_spans": [],
+      "provenance_ids": [
+        "rfc2606",
+        "synthetic-business-controls"
+      ],
+      "expected_action": "retain"
+    },
+    {
+      "case_id": "safe-email-address-mixed-007",
+      "language": "mixed",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "مراجعة synthetic: fixture@example.invalid; المبلغ SAR 240.00; period 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 41,
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "safe-email-address-mixed-008",
+      "language": "mixed",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "مراجعة synthetic: sample@example.org; المبلغ SAR 240.00; period 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 36,
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "negative-email-address-mixed-009",
+      "language": "mixed",
+      "synthetic": true,
+      "kind": "negative",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "مراجعة synthetic: No email: example.invalid without a mailbox.; المبلغ SAR 240.00; period 2026-01; evidence-fixture-001.",
+      "expected_spans": [],
+      "provenance_ids": [
+        "rfc2606",
+        "synthetic-business-controls"
+      ],
+      "expected_action": "retain"
+    },
+    {
+      "case_id": "safe-phone-number-en-010",
+      "language": "en",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "PHONE_NUMBER"
+      ],
+      "text": "Synthetic review: +1 202 555 0100; SAR 240.00; 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 33,
+          "category": "PHONE_NUMBER"
+        }
+      ],
+      "provenance_ids": [
+        "nanpa-reserved-555"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "safe-phone-number-en-011",
+      "language": "en",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "PHONE_NUMBER"
+      ],
+      "text": "Synthetic review: +1-202-555-0199; SAR 240.00; 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 33,
+          "category": "PHONE_NUMBER"
+        }
+      ],
+      "provenance_ids": [
+        "nanpa-reserved-555"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "negative-phone-number-en-012",
+      "language": "en",
+      "synthetic": true,
+      "kind": "negative",
+      "target_categories": [
+        "PHONE_NUMBER"
+      ],
+      "text": "Synthetic review: Only extension 555; no complete phone number.; SAR 240.00; 2026-01; evidence-fixture-001.",
+      "expected_spans": [],
+      "provenance_ids": [
+        "nanpa-reserved-555",
+        "synthetic-business-controls"
+      ],
+      "expected_action": "retain"
+    },
+    {
+      "case_id": "safe-phone-number-ar-013",
+      "language": "ar",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "PHONE_NUMBER"
+      ],
+      "text": "مراجعة تجريبية: +1 202 555 0100؛ المبلغ SAR 240.00؛ الفترة 2026-01؛ evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 16,
+          "end": 31,
+          "category": "PHONE_NUMBER"
+        }
+      ],
+      "provenance_ids": [
+        "nanpa-reserved-555"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "safe-phone-number-ar-014",
+      "language": "ar",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "PHONE_NUMBER"
+      ],
+      "text": "مراجعة تجريبية: +1-202-555-0199؛ المبلغ SAR 240.00؛ الفترة 2026-01؛ evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 16,
+          "end": 31,
+          "category": "PHONE_NUMBER"
+        }
+      ],
+      "provenance_ids": [
+        "nanpa-reserved-555"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "negative-phone-number-ar-015",
+      "language": "ar",
+      "synthetic": true,
+      "kind": "negative",
+      "target_categories": [
+        "PHONE_NUMBER"
+      ],
+      "text": "مراجعة تجريبية: Only extension 555; no complete phone number.؛ المبلغ SAR 240.00؛ الفترة 2026-01؛ evidence-fixture-001.",
+      "expected_spans": [],
+      "provenance_ids": [
+        "nanpa-reserved-555",
+        "synthetic-business-controls"
+      ],
+      "expected_action": "retain"
+    },
+    {
+      "case_id": "safe-phone-number-mixed-016",
+      "language": "mixed",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "PHONE_NUMBER"
+      ],
+      "text": "مراجعة synthetic: +1 202 555 0100; المبلغ SAR 240.00; period 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 33,
+          "category": "PHONE_NUMBER"
+        }
+      ],
+      "provenance_ids": [
+        "nanpa-reserved-555"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "safe-phone-number-mixed-017",
+      "language": "mixed",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "PHONE_NUMBER"
+      ],
+      "text": "مراجعة synthetic: +1-202-555-0199; المبلغ SAR 240.00; period 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 33,
+          "category": "PHONE_NUMBER"
+        }
+      ],
+      "provenance_ids": [
+        "nanpa-reserved-555"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "negative-phone-number-mixed-018",
+      "language": "mixed",
+      "synthetic": true,
+      "kind": "negative",
+      "target_categories": [
+        "PHONE_NUMBER"
+      ],
+      "text": "مراجعة synthetic: Only extension 555; no complete phone number.; المبلغ SAR 240.00; period 2026-01; evidence-fixture-001.",
+      "expected_spans": [],
+      "provenance_ids": [
+        "nanpa-reserved-555",
+        "synthetic-business-controls"
+      ],
+      "expected_action": "retain"
+    },
+    {
+      "case_id": "safe-credit-card-en-019",
+      "language": "en",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "CREDIT_CARD"
+      ],
+      "text": "Synthetic review: 4242 4242 4242 4242; SAR 240.00; 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 37,
+          "category": "CREDIT_CARD"
+        }
+      ],
+      "provenance_ids": [
+        "stripe-test-cards"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "safe-credit-card-en-020",
+      "language": "en",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "CREDIT_CARD"
+      ],
+      "text": "Synthetic review: 5555555555554444; SAR 240.00; 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 34,
+          "category": "CREDIT_CARD"
+        }
+      ],
+      "provenance_ids": [
+        "stripe-test-cards"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "negative-credit-card-en-021",
+      "language": "en",
+      "synthetic": true,
+      "kind": "negative",
+      "target_categories": [
+        "CREDIT_CARD"
+      ],
+      "text": "Synthetic review: Expense SAR 240.00; no payment-card digits.; SAR 240.00; 2026-01; evidence-fixture-001.",
+      "expected_spans": [],
+      "provenance_ids": [
+        "stripe-test-cards",
+        "synthetic-business-controls"
+      ],
+      "expected_action": "retain"
+    },
+    {
+      "case_id": "safe-credit-card-ar-022",
+      "language": "ar",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "CREDIT_CARD"
+      ],
+      "text": "مراجعة تجريبية: 4242 4242 4242 4242؛ المبلغ SAR 240.00؛ الفترة 2026-01؛ evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 16,
+          "end": 35,
+          "category": "CREDIT_CARD"
+        }
+      ],
+      "provenance_ids": [
+        "stripe-test-cards"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "safe-credit-card-ar-023",
+      "language": "ar",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "CREDIT_CARD"
+      ],
+      "text": "مراجعة تجريبية: 5555555555554444؛ المبلغ SAR 240.00؛ الفترة 2026-01؛ evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 16,
+          "end": 32,
+          "category": "CREDIT_CARD"
+        }
+      ],
+      "provenance_ids": [
+        "stripe-test-cards"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "negative-credit-card-ar-024",
+      "language": "ar",
+      "synthetic": true,
+      "kind": "negative",
+      "target_categories": [
+        "CREDIT_CARD"
+      ],
+      "text": "مراجعة تجريبية: Expense SAR 240.00; no payment-card digits.؛ المبلغ SAR 240.00؛ الفترة 2026-01؛ evidence-fixture-001.",
+      "expected_spans": [],
+      "provenance_ids": [
+        "stripe-test-cards",
+        "synthetic-business-controls"
+      ],
+      "expected_action": "retain"
+    },
+    {
+      "case_id": "safe-credit-card-mixed-025",
+      "language": "mixed",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "CREDIT_CARD"
+      ],
+      "text": "مراجعة synthetic: 4242 4242 4242 4242; المبلغ SAR 240.00; period 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 37,
+          "category": "CREDIT_CARD"
+        }
+      ],
+      "provenance_ids": [
+        "stripe-test-cards"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "safe-credit-card-mixed-026",
+      "language": "mixed",
+      "synthetic": true,
+      "kind": "positive",
+      "target_categories": [
+        "CREDIT_CARD"
+      ],
+      "text": "مراجعة synthetic: 5555555555554444; المبلغ SAR 240.00; period 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 34,
+          "category": "CREDIT_CARD"
+        }
+      ],
+      "provenance_ids": [
+        "stripe-test-cards"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "negative-credit-card-mixed-027",
+      "language": "mixed",
+      "synthetic": true,
+      "kind": "negative",
+      "target_categories": [
+        "CREDIT_CARD"
+      ],
+      "text": "مراجعة synthetic: Expense SAR 240.00; no payment-card digits.; المبلغ SAR 240.00; period 2026-01; evidence-fixture-001.",
+      "expected_spans": [],
+      "provenance_ids": [
+        "stripe-test-cards",
+        "synthetic-business-controls"
+      ],
+      "expected_action": "retain"
+    },
+    {
+      "case_id": "multiple-en-028",
+      "language": "en",
+      "synthetic": true,
+      "kind": "multiple",
+      "target_categories": [
+        "EMAIL_ADDRESS",
+        "PHONE_NUMBER",
+        "CREDIT_CARD"
+      ],
+      "text": "Synthetic review: fixture@example.invalid | +1 202 555 0100 | 4242 4242 4242 4242; SAR 240.00; 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 41,
+          "category": "EMAIL_ADDRESS"
+        },
+        {
+          "start": 44,
+          "end": 59,
+          "category": "PHONE_NUMBER"
+        },
+        {
+          "start": 62,
+          "end": 81,
+          "category": "CREDIT_CARD"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606",
+        "nanpa-reserved-555",
+        "stripe-test-cards"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "multiple-en-029",
+      "language": "en",
+      "synthetic": true,
+      "kind": "multiple",
+      "target_categories": [
+        "EMAIL_ADDRESS",
+        "PHONE_NUMBER",
+        "CREDIT_CARD"
+      ],
+      "text": "Synthetic review: sample@example.org | +1-202-555-0199 | 5555555555554444; SAR 240.00; 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 36,
+          "category": "EMAIL_ADDRESS"
+        },
+        {
+          "start": 39,
+          "end": 54,
+          "category": "PHONE_NUMBER"
+        },
+        {
+          "start": 57,
+          "end": 73,
+          "category": "CREDIT_CARD"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606",
+        "nanpa-reserved-555",
+        "stripe-test-cards"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "obfuscated-en-030",
+      "language": "en",
+      "synthetic": true,
+      "kind": "representation",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "Synthetic review: fixture [at] example [dot] invalid; SAR 240.00; 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 52,
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606",
+        "reserved-email-obfuscation"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "unicode-en-031",
+      "language": "en",
+      "synthetic": true,
+      "kind": "representation",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "Synthetic review: 🧪 é fixture@example.invalid; SAR 240.00; 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 23,
+          "end": 46,
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "ocr-text-en-032",
+      "language": "en",
+      "synthetic": true,
+      "kind": "representation",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "Synthetic review: Synthetic OCR-like TEXT only:\nfixture@example.invalid\n; SAR 240.00; 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 48,
+          "end": 71,
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606",
+        "synthetic-ocr-like-text"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "multiple-ar-033",
+      "language": "ar",
+      "synthetic": true,
+      "kind": "multiple",
+      "target_categories": [
+        "EMAIL_ADDRESS",
+        "PHONE_NUMBER",
+        "CREDIT_CARD"
+      ],
+      "text": "مراجعة تجريبية: fixture@example.invalid | +1 202 555 0100 | 4242 4242 4242 4242؛ المبلغ SAR 240.00؛ الفترة 2026-01؛ evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 16,
+          "end": 39,
+          "category": "EMAIL_ADDRESS"
+        },
+        {
+          "start": 42,
+          "end": 57,
+          "category": "PHONE_NUMBER"
+        },
+        {
+          "start": 60,
+          "end": 79,
+          "category": "CREDIT_CARD"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606",
+        "nanpa-reserved-555",
+        "stripe-test-cards"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "multiple-ar-034",
+      "language": "ar",
+      "synthetic": true,
+      "kind": "multiple",
+      "target_categories": [
+        "EMAIL_ADDRESS",
+        "PHONE_NUMBER",
+        "CREDIT_CARD"
+      ],
+      "text": "مراجعة تجريبية: sample@example.org | +1-202-555-0199 | 5555555555554444؛ المبلغ SAR 240.00؛ الفترة 2026-01؛ evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 16,
+          "end": 34,
+          "category": "EMAIL_ADDRESS"
+        },
+        {
+          "start": 37,
+          "end": 52,
+          "category": "PHONE_NUMBER"
+        },
+        {
+          "start": 55,
+          "end": 71,
+          "category": "CREDIT_CARD"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606",
+        "nanpa-reserved-555",
+        "stripe-test-cards"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "obfuscated-ar-035",
+      "language": "ar",
+      "synthetic": true,
+      "kind": "representation",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "مراجعة تجريبية: fixture [at] example [dot] invalid؛ المبلغ SAR 240.00؛ الفترة 2026-01؛ evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 16,
+          "end": 50,
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606",
+        "reserved-email-obfuscation"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "unicode-ar-036",
+      "language": "ar",
+      "synthetic": true,
+      "kind": "representation",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "مراجعة تجريبية: 🧪 é fixture@example.invalid؛ المبلغ SAR 240.00؛ الفترة 2026-01؛ evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 21,
+          "end": 44,
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "ocr-text-ar-037",
+      "language": "ar",
+      "synthetic": true,
+      "kind": "representation",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "مراجعة تجريبية: Synthetic OCR-like TEXT only:\nfixture@example.invalid\n؛ المبلغ SAR 240.00؛ الفترة 2026-01؛ evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 46,
+          "end": 69,
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606",
+        "synthetic-ocr-like-text"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "multiple-mixed-038",
+      "language": "mixed",
+      "synthetic": true,
+      "kind": "multiple",
+      "target_categories": [
+        "EMAIL_ADDRESS",
+        "PHONE_NUMBER",
+        "CREDIT_CARD"
+      ],
+      "text": "مراجعة synthetic: fixture@example.invalid | +1 202 555 0100 | 4242 4242 4242 4242; المبلغ SAR 240.00; period 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 41,
+          "category": "EMAIL_ADDRESS"
+        },
+        {
+          "start": 44,
+          "end": 59,
+          "category": "PHONE_NUMBER"
+        },
+        {
+          "start": 62,
+          "end": 81,
+          "category": "CREDIT_CARD"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606",
+        "nanpa-reserved-555",
+        "stripe-test-cards"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "multiple-mixed-039",
+      "language": "mixed",
+      "synthetic": true,
+      "kind": "multiple",
+      "target_categories": [
+        "EMAIL_ADDRESS",
+        "PHONE_NUMBER",
+        "CREDIT_CARD"
+      ],
+      "text": "مراجعة synthetic: sample@example.org | +1-202-555-0199 | 5555555555554444; المبلغ SAR 240.00; period 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 36,
+          "category": "EMAIL_ADDRESS"
+        },
+        {
+          "start": 39,
+          "end": 54,
+          "category": "PHONE_NUMBER"
+        },
+        {
+          "start": 57,
+          "end": 73,
+          "category": "CREDIT_CARD"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606",
+        "nanpa-reserved-555",
+        "stripe-test-cards"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "obfuscated-mixed-040",
+      "language": "mixed",
+      "synthetic": true,
+      "kind": "representation",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "مراجعة synthetic: fixture [at] example [dot] invalid; المبلغ SAR 240.00; period 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 18,
+          "end": 52,
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606",
+        "reserved-email-obfuscation"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "unicode-mixed-041",
+      "language": "mixed",
+      "synthetic": true,
+      "kind": "representation",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "مراجعة synthetic: 🧪 é fixture@example.invalid; المبلغ SAR 240.00; period 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 23,
+          "end": 46,
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606"
+      ],
+      "expected_action": "redact"
+    },
+    {
+      "case_id": "ocr-text-mixed-042",
+      "language": "mixed",
+      "synthetic": true,
+      "kind": "representation",
+      "target_categories": [
+        "EMAIL_ADDRESS"
+      ],
+      "text": "مراجعة synthetic: Synthetic OCR-like TEXT only:\nfixture@example.invalid\n; المبلغ SAR 240.00; period 2026-01; evidence-fixture-001.",
+      "expected_spans": [
+        {
+          "start": 48,
+          "end": 71,
+          "category": "EMAIL_ADDRESS"
+        }
+      ],
+      "provenance_ids": [
+        "rfc2606",
+        "synthetic-ocr-like-text"
+      ],
+      "expected_action": "redact"
+    }
+  ]
+}

@@ -12,3 +12,5 @@
 !evaluation/google-sdp/corpus.json
 !evaluation/google-sdp/corpus.schema.json
 !evaluation/google-sdp/result.schema.json
+!evaluation/google-sdp/deployment.json
+!evaluation/google-sdp/deployment.schema.json

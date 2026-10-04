@@ -73,6 +73,14 @@ worker's existing identity are not authorization for this model milestone.
 
 ## Next action
 
+Bounded SDP preparation now has [safe partial fixtures and exact blocked classes](../security/google-sdp-agent-coverage.md),
+offline robustness/deadline/accounting tests and a
+[fresh candidate checkpoint](../security/google-sdp-agent-preparation-checkpoint.md).
+The full 87-case campaign is blocked on five required provenance/format/configuration
+sets; no easier campaign replaces it. Obtain authoritative non-assigned test values
+and rules before freezing a complete execution bundle. Google precision/recall,
+live-agent model/authentication and authority selection remain unproven.
+
 2026-10-04 owner steering: **stop further Presidio remediation**. Preserve its
 source, 31 passing local detector cases, blocked image/SBOM/scan evidence and all
 completed agent changes. No replacement image is promoted; Presidio remains

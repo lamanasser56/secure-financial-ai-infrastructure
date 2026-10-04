@@ -4,11 +4,24 @@
 
 ## Scope and execution authority
 
+The new [agent preparation checkpoint](google-sdp-agent-preparation-checkpoint.md)
+and [coverage matrix](google-sdp-agent-coverage.md) are separate from this historical
+seed. Candidate robustness/deadlines and fresh image evidence do not promote it;
+the full eight-class campaign remains blocked. The historical three observation-only
+cases and 18-attempt result are not reclassified or rerun.
+
 Compare Presidio and Google Sensitive Data Protection (Google SDP) offline against the same reviewed, generated synthetic-text cases. Google SDP is disabled by default and limited to non-production text evaluation in South Carolina `us-east1` through `dlp.us-east1.rep.googleapis.com`. Future execution requires separately reviewed identity, IAM, regional routing, budget, and test authorization. Never use a global endpoint, cross-region or automatic global fallback, silent endpoint substitution, or a request-selected endpoint. Invalid or unavailable regional configuration fails closed.
 
 The [candidate adapter](../../runtime/phase3/google_sdp_adapter.py) has offline fake-client tests and was exercised by the separately approved evaluation Job. It is not wired into the authoritative `TrustedRuntime` or agent factories. Its fixed endpoint and trusted constructor project identity cannot be selected from request text or metadata. The bounded GKE run used Application Default Credentials and the approved Workload Identity/IAM path; that does not authorize future deployments. The adapter accepts no API key or credential file. It requests inspection before de-identification on the same regional client, with retries disabled and no global or cross-region fallback. Only closed neutral categories and redacted text leave the adapter. Failures emit `redaction:provider_failure` without raw values or provider details.
 
-The seed adapter has a 20-second RPC deadline and sanitized SDK-attempt accounting. The live harness accepts only the committed seed corpus; its completed run exhausted nine inspect and nine deidentify attempts with no retry. Those deadlines and the three-category coverage do not qualify the agent redaction boundary. The [milestone readiness record](google-sdp-milestone-readiness.md) preserves the historical preparation proposal; the superseding agent plan defines the next gates.
+The historical seed used a 20-second RPC deadline. The current unwired candidate
+uses three-second RPC deadlines within an eight-second monotonic overall budget
+and separates actual SDK attempts from injected-client tests. The live harness
+still accepts only the committed seed corpus; its completed run exhausted nine
+inspect and nine deidentify attempts with no retry. Current bounds and three-category
+coverage do not qualify the full agent redaction boundary. The
+[milestone readiness record](google-sdp-milestone-readiness.md) preserves historical
+preparation; the superseding agent plan defines the next gates.
 
 The candidate currently configures only Google's generic email, phone, and payment-card infoTypes. This is an API shape for offline boundary tests, not evidence that those detectors work in the selected region or on any specific language or identifier. A separate Change Set is required for live API execution, IAM, runtime wiring, or an authority change. No Saudi, Arabic, Iqama, national-ID, commercial-registration, OCR, mixed-script, regulatory, production, or Presidio replacement claim follows from this adapter.
 

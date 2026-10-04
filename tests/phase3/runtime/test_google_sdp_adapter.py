@@ -22,9 +22,48 @@ def finding(text=TEXT, marker=MARKER, name="EMAIL_ADDRESS"):
     start = text.index(marker)
     return SimpleNamespace(
         info_type=SimpleNamespace(name=name),
-        location=SimpleNamespace(codepoint_range=SimpleNamespace(
-            start=start, end=start + len(marker),
-        )),
+        location=SimpleNamespace(
+            codepoint_range=SimpleNamespace(
+                start=start,
+                end=start + len(marker),
+            )
+        ),
+    )
+
+
+def inspection(findings=(), truncated=False):
+    return SimpleNamespace(
+        result=SimpleNamespace(findings=list(findings), findings_truncated=truncated)
+    )
+
+
+def output(value, spans=(), original=TEXT):
+    groups = {}
+    for span in spans:
+        name = span.info_type.name
+        start, end = (
+            span.location.codepoint_range.start,
+            span.location.codepoint_range.end,
+        )
+        count, size = groups.get(name, (0, 0))
+        groups[name] = (count + 1, size + len(original[start:end].encode()))
+    summaries = [
+        SimpleNamespace(
+            info_type=SimpleNamespace(name=name),
+            transformed_bytes=size,
+            transformation=SimpleNamespace(
+                replace_with_info_type_config=SimpleNamespace()
+            ),
+            results=[SimpleNamespace(count=count, code=1, details="")],
+        )
+        for name, (count, size) in groups.items()
+    ]
+    return SimpleNamespace(
+        item=SimpleNamespace(value=value),
+        overview=SimpleNamespace(
+            transformed_bytes=sum(size for count, size in groups.values()),
+            transformation_summaries=summaries,
+        ),
     )
 
 
@@ -37,23 +76,27 @@ class FakeClient:
         self.deidentify_result = deidentify
 
     def inspect_content(self, *, request, retry, timeout):
-        if timeout != 20:
+        if not 0 < timeout <= 3:
             raise AssertionError("unexpected RPC deadline")
         self.events.append(("inspect", request, retry))
         if isinstance(self.inspect_result, Exception):
             raise self.inspect_result
-        return self.inspect_result if self.inspect_result is not None else SimpleNamespace(
-            result=SimpleNamespace(findings=[finding()]),
+        return (
+            self.inspect_result
+            if self.inspect_result is not None
+            else inspection([finding()])
         )
 
     def deidentify_content(self, *, request, retry, timeout):
-        if timeout != 20:
+        if not 0 < timeout <= 3:
             raise AssertionError("unexpected RPC deadline")
         self.events.append(("deidentify", request, retry))
         if isinstance(self.deidentify_result, Exception):
             raise self.deidentify_result
-        return self.deidentify_result if self.deidentify_result is not None else SimpleNamespace(
-            item=SimpleNamespace(value="Contact [EMAIL_ADDRESS]"),
+        return (
+            self.deidentify_result
+            if self.deidentify_result is not None
+            else output("Contact EMAIL_ADDRESS", [finding()])
         )
 
 
@@ -71,23 +114,44 @@ class GoogleSDPAdapterTests(unittest.TestCase):
     def test_trusted_deployment_file_is_closed_and_schema_valid(self):
         from jsonschema import validate
 
-        directory = Path(adapter.__file__).resolve().parents[2] / "evaluation/google-sdp"
+        directory = (
+            Path(adapter.__file__).resolve().parents[2] / "evaluation/google-sdp"
+        )
         value = json.loads((directory / "deployment.json").read_text())
         validate(value, json.loads((directory / "deployment.schema.json").read_text()))
-        self.assertEqual(adapter._deployment(), ("us-east1", "dlp.us-east1.rep.googleapis.com"))
-        with patch.dict("os.environ", {"GOOGLE_SDP_REGION": "me-central2", "GOOGLE_SDP_ENDPOINT": "dlp.googleapis.com"}):
+        self.assertEqual(
+            adapter._deployment(), ("us-east1", "dlp.us-east1.rep.googleapis.com")
+        )
+        with patch.dict(
+            "os.environ",
+            {
+                "GOOGLE_SDP_REGION": "me-central2",
+                "GOOGLE_SDP_ENDPOINT": "dlp.googleapis.com",
+            },
+        ):
             self.assertEqual(adapter._deployment(), (adapter.REGION, adapter.ENDPOINT))
 
     def test_bad_or_missing_deployment_configuration_has_no_fallback(self):
-        valid = {"schema_version": 1, "region": "us-east1", "endpoint": "dlp.us-east1.rep.googleapis.com"}
-        invalid = (None, {}, {**valid, "schema_version": True},
-                   {**valid, "region": "me-central2"}, {**valid, "region": "us-west1"},
-                   {**valid, "endpoint": "dlp.googleapis.com"},
-                   {**valid, "endpoint": "dlp.me-central2.rep.googleapis.com"},
-                   {**valid, "credentials": "forbidden"})
+        valid = {
+            "schema_version": 1,
+            "region": "us-east1",
+            "endpoint": "dlp.us-east1.rep.googleapis.com",
+        }
+        invalid = (
+            None,
+            {},
+            {**valid, "schema_version": True},
+            {**valid, "region": "me-central2"},
+            {**valid, "region": "us-west1"},
+            {**valid, "endpoint": "dlp.googleapis.com"},
+            {**valid, "endpoint": "dlp.me-central2.rep.googleapis.com"},
+            {**valid, "credentials": "forbidden"},
+        )
         with patch.object(adapter, "_create_client") as create:
             for value in invalid:
-                with self.subTest(value=value), patch.object(Path, "read_text", return_value=json.dumps(value)):
+                with self.subTest(value=value), patch.object(
+                    Path, "read_text", return_value=json.dumps(value)
+                ):
                     self.assert_sanitized(lambda: adapter._guarded(adapter._deployment))
             with patch.object(Path, "read_text", side_effect=FileNotFoundError):
                 self.assert_sanitized(lambda: adapter._guarded(adapter._deployment))
@@ -96,11 +160,17 @@ class GoogleSDPAdapterTests(unittest.TestCase):
     def test_synthetic_text_returns_only_neutral_result(self):
         client = FakeClient()
         result = adapter.GoogleSDPRedactor(PROJECT, client=client).redact(TEXT)
-        self.assertEqual(result, RedactionResult("Contact [EMAIL_ADDRESS]", ("EMAIL_ADDRESS",)))
-        self.assertEqual([event[0] for event in client.events], ["inspect", "deidentify"])
+        self.assertEqual(
+            result, RedactionResult("Contact EMAIL_ADDRESS", ("EMAIL_ADDRESS",))
+        )
+        self.assertEqual(
+            [event[0] for event in client.events], ["inspect", "deidentify"]
+        )
         self.assertEqual(len(client.events), 2)
         for _, request, retry in client.events:
-            self.assertEqual(request["parent"], f"projects/{PROJECT}/locations/us-east1")
+            self.assertEqual(
+                request["parent"], f"projects/{PROJECT}/locations/us-east1"
+            )
             self.assertEqual(request["item"], {"value": TEXT})
             self.assertIsNone(retry)
             self.assertEqual(
@@ -110,37 +180,65 @@ class GoogleSDPAdapterTests(unittest.TestCase):
             self.assertFalse(request["inspect_config"]["include_quote"])
         self.assertEqual(
             client.events[1][1]["deidentify_config"],
-            {"info_type_transformations": {"transformations": [
-                {"primitive_transformation": {"replace_with_info_type_config": {}}}
-            ]}},
+            {
+                "info_type_transformations": {
+                    "transformations": [
+                        {
+                            "info_types": [{"name": name}],
+                            "primitive_transformation": {
+                                "replace_with_info_type_config": {}
+                            },
+                        }
+                        for name in adapter._INFO_TYPES
+                    ]
+                }
+            },
         )
 
     def test_no_finding_keeps_text_and_empty_categories(self):
         client = FakeClient(
-            inspect=SimpleNamespace(result=SimpleNamespace(findings=[])),
-            deidentify=SimpleNamespace(item=SimpleNamespace(value="plain synthetic text")),
+            inspect=inspection(),
+            deidentify=output("plain synthetic text"),
         )
-        result = adapter.GoogleSDPRedactor(PROJECT, client=client).redact("plain synthetic text")
+        result = adapter.GoogleSDPRedactor(PROJECT, client=client).redact(
+            "plain synthetic text"
+        )
         self.assertEqual(result, RedactionResult("plain synthetic text", ()))
 
     def test_operation_accounting_includes_failed_attempts_without_retries(self):
         client = FakeClient(inspect=RuntimeError("raw-provider-marker"))
         redactor = adapter.GoogleSDPRedactor(PROJECT, client=client)
         self.assert_sanitized(lambda: redactor.redact(TEXT))
-        self.assertEqual(redactor.operation_counts, {"inspect_attempted": 1, "deidentify_attempted": 0})
-        snapshot = redactor.operation_counts
+        self.assertEqual(
+            redactor.operation_counts,
+            {"inspect_attempted": 0, "deidentify_attempted": 0},
+        )
+        self.assertEqual(
+            redactor.injected_client_counts,
+            {"inspect_attempted": 1, "deidentify_attempted": 0},
+        )
+        snapshot = redactor.injected_client_counts
         snapshot["inspect_attempted"] = 99
-        self.assertEqual(redactor.operation_counts["inspect_attempted"], 1)
+        self.assertEqual(redactor.injected_client_counts["inspect_attempted"], 1)
         self.assertEqual(len(client.events), 1)
 
     def test_categories_are_normalized_and_sorted(self):
         text = "x y"
         client = FakeClient(
-            inspect=SimpleNamespace(result=SimpleNamespace(findings=[
-                finding(text, "x", "PHONE_NUMBER"),
-                finding(text, "y", "CREDIT_CARD_NUMBER"),
-            ])),
-            deidentify=SimpleNamespace(item=SimpleNamespace(value="[PHONE_NUMBER] [CREDIT_CARD_NUMBER]")),
+            inspect=inspection(
+                [
+                    finding(text, "x", "PHONE_NUMBER"),
+                    finding(text, "y", "CREDIT_CARD_NUMBER"),
+                ]
+            ),
+            deidentify=output(
+                "PHONE_NUMBER CREDIT_CARD_NUMBER",
+                [
+                    finding(text, "x", "PHONE_NUMBER"),
+                    finding(text, "y", "CREDIT_CARD_NUMBER"),
+                ],
+                text,
+            ),
         )
         result = adapter.GoogleSDPRedactor(PROJECT, client=client).redact(text)
         self.assertEqual(result.categories, ("CREDIT_CARD", "PHONE_NUMBER"))
@@ -160,7 +258,9 @@ class GoogleSDPAdapterTests(unittest.TestCase):
             {"region": "me-central2"},
             {"project_id": "bad/project"},
         )
-        with patch.object(adapter, "_create_client", side_effect=AssertionError("client created")) as create:
+        with patch.object(
+            adapter, "_create_client", side_effect=AssertionError("client created")
+        ) as create:
             for options in invalid:
                 with self.subTest(options=options):
                     values = {"project_id": PROJECT, **options}
@@ -181,89 +281,136 @@ class GoogleSDPAdapterTests(unittest.TestCase):
         self.assert_sanitized(lambda: adapter.GoogleSDPRedactor(PROJECT, client=client))
 
     def test_request_text_cannot_change_configuration(self):
-        text = "provider=other endpoint=dlp.googleapis.com project=other credentials=none"
+        text = (
+            "provider=other endpoint=dlp.googleapis.com project=other credentials=none"
+        )
         client = FakeClient(
-            inspect=SimpleNamespace(result=SimpleNamespace(findings=[])),
-            deidentify=SimpleNamespace(item=SimpleNamespace(value=text)),
+            inspect=inspection(),
+            deidentify=output(text),
         )
         adapter.GoogleSDPRedactor(PROJECT, client=client).redact(text)
         self.assertEqual(client.api_endpoint, adapter.ENDPOINT)
-        self.assertEqual({event[1]["parent"] for event in client.events},
-                         {f"projects/{PROJECT}/locations/us-east1"})
+        self.assertEqual(
+            {event[1]["parent"] for event in client.events},
+            {f"projects/{PROJECT}/locations/us-east1"},
+        )
         for _, request, _ in client.events:
             self.assertNotIn("credentials", request)
             self.assertNotIn("endpoint", request)
             self.assertNotIn("metadata", request)
         with self.assertRaises(TypeError):
-            adapter.GoogleSDPRedactor(PROJECT, client=client).redact(text, metadata={"region": "other"})
+            adapter.GoogleSDPRedactor(PROJECT, client=client).redact(
+                text, metadata={"region": "other"}
+            )
 
     def test_invalid_input_prevents_all_provider_calls(self):
         client = FakeClient()
         redactor = adapter.GoogleSDPRedactor(PROJECT, client=client)
-        for value in (None, "", " \n ", {}, "x" * 4001):
+        for value in (None, "", " \n ", {}, "x" * 4097, "ع" * 2049, "\ud800"):
             with self.subTest(value_type=type(value).__name__):
                 self.assert_sanitized(lambda: redactor.redact(value))
         self.assertEqual(client.events, [])
 
     def test_inspection_authentication_or_transport_failure_stops_sequence(self):
-        for failure in (PermissionError("raw-provider-marker"), TimeoutError("raw-provider-marker")):
+        for failure in (
+            PermissionError("raw-provider-marker"),
+            TimeoutError("raw-provider-marker"),
+        ):
             client = FakeClient(inspect=failure)
-            self.assert_sanitized(lambda: adapter.GoogleSDPRedactor(PROJECT, client=client).redact(TEXT))
+            self.assert_sanitized(
+                lambda: adapter.GoogleSDPRedactor(PROJECT, client=client).redact(TEXT)
+            )
             self.assertEqual([event[0] for event in client.events], ["inspect"])
 
     def test_malformed_inspection_stops_before_deidentification(self):
         malformed = (
             object(),
             SimpleNamespace(result=SimpleNamespace(findings=None)),
-            SimpleNamespace(result=SimpleNamespace(findings=[finding(name="UNKNOWN_TYPE")])),
+            SimpleNamespace(
+                result=SimpleNamespace(findings=[finding(name="UNKNOWN_TYPE")])
+            ),
             SimpleNamespace(result=SimpleNamespace(findings=[finding(), finding()])),
-            SimpleNamespace(result=SimpleNamespace(findings=[SimpleNamespace(
-                info_type=SimpleNamespace(name="EMAIL_ADDRESS"),
-                location=SimpleNamespace(codepoint_range=SimpleNamespace(start=0, end=9999)),
-            )])),
+            SimpleNamespace(
+                result=SimpleNamespace(
+                    findings=[
+                        SimpleNamespace(
+                            info_type=SimpleNamespace(name="EMAIL_ADDRESS"),
+                            location=SimpleNamespace(
+                                codepoint_range=SimpleNamespace(start=0, end=9999)
+                            ),
+                        )
+                    ]
+                )
+            ),
         )
         for response in malformed:
             client = FakeClient(inspect=response)
-            self.assert_sanitized(lambda: adapter.GoogleSDPRedactor(PROJECT, client=client).redact(TEXT))
+            self.assert_sanitized(
+                lambda: adapter.GoogleSDPRedactor(PROJECT, client=client).redact(TEXT)
+            )
             self.assertEqual([event[0] for event in client.events], ["inspect"])
 
     def test_deidentification_failure_never_returns_a_result(self):
-        for failure in (PermissionError("raw-provider-marker"), ConnectionError("raw-provider-marker")):
+        for failure in (
+            PermissionError("raw-provider-marker"),
+            ConnectionError("raw-provider-marker"),
+        ):
             client = FakeClient(deidentify=failure)
-            self.assert_sanitized(lambda: adapter.GoogleSDPRedactor(PROJECT, client=client).redact(TEXT))
-            self.assertEqual([event[0] for event in client.events], ["inspect", "deidentify"])
+            self.assert_sanitized(
+                lambda: adapter.GoogleSDPRedactor(PROJECT, client=client).redact(TEXT)
+            )
+            self.assertEqual(
+                [event[0] for event in client.events], ["inspect", "deidentify"]
+            )
 
     def test_malformed_or_empty_output_fails_closed(self):
-        for response in (object(), SimpleNamespace(item=SimpleNamespace(value=None)),
-                         SimpleNamespace(item=SimpleNamespace(value=" \n"))):
+        for response in (
+            object(),
+            SimpleNamespace(item=SimpleNamespace(value=None)),
+            SimpleNamespace(item=SimpleNamespace(value=" \n")),
+        ):
             client = FakeClient(deidentify=response)
-            self.assert_sanitized(lambda: adapter.GoogleSDPRedactor(PROJECT, client=client).redact(TEXT))
+            self.assert_sanitized(
+                lambda: adapter.GoogleSDPRedactor(PROJECT, client=client).redact(TEXT)
+            )
 
     def test_confirmed_fragment_remaining_fails_closed(self):
-        client = FakeClient(deidentify=SimpleNamespace(item=SimpleNamespace(value=TEXT)))
-        self.assert_sanitized(lambda: adapter.GoogleSDPRedactor(PROJECT, client=client).redact(TEXT))
+        client = FakeClient(deidentify=output(TEXT, [finding()]))
+        self.assert_sanitized(
+            lambda: adapter.GoogleSDPRedactor(PROJECT, client=client).redact(TEXT)
+        )
 
     def test_unexplained_transformation_without_findings_fails_closed(self):
         client = FakeClient(
-            inspect=SimpleNamespace(result=SimpleNamespace(findings=[])),
-            deidentify=SimpleNamespace(item=SimpleNamespace(value="changed")),
+            inspect=inspection(),
+            deidentify=output("changed"),
         )
-        self.assert_sanitized(lambda: adapter.GoogleSDPRedactor(PROJECT, client=client).redact(TEXT))
+        self.assert_sanitized(
+            lambda: adapter.GoogleSDPRedactor(PROJECT, client=client).redact(TEXT)
+        )
 
     def test_real_client_factory_uses_adc_and_fixed_endpoint(self):
         created = []
         fake_dlp = types.ModuleType("google.cloud.dlp_v2")
-        fake_dlp.DlpServiceClient = lambda **kwargs: created.append(kwargs) or FakeClient()
+        fake_dlp.DlpServiceClient = (
+            lambda **kwargs: created.append(kwargs) or FakeClient()
+        )
         fake_cloud = types.ModuleType("google.cloud")
         fake_cloud.dlp_v2 = fake_dlp
         fake_google = types.ModuleType("google")
         fake_google.cloud = fake_cloud
-        with patch.dict(sys.modules, {
-            "google": fake_google, "google.cloud": fake_cloud,
-            "google.cloud.dlp_v2": fake_dlp,
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "google": fake_google,
+                "google.cloud": fake_cloud,
+                "google.cloud.dlp_v2": fake_dlp,
+            },
+        ):
             adapter.GoogleSDPRedactor(PROJECT)
-        self.assertEqual(created, [{"client_options": {"api_endpoint": adapter.ENDPOINT}}])
+        self.assertEqual(
+            created, [{"client_options": {"api_endpoint": adapter.ENDPOINT}}]
+        )
 
     def test_missing_optional_sdk_does_not_break_core_imports(self):
         original_import = __import__
@@ -277,10 +424,14 @@ class GoogleSDPAdapterTests(unittest.TestCase):
             importlib.import_module("runtime.phase3.trusted_runtime")
             importlib.import_module("runtime.phase3.adapters")
             spec = importlib.util.spec_from_file_location(
-                "runtime.phase3._google_sdp_test_load", adapter.__file__)
+                "runtime.phase3._google_sdp_test_load", adapter.__file__
+            )
             module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-        with patch.object(adapter, "_create_client", side_effect=ImportError("raw-provider-marker")):
+            with patch.dict(sys.modules, {spec.name: module}):
+                spec.loader.exec_module(module)
+        with patch.object(
+            adapter, "_create_client", side_effect=ImportError("raw-provider-marker")
+        ):
             self.assert_sanitized(lambda: adapter.GoogleSDPRedactor(PROJECT))
 
 

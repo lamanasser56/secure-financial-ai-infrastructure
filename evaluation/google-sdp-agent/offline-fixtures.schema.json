@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Partial safe offline fixtures; not a live campaign",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scope",
+    "planned_live_case_count",
+    "unprepared_case_count",
+    "blocked_categories",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "scope": {
+      "const": "offline_only_partial_fixtures_not_live_corpus"
+    },
+    "planned_live_case_count": {
+      "const": 87
+    },
+    "unprepared_case_count": {
+      "const": 45
+    },
+    "blocked_categories": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "IBAN_CODE",
+          "SAUDI_NATIONAL_ID",
+          "SAUDI_RESIDENT_ID",
+          "SAUDI_VAT_ID",
+          "SAUDI_BANK_ACCOUNT"
+        ]
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 42,
+      "maxItems": 42,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "case_id",
+          "language",
+          "synthetic",
+          "kind",
+          "target_categories",
+          "text",
+          "expected_spans",
+          "provenance_ids",
+          "expected_action"
+        ],
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{5,90}$"
+          },
+          "language": {
+            "enum": [
+              "en",
+              "ar",
+              "mixed"
+            ]
+          },
+          "synthetic": {
+            "const": true
+          },
+          "kind": {
+            "enum": [
+              "positive",
+              "negative",
+              "multiple",
+              "representation"
+            ]
+          },
+          "target_categories": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "EMAIL_ADDRESS",
+                "PHONE_NUMBER",
+                "CREDIT_CARD"
+              ]
+            }
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "expected_spans": {
+            "type": "array",
+            "maxItems": 1000,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "start",
+                "end",
+                "category"
+              ],
+              "properties": {
+                "start": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "end": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "category": {
+                  "enum": [
+                    "EMAIL_ADDRESS",
+                    "PHONE_NUMBER",
+                    "CREDIT_CARD"
+                  ]
+                }
+              }
+            }
+          },
+          "provenance_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "rfc2606",
+                "nanpa-reserved-555",
+                "stripe-test-cards",
+                "synthetic-business-controls",
+                "reserved-email-obfuscation",
+                "synthetic-ocr-like-text"
+              ]
+            }
+          },
+          "expected_action": {
+            "enum": [
+              "redact",
+              "retain"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "status": "blocked_full_campaign",
+  "scope": "unwired_seed_boundary_candidate_not_eight_class_campaign",
+  "source_baseline": "f5f0279b1effa7447a5ab52e3034618c4701127b",
+  "image_source_input_sha256": {
+    ".dockerignore": "28a5cc4168a69bc9b5f12e8efe53341040ce74f755be86db9842600c08bc6534",
+    "docker/google-sdp-evaluation/Dockerfile": "deeb9720310ce079a35958478bf3d97e69012d48813036564dca9c95bd1aee60",
+    "requirements-google-sdp-runtime.in": "d8360f44d12e491efa38b7c903aa42c0c5ca0e6de679bac9d50c5f287b6d3f1d",
+    "requirements-google-sdp-runtime.txt": "c232eac3a105050d5406a7cc80f5aa276c4fbbed52f3e8d5ff7892c548199a29",
+    "scripts/evaluate-google-sdp.py": "8647ec3f55b1a36e43476bc8ad8ddd82da623a267581a99a4ec38c011e50a507",
+    "runtime/phase3/__init__.py": "e77baf7bc54661c9dd022cd54d4c9bf5186e5546d8b8945bee56dfbf900fdcab",
+    "runtime/phase3/google_sdp_adapter.py": "e0bdc6bc845498842c6c7d439ebc95e9a12652583c9c54aecf5a8dba0dcdb524",
+    "runtime/phase3/trusted_runtime.py": "958fe191230951184811302c38d5344d9c15aecb19719a2df94d7b4a4a9166c3",
+    "evaluation/google-sdp/deployment.json": "4722cc0a349fb28ddc607b429e7b340d191df6e8e574a01e05c23258f116101a",
+    "evaluation/google-sdp/deployment.schema.json": "e5675d6fcdb3f42e5380fbee5a4aa9f877c569b4828d16c180c3c2f3804910ce",
+    "evaluation/google-sdp/corpus.json": "8fabcd9c1e7395004def53bb8bc43ed179e959068afa5360d4f88ac6bacb6587",
+    "evaluation/google-sdp/corpus.schema.json": "3cebfad6c2292004e76a880dd577cc6d5498c8c7c516f9fa34b0369b98d7616b",
+    "evaluation/google-sdp/result.schema.json": "4ec6db9335ad727432d03deefd19b70b60a63a95b029449a061f46066bac8e6d"
+  },
+  "qualification_source_input_sha256": {
+    "evaluation/google-sdp-agent/offline-fixtures.json": "4bf5f5fc0a4c79c8fb0c2d19deb6e985de0054248fecaa874ed24f36c8c2afd3",
+    "evaluation/google-sdp-agent/offline-fixtures.schema.json": "a01ad7f7ee9b82328c0fcde1e99dfce3797f23cf04936924a9a239bad91c6b11",
+    "evaluation/google-sdp-agent/acceptance.json": "4a50b79e1ccb5a0e94eb370fc04721f6d10ed1a1f12a1e14808534b08d98ed01",
+    "runtime/phase3/sdp_qualification.py": "38b8ef99e789cf70e65dbef5fbe50fc037af360105941609a2e6e264edd972f4",
+    "scripts/inspect-sdp-qualification-preparation.py": "d6e82f548e375f523f6805e36d346655cc1ee30bb2201d2987d18fb98e1cfdaa"
+  },
+  "candidate": {
+    "designs_used": 1,
+    "configuration_id": "sha256:904bdb1d919ff65192d4606af0d1e93a27509de27e34950e6b533bccc076f8f1",
+    "local_store_image_id": "sha256:14721bfd47930bb65dfaed634e6d4176c95b704dc66f6a2873c66eb8ac02ebc5",
+    "registry_manifest_digest": null,
+    "signature": null,
+    "reproducible_configuration": true,
+    "archive_sha256": [
+      "8ad115ea9af622db4c77cda224755d571fbc64b88b9fa6eb49a176324e63948a",
+      "8ad115ea9af622db4c77cda224755d571fbc64b88b9fa6eb49a176324e63948a"
+    ],
+    "runtime_user": "65532:65532",
+    "architecture": "amd64",
+    "vulnerabilities": {
+      "UNKNOWN": 0,
+      "LOW": 8,
+      "MEDIUM": 15,
+      "HIGH": 0,
+      "CRITICAL": 0
+    },
+    "sbom_components": 1363,
+    "policy_exit": 0,
+    "exception_count": 0,
+    "artifact_label_only_policy_copy": true,
+    "db_metadata": {
+      "Version": 2,
+      "NextUpdate": "2026-10-05T08:52:32.60698742Z",
+      "UpdatedAt": "2026-10-04T08:52:32.606987838Z",
+      "DownloadedAt": "2026-10-04T12:12:11.761827263Z"
+    },
+    "evidence_sha256": {
+      "sbom.cdx.json": "31ecea9056c19468adbae5b353f571d24719d7c9ee45801493bfe0a7a47787c6",
+      "trivy-original.json": "c3cf137bbf2e326312d5a9f203d59dc29a844ed9dc91ae4689eb8dcaac6a03f1",
+      "trivy-policy-copy.json": "a1014f86dc1ff1983ac040a225d44d24953d4af16e627388809b0ffde99ca698",
+      "trivy-table.txt": "4af09f745ab32932f9ec49d9e93279e8069dbb3a7f54bc6aa7d0ee01cf9c62a0",
+      "kev.json": "d2c8c6cb23291b46ff2b086197641a6b1fa35e6b746bba714cc280a1778f9e48",
+      "policy-result.txt": "6bdfaf12a56a16a31ae507419476ce560bd4734105d92fde9b4e4a2f9cd5cba3"
+    }
+  },
+  "tool_versions": {
+    "buildx": "0.30.1",
+    "buildkit": "0.33.1",
+    "trivy": "0.72.0",
+    "syft": "1.44.0",
+    "google-cloud-dlp": "3.40.0"
+  },
+  "fixtures": {
+    "prepared_offline_cases": 42,
+    "unprepared_cases": 45,
+    "proposed_live_cases": 87,
+    "blocked_categories": [
+      "IBAN_CODE",
+      "SAUDI_NATIONAL_ID",
+      "SAUDI_RESIDENT_ID",
+      "SAUDI_VAT_ID",
+      "SAUDI_BANK_ACCOUNT"
+    ]
+  },
+  "google_quality": "unmeasured",
+  "actual_content_sdk_attempts": 0,
+  "actual_metadata_sdk_attempts": 0,
+  "published": false,
+  "signed": false,
+  "authority_changed": false
+}

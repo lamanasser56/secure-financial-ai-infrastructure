@@ -23,7 +23,13 @@ from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from runtime.phase3.google_sdp_adapter import ENDPOINT, REGION, RPC_TIMEOUT_SECONDS, GoogleSDPRedactor  # noqa: E402
+from runtime.phase3.google_sdp_adapter import (
+    ENDPOINT,
+    REGION,
+    RPC_TIMEOUT_SECONDS,
+    OVERALL_TIMEOUT_SECONDS,
+    GoogleSDPRedactor,
+)  # noqa: E402
 from runtime.phase3.trusted_runtime import RedactionResult, RedactorClient  # noqa: E402
 
 
@@ -55,7 +61,9 @@ def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 def _schema(path: Path) -> dict[str, Any]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_unique_object)
+        value = json.loads(
+            path.read_text(encoding="utf-8"), object_pairs_hook=_unique_object
+        )
         Draft202012Validator.check_schema(value)
         return value
     except Exception:
@@ -74,7 +82,9 @@ def validate_corpus(corpus: Any) -> dict[str, Any]:
 
 def load_corpus(path: Path = CORPUS_PATH) -> dict[str, Any]:
     try:
-        corpus = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_unique_object)
+        corpus = json.loads(
+            path.read_text(encoding="utf-8"), object_pairs_hook=_unique_object
+        )
     except Exception:
         pass
     else:
@@ -93,7 +103,11 @@ def _live_redactor() -> RedactorClient:
 
 
 def _normalized_categories(value: Any, original: str) -> list[str] | None:
-    if type(value) is not RedactionResult or type(value.text) is not str or not value.text.strip():
+    if (
+        type(value) is not RedactionResult
+        or type(value.text) is not str
+        or not value.text.strip()
+    ):
         return None
     categories = value.categories
     if type(categories) is not tuple or any(
@@ -101,12 +115,16 @@ def _normalized_categories(value: Any, original: str) -> list[str] | None:
         for category in categories
     ):
         return None
-    if tuple(sorted(set(categories))) != categories or (categories and value.text == original):
+    if tuple(sorted(set(categories))) != categories or (
+        categories and value.text == original
+    ):
         return None
     return list(categories)
 
 
-def _case_result(case_id: str, case: dict[str, Any], redactor: RedactorClient | None) -> dict[str, Any]:
+def _case_result(
+    case_id: str, case: dict[str, Any], redactor: RedactorClient | None
+) -> dict[str, Any]:
     expected = sorted(case["expected"]["categories"])
     observed: list[str] = []
     status = "inconclusive"
@@ -122,7 +140,9 @@ def _case_result(case_id: str, case: dict[str, Any], redactor: RedactorClient | 
         duration_seconds = max(0, int(round(time.monotonic() - started)))
         status = "fail"
         if failure_code != "provider_failure":
-            observed_value = _normalized_categories(provider_result, case["input"]["text"])
+            observed_value = _normalized_categories(
+                provider_result, case["input"]["text"]
+            )
             if observed_value is None:
                 failure_code = "malformed_result"
             else:
@@ -132,7 +152,9 @@ def _case_result(case_id: str, case: dict[str, Any], redactor: RedactorClient | 
                     status, failure_code = "inconclusive", "observation_only"
                 elif expectation == "must_not_detect":
                     status, failure_code = (
-                        ("fail", "unexpected_detection") if observed else ("pass", "none")
+                        ("fail", "unexpected_detection")
+                        if observed
+                        else ("pass", "none")
                     )
                 elif not set(expected).issubset(observed):
                     failure_code = "missing_expected"
@@ -159,14 +181,25 @@ def _validate_artifact(report: dict[str, Any], corpus: dict[str, Any]) -> None:
             raise ValueError
         operations = report["provider_operations"]
         accounting = operations["accounting"]
-        inspection, transformation = operations["inspect_attempted"], operations["deidentify_attempted"]
+        inspection, transformation = (
+            operations["inspect_attempted"],
+            operations["deidentify_attempted"],
+        )
         if report["run_mode"] == "offline":
             if accounting != "not_executed" or inspection != 0 or transformation != 0:
                 raise ValueError
         elif accounting == "sdk_invocation_attempts":
-            if type(inspection) is not int or type(transformation) is not int or not 0 <= transformation <= inspection <= len(case_ids):
+            if (
+                type(inspection) is not int
+                or type(transformation) is not int
+                or not 0 <= transformation <= inspection <= len(case_ids)
+            ):
                 raise ValueError
-        elif accounting != "test_double_unavailable" or inspection is not None or transformation is not None:
+        elif (
+            accounting != "test_double_unavailable"
+            or inspection is not None
+            or transformation is not None
+        ):
             raise ValueError
         rendered = json.dumps(report, ensure_ascii=False, sort_keys=True)
         for case in corpus["cases"].values():
@@ -191,7 +224,9 @@ def _validate_artifact(report: dict[str, Any], corpus: dict[str, Any]) -> None:
 
 
 def evaluate(
-    corpus: dict[str, Any] | None = None, *, live: bool = False,
+    corpus: dict[str, Any] | None = None,
+    *,
+    live: bool = False,
     redactor: RedactorClient | None = None,
 ) -> dict[str, Any]:
     corpus = load_corpus() if corpus is None else validate_corpus(corpus)
@@ -202,29 +237,50 @@ def evaluate(
         raise EvaluationFailure("evaluation:authorization_required")
     if live and corpus != load_corpus():
         raise EvaluationFailure("evaluation:authorization_required")
-    active_redactor = (redactor if redactor is not None else _live_redactor()) if live else None
-    initial_attempts = active_redactor.operation_counts if type(active_redactor) is GoogleSDPRedactor else None
+    active_redactor = (
+        (redactor if redactor is not None else _live_redactor()) if live else None
+    )
+    initial_attempts = (
+        active_redactor.operation_counts
+        if type(active_redactor) is GoogleSDPRedactor and active_redactor.uses_real_sdk
+        else None
+    )
     cases = [
         _case_result(case_id, corpus["cases"][case_id], active_redactor)
         for case_id in sorted(corpus["cases"])
     ]
-    counts = {status: sum(case["status"] == status for case in cases)
-              for status in ("pass", "fail", "inconclusive")}
+    counts = {
+        status: sum(case["status"] == status for case in cases)
+        for status in ("pass", "fail", "inconclusive")
+    }
     aggregate_status = (
-        "fail" if counts["fail"] else "inconclusive" if counts["inconclusive"] else "pass"
+        "fail"
+        if counts["fail"]
+        else "inconclusive" if counts["inconclusive"] else "pass"
     )
     if initial_attempts is not None:
         final_attempts = active_redactor.operation_counts
-        attempts = {name: final_attempts[name] - initial_attempts[name] for name in initial_attempts}
+        attempts = {
+            name: final_attempts[name] - initial_attempts[name]
+            for name in initial_attempts
+        }
     else:
-        attempts = {"inspect_attempted": None if live else 0, "deidentify_attempted": None if live else 0}
+        attempts = {
+            "inspect_attempted": None if live else 0,
+            "deidentify_attempted": None if live else 0,
+        }
     report = {
         "run_mode": "live" if live else "offline",
         "provider_operations": {
-            "accounting": "sdk_invocation_attempts" if initial_attempts is not None else "test_double_unavailable" if live else "not_executed",
+            "accounting": (
+                "sdk_invocation_attempts"
+                if initial_attempts is not None
+                else "test_double_unavailable" if live else "not_executed"
+            ),
             **attempts,
             "application_retries": 0,
             "rpc_timeout_seconds": RPC_TIMEOUT_SECONDS,
+            "overall_timeout_seconds": OVERALL_TIMEOUT_SECONDS,
         },
         "cases": cases,
         "aggregate": {
