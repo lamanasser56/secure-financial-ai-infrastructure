@@ -128,9 +128,12 @@ private Docker configuration lifecycle remain unchanged.
 7. Render only with [context renderer](../../scripts/render-sdp-context-job.sh):
    exact project, dedicated runtime GSA and new signed registry digest. No mutable
    tag, alternate region/image or credential input. Native API/schema/server dry-run
-   validation precedes applying reviewed controls and **suspended** context Job.
-8. Complete the genuine zero-SDP network preflight below. Only then unsuspend
-   `google-sdp-context-evaluation` once. Never recreate/retry a failed Job. Preserve
+   validation precedes applying the reviewed controls-only file. Validate the
+   suspended context Job offline/server-side, but do not create it before preflight.
+8. Complete the genuine zero-SDP network preflight below, then delete its Job/Pod
+   and ConfigMap. Verify the one-Job/one-Pod quota is free before creating the
+   **suspended** `google-sdp-context-evaluation` Job; then unsuspend it once.
+   Never recreate/retry a failed Job. Preserve
    sanitized result before TTL; stop on first required failure/unknown gate.
 9. Cleanup and verify partial resources even after apply failure. Retain evidence,
    result and limitations; no authority change or agent execution follows a pass.
