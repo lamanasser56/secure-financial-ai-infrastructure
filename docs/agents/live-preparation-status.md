@@ -22,7 +22,8 @@ HTTP 400 from the unissued marker does not prove scoped-key authentication denia
 Virtual-key/database and full gateway protocol gates remain unqualified.
 
 2026-10-04: independent local preparation completed; **live execution blocked**.
-Starting source is `de4325c36bfdbb0a9522b89269affb9ea919a187`. The local commit
+Starting source for this checkpoint is `02ebb0443675b62aee494c3194905d25146d5d4f`;
+the retained conversation UI source is `de4325c36bfdbb0a9522b89269affb9ea919a187`. The local commit
 containing this handoff is reported separately with its exact SHA; no source push,
 workflow dispatch, model request, cloud mutation or deployment follows this record.
 The original MASAR repository and dirty worker checkout remain outside the edits.
@@ -34,7 +35,7 @@ The original MASAR repository and dirty worker checkout remain outside the edits
 | Live protocol | Actual HTTP adapter against a loopback fixture; explicit slots, canonical tool schemas/descriptions, containment/accounting | No Vertex/Gemini request | Fixture replies/detectors prove protocol only |
 | Presidio candidate | Real HTTP engines, 31 synthetic cases pass; fresh scan/SBOM | No candidate promoted/deployed | 47 HIGH findings; release prohibited |
 | Reference redactor images | Exact immutable images freshly assessed | Deployment not verified here | Both committed and newer upstream images blocked |
-| LiteLLM | Existing private-config template and trusted scoped-client adapter | No running/qualified gateway established | Image/evidence gates blocked; key database/scope unproven |
+| LiteLLM | Unpromoted candidate image policy/reproducibility pass; trusted scoped-client adapter | No running/qualified gateway established | Registry provenance, key database/scope and actual proxy tool protocol unproven |
 | Provider | Gemini through Vertex remains intended; official region/capability/IAM references reviewed | Project API already enabled by read-only inspection | Gateway identity, model entitlement and quota unproven |
 | Evidence | Sanitized download contracts; HTTP attempts/response/token counters tested | No real provider receipts, measured cost or durable delivery | Offline counters are not external provider activity |
 

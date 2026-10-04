@@ -25,8 +25,9 @@ defines subsequent conditional steps; neither selects SDP nor retires Presidio.
 
 Local preparation is complete for the independent changes in the
 [handoff](live-preparation-status.md). **Do not execute this bundle or request
-approval for unspecified resources.** Redactor/gateway image gates and real
-identity prerequisites remain unresolved. The [qualification artifact](../../evaluation/presidio-bounded/qualification.json)
+approval for unspecified resources.** Redactor qualification, gateway functional/
+credential/provenance gates and real identity prerequisites remain unresolved.
+The [Presidio qualification artifact](../../evaluation/presidio-bounded/qualification.json)
 contains exact locally assessed image subjects; all are unpromoted. The final
 local source commit and worker validation evidence are recorded in the owner
 handoff. No GitHub push is authorized for this milestone.
@@ -44,9 +45,10 @@ Vertex calls, an agent budget, new identities or new persistent services.
 | Prepared integration source | Local commit containing this bundle; exact SHA in final handoff; not pushed |
 | Presidio bounded candidate | Local configuration digest `sha256:016631eb3baa6df8d81031720de99776f493ea52259c6bca3ce61967c2887efa`; 31 actual HTTP cases PASS, 47 HIGH findings BLOCK |
 | Existing gateway reference | `ghcr.io/berriai/litellm@sha256:cae1ac3492d6d0bea69c26f4485381624e073eb753f3534ae7703a4204a4ce6b`; fresh assessment blocked |
+| New gateway candidate | Local configuration `sha256:7b3726dbebb2f67eb376c2ce89793e62166a0f1c16174dd1aeed424ae359bd7d`; unchanged image policy/reproducibility PASS; unpublished/unsigned; keys/database/protocol unqualified |
 | Presidio upstream alternatives | Exact committed/new upstream digests and findings in the qualification artifact; none accepted |
 | Retained SDP image | Separate signed evaluation image with source e5ddb647; not a redactor or agent/gateway image; no reuse as agent provenance |
-| Runtime locks | Existing three locks unchanged; separate `requirements-presidio-runtime.in/.txt` for the candidate |
+| Runtime locks | Existing dev/Presidio/SDP locks unchanged; separate `requirements-agent-identity.in/.txt` and `requirements-litellm-candidate.in/.txt` for isolated candidates |
 
 The local candidate has no registry manifest subject or signature. Its configuration
 bytes are verified against the actual Docker archive. The original scan is retained;
