@@ -2,6 +2,14 @@
 
 ## Checkpoint: technically blocked
 
+See the [current independent preparation](identity-and-gateway-preparation.md),
+[per-class research decision](../security/google-sdp-provenance-decision.md) and
+[proposed scope ADR](../architecture/decisions/ADR-006-redaction-qualification-scope.md).
+Candidate signature validation/server grants and scoped-key request/lifecycle
+contracts are implemented locally. Actual issuer, key database/enforcement and
+gateway/provider qualification are not supplied by those tests. Full replacement
+qualification remains blocked; this document is not an executable bundle.
+
 **Direction update, 2026-10-04:** Presidio remediation and this bundle's proposed
 real-Presidio service path are paused by owner instruction. Preserve source and
 candidate evidence; Presidio remains authoritative. The
@@ -73,10 +81,11 @@ Conversation cookie, CSRF and opaque handle bind the server-resolved identity,
 tenant and profile; these are confinement controls, not production login.
 The live factory continues rejecting simulated identity and redaction doubles.
 
-A future execution must provide a real application `Authenticator`, `TenantResolver`
-and `Authorizer`: exact trusted issuer, audience, verified subjects, signature/expiry
-validation, fixed server-side subject-to-tenant/action mapping and reset-independent
-identity quota. These values/adapters are **not supplied**. No request/browser can
+A future execution must configure the prepared application `Authenticator`,
+`TenantResolver` and `Authorizer` candidate with actual trusted issuer, audience,
+verified public-key snapshot and subjects. Signature/expiry validation and fixed
+server-side mapping are locally implemented; real login/rollover/revocation,
+deployment transport and reset-independent identity quota remain unproven. No request/browser can
 choose identity, tenant, profile capabilities, provider URL, model or credentials.
 Synthetic tenant mapping stays explicitly synthetic, even with genuine login.
 
@@ -98,7 +107,10 @@ operator-only gateway admin boundary, store only in private startup handling and
 never browser/source/reports. Revoke both after qualification or first failing gate;
 rotate by revocation/new issuance, never reuse expired qualification keys.
 
-`PORTFOLIO_LITELLM_CLIENT_KEY` has no master-key fallback. The gateway alone owns
+The general Phase 3 `PORTFOLIO_LITELLM_CLIENT_KEY` contract has no master-key fallback.
+The prepared agent factory now requires a separate profile-specific startup key,
+and rejects administrative/provider credential environments without reading their
+values. Filesystem/identity isolation remains a deployment gate. The gateway alone owns
 `PORTFOLIO_LITELLM_MASTER_KEY` and Google workload identity. Key inequality does
 not prove scope: actual denied route/model/expiry/spend tests are mandatory.
 The [virtual-key documentation](https://docs.litellm.ai/docs/proxy/virtual_keys)

@@ -2,6 +2,25 @@
 
 ## Current checkpoint
 
+The [independent identity/gateway candidates](identity-and-gateway-preparation.md)
+and [bounded research decision](../security/google-sdp-provenance-decision.md)
+advance the current checkpoint without replacing the running offline UI. JWT
+signature verification/server grants and scoped-key contracts are locally prepared;
+actual issuer, key/database enforcement and qualified deployment remain gates.
+The [proposed ADR](../architecture/decisions/ADR-006-redaction-qualification-scope.md)
+requires an explicit scope decision; full 87-case replacement remains blocked.
+
+Fresh worker validation for this checkpoint: **476 tests, 473 PASS, three skips**
+(opt-in PostgreSQL RLS and two optional SDK-shape tests in the main environment).
+Separate locked-SDK gates pass all 34 adapter/robustness and three email-candidate
+tests without skips. All six locks, source/schema/YAML, 307 links/81 references,
+74 Markdown/48 YAML/four workflows/20 shell lint and repository secret scans pass.
+The existing 91 browser checks are retained evidence; UI assets were not changed.
+Final gateway archives/configuration reproduce; fresh policy has zero HIGH/CRITICAL,
+16 MEDIUM/eight LOW and 1,687 SBOM components. Actual isolated proxy health passes;
+HTTP 400 from the unissued marker does not prove scoped-key authentication denial.
+Virtual-key/database and full gateway protocol gates remain unqualified.
+
 2026-10-04: independent local preparation completed; **live execution blocked**.
 Starting source is `de4325c36bfdbb0a9522b89269affb9ea919a187`. The local commit
 containing this handoff is reported separately with its exact SHA; no source push,
@@ -11,7 +30,7 @@ The original MASAR repository and dirty worker checkout remain outside the edits
 | Boundary | Implemented / locally verified | Actually deployed / verified | Simulated or blocked |
 | --- | --- | --- | --- |
 | UI/conversations | Separate Arabic/English views, ephemeral bounded context, safe reports, clarification | Existing private worker UI responds on loopback | Demo authentication/redaction/model remain simulated |
-| Shared core | TrustedRuntime and canonical registry/governance, tenant/profile binding, deterministic finance | No live agent deployment | Real identity/tenant adapters absent |
+| Shared core | TrustedRuntime and canonical registry/governance, tenant/profile binding, deterministic finance; unwired JWT/server-grant candidate | No live agent deployment | Actual issuer/key snapshot/grants and production transport absent |
 | Live protocol | Actual HTTP adapter against a loopback fixture; explicit slots, canonical tool schemas/descriptions, containment/accounting | No Vertex/Gemini request | Fixture replies/detectors prove protocol only |
 | Presidio candidate | Real HTTP engines, 31 synthetic cases pass; fresh scan/SBOM | No candidate promoted/deployed | 47 HIGH findings; release prohibited |
 | Reference redactor images | Exact immutable images freshly assessed | Deployment not verified here | Both committed and newer upstream images blocked |
@@ -65,7 +84,10 @@ personas, not production login. The cookie/CSRF/handle and trusted startup tenan
 binding prevent request-selected tenant/profile changes; they do not replace a
 real identity issuer. The live factory continues rejecting simulated identities.
 
-No real issuer/audience/verified subject-to-tenant capability map was provided.
+No actual issuer/audience/public-key snapshot/subject grant set was provided.
+The candidate adapter now implements signature validation and server mapping at
+the existing seams, with local RSA/HTTP-stub tests. It is not selected by the UI
+and local signing does not establish a real owner login or issuer lifecycle.
 This is an explicit hard gate. Do not disable that rejection or attach an operator's
 broad Google credentials to an agent. A gateway principal and its keyless transport
 are also not selected/verified. Existing SDP runtime/release identities and the
@@ -77,8 +99,9 @@ Bounded SDP preparation now has [safe partial fixtures and exact blocked classes
 offline robustness/deadline/accounting tests and a
 [fresh candidate checkpoint](../security/google-sdp-agent-preparation-checkpoint.md).
 The full 87-case campaign is blocked on five required provenance/format/configuration
-sets; no easier campaign replaces it. Obtain authoritative non-assigned test values
-and rules before freezing a complete execution bundle. Google precision/recall,
+sets; no easier campaign replaces it. The completed bounded research pass yields
+per-class unresolved decisions and a concrete proposed scope choice. Independent
+gateway/identity candidate work proceeds without promotion; Google precision/recall,
 live-agent model/authentication and authority selection remain unproven.
 
 2026-10-04 owner steering: **stop further Presidio remediation**. Preserve its

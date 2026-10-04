@@ -276,10 +276,11 @@ class HttpLiteLLMGateway:
         self,
         base_url: str | None = None,
         timeout: float = DEFAULT_LITELLM_TIMEOUT_SECONDS,
+        *, client_key: str | None = None,
     ):
         configured_url = base_url if base_url is not None else os.environ.get(BASE_URL_ENV_VAR)
         self._url = _validated_litellm_base_url(configured_url) + "/chat/completions"
-        client_key = os.environ.get(CLIENT_KEY_ENV_VAR)
+        client_key = client_key if client_key is not None else os.environ.get(CLIENT_KEY_ENV_VAR)
         if (
             not isinstance(client_key, str)
             or not client_key.strip()

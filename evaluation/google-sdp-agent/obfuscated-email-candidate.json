@@ -1,0 +1,11 @@
+{
+  "status": "candidate_unqualified_unwired",
+  "required_representation": "literal [at] and [dot], ASCII mailbox/domain, bounded horizontal spaces",
+  "custom_info_type": "PORTFOLIO_OBFUSCATED_EMAIL",
+  "neutral_category": "EMAIL_ADDRESS",
+  "pattern": "(?i)\\b[A-Za-z0-9._%+-]{1,64}[ \\t]{0,3}\\[at\\][ \\t]{0,3}[A-Za-z0-9-]{1,63}[ \\t]{0,3}\\[dot\\][ \\t]{0,3}[A-Za-z]{2,24}\\b",
+  "likelihood": "VERY_LIKELY",
+  "include_quote": false,
+  "provenance": "reserved-email-obfuscation",
+  "limitations": ["Not a general email grammar or Arabic mailbox detector", "No live accuracy or RE2 execution evidence", "Adapter custom-type mapping and transformations are not selected"]
+}

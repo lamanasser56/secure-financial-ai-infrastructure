@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "assessment_utc": "2026-10-04T13:49:34.377042+00:00",
+  "status": "unpromoted_image_policy_pass_live_gateway_unqualified",
+  "source_baseline": "02ebb0443675b62aee494c3194905d25146d5d4f",
+  "source_input_sha256": {
+    "docker/litellm-candidate/Dockerfile": "562479cd8dbd5c4c8ff2c38978362988ff8b68274336fccd049ee956d23fba45",
+    "docker/litellm-candidate/Dockerfile.dockerignore": "79ac39567b6d91cd54dee1aed3c20823d04b41795edc99b9a9323f8f6e7f5747",
+    "requirements-litellm-candidate.in": "baef3535164402bddc9b28fc9411f2f1db41a36c4fc3cb47c77bb826a3dbbc47",
+    "requirements-litellm-candidate.txt": "71f9c84c122b3ee9ebac6fb00901f5730d888ed3e81c86bbb10d76f3c50c8d0a",
+    "scripts/build-litellm-candidate.sh": "8341d948fc9f9a2d82bfad2efd5554d2d6a76690c3abbe6048ba0df3ed6cf446"
+  },
+  "designs_used": 2,
+  "historical_design1": {
+    "configuration_id": "sha256:858a05fbadb66f75c1e889092143d2af7f65c03186fe0f53666dc0d56f5ca63e",
+    "policy": "PASS",
+    "functional_blocker": "missing_libffi.so.8"
+  },
+  "candidate": {
+    "configuration_id": "sha256:7b3726dbebb2f67eb376c2ce89793e62166a0f1c16174dd1aeed424ae359bd7d",
+    "local_store_image_id": "sha256:e7c2c27d979824fe249cddef5b395d0babca3cf8f46c119b0cb31be4d183fdf3",
+    "registry_manifest_digest": null,
+    "signature": null,
+    "archive_sha256": [
+      "90b9fabb45097e263676aaee559c2124bcf5838670b03571252f527d842c442c",
+      "90b9fabb45097e263676aaee559c2124bcf5838670b03571252f527d842c442c"
+    ],
+    "reproducible_archive_and_configuration": true,
+    "source_epoch": 1791117554,
+    "user": "65532:65532",
+    "architecture": "amd64",
+    "vulnerabilities": {
+      "MEDIUM": 16,
+      "LOW": 8
+    },
+    "sbom_components": 1687,
+    "policy": "PASS",
+    "policy_exit": 0,
+    "exceptions": 0,
+    "copied_native_packages": [
+      "libffi8:amd64\t3.4.8-2",
+      "libgcc-s1:amd64\t14.2.0-19",
+      "libstdc++6:amd64\t14.2.0-19"
+    ],
+    "copied_native_source_findings": [
+      {
+        "VulnerabilityID": "CVE-2026-102010",
+        "PkgName": "libgcc-s1",
+        "InstalledVersion": "14.2.0-19",
+        "FixedVersion": null,
+        "Severity": "MEDIUM"
+      },
+      {
+        "VulnerabilityID": "CVE-2026-95619",
+        "PkgName": "libgcc-s1",
+        "InstalledVersion": "14.2.0-19",
+        "FixedVersion": null,
+        "Severity": "MEDIUM"
+      },
+      {
+        "VulnerabilityID": "CVE-2026-102010",
+        "PkgName": "libstdc++6",
+        "InstalledVersion": "14.2.0-19",
+        "FixedVersion": null,
+        "Severity": "MEDIUM"
+      },
+      {
+        "VulnerabilityID": "CVE-2026-95619",
+        "PkgName": "libstdc++6",
+        "InstalledVersion": "14.2.0-19",
+        "FixedVersion": null,
+        "Severity": "MEDIUM"
+      }
+    ],
+    "native_source_subject": "python:3.12.15-slim-trixie@sha256:29113dcae7aad06daa8e95260fa09f27d62be33b9687ea3774f771d601a02256",
+    "probe": {
+      "mode": "actual_proxy_local_stub_network_none",
+      "external_model_requests": 0,
+      "credential_qualification": false,
+      "redactor_qualification": false,
+      "health": true,
+      "startup_exit_code": null,
+      "mixed_simulation_gateway_rejected": true,
+      "financial": {
+        "status": "denied",
+        "http_attempts": 1,
+        "http_status": 400,
+        "tools": 0
+      },
+      "protocol": false,
+      "blocker": "AssertionError",
+      "provider_stub_requests": 0
+    }
+  },
+  "evidence_sha256": {
+    "final-repro.json": "1b133820ae2351bb392de64501ea6436538bbb2c6e01db855400320930ae6c9d",
+    "final-inspect.json": "a75044e0850151c2b5c503e9e36beb368c3fc246219f40f31a5823aa21975391",
+    "final-trivy-original.json": "5b6e1d1a801aa47284764323a0771229581d86b37ab2cbaf18283c886df7b1c1",
+    "final-trivy-policy.json": "b7604e13d393c8addc3fb77f6649b7b438b373db85a53c1ecdc25204871036c7",
+    "final-sbom.json": "c1bef37231fc1c0041467cf4eff4130654d4df81725ca8db7b318ecb0e05251d",
+    "kev.json": "d2c8c6cb23291b46ff2b086197641a6b1fa35e6b746bba714cc280a1778f9e48",
+    "final-policy.txt": "6bdfaf12a56a16a31ae507419476ce560bd4734105d92fde9b4e4a2f9cd5cba3",
+    "native-source-trivy.json": "e594ca45488c1b0eeed2170a5afa6f1df51f6261adedca8728b45cd3b47fa213",
+    "native-package-versions.txt": "fcd3faa4b8d7b05a0ea969688c74d30f7122bf9e943cd34fe289556153681bb4",
+    "probe-denial/probe-result.json": "df7ce7c03316c74facb8a19b35ed896275e9cb88b5803a2294e5d2016a820742"
+  },
+  "tools": {
+    "buildx": "0.30.1",
+    "buildkit": "0.33.1",
+    "trivy": "0.72.0",
+    "syft": "1.44.0",
+    "pip-tools": "7.6.1"
+  },
+  "external_model_requests": 0,
+  "sdp_attempts": 0,
+  "published": false,
+  "signed": false,
+  "authority_changed": false,
+  "limitations": [
+    "Local signatures and HTTP fixtures are not real issuer/model/redactor qualification",
+    "No PostgreSQL/virtual-key lifecycle or upstream release attestation verified",
+    "No application credential filesystem/identity isolation or durable audit proven",
+    "Copied native package versions/source findings supplement the unmodified image SBOM and scan; source-stage unrelated findings remain in full evidence",
+    "No registry manifest or live Vertex/SDP request"
+  ]
+}

@@ -1,0 +1,3 @@
+# Candidate authenticator only. No provider client or credential acquisition.
+google-auth==2.59.1
+cryptography==50.0.2

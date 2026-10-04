@@ -1,0 +1,7 @@
+# One bounded minimal-proxy design; not a deployment selection.
+litellm[proxy]==1.104.0
+# Exact fixes justified by the retained gateway finding inventory.
+PyJWT==2.14.0
+cryptography==50.0.2
+# Gateway-only keyless Vertex authentication dependency; never app ADC.
+google-auth==2.59.1

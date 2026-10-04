@@ -1,15 +1,14 @@
 """Explicit offline test doubles and future trusted gateway construction."""
 
 import json
-import os
 import re
 
 from runtime.agents.controls import DemoIdentity, PROFILES
 from runtime.agents.core import AgentCore
+from runtime.agents.credentials import application_client_key
 from runtime.agents.schemas import ROOT
 from runtime.agents.localization import fixture_text, text
 from runtime.phase3.adapters import (
-    CLIENT_KEY_ENV_VAR,
     HttpLiteLLMGateway,
     BilingualPresidioAnalyzer,
     HttpPresidioAnonymizer,
@@ -175,9 +174,8 @@ def prepare_gateway_core(
     scoped virtual key, not the gateway's administrative/master credential.
     URLs/alias/client credentials are startup-selected, never request fields.
     """
-    key = os.environ.get(CLIENT_KEY_ENV_VAR)
-    master = os.environ.get("PORTFOLIO_LITELLM_MASTER_KEY")
-    if not key or key == master or getattr(authenticator, "simulated", False):
+    key = application_client_key(profile)
+    if getattr(authenticator, "simulated", False):
         raise ValueError("agent:invalid_live_integration")
     redactor = PresidioRedactor(
         BilingualPresidioAnalyzer(analyzer_url, timeout=4),
@@ -189,6 +187,6 @@ def prepare_gateway_core(
         resolver,
         authorizer,
         redactor,
-        HttpLiteLLMGateway(base_url, timeout=8),
+        HttpLiteLLMGateway(base_url, timeout=8, client_key=key),
         simulation=False,
     )

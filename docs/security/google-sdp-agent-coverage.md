@@ -14,7 +14,7 @@ unmeasured in this preparation.
 
 | Runtime category | Proposed SDP type / official basis | EN/AR/mixed positive and negative preparation | Provenance / remaining gate |
 | --- | --- | --- | --- |
-| `EMAIL_ADDRESS` | `EMAIL_ADDRESS`; [built-in reference](https://docs.cloud.google.com/sensitive-data-protection/docs/infotypes-reference), reviewed custom obfuscation rule still needed | Two positives and one negative per context; additional obfuscation/Unicode/text stress | Reserved domains from `rfc2606`. Obfuscated forms preserve those domains. Built-in detection alone did not detect the historical obfuscated case. Custom rule is unimplemented and unqualified. |
+| `EMAIL_ADDRESS` | `EMAIL_ADDRESS`; [built-in reference](https://docs.cloud.google.com/sensitive-data-protection/docs/infotypes-reference), unwired custom obfuscation candidate | Two positives and one negative per context; additional obfuscation/Unicode/text stress | Reserved domains from `rfc2606`. Obfuscated forms preserve those domains. Built-in detection alone did not detect the historical obfuscated case. Candidate expression is prepared, unqualified and not selected. |
 | `PHONE_NUMBER` | `PHONE_NUMBER`; built-in reference | Two positives and one negative per context, Latin digits | `nanpa-reserved-555`: reserved fictional nonworking NANP range. Tests generic US format; no safe Saudi test range or Arabic-numeral/country coverage established. |
 | `CREDIT_CARD` | `CREDIT_CARD_NUMBER`; built-in reference | Two positives and one negative per context; space formatting | `stripe-test-cards`: official non-production test values, not random PANs. Other networks/representations remain unqualified. |
 | `IBAN_CODE` | `IBAN_CODE`; built-in reference | **BLOCKED** in all three contexts | Saudi presentation format is documented by SAMA, but its published example is not certified non-assigned. Need an authoritative safe Saudi-format test IBAN and independently verified checksum/negative rules. No plausible generated IBAN imported. |
@@ -47,11 +47,13 @@ The preserved Presidio fixture/qualification generator has local checksum constr
 passing detector tests or that construction does not certify non-assignment. Its
 Saudi examples are not imported into the new SDP input set as safe provenance.
 
-The next concrete action is to obtain authority/provider-approved **non-assigned
-test values**, format/checksum rules and usage conditions for the five blocked
-classes, plus the required Saudi phone variants. No external party is contacted
-by this repository. When the inputs are available, review exact spans and negatives
-before implementing versioned custom rules or freezing the full corpus.
+The [bounded authoritative research decision](google-sdp-provenance-decision.md)
+now records exactly which format/validation/safety facts were established and which
+remain unresolved, without generating plausible identifiers or repeating a generic
+fixture request. It adds an unwired obfuscated-email candidate for existing safe
+inputs; no new Saudi positive or live accuracy claim. The
+[proposed scope ADR](../architecture/decisions/ADR-006-redaction-qualification-scope.md)
+compares full deferral with a separately constrained synthetic demonstration.
 
 ## Exact partial inventory, not a substitute live campaign
 

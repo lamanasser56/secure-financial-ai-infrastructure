@@ -8,6 +8,14 @@ offline. Preserve completed source, quarantined candidates and original evidence
 
 ## Current preparation decision
 
+The completed [bounded primary-source pass](google-sdp-provenance-decision.md)
+now records per-class format/checksum/safety decisions. The
+[proposed scope ADR](../architecture/decisions/ADR-006-redaction-qualification-scope.md)
+compares full deferral with an explicitly constrained synthetic experiment; it
+does not change this campaign, acceptance or runtime authority. Independent
+[gateway/identity candidates](../agents/identity-and-gateway-preparation.md) advance
+without new SDP image preparation or live calls.
+
 The [exact coverage/provenance matrix](google-sdp-agent-coverage.md) records 42
 safe **offline** cases and 45 unprepared cases in five required classes. The
 87-case live campaign is **BLOCKED**, not replaced with a three-class campaign.
