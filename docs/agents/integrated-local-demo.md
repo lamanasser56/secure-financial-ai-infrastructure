@@ -34,6 +34,12 @@ The proxy issues four model/route restricted clients, one per subject and profil
 The app receives no master key, issuer private key or direct provider credential.
 
 Fixture identities expire in 15 minutes; local proxy keys expire in one hour.
+The free-text application shares at most 32 gateway reservations per launch and
+16 per subject across both profiles, sessions and conversation resets. A financial
+turn normally uses three and an infrastructure turn four. The 900-second run
+deadline, shared redaction budget and smaller turn/conversation limits also apply.
+Starting a new conversation does not replenish the launch budget. There is no
+automatic retry, budget increase or credential refresh after a blocked turn.
 Ctrl+C stops the owned proxy/stub/UI and destroys its database/network/RAM store.
 Private audit remains. No automatic refresh or restart exists.
 
@@ -88,15 +94,31 @@ The canonical JSON proposal still passes redaction, registry validation, trusted
 identity/tenant authorization and audit admission before dispatch.
 
 Durable v1 tool events record governance admission, not proof of execution. Closed
-v2 turn events commit before delivery and identify simulated redaction/stub model.
+v3 turn events commit before delivery and identify simulated redaction/stub model.
 They contain no transcript, arguments, result bodies, provider errors or credentials.
+V3 adds finite terminal stage/reason and distinct runtime invocation, budget
+admission/denial, HTTP attempt/response and successful/blocked trace counts.
+Historical v2 rows remain readable and are never assigned invented failure codes.
+The local model trace contract is v2; the original phase3 v1 contract is unchanged.
+Download reports are v2. `model_requests` still counts runtime invocations, including
+one refused by a control before HTTP. `simulated_model_requests` uses measured
+HTTP attempts when available; `model_invocation_attempts` preserves the invocation
+count. Attempt, response and stub counts do not establish external provider receipts.
+
+For the shared subject limit, the blocked report exports
+`terminal_failure={stage:litellm,reason:subject_attempt_budget_exhausted}`.
+Total-run exhaustion, run deadline and unavailable client credentials have distinct
+finite reasons. Unknown exceptions export only `agent/required_control_failed`.
+No exception message, raw HTTP body or credential enters a report. Failed trace
+admission and terminal commit continue to block delivery; no partial answer is
+delivered after a terminal journal failure.
 SQLite durability is local; remote retention, tamper resistance and atomic execution
 across PostgreSQL/SQLite are unqualified. No automatic tool replay exists.
 
 ## Qualification and next execution checkpoint
 
-The [fresh service qualification](../../evaluation/agent-composition/service-qualification.json)
-binds exact input files, two matching archives per service, configuration identities,
+The [retained service qualification](../../evaluation/agent-composition/service-qualification.json)
+binds its historical exact input files, two matching archives per service, configuration identities,
 fresh scans/SBOMs and the unchanged zero-exception policy. Application/gateway have
 zero HIGH/CRITICAL, 16 MEDIUM and eight LOW findings; the derived PostgreSQL image
 has zero reported vulnerabilities. Actual nonroot startup/RLS passed. The database
@@ -109,6 +131,16 @@ used the locked host interpreter and real qualified database. Service-container
 imports/native engine/default entry points passed; a full containerized proxy/agent
 network deployment is a future native gate. No registry publication/signature is
 claimed for these new services.
+
+The terminal-diagnostic repair changes application runtime and contract inputs.
+The retained application image qualification does not qualify those new bytes.
+The host-interpreter local demo can be verified independently with the unchanged
+qualified database and locked proxy. Fresh reproducible application image builds,
+SBOM, vulnerability/secret scans and exact source binding are required before a
+revised service-image execution checkpoint; no old manifest/signature is substituted.
+The gateway and database subjects remain unchanged. Updating source does not patch
+an already running process; coordinate its stop, retain its audit, then start from
+the reviewed new checkout with a fresh state. Never overwrite a running checkout.
 
 The [execution checkpoint](integrated-synthetic-execution-checkpoint.md) binds the
 fixed catalog, prepared Vertex route, credentials, operation bounds and cleanup.

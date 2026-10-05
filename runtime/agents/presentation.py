@@ -7,6 +7,7 @@ Unknown currencies fail closed instead of silently assuming two decimals.
 
 from copy import deepcopy
 from runtime.agents.localization import fixture_text, text
+from runtime.agents.terminal_diagnostics import validate_terminal_failure
 
 CURRENCY_SCALES = {"SAR": 2}
 REDACTION_NOTICE = (
@@ -30,7 +31,9 @@ def present(result, language=None):
     measurement = result.get("local_transport", result.get("gateway_measurement", {}))
     view = {
         "usage": {
-            "simulated_model_requests": result["model_requests"] if simulated else 0,
+            "simulated_model_requests": (
+                measurement.get('http_attempts', result['model_requests']) if simulated else 0),
+            'model_invocation_attempts': result['model_requests'],
             "gateway_http_attempts": measurement.get("http_attempts"),
             "external_provider_calls": (
                 0 if simulated else measurement.get("provider_receipts")
@@ -150,8 +153,13 @@ def sanitized_report(result):
         "presentation",
         "limitations",
         "reason_code",
+        'local_transport',
+        'model_attempt_accounting',
+        'terminal_failure',
     )
+    if result['status'] == 'blocked':
+        validate_terminal_failure(result['terminal_failure'])
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         **deepcopy({key: result[key] for key in fields if key in result}),
     }

@@ -10,15 +10,18 @@ import json
 import threading
 import time
 import uuid
+from pathlib import Path
+from jsonschema import Draft202012Validator
 
 from runtime.agents.audit_preparation import DurableToolAudit
-from runtime.agents.core import AgentCore
+from runtime.agents.core import AgentCore, TraceCollector
 from runtime.agents.credentials import ScopedCredential
 from runtime.agents.demo import SyntheticAnalyzer, SyntheticAnonymizer
 from runtime.agents.gateway_budget import RunAttemptBudget, ScopedHTTPGateway
 from runtime.agents.identity import SubjectGrant, TrustedJWTIdentity
 from runtime.agents.protocol_preparation import canonical_decision, completion_content
 from runtime.agents.tools import DemoTools
+from runtime.agents.terminal_diagnostics import validate_terminal_failure
 from runtime.phase3.adapters import HttpLiteLLMGateway, PresidioRedactor, _post_json
 from runtime.phase3.trusted_runtime import (
     APPROVED_MODEL_ALIAS, ControlFailure, GatewayResult, redact_checked,
@@ -193,12 +196,29 @@ class TenantDatabaseTools(DemoTools):
                 connection.close()
 
 
+class DiagnosticTraceCollector(TraceCollector):
+    """Local v2 adds finite client-admission categories; historic v1 is untouched."""
+    def __init__(self):
+        super().__init__()
+        path = Path(__file__).resolve().parents[2] / 'contracts/agents/model-trace-v2.schema.json'
+        self.validator = Draft202012Validator(json.loads(path.read_text()))
+
+    def emit(self, value):
+        if value.get('schema_version') != 1:
+            self.invalid = True
+            raise ControlFailure('audit', 'invalid_event')
+        super().emit(dict(value, schema_version=2))
+
+
 class IntegratedCore(AgentCore):
     """Commit bounded terminal accounting before a result can reach the UI."""
 
     def __init__(self, *args, terminal_sink, **kwargs):
         self._terminal = terminal_sink
         super().__init__(*args, **kwargs)
+
+    def trace_collector(self):
+        return DiagnosticTraceCollector()
 
     def run(self, *args, **kwargs):
         before = self.gateway.measurement_snapshot()
@@ -208,13 +228,26 @@ class IntegratedCore(AgentCore):
             "http_attempts": after["http_attempts"] - before["http_attempts"],
             "http_responses": after["http_responses"] - before["http_responses"],
             "upstream": "stub", "external_model_calls": 0}
+        result['model_attempt_accounting'] = {
+            'runtime_invocations': result['model_requests'],
+            'budget_admissions': after['budget_admissions'] - before['budget_admissions'],
+            'budget_denials': after['budget_denials'] - before['budget_denials'],
+            'http_attempts': result['local_transport']['http_attempts'],
+            'http_responses': result['local_transport']['http_responses'],
+            'successful_traces': sum(t['outcome'] == 'success' for t in result['audit']['model_traces']),
+            'blocked_traces': sum(t['outcome'] == 'blocked' for t in result['audit']['model_traces']),
+        }
+        failure = (validate_terminal_failure(result['terminal_failure'])
+                   if result['status'] == 'blocked' else None)
         try:
-            self._terminal.append({"schema_version": 2, "event_id": result["request_id"],
+            self._terminal.append({"schema_version": 3, "event_id": result["request_id"],
                 "event_type": "turn_terminal", "occurred_at": datetime.now(timezone.utc).isoformat(),
                 "agent": self.profile, "tenant_ref": result["tenant_ref"],
                 "outcome": result["status"], "model_attempts": result["model_requests"],
                 "tool_attempts": result["tool_executions"],
-                "redaction_provider": "simulated", "model_provider": "stub"})
+                "redaction_provider": "simulated", "model_provider": "stub",
+                'terminal_failure': failure,
+                'model_attempt_accounting': result['model_attempt_accounting']})
         except Exception:
             # No partial answer/facts/history after an audit failure.
             raise ControlFailure("audit", "invalid_event") from None

@@ -70,7 +70,7 @@ class BudgetTests(unittest.TestCase):
         with self.assertRaises(ControlFailure):
             wrapper.complete("request-selected-model", "redacted", {})
         credential.revoke()
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ControlFailure, 'litellm:credential_unavailable'):
             wrapper.complete("secure-financial-chat", "redacted", {})
         gateway.complete.assert_not_called()
 
@@ -93,7 +93,8 @@ class BudgetTests(unittest.TestCase):
             profile="financial",
         )
         self.assertEqual(
-            wrapper.measurement_snapshot(), {"http_attempts": 1, "usage_unavailable": 1}
+            wrapper.measurement_snapshot(), {"http_attempts": 1, "usage_unavailable": 1,
+                                             "budget_admissions": 0, "budget_denials": 0}
         )
         self.assertNotIn("cost", wrapper.measurement_snapshot())
 
@@ -119,7 +120,7 @@ class BudgetTests(unittest.TestCase):
             self.assertEqual(gateway.call_count, 1)
             self.assertEqual(len(records), 1)
             credential.revoke()
-            with self.assertRaises(ValueError):
+            with self.assertRaisesRegex(ControlFailure, 'litellm:credential_unavailable'):
                 gateway.complete("secure-financial-chat", "redacted fixture", {})
             self.assertEqual(len(records), 1)
 
@@ -142,7 +143,7 @@ class BudgetTests(unittest.TestCase):
                     "financial", "invalid-new-fixture-key-only", 200, clock=lambda: 100
                 )
             )
-            with self.assertRaises(ValueError):
+            with self.assertRaisesRegex(ControlFailure, 'litellm:credential_unavailable'):
                 gateway.complete("secure-financial-chat", "redacted fixture", {})
             rotated = ScopedHTTPGateway(
                 url,

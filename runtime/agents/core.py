@@ -16,6 +16,7 @@ from runtime.agents.controls import (
 )
 from runtime.agents.schemas import ROOT, read_fixed, validate
 from runtime.agents.localization import text
+from runtime.agents.terminal_diagnostics import terminal_failure
 from runtime.agents.questions import select_scope, select_live_scope
 from runtime.agents.tools import DemoTools
 from runtime.phase3.trusted_runtime import (
@@ -103,6 +104,9 @@ class TurnContext:
 
 
 class AgentCore:
+    def trace_collector(self):
+        return TraceCollector()
+
     def __init__(
         self,
         profile,
@@ -150,7 +154,7 @@ class AgentCore:
     def run(self, authorization, request, *, language="en", context=None):
         started = time.monotonic()
         request_id = str(uuid.uuid4())
-        traces, audits, observations = TraceCollector(), [], []
+        traces, audits, observations = self.trace_collector(), [], []
         model_count = tool_count = 0
         tenant_ref = None
         safe_message = None
@@ -643,8 +647,10 @@ class AgentCore:
                 observations.append({"tool_id": tid, "result": safe["result"]})
             raise ControlFailure("agent", "request_budget_exhausted")
         except DeadlineExceeded:
-            return response("blocked", reason="deadline_exceeded")
-        except Exception:
+            return response("blocked", reason="deadline_exceeded",
+                            terminal_failure={'stage': 'agent', 'reason': 'deadline_exceeded'})
+        except Exception as failure:
             # Neither provider/HTTP errors nor arbitrary tool/model content enter
             # audit or user output. No retry and no partial unsafe result.
-            return response("blocked", reason="required_control_failed")
+            return response("blocked", reason="required_control_failed",
+                            terminal_failure=terminal_failure(failure))

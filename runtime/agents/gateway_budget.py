@@ -8,6 +8,7 @@ import os
 from runtime.phase3.trusted_runtime import APPROVED_MODEL_ALIAS, ControlFailure
 from runtime.phase3.adapters import HttpLiteLLMGateway
 from runtime.agents.credentials import FORBIDDEN_APPLICATION_ENVIRONMENTS
+from runtime.agents.terminal_diagnostics import BudgetAdmissionFailure
 
 
 class RunAttemptBudget:
@@ -36,14 +37,14 @@ class RunAttemptBudget:
 
     def reserve(self, subject):
         with self._lock:
-            if (
-                not isinstance(subject, str)
-                or not 1 <= len(subject) <= 128
-                or self._clock() >= self._expires
-                or self._used >= self._total
-                or self._subjects.get(subject, 0) >= self._per_subject
-            ):
-                raise ControlFailure("litellm", "attempt_budget")
+            if not isinstance(subject, str) or not 1 <= len(subject) <= 128:
+                raise ControlFailure('litellm', 'invalid_configuration')
+            if self._clock() >= self._expires:
+                raise BudgetAdmissionFailure('run_deadline_exceeded')
+            if self._used >= self._total:
+                raise BudgetAdmissionFailure('total_attempt_budget_exhausted')
+            if self._subjects.get(subject, 0) >= self._per_subject:
+                raise BudgetAdmissionFailure('subject_attempt_budget_exhausted')
             self._used += 1
             self._subjects[subject] = self._subjects.get(subject, 0) + 1
 
@@ -55,19 +56,29 @@ class BudgetedGateway:
         credential.value(profile)
         self._gateway, self._budget, self._credential = gateway, budget, credential
         self._subject, self._profile = subject, profile
+        self._admissions = self._denials = 0
 
     @property
     def call_count(self):
         return self._gateway.call_count
 
     def measurement_snapshot(self):
-        return self._gateway.measurement_snapshot()
+        return self._gateway.measurement_snapshot() | {
+            'budget_admissions': self._admissions, 'budget_denials': self._denials}
 
     def complete(self, model_alias, redacted_text, metadata):
         if model_alias != APPROVED_MODEL_ALIAS:
             raise ControlFailure("litellm", "invalid_configuration")
-        self._credential.value(self._profile)
-        self._budget.reserve(self._subject)
+        try:
+            self._credential.value(self._profile)
+        except ValueError:
+            raise ControlFailure('litellm', 'credential_unavailable') from None
+        try:
+            self._budget.reserve(self._subject)
+        except BudgetAdmissionFailure:
+            self._denials += 1
+            raise
+        self._admissions += 1
         return self._gateway.complete(model_alias, redacted_text, metadata)
 
 
@@ -94,8 +105,10 @@ class ScopedHTTPGateway(BudgetedGateway):
         super().__init__(gateway, budget, credential, subject=subject, profile=profile)
 
     def complete(self, model_alias, redacted_text, metadata):
-        if not hmac.compare_digest(
-            self._credential.value(self._profile), self._bound_key
-        ):
+        try:
+            current = self._credential.value(self._profile)
+        except ValueError:
+            raise ControlFailure('litellm', 'credential_unavailable') from None
+        if not hmac.compare_digest(current, self._bound_key):
             raise ControlFailure("litellm", "invalid_configuration")
         return super().complete(model_alias, redacted_text, metadata)
