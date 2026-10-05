@@ -2,15 +2,20 @@
 
 ## Current checkpoint
 
-The current [context-pattern preparation](../security/google-sdp-context-policy.md)
-adds a separate 86-case synthetic policy and proposed SDP-only execution bundle.
-The [new ADR](../architecture/decisions/ADR-007-context-pattern-redaction-candidate.md)
-records its accepted offline scope, including bounded canonical label/variant
-coverage; `العوية` is one regression case. No live execution or authority selection
-occurred. Independent key-to-HTTP binding and operator-only subject revocation are
+The frozen context campaign at `de9f3d1d…` stopped with **59 actual mandatory
+passes and one failure, context-060**: an amount-labelled email had no scored
+finding. Ten mandatory cases and all sixteen unsupported observations remain
+unexecuted. Cleanup is historically verified; no redaction qualification or
+authority selection follows. The [offline assessment](../security/google-sdp-context-email-diagnostics.md)
+found no concrete adapter/scorer defect; the provider reason remains UNKNOWN.
+One [minimal comparison proposal](../security/google-sdp-email-diagnostic-execution-bundle.md)
+is prepared, not executed. No amount exemption, policy change, threshold reduction,
+campaign rerun, Presidio remediation or valid-ID research is introduced.
+
+Independent key-to-HTTP binding and operator-only subject revocation remain
 prepared locally; actual proxy database/key and real issuer gates stay unresolved.
-The validation counts below belong to the preceding checkpoint; current worker
-totals and exact source are in the new owner handoff. UI assets remain unchanged.
+Validation counts below belong to the preceding independent checkpoint; current
+worker totals/source are in the new owner handoff. UI assets remain unchanged.
 
 The [independent identity/gateway candidates](identity-and-gateway-preparation.md)
 and [bounded research decision](../security/google-sdp-provenance-decision.md)
@@ -20,7 +25,7 @@ actual issuer, key/database enforcement and qualified deployment remain gates.
 The [proposed ADR](../architecture/decisions/ADR-006-redaction-qualification-scope.md)
 requires an explicit scope decision; full 87-case replacement remains blocked.
 
-Fresh worker validation for this checkpoint: **476 tests, 473 PASS, three skips**
+Historical independent worker validation: **476 tests, 473 PASS, three skips**
 (opt-in PostgreSQL RLS and two optional SDK-shape tests in the main environment).
 Separate locked-SDK gates pass all 34 adapter/robustness and three email-candidate
 tests without skips. All six locks, source/schema/YAML, 307 links/81 references,
@@ -137,6 +142,11 @@ URL/worker credential assessment, independent review and network Layer-7/shared-
 DNS-query containment. This milestone resolves none of those audit findings.
 
 ## Frozen context campaign continuation — 2026-10-05
+
+This section preserves the preceding preparation state. The campaign subsequently
+ran once and failed at context-060 as recorded above. Its image is now signed;
+the retained campaign evidence and 59 live passes are not rewritten. A diagnostic
+proposal is not approval for another full run or provider promotion.
 
 The single context-001 diagnostic passed and its temporary cleanup was verified.
 This does not establish the original failure cause or broader detection quality.

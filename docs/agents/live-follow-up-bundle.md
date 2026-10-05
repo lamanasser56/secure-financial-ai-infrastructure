@@ -2,6 +2,24 @@
 
 ## Checkpoint: technically blocked
 
+Current blocker: the frozen context campaign passed 59 mandatory cases then failed
+`context-060` with no scored email span. Ten mandatory/sixteen unsupported cases
+remain unmeasured. The [offline assessment](../security/google-sdp-context-email-diagnostics.md)
+found no justified adapter/detector repair; one separately approved
+[four-comparison diagnostic](../security/google-sdp-email-diagnostic-execution-bundle.md)
+would measure bounded observations only. No live-agent/redaction qualification,
+provider selection or full rerun follows. Historical preparation below is retained.
+
+Safe independent work can continue with offline canonical gateway/tool protocol,
+key scope/rotation/revocation and trusted issuer/key-snapshot/server-grant fixtures;
+design tenant/database isolation and durable minimized audit without issuing keys,
+deploying services or processing real records. Actual proxy database/key enforcement,
+issuer login/grants, model/service identity/network and end-to-end qualification are
+separate gates. All external model requests traverse LiteLLM; application credentials
+are scoped clients, never the gateway administrative key or direct provider keys.
+Keep mock redaction explicitly simulated. This checkpoint enables no service and
+does not resume Presidio remediation or valid-identifier research.
+
 The separately accepted [context-pattern candidate](../architecture/decisions/ADR-007-context-pattern-redaction-candidate.md)
 now has its own [SDP-only execution proposal](../security/google-sdp-context-execution-bundle.md)
 and fresh offline image evidence. That proposal does not include live agents,
