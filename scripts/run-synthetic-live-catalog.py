@@ -220,6 +220,30 @@ class CandidateCore(AgentCore):
         return result
 
 
+def accept_catalog_result(entry, result):
+    """Frozen demo acceptance, separate from runtime financial calculation.
+
+    Completion without required governed facts is not demo success. Expected
+    synthetic tenant totals are evaluation assertions, never business logic.
+    """
+    if result.get('status') != 'completed' or type(result.get('facts')) is not list:
+        raise ValueError('demo:terminal_failure')
+    facts = result['facts']
+    if any(type(f) is not dict or type(f.get('tool_id')) is not str for f in facts):
+        raise ValueError('demo:missing_governed_facts')
+    by_tool = {f['tool_id']: f.get('result') for f in facts}
+    required = ({'expense_summary', 'expense_categories'} if entry['agent'] == 'financial'
+                else {'read_ci_summary', 'read_image_summary', 'read_runbook_section'})
+    if len(by_tool) != len(facts) or not required <= by_tool.keys():
+        raise ValueError('demo:missing_governed_facts')
+    if entry['agent'] == 'financial':
+        summary = by_tool['expense_summary']
+        expected = {'alpha': 24000, 'beta': 9000}[entry['user']]
+        if (type(summary) is not dict or type(summary.get('total_minor_units')) is not int
+                or summary['total_minor_units'] != expected):
+            raise ValueError('demo:synthetic_tenant_total_mismatch')
+
+
 def compose(config, redactor, budget, journal, tool_sink, terminal_sink, connect):
     user = config.get('subject')
     if (user not in SUBJECTS or config.get('mode') != 'bounded_live_synthetic'
@@ -295,8 +319,7 @@ def run(admission_dir=Path('/admission'), state=Path('/state')):
             result = frame['response']
             rows.append({'id': entry['id'], 'status': result['status'],
                          'model_attempts': result['model_requests'], 'tools': result['tool_executions']})
-            if result['status'] != 'completed':
-                raise ValueError('demo:terminal_failure')
+            accept_catalog_result(entry, result)
         totals, _ = journal.totals()
         receipt = {'schema_version': 3, 'scope': admission['scope'], 'cases': rows,
                    'reserved': totals, 'upstream': 'vertex_gemini', 'redaction': 'google_sdp_context_candidate',

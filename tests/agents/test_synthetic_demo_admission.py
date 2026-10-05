@@ -23,6 +23,32 @@ def load(name):
 
 
 class AdmissionTests(unittest.TestCase):
+    def test_completed_finance_cannot_skip_facts_or_cross_tenant_total(self):
+        app = load('run-synthetic-live-catalog')
+        for user, total in (('alpha', 24000), ('beta', 9000)):
+            entry = {'agent': 'financial', 'user': user}
+            response = {'status': 'completed', 'facts': [
+                {'tool_id': 'expense_summary', 'result': {'total_minor_units': total}},
+                {'tool_id': 'expense_categories', 'result': {}}]}
+            app.accept_catalog_result(entry, response)
+            for value in (0, True, str(total), 9000 if user == 'alpha' else 24000):
+                altered = copy.deepcopy(response)
+                altered['facts'][0]['result']['total_minor_units'] = value
+                with self.assertRaises(ValueError): app.accept_catalog_result(entry, altered)
+            with self.assertRaises(ValueError): app.accept_catalog_result(entry, dict(response, facts=[]))
+
+    def test_infrastructure_requires_each_governed_evidence_kind(self):
+        app = load('run-synthetic-live-catalog')
+        entry = {'agent': 'infrastructure', 'user': 'alpha'}
+        facts = [{'tool_id': x, 'result': {}} for x in (
+            'read_ci_summary', 'read_image_summary', 'read_runbook_section')]
+        app.accept_catalog_result(entry, {'status': 'completed', 'facts': facts})
+        for missing in range(3):
+            with self.assertRaises(ValueError):
+                app.accept_catalog_result(entry, {'status': 'completed', 'facts': facts[:missing] + facts[missing + 1:]})
+        with self.assertRaises(ValueError):
+            app.accept_catalog_result(entry, {'status': 'completed', 'facts': facts + facts[:1]})
+
     def test_current_catalog_never_grants_live_authority(self):
         app = load('run-synthetic-live-catalog')
         raw = (ROOT / 'evaluation/agent-composition/synthetic-demo.json').read_bytes()

@@ -75,6 +75,10 @@ Stop on first control, provider, audit, byte/deadline/budget or terminal failure
 Retain only finite codes, scope, identity references, counts, timing and verified
 subjects. No prompt, findings, spans, response bodies, exception messages or
 credentials in retained evidence. A pass grants no provider promotion or retirement.
+Every completed catalog turn must include its required governed tool facts;
+financial facts must match the fixed synthetic tenant totals. Completion alone
+cannot score a demo pass. These evaluation assertions do not replace runtime
+financial calculations or qualify generated prose.
 
 ## Credentials, database and audit
 
