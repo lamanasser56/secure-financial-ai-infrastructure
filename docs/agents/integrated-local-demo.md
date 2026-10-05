@@ -15,7 +15,7 @@ cd /tmp/portfolio-integrated-agents-fbe5ed7/final-source
 /tmp/portfolio-integrated-agents-fbe5ed7/gateway-venv/bin/python \
   scripts/run-qualified-local-agents.py \
   --python /tmp/portfolio-integrated-agents-fbe5ed7/gateway-venv/bin/python \
-  --state /tmp/portfolio-integrated-agents-fbe5ed7/demo-review-01 \
+  --state /tmp/portfolio-integrated-agents-fbe5ed7/demo-fixed-01 \
   --database-archive /tmp/portfolio-integrated-agents-fbe5ed7/qualified-database.tar.gz \
   --user alpha --port 8768
 ```
@@ -36,6 +36,27 @@ The app receives no master key, issuer private key or direct provider credential
 Fixture identities expire in 15 minutes; local proxy keys expire in one hour.
 Ctrl+C stops the owned proxy/stub/UI and destroys its database/network/RAM store.
 Private audit remains. No automatic refresh or restart exists.
+
+To stop the same launch from another worker terminal:
+
+```bash
+cd /tmp/portfolio-integrated-agents-fbe5ed7/final-source
+/tmp/portfolio-integrated-agents-fbe5ed7/gateway-venv/bin/python \
+  scripts/run-qualified-local-agents.py --stop \
+  --state /tmp/portfolio-integrated-agents-fbe5ed7/demo-fixed-01
+```
+
+Run one integrated stack at a time: its gateway and stub use fixed loopback ports
+4001 and 8767. Startup checks these ports and the selected UI port before creating
+the RAM runtime or credentials. It verifies the listeners belong to its recorded
+children before issuing clients or advertising UI readiness. A busy port blocks
+startup without stopping its owner. Port 8765 is reserved for the original UI.
+
+The stop command verifies the private launcher record, PID start time, source and
+exact state argument before signalling. Each owned cleanup phase is attempted
+even when another fails; `launcher-status.json` reports bounded stage and cleanup
+codes. Private service logs and audit remain in the state directory. The command
+does not recover states created by the older launcher without an ownership record.
 
 For a fixed four-input rehearsal, use a new state and replace the final UI options
 with `--rehearse`. For actual proxy/database integration checks use `--check`.

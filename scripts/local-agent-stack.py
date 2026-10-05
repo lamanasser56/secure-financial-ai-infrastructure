@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import secrets
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -74,15 +75,72 @@ def stop_process(record):
     path = Path(f"/proc/{record['pid']}")
     if not path.exists():
         return
-    if path.joinpath("stat").read_text().split()[21] != record["start_ticks"]:
+    fields = path.joinpath("stat").read_text().split()
+    if fields[21] != record["start_ticks"]:
         raise ValueError("local_stack:process_changed")
+    if fields[2] == "Z":
+        # An exited child has no command line and cannot be signalled safely.
+        try:
+            os.waitpid(record['pid'], os.WNOHANG)
+        except ChildProcessError:
+            pass
+        return
     argv = path.joinpath("cmdline").read_bytes().split(b"\0")
     if not any(str(ROOT).encode() in item for item in argv):
         raise ValueError("local_stack:process_not_owned")
+    if os.getpgid(record['pid']) != record['pid']:
+        raise ValueError("local_stack:process_group_changed")
     os.killpg(record["pid"], signal.SIGTERM)
+    until = time.monotonic() + 10
+    while time.monotonic() < until:
+        try:
+            os.waitpid(record['pid'], os.WNOHANG)
+        except ChildProcessError:
+            pass
+        if not path.exists() or path.joinpath('stat').read_text().split()[2] == 'Z':
+            return
+        time.sleep(.1)
+    raise ValueError("local_stack:process_stop_timeout")
+
+
+def require_free_ports(ports):
+    for port in ports:
+        with socket.socket() as probe:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                probe.bind(('127.0.0.1', port))
+            except OSError:
+                raise ValueError('local_stack:port_in_use:' + str(port)) from None
+
+
+def require_running(records):
+    for record in records:
+        path = Path('/proc') / str(record['pid']) / 'stat'
+        if not path.exists():
+            raise ValueError('local_stack:service_exited')
+        fields = path.read_text().split()
+        if fields[2] == 'Z' or fields[21] != record['start_ticks']:
+            raise ValueError('local_stack:service_exited')
+
+
+def require_listener(record, port):
+    require_running([record])
+    inodes = {row.split()[9] for row in Path('/proc/net/tcp').read_text().splitlines()[1:]
+              if row.split()[1] == '0100007F:' + format(port, '04X') and row.split()[3] == '0A'}
+    owned = set()
+    for fd in (Path('/proc') / str(record['pid']) / 'fd').iterdir():
+        try:
+            target = os.readlink(fd)
+        except FileNotFoundError:
+            continue
+        if target.startswith('socket:['):
+            owned.add(target[8:-1])
+    if not inodes or not inodes.issubset(owned):
+        raise ValueError('local_stack:listener_not_owned')
 
 
 def up(state, python, postgres_image, *, qualified_nonroot=False):
+    require_free_ports((4001, 8767))
     if state.exists():
         raise ValueError("local_stack:new_private_state_required")
     state.mkdir(mode=0o700, parents=False)
@@ -185,8 +243,12 @@ def up(state, python, postgres_image, *, qualified_nonroot=False):
         readiness_deadline = time.monotonic() + 60
         ready = False
         while time.monotonic() < readiness_deadline:
+            require_running(processes)
             try:
                 if http("/health/readiness", key=operator["admin_key"], timeout=2)[0] == 200:
+                    require_running(processes)
+                    require_listener(processes[0], 8767)
+                    require_listener(processes[1], 4001)
                     ready = True
                     break
             except Exception:
@@ -199,6 +261,7 @@ def up(state, python, postgres_image, *, qualified_nonroot=False):
         for user in ("alpha", "beta"):
             keys[user] = {}
             for profile in ("infrastructure", "financial"):
+                require_running(processes)
                 status, response = http("/key/generate", key=operator["admin_key"], data={
                     "models": ["secure-financial-chat"], "duration": "1h", "max_budget": 0.5,
                     "allowed_routes": ["/chat/completions"], "max_parallel_requests": 1,
@@ -253,14 +316,22 @@ def up(state, python, postgres_image, *, qualified_nonroot=False):
             "own_frames": [{"function": f.name, "line": f.lineno} for f in trace
                            if f.filename == str(Path(__file__).resolve())]})
         for process in reversed(processes):
-            stop_process(process)
+            try:
+                stop_process(process)
+            except Exception:
+                # The outer owner must finish cleanup; preserve the startup cause.
+                pass
         raise
 
 
 def down(state):
+    failures = []
     records = json.loads((state / "processes.json").read_text()) if (state / "processes.json").exists() else []
     for record in reversed(records):
-        stop_process(record)
+        try:
+            stop_process(record)
+        except Exception:
+            failures.append('process')
     # Docker labels identify only resources owned by this launcher.
     operator = json.loads((state / "operator.json").read_text())
     expected_run = operator.get("run_id")
@@ -276,6 +347,8 @@ def down(state):
         if not expected_run or probe.stdout.strip().decode() != expected_run:
             raise ValueError("local_stack:resource_not_owned")
         command(DOCKER_COMMAND + [ "network", "rm", NETWORK], state / "docker-cleanup.log")
+    if failures:
+        raise ValueError('local_stack:process_cleanup_incomplete')
     print(json.dumps({"local_stack": "stopped", "database_tmpfs_destroyed": True,
                       "private_state_retained": True}))
 
