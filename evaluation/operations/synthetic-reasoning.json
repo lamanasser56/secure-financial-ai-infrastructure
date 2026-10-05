@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "scope": "fixed_synthetic_operations_reasoning",
+  "cases": [
+    {"id": "owned-orphan", "observed": "ORPHANED", "ownership_verified": true, "active": false, "unknowns": ["SUPERVISOR_EXIT_CAUSE"], "admitted_recommendation": "REQUEST_OPERATOR_APPROVAL"},
+    {"id": "inactive-cache", "observed": "DISPOSABLE", "ownership_verified": true, "active": false, "unknowns": [], "admitted_recommendation": "REQUEST_OPERATOR_APPROVAL"},
+    {"id": "active-cache", "observed": "ACTIVE", "ownership_verified": true, "active": true, "unknowns": [], "admitted_recommendation": "DO_NOT_MUTATE"}
+  ]
+}

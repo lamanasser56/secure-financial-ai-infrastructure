@@ -1,0 +1,494 @@
+{
+  "schema_version": 1,
+  "scope": "fresh_local_security_operations_service_images",
+  "baseline": "4420689b35c2eb6e22f5e59e6ebb33d08279d3ab",
+  "source_commit_bound_in_private_final_handoff": true,
+  "assessed_utc": "2026-10-05T23:48:59.609764+00:00",
+  "subjects": {
+    "gateway": {
+      "configuration_id": "sha256:33ffd64cd021c812b1de3d00e8414b350f911622996b72d1ee50d051d7828f59",
+      "local_store_image_id": "sha256:a3dcf411dc50f7cb4d63dacfbc0b8c6103051a182b27936e703fb798478cd7d4",
+      "archive_sha256": [
+        "a65578192be99c50e0a2f08a2ac1bcc68d9223cf7d22b1d6b1b2d75976c8ee4c",
+        "a65578192be99c50e0a2f08a2ac1bcc68d9223cf7d22b1d6b1b2d75976c8ee4c"
+      ],
+      "archive_bytes": 203507200,
+      "reproducible": true,
+      "vulnerabilities": {
+        "MEDIUM": 16,
+        "LOW": 8
+      },
+      "components": 1703,
+      "scan_sha256": "c95efe346acedec2674272d1c14e2bc4e6b53f67ce855b15944fba5256c89c8f",
+      "sbom_sha256": "a7877ba999162e4d35edf3a66fc0c0a0cf136773cb5981b4a03afcc1b10a842e",
+      "high_critical_gate": true,
+      "secret_scan_exit": 0,
+      "functional_nonroot_readonly_network_none": "PASS",
+      "registry_digest": null,
+      "signature": null,
+      "source_inputs": [
+        [
+          "081e5f3a769d4efad9c551bc09a6cd0127a8bd80fc8ad3465c5f070f0f809e3b",
+          "docker/agent-composition/Dockerfile"
+        ],
+        [
+          "1e9efd2e4763fefad4201f30b137c031007e5982da6adecbc5d0e83d40c4c179",
+          "docker/agent-composition/Dockerfile.dockerignore"
+        ],
+        [
+          "62e17d9297a92812081f9863ac48b76c68897659e91d344e55cd166cfc777617",
+          "evaluation/agent-composition/generated-inputs.json"
+        ],
+        [
+          "0f8138170f4db09c943a591d814a5584eb7ab1ae80858981d8606da54a086cd9",
+          "requirements-agent-composition.txt"
+        ],
+        [
+          "71f9c84c122b3ee9ebac6fb00901f5730d888ed3e81c86bbb10d76f3c50c8d0a",
+          "requirements-litellm-candidate.txt"
+        ],
+        [
+          "9c69725b6b3b4e6cdfc148254849e76a48bb565c88a5a0475015be80e4d48fa5",
+          "scripts/local-agent-proxy.py"
+        ]
+      ],
+      "policy": {
+        "allowed": true,
+        "reason": "accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding",
+        "subject": "local-docker-archive-gateway@sha256:a65578192be99c50e0a2f08a2ac1bcc68d9223cf7d22b1d6b1b2d75976c8ee4c",
+        "scope": "actual_local_docker_archive_bytes_not_registry_manifest",
+        "raw_scan_artifact_name": "/tmp/portfolio-security-operations-4420689/ram-qualification/archives/gateway-a.tar",
+        "raw_scan_integrity": "c95efe346acedec2674272d1c14e2bc4e6b53f67ce855b15944fba5256c89c8f",
+        "only_artifact_name_binding_changed": true
+      }
+    },
+    "application": {
+      "configuration_id": "sha256:2c51a00d6adf0c3c67db24d2deb9f98dd9638ccfdeab7749fb19fb1e6014c1af",
+      "local_store_image_id": "sha256:af67317f1ca67b959e06dfe7f01590522ea98abf4222354aafd115883cf07421",
+      "archive_sha256": [
+        "f6cb30747edd90e4fd8a760dcfe65d85fbab37146a31bed6de100a1f29fb9a90",
+        "f6cb30747edd90e4fd8a760dcfe65d85fbab37146a31bed6de100a1f29fb9a90"
+      ],
+      "archive_bytes": 203636224,
+      "reproducible": true,
+      "vulnerabilities": {
+        "MEDIUM": 16,
+        "LOW": 8
+      },
+      "components": 1703,
+      "scan_sha256": "2c8371688540cccb8e3b87fbcac94dba9ca877d0b1f4053534d7abf95bc465cf",
+      "sbom_sha256": "1be2f9d139268eb20f6cea600fea75ca1985a9ed6ebdf7ba96f1e9a44a1c0615",
+      "high_critical_gate": true,
+      "secret_scan_exit": 0,
+      "functional_nonroot_readonly_network_none": "PASS",
+      "registry_digest": null,
+      "signature": null,
+      "source_inputs": [
+        [
+          "7a19a1ac1e0b9323d0348aabb6e4a93efecef3e041f362c6735418416bed1b54",
+          "contracts/agents/conversation-reset.schema.json"
+        ],
+        [
+          "d8fe3104feda82ecadcd8f01e1ca6d36f47925f4d3a74aaf213e037edb11aea2",
+          "contracts/agents/conversation.schema.json"
+        ],
+        [
+          "94b98e2d6a48ff25923c3aa461fad9b1aa44b5452dbb0d5b02948916a11780cc",
+          "contracts/agents/decision.schema.json"
+        ],
+        [
+          "83186e00e0230d55e768ec662e84e4e125d31aeb564ebb667e376376d9285e16",
+          "contracts/agents/expense_categories.input.schema.json"
+        ],
+        [
+          "0ffcf20e47526139b83a987a300f04bb6619ccd6299dcbb0244ab7ff0481307a",
+          "contracts/agents/expense_categories.output.schema.json"
+        ],
+        [
+          "83186e00e0230d55e768ec662e84e4e125d31aeb564ebb667e376376d9285e16",
+          "contracts/agents/expense_summary.input.schema.json"
+        ],
+        [
+          "e3de31af96e3788dd514dc3572e559e0a26f815a7dc12f6321ee51143e7cd281",
+          "contracts/agents/expense_summary.output.schema.json"
+        ],
+        [
+          "4f4ee902079ea0035d71047f70f35e703bf6a6915ee8a4b3b08b5dbbb5ab6cd7",
+          "contracts/agents/model-trace-v2.schema.json"
+        ],
+        [
+          "00089bbe388c7fe6286b4270916096c5c61b99bf4ebd5727d34307fb45a15329",
+          "contracts/agents/read_ci_summary.input.schema.json"
+        ],
+        [
+          "65fb7d0c7782963e0f93847d0f53d871175ba33ae28c865b8760e9e824c21030",
+          "contracts/agents/read_ci_summary.output.schema.json"
+        ],
+        [
+          "070f2b4cbc3f91e3c6f7648cdb15c5bde635f607cdf8ee32fad5f3d956a5044e",
+          "contracts/agents/read_image_summary.input.schema.json"
+        ],
+        [
+          "7170ed6169ede630f4fb595bbdf4846fda9e79d82d63e624a25a751630b2578b",
+          "contracts/agents/read_image_summary.output.schema.json"
+        ],
+        [
+          "e53e4e6cd397c5b00509395028071113285391993b9f6861f1311ec9cfcb5729",
+          "contracts/agents/read_runbook_section.input.schema.json"
+        ],
+        [
+          "a971abeb1c99fdd20f58123c2e43f1b9175d47896b7cbe6fd0ac02bcca228305",
+          "contracts/agents/read_runbook_section.output.schema.json"
+        ],
+        [
+          "623c76d6b7a4a4d0462f2d8a2315613849c43650b7b2ee33301063dfbf46d639",
+          "contracts/agents/request.schema.json"
+        ],
+        [
+          "e01662f1c686788cfacf53038959f9367ee70d08cd03ab5c0fec80c2905b82b6",
+          "contracts/agents/tool-registry.json"
+        ],
+        [
+          "2e9a310fc3921e0eb77bbad5f8e7f5b67ca8d5b7b0684103b17b1cd901a39280",
+          "contracts/operations/action.schema.json"
+        ],
+        [
+          "69cebb9fd3d0a158118c1339cb2a9914f46f048eeab1dfce551b98e633489c91",
+          "contracts/operations/result.schema.json"
+        ],
+        [
+          "6da24419aae4289956802b0c46dcbf3ba4a8a6911fe29be03f8c53045f337f8c",
+          "contracts/phase3/runtime-request.schema.json"
+        ],
+        [
+          "0c244e3e50a2f75a88b734d344276a80bb49dd7138143f2ce9678bde84f8258b",
+          "contracts/phase3/runtime-response.schema.json"
+        ],
+        [
+          "197328319ffd76dce1fad27fc802ef6a650ed5f7fe0666118f1876a69f8d0045",
+          "contracts/phase3/sanitized-trace-envelope.schema.json"
+        ],
+        [
+          "a1ad2955ad6f55983c1ac30ac3dea233d8bf122a7e51faf2408b73faab7b02aa",
+          "contracts/phase4/ai-audit-event.schema.json"
+        ],
+        [
+          "a14b66c58ff30d4c2ea0581c8fddf536738ab9f394f33a40dcab9885cee9cf84",
+          "contracts/phase4/openapi.yaml"
+        ],
+        [
+          "f57e358acf323a71c1ac416bbd65aab6e34b51036d2e97726c4620f07d8c99ec",
+          "contracts/phase4/tool-approval-decision.schema.json"
+        ],
+        [
+          "2a328f822128497b73b05bcbd8a107809372e00e3873fa9352c6054cc283f585",
+          "contracts/phase4/tool-invocation-request.schema.json"
+        ],
+        [
+          "ccf19ae2518c4b191906b254d5efd5e442bd574e5762300d3063fd2352893de9",
+          "contracts/phase4/tool-invocation-response.schema.json"
+        ],
+        [
+          "607af32b62dcb5858a34705f33891ca17d3d393a357b32e82cd9ead75b6e3263",
+          "contracts/phase4/tool-metadata.schema.json"
+        ],
+        [
+          "07697d827c6b8b78a0d0f3e8b99377503f534f6242258dd4462f4f5134774dc3",
+          "contracts/phase4/tool-registry.schema.json"
+        ],
+        [
+          "e48cdafd1b62dbdf695dbbde1ff72bf5aa1fc5c6efcde409bf80b7e81acc02d5",
+          "contracts/phase4/tools/example_get_cash_position.input.schema.json"
+        ],
+        [
+          "fcf507b9c8e1570db1de0b4e1d528f53ca8e41d2b625e598a14e002f78a71c9a",
+          "contracts/phase4/tools/example_get_cash_position.output.schema.json"
+        ],
+        [
+          "b1ca7f36d8defec3a07cc08a190e7d3a04867b40e8baad071d1bb15161703850",
+          "demo/fixtures/ci.json"
+        ],
+        [
+          "0aeef41420422a5a27fa893d41be92d9977ddeca4d611f157f9d8d17e17c87a0",
+          "demo/fixtures/expenses.json"
+        ],
+        [
+          "469491680da9059c4977f1eae85c3392214079451f6fa5d78e2bf7bfdf883bd0",
+          "demo/fixtures/image.json"
+        ],
+        [
+          "810fcec8b0c8ee296c46f3b38eaa6458ef632f46342f62c11bf421e8e2f85567",
+          "demo/fixtures/runbooks.json"
+        ],
+        [
+          "0b43596bce8c4c3ea42bf01f1f6283afc5cd7cea9ad42be301ea7f02ae528a8f",
+          "demo/i18n.json"
+        ],
+        [
+          "3cfc73f006b69f4294afeada77b9a9cad5c9c2a9ff869ca13f3ddee6102c18a3",
+          "demo/ui/app.js"
+        ],
+        [
+          "111dd2930d266ed1ec5d51908e56dc7ac240da07985ca9359e49a6eb8d427e7a",
+          "demo/ui/index.html"
+        ],
+        [
+          "1f02fb0a394e0176d00583a8a945ed4582112ca9065be24866066ff2e5c7457f",
+          "demo/ui/operations.html"
+        ],
+        [
+          "ffc694cb81cfabc282086c28a8c00f0ce94758bca8dd860a5d0e9f2a8bf1d791",
+          "demo/ui/operations.js"
+        ],
+        [
+          "c63a98e52c1a37a6639fbd24015052fbeebf69f78865ee53baac4241a3ee2db4",
+          "demo/ui/style.css"
+        ],
+        [
+          "081e5f3a769d4efad9c551bc09a6cd0127a8bd80fc8ad3465c5f070f0f809e3b",
+          "docker/agent-composition/Dockerfile"
+        ],
+        [
+          "1e9efd2e4763fefad4201f30b137c031007e5982da6adecbc5d0e83d40c4c179",
+          "docker/agent-composition/Dockerfile.dockerignore"
+        ],
+        [
+          "62e17d9297a92812081f9863ac48b76c68897659e91d344e55cd166cfc777617",
+          "evaluation/agent-composition/generated-inputs.json"
+        ],
+        [
+          "30545d904464e2a50ce58ec6a5d70e79e830bd99d53ace3add0e3ded3475f5d1",
+          "evaluation/operations/synthetic-reasoning.json"
+        ],
+        [
+          "0f8138170f4db09c943a591d814a5584eb7ab1ae80858981d8606da54a086cd9",
+          "requirements-agent-composition.txt"
+        ],
+        [
+          "71f9c84c122b3ee9ebac6fb00901f5730d888ed3e81c86bbb10d76f3c50c8d0a",
+          "requirements-litellm-candidate.txt"
+        ],
+        [
+          "18af7b156c0a8b4652c83362c632ebce01d991e2cbabd120e247aec3d67918c4",
+          "runtime/agents/__init__.py"
+        ],
+        [
+          "577f6c56ca5518e1c97210fc67c54a1af4d57420c4a0007eddf5f4326ac206c3",
+          "runtime/agents/audit_preparation.py"
+        ],
+        [
+          "57fbb086520b178cfe10cc1090c684e5bf9de739ad31f7ad890f84812722827a",
+          "runtime/agents/cli.py"
+        ],
+        [
+          "e97961714f5b791c8bdfb183c005eda2276592d7748e72f5c66ec5b2e5bb920d",
+          "runtime/agents/composition.py"
+        ],
+        [
+          "b90bc31ae2eca07759f5dd719d8253fcb3add839e4d2649019d7f278891347bf",
+          "runtime/agents/controls.py"
+        ],
+        [
+          "c9b848dcf212b691f21243bc2840b3a736c2910b00dbd4a62cf9b01c6ea20570",
+          "runtime/agents/conversations.py"
+        ],
+        [
+          "c39b5d7889c0ad4f14ec347f9c6a10f2ba22386ec4e769cf73fd4603b3879f9d",
+          "runtime/agents/core.py"
+        ],
+        [
+          "d3a62ead01689cc55c45071256c4ce7a0c64f897fac071851fd9d4ab0d8e5b11",
+          "runtime/agents/credentials.py"
+        ],
+        [
+          "5e5e5791453b4187c03707f1dce5792d3af3a12afe0af1351c32c30989ae2fb5",
+          "runtime/agents/database_preparation.py"
+        ],
+        [
+          "ba1b1c6fafbd1a131c8912c04ec17a69288915b695d4f880a23d8779edd7be7e",
+          "runtime/agents/demo.py"
+        ],
+        [
+          "144d2d0d34f35e4a629e90c4ffb844ea58838b2f5d5e7f47390178d32ea52fb0",
+          "runtime/agents/gateway_budget.py"
+        ],
+        [
+          "b3c0a1742de305ba5f9726d3212f8bfebed3e77c1fb8f8d566aa39f2a4925d7c",
+          "runtime/agents/identity.py"
+        ],
+        [
+          "730e2130501e97343c26ef0e83e26f6596bad318f059c4f61bb19a1682c71a29",
+          "runtime/agents/localization.py"
+        ],
+        [
+          "e29f823c7d4a18d2c81971025f4617f512249b674fc8d5ce8a387b431a41e785",
+          "runtime/agents/operations.py"
+        ],
+        [
+          "0dc7974270edb15eb407b0b0fbf9f6d8c634e5117e365590f5ffa6d72f241a64",
+          "runtime/agents/operations_catalog.py"
+        ],
+        [
+          "e407504fab0dbd63f6278ac8fa543309b5089bdba1f1a801ce6ecf73658644a1",
+          "runtime/agents/operations_local.py"
+        ],
+        [
+          "5abdd73900355c7541a3548c3a7154c83ab2b7a6a2d36cbe476139dc9ed7af0f",
+          "runtime/agents/operations_model.py"
+        ],
+        [
+          "2ff69b3934ea34ec11917959bd5dc224b61e7d16a24056a04ca723d0a1270a50",
+          "runtime/agents/operations_security.py"
+        ],
+        [
+          "24ffa00c1e8452d5458f9689d30c757b9ef8b87b2ace5ca38cb7818db5d3ad28",
+          "runtime/agents/operations_service.py"
+        ],
+        [
+          "70a65c4f2e3605274d884a5f3f5736efd4e7c359713bd6c19f6bcfe81619efb1",
+          "runtime/agents/presentation.py"
+        ],
+        [
+          "927b1a06131de5a34e2d721e0bbcd38e54f44baa9af8d247eb5bc34417dae880",
+          "runtime/agents/protocol_preparation.py"
+        ],
+        [
+          "bdc0fbb754967bdba2bcb98c4f86ba9410e754de5b73ac03ce7b82f8110da635",
+          "runtime/agents/questions.py"
+        ],
+        [
+          "33ab298da82c477672a1327f8eab250eca800137a09c0a3c7e11ef34c4bcfd23",
+          "runtime/agents/schemas.py"
+        ],
+        [
+          "a9a033357e40cd9d17863eceaa2372efcb0b44e8e0ce08ec1f5faef5534b8e66",
+          "runtime/agents/synthetic_scope_candidate.py"
+        ],
+        [
+          "40ae6af9f67867cb6c6e701c1165fd9d9ccf8cd611efafd38086c9b88dc74e8d",
+          "runtime/agents/terminal_audit.py"
+        ],
+        [
+          "62b963d7b83dd962ec483e00d14f2a8a61ad98dcbf728c6312d3de34fae84ddd",
+          "runtime/agents/terminal_diagnostics.py"
+        ],
+        [
+          "4b1ba8f564b8b6cd35ce9e23c1574aa6f8a56eb806413f289e0972f594ecb3a8",
+          "runtime/agents/tools.py"
+        ],
+        [
+          "30313905fdafecadc6edf84c61bb3caffa4181ed85af6d6a1c4fecf453e2902e",
+          "runtime/agents/web.py"
+        ],
+        [
+          "e77baf7bc54661c9dd022cd54d4c9bf5186e5546d8b8945bee56dfbf900fdcab",
+          "runtime/phase3/__init__.py"
+        ],
+        [
+          "3bd0456b17e29b8c331e1fb6111258151f83d1c86fcf4a727246d3d2b1ffa727",
+          "runtime/phase3/adapters.py"
+        ],
+        [
+          "bfd7b930fcd070ffa06daf5ee4df495dfed69cae0414548ecb25e90e47d0b8d4",
+          "runtime/phase3/google_sdp_adapter.py"
+        ],
+        [
+          "f8a1cbedede1dff634a10f41cf7c5ec94b2beddd1eff611ccb96bb9cf219f7c8",
+          "runtime/phase3/mocks.py"
+        ],
+        [
+          "a4c67023d43e94e64092f233579f5a5002a333a4d7dab69b8e8965b5e2fdcb6a",
+          "runtime/phase3/sdp_context_policy.py"
+        ],
+        [
+          "38b8ef99e789cf70e65dbef5fbe50fc037af360105941609a2e6e264edd972f4",
+          "runtime/phase3/sdp_qualification.py"
+        ],
+        [
+          "958fe191230951184811302c38d5344d9c15aecb19719a2df94d7b4a4a9166c3",
+          "runtime/phase3/trusted_runtime.py"
+        ],
+        [
+          "c621df204d7870b010799e561cdf99a8193b7a6546782cd442c4e4ac7826fc24",
+          "runtime/phase4/__init__.py"
+        ],
+        [
+          "663408c75f4f8ef796445a7c92e86118c255c5672ace281e55cb5cdf797a1f84",
+          "runtime/phase4/prompt_injection.py"
+        ],
+        [
+          "9fce0740bcf43fe0eef2d8f0f9bef0020b0226236bb07cc90a4c820781a1fdef",
+          "runtime/phase4/tool_approval.py"
+        ],
+        [
+          "56d209b58f97062219bdcfdfe094c96baa8da89f96bbec8824c6e15169d7cfd3",
+          "runtime/phase4/tool_audit.py"
+        ],
+        [
+          "69c9c5ac33096e6d5608781dcbb17b1936d422bddc033312e0c192cc8c2d85ce",
+          "runtime/phase4/tool_governance.py"
+        ],
+        [
+          "7af2cd19c32148a7c8637c6f72f1b7621e3bafc15d9078a2a5ae5d96e730c0f4",
+          "runtime/phase4/tool_invocation.py"
+        ],
+        [
+          "c39d1dd1818e567051dc138761c9f43604fd4d4d935ec1faf9afcb1c089924ac",
+          "runtime/phase4/tool_policy.py"
+        ],
+        [
+          "b5b6031d53f17089012ce06720435298c7b18aa4706184b98430744f0f9b6c90",
+          "runtime/phase4/tool_registry.py"
+        ],
+        [
+          "1f36a8d7ea06e0d703205ab6af21f551f21cef91336f50eb283049a2544c3fdb",
+          "scripts/evaluate-container-vulnerability-policy.py"
+        ],
+        [
+          "48340be2ca045a2f0b8739651c6bd0d2230505d8192b4a25e84edd805020f7fc",
+          "scripts/inspect-operations-active-path.py"
+        ],
+        [
+          "b085b992755a423a529459ab627294d23571fb2aeabefa2166bf29e973138339",
+          "scripts/rehearse-operations-reasoning.py"
+        ],
+        [
+          "b20f7edae3c71f08a42c8c3eeb1b79cdf0c38df69d315e48cb562d2593e4acc3",
+          "scripts/run-local-operations.py"
+        ],
+        [
+          "f31e2d9d2a7747e588e3554ec034905438287131d73001abe659c8a1a0d0395c",
+          "scripts/serve-integrated-agents.py"
+        ]
+      ],
+      "policy": {
+        "allowed": true,
+        "reason": "accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding",
+        "subject": "local-docker-archive-application@sha256:f6cb30747edd90e4fd8a760dcfe65d85fbab37146a31bed6de100a1f29fb9a90",
+        "scope": "actual_local_docker_archive_bytes_not_registry_manifest",
+        "raw_scan_artifact_name": "/tmp/portfolio-security-operations-4420689/ram-qualification-3/archives/application-a.tar",
+        "raw_scan_integrity": "2c8371688540cccb8e3b87fbcac94dba9ca877d0b1f4053534d7abf95bc465cf",
+        "only_artifact_name_binding_changed": true
+      }
+    }
+  },
+  "build_epoch": 1791220800,
+  "architecture": "linux/amd64",
+  "zero_exception_policy": true,
+  "registry_manifests": null,
+  "signatures": null,
+  "external_model_calls": 0,
+  "sdp_attempts": 0,
+  "host_integration_with_actual_local_litellm": "PASS_LOCAL_STUB",
+  "full_container_host_operations": false,
+  "container_scope": "nonroot_readonly_network_none_import_and_help_only",
+  "original_database_subject_unchanged": true,
+  "qualification_mount_removed": true,
+  "trivy_database_metadata": {
+    "Version": 2,
+    "NextUpdate": "2026-10-06T19:07:00.467980844Z",
+    "UpdatedAt": "2026-10-05T19:07:00.467981014Z",
+    "DownloadedAt": "2026-10-05T22:59:48.699496884Z"
+  },
+  "kev_integrity": "f51fed1c9213e7b797104fcd6dbeb1b0dc0c7073a80467b9d4b1fc25e7dd786b"
+}

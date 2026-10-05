@@ -42,4 +42,8 @@ COPY --chown=65532:65532 runtime/ /app/runtime/
 COPY --chown=65532:65532 contracts/ /app/contracts/
 COPY --chown=65532:65532 demo/ /app/demo/
 COPY --chown=65532:65532 scripts/serve-integrated-agents.py /app/scripts/serve-integrated-agents.py
+COPY --chown=65532:65532 scripts/run-local-operations.py scripts/inspect-operations-active-path.py /app/scripts/
+COPY --chown=65532:65532 scripts/evaluate-container-vulnerability-policy.py /app/scripts/
+COPY --chown=65532:65532 scripts/rehearse-operations-reasoning.py /app/scripts/
+COPY --chown=65532:65532 evaluation/operations /app/evaluation/operations
 ENTRYPOINT ["/usr/local/bin/python3.12", "/app/scripts/serve-integrated-agents.py"]

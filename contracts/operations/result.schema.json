@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Verified local operation outcome",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request_id", "target_id", "action", "evidence_id", "status", "code", "mutation_count", "reclaimed_allocated_bytes", "seconds", "audit_committed", "budgets"],
+  "properties": {
+    "request_id": {"type": "string", "maxLength": 128},
+    "target_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{2,47}$"},
+    "action": {"enum": ["recover", "clean"]},
+    "evidence_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "status": {"enum": ["VERIFIED", "FAILED"]},
+    "code": {"enum": ["OK", "TARGET_DENIED", "IDENTITY_DENIED", "APPROVAL_DENIED", "EVIDENCE_CHANGED", "ACTIVE_FILE", "UNSAFE_FILE", "INCOMPLETE_VISIBILITY", "OWNER_CHANGED", "NOT_ORPHANED", "AUDIT_FAILED", "ACTION_FAILED", "BUDGET_EXHAUSTED", "GATEWAY_UNAVAILABLE", "MODEL_RESPONSE_REJECTED", "MODEL_DISABLED", "INVALID_REQUEST"]},
+    "mutation_count": {"type": "integer", "minimum": 0, "maximum": 32},
+    "reclaimed_allocated_bytes": {"type": "integer", "minimum": 0, "maximum": 67108864},
+    "seconds": {"type": "number", "minimum": 0},
+    "audit_committed": {"type": "boolean"},
+    "root_available_bytes_before": {"type": "integer", "minimum": 0},
+    "root_available_bytes_after": {"type": "integer", "minimum": 0},
+    "budgets": {"type": "object"}
+  }
+}

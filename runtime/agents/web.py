@@ -18,6 +18,8 @@ ASSETS = {
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/style.css": ("style.css", "text/css; charset=utf-8"),
     "/i18n.json": ("i18n.json", "application/json; charset=utf-8"),
+    "/operations.html": ("operations.html", "text/html; charset=utf-8"),
+    "/operations.js": ("operations.js", "text/javascript; charset=utf-8"),
 }
 
 
@@ -25,7 +27,7 @@ class DemoServer(HTTPServer):
     allow_reuse_address = False
 
     def __init__(self, address=("127.0.0.1", 8765), *, user="demo-alpha", agents=None,
-                 composition=None):
+                 composition=None, operations=None):
         if (
             address[0] != "127.0.0.1"
             or type(address[1]) is not int
@@ -35,6 +37,7 @@ class DemoServer(HTTPServer):
         self.agents = agents if agents is not None else {
             p: make_demo(p, user) for p in ("infrastructure", "financial")}
         self.composition = composition
+        self.operations = operations
         self.conversations = ConversationStore(self.agents)
         super().__init__(address, Handler)
         self.origin = f"http://127.0.0.1:{self.server_port}"
@@ -138,6 +141,7 @@ class Handler(BaseHTTPRequestHandler):
                     "mode": "offline_simulation",
                     "authentication": "simulated",
                     "synthetic_only": True,
+                    **({'operations_available': True} if self.server.operations else {}),
                     **({"composition": self.server.composition} if self.server.composition is not None else {}),
                 },
                 cookie=token,
@@ -177,7 +181,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.boundary(post=True):
             return
-        if self.path not in {"/api/conversation", "/api/reset"}:
+        if self.path not in {"/api/conversation", "/api/reset", "/api/operations"}:
             self.respond(404, {"error": "not_found"})
             return
         token = self.session_token()
@@ -212,12 +216,28 @@ class Handler(BaseHTTPRequestHandler):
             body = self.rfile.read(int(lengths[0]))
             if len(body) != int(lengths[0]):
                 raise ValueError
-            request = json.loads(body)
-            result = (
+            if self.path == '/api/operations':
+                from runtime.agents.operations_service import decode_request
+                request = decode_request(body)
+            else:
+                request = json.loads(body)
+            if self.path == '/api/operations':
+                if self.server.operations is None:
+                    self.respond(503, {'error': 'operations_unavailable'})
+                    return
+                from runtime.agents.operations import OperationsBlocked
+                try:
+                    result = self.server.operations.handle(request)
+                except OperationsBlocked as failure:
+                    self.respond(403, {'error': failure.code,
+                        'budgets': self.server.operations.controller.budgets()})
+                    return
+            else:
+                result = (
                 self.server.conversations.turn(token, request)
                 if self.path == "/api/conversation"
                 else self.server.conversations.reset(token, request)
-            )
+                )
         except ConversationRejected as failure:
             self.respond(403, {"error": str(failure)})
             return

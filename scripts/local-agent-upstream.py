@@ -28,7 +28,19 @@ class Handler(BaseHTTPRequestHandler):
         request = json.loads(self.rfile.read(int(length)))
         prompt = request["messages"][-1]["content"]
         control = json.loads((state / "stub-control.json").read_text()) if (state / "stub-control.json").exists() else {"mode": "canonical"}
-        envelope = FakeGateway().complete("secure-financial-chat", prompt, {}).output
+        try:
+            facts = json.loads(prompt)
+        except (ValueError, TypeError):
+            facts = None
+        if type(facts) is dict and 'observed' in facts and 'evidence_id' in facts and 'target_id' in facts:
+            # Local deterministic explanation of actual observations, explicitly
+            # a stub. This response has no tool or approval authority.
+            envelope = {'summary': 'Observed ' + str(facts['observed']) + '. '
+                + ('Supervisor exit cause remains unknown.' if facts['observed'] == 'ORPHANED'
+                   else 'Review current evidence and policy before any action.'),
+                'classification': 'informational'}
+        else:
+            envelope = FakeGateway().complete("secure-financial-chat", prompt, {}).output
         message = {"role": "assistant", "content": json.dumps(envelope, ensure_ascii=False)}
         finish = "stop"
         if control["mode"] == "native_tool":

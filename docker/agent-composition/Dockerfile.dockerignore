@@ -4,6 +4,13 @@
 !scripts/
 !scripts/local-agent-proxy.py
 !scripts/serve-integrated-agents.py
+!scripts/run-local-operations.py
+!scripts/inspect-operations-active-path.py
+!scripts/evaluate-container-vulnerability-policy.py
+!scripts/rehearse-operations-reasoning.py
+!evaluation/
+!evaluation/operations/
+!evaluation/operations/synthetic-reasoning.json
 !runtime/
 !runtime/**
 !contracts/
