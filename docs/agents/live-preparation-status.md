@@ -2,6 +2,12 @@
 
 ## Current checkpoint
 
+Independent [offline integration contracts](offline-integration-contracts.md)
+prepare canonical gateway-response admission, transaction-scoped tenant binding
+and a private durable audit prototype. They remain unwired and qualify no live
+redactor, proxy key, issuer or database. The separately approved four-comparison
+diagnostic source/program and all historical evidence remain fixed.
+
 The frozen context campaign at `de9f3d1d…` stopped with **59 actual mandatory
 passes and one failure, context-060**: an amount-labelled email had no scored
 finding. Ten mandatory cases and all sixteen unsupported observations remain

@@ -1,5 +1,10 @@
 # Bounded live-agent execution boundary
 
+The [independent offline contracts](offline-integration-contracts.md) add unwired
+protocol, trusted tenant transaction and durable audit candidates. Their proposed
+next milestone is offline composition only; no local test, email diagnostic or
+campaign pass authorizes key issuance, deployment, model calls or live agents.
+
 ## Checkpoint: technically blocked
 
 Current blocker: the frozen context campaign passed 59 mandatory cases then failed
