@@ -23,14 +23,18 @@ DIAGNOSTIC = ROOT / "evaluation/google-sdp-context/diagnostic-qualification.json
 
 
 class DiagnosticReleaseTests(unittest.TestCase):
-    def test_actual_qualified_diagnostic_record_binds_current_exact_inputs_and_limits(self):
+    def test_retained_diagnostic_record_binds_its_historical_inputs_and_limits(self):
         historical = json.loads(HISTORICAL.read_text())
         record = json.loads(DIAGNOSTIC.read_text())
         self.assertEqual(record["source_baseline"], "4df3686c708d0e00107a3226d18ff5b2536ee53d")
         self.assertEqual(set(record["source_input_sha256"]), set(historical["source_input_sha256"]))
         self.assertEqual(len(record["source_input_sha256"]), 14)
-        for name, expected in record["source_input_sha256"].items():
-            self.assertEqual(hashlib.sha256((ROOT / name).read_bytes()).hexdigest(), expected, name)
+        changed = {name for name, expected in record["source_input_sha256"].items()
+                   if hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != expected}
+        self.assertEqual(changed, {"scripts/evaluate-sdp-context-policy.py",
+                                   "evaluation/google-sdp-context/result.schema.json"})
+        self.assertEqual(hashlib.sha256(DIAGNOSTIC.read_bytes()).hexdigest(),
+                         "0236b632a6e36f5d2225d04d4196f2f945419a7c3454f056b9a0009a29ec00e7")
         self.assertNotEqual(record["source_input_sha256"]["runtime/phase3/google_sdp_adapter.py"],
                             historical["source_input_sha256"]["runtime/phase3/google_sdp_adapter.py"])
         expected = {

@@ -7,6 +7,7 @@ execution approval. Trusted deployment and frozen artifacts are mandatory.
 """
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -34,11 +35,15 @@ CAMPAIGN_SECONDS = 900
 DIAGNOSTIC_ACK_ENV = "PORTFOLIO_SDP_CONTEXT_DIAGNOSTIC_ONLY_ACK"
 DIAGNOSTIC_ACK_VALUE = "I_ACKNOWLEDGE_CONTEXT_001_ONLY_TWO_ATTEMPTS"
 DIAGNOSTIC_SECONDS = 30
+CAMPAIGN_SCOPE = "context_pattern_v1_campaign"
+CORPUS_SHA256 = "0c07aa1e8b480e732cdcaa6e9f406661058220ad41de607af7124198e5e71eb9"
+POLICY_SHA256 = "c1b782c6fd051243dec4173f903cb33607893010c7d38a6b35bc1372ddb2d4db"
 
 
 def load_corpus():
     raw = (DIRECTORY / "corpus.json").read_bytes()
-    if len(raw) > 131072:
+    if (len(raw) > 131072 or hashlib.sha256(raw).hexdigest() != CORPUS_SHA256
+            or policy_digest() != POLICY_SHA256):
         raise ValueError
     corpus = json.loads(raw, object_pairs_hook=_unique)
     schema = json.loads((DIRECTORY / "corpus.schema.json").read_text())
@@ -106,9 +111,19 @@ def evaluate(live=False, *, client=None, clock=time.monotonic, first_case_only=F
     }
     if first_case_only:
         result["scope"] = "context_001_diagnostic_only"
+    else:
+        result.update(scope=CAMPAIGN_SCOPE, operational_failures=0,
+                      observation_failures=0)
     for case in cases:
+        observation = case["classification"].startswith("unsupported_")
         if clock() - started >= (DIAGNOSTIC_SECONDS if first_case_only else CAMPAIGN_SECONDS):
-            result["required_fail"] += 1
+            if first_case_only:
+                result["required_fail"] += 1  # Historical diagnostic contract.
+            else:
+                result["operational_failures"] = 1
+                result["campaign_diagnostic"] = {
+                    "code": "OVERALL_TIMEOUT", "stage": "sequence"
+                }
             break
         expected = {
             (s["start"], s["end"], s["info_type"]) for s in case["expected_spans"]
@@ -121,7 +136,6 @@ def evaluate(live=False, *, client=None, clock=time.monotonic, first_case_only=F
                 actual = {
                     (s.start, s.end, s.info_type) for s in redactor._evaluation_spans
                 }
-            observation = case["classification"].startswith("unsupported_")
             passed = actual == expected
             status = "OBSERVATION" if observation else "PASS" if passed else "FAIL"
             result[
@@ -144,7 +158,11 @@ def evaluate(live=False, *, client=None, clock=time.monotonic, first_case_only=F
             if status == "FAIL":
                 break
         except Exception as error:
-            result["required_fail"] += 1
+            if not observation:
+                result["required_fail"] += 1
+            if not first_case_only:
+                result["operational_failures"] = 1
+                result["observation_failures"] += int(observation)
             result["cases"].append(
                 {
                     "case_id": case["case_id"],
@@ -165,7 +183,7 @@ def evaluate(live=False, *, client=None, clock=time.monotonic, first_case_only=F
         result["injected_attempts"] = sum(redactor.injected_client_counts.values())
     result["outcome"] = (
         "FAIL_CLOSED"
-        if result["required_fail"] or result["unexecuted"]
+        if result["required_fail"] or result["unexecuted"] or result.get("operational_failures", 0)
         else (
             "SYNTHETIC_POLICY_ONLY_REVIEW_REQUIRED"
             if live
@@ -193,6 +211,55 @@ def validate_result(result):
         or result["observations"] != 0
     ):
         raise ValueError
+    if result.get("scope") == CAMPAIGN_SCOPE:
+        cases = load_corpus()["cases"]
+        completed = result["cases"]
+        if ([c["case_id"] for c in completed] != [c["case_id"] for c in cases[:len(completed)]]
+                or result["policy_sha256"] != POLICY_SHA256
+                or result["unexecuted"] != len(cases) - len(completed)
+                or result["sdk_attempts"] + result["injected_attempts"] > 2 * len(completed)
+                or (result["mode"] == "offline_reference" and result["sdk_attempts"] != 0)
+                or (result["mode"] == "live_synthetic" and result["injected_attempts"] != 0)):
+            raise ValueError
+        passes = failures = observations = observation_failures = closed = 0
+        for index, (case, row) in enumerate(zip(cases, completed)):
+            unsupported = case["classification"].startswith("unsupported_")
+            status = row["status"]
+            if status in {"FAIL", "FAIL_CLOSED"} and index != len(completed) - 1:
+                raise ValueError  # No work after a failing gate.
+            if status == "FAIL_CLOSED":
+                if any(row[key] != 0 for key in ("tp", "fp", "fn")) or "diagnostic" not in row:
+                    raise ValueError  # Placeholders are never accuracy scores.
+                closed += 1
+            if unsupported:
+                if status not in {"OBSERVATION", "FAIL_CLOSED"}:
+                    raise ValueError
+                observations += int(status == "OBSERVATION")
+                observation_failures += int(status == "FAIL_CLOSED")
+            else:
+                if status not in {"PASS", "FAIL", "FAIL_CLOSED"}:
+                    raise ValueError
+                passes += int(status == "PASS")
+                failures += int(status in {"FAIL", "FAIL_CLOSED"})
+                if status == "PASS" and (row["fp"] or row["fn"] or row["tp"] != len(case["expected_spans"])):
+                    raise ValueError
+                if status == "FAIL" and not (row["fp"] or row["fn"]):
+                    raise ValueError
+        timeout = "campaign_diagnostic" in result
+        if timeout and (closed or result["unexecuted"] == 0 or result["campaign_diagnostic"] != {
+                "code": "OVERALL_TIMEOUT", "stage": "sequence"}):
+            raise ValueError
+        if (result["required_pass"] != passes or result["required_fail"] != failures
+                or result["observations"] != observations
+                or result["observation_failures"] != observation_failures
+                or result["operational_failures"] != closed + int(timeout)):
+            raise ValueError
+        expected_outcome = ("FAIL_CLOSED" if failures or closed or timeout or result["unexecuted"]
+                            else "SYNTHETIC_POLICY_ONLY_REVIEW_REQUIRED" if result["mode"] == "live_synthetic"
+                            else "OFFLINE_REFERENCE_PASS_GOOGLE_UNPROVEN")
+        expected_quality = "synthetic_policy_observations_only" if result["mode"] == "live_synthetic" else "unmeasured"
+        if result["outcome"] != expected_outcome or result["google_quality"] != expected_quality:
+            raise ValueError
 
 
 def main():

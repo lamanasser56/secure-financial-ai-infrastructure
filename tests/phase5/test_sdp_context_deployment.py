@@ -83,6 +83,11 @@ class ContextDeploymentTests(unittest.TestCase):
                 "command",
                 "initcontainer",
                 "volume",
+                "diagnostic",
+                "deadline",
+                "retry",
+                "parallelism",
+                "secondack",
             ):
                 altered = yaml.safe_load_all(path.read_text())
                 altered = list(altered)
@@ -119,6 +124,17 @@ class ContextDeploymentTests(unittest.TestCase):
                     j["spec"]["template"]["spec"]["volumes"] = [
                         {"name": "arbitrary", "emptyDir": {}}
                     ]
+                if mutation == "diagnostic":
+                    c["args"] = ["--live", "--diagnostic-first-case"]
+                if mutation == "deadline":
+                    j["spec"]["activeDeadlineSeconds"] = 120
+                if mutation == "retry":
+                    j["spec"]["backoffLimit"] = 1
+                if mutation == "parallelism":
+                    j["spec"]["parallelism"] = 2
+                if mutation == "secondack":
+                    c["env"].append({"name": "PORTFOLIO_SDP_CONTEXT_DIAGNOSTIC_ONLY_ACK",
+                                     "value": "I_ACKNOWLEDGE_CONTEXT_001_ONLY_TWO_ATTEMPTS"})
                 with tempfile.TemporaryDirectory() as temporary:
                     target = Path(temporary)
                     for name in (

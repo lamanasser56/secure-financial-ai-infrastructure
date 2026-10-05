@@ -255,3 +255,18 @@ resources or apply an incomplete plan.
 Those gates remain unmet. No execution approval is requested at this blocked
 checkpoint. No production readiness, comprehensive detection, Saudi residency,
 full portability, independent review or CS6 closure is established.
+
+## Frozen context campaign continuation — 2026-10-05
+
+The single context-001 diagnostic passed and its temporary cleanup was verified.
+This does not establish the original failure cause or broader detection quality.
+The [current full campaign preparation](../security/google-sdp-context-campaign-execution-bundle.md)
+reuses the repaired adapter for exactly 70 mandatory cases plus 16 unsupported
+observations, at most 172 content attempts and zero retries. Its fresh image
+record remains unpromoted; publication and execution need separate owner approval.
+The USD 5 threshold and billing screenshot prerequisite are removed by owner
+amendment; billing must not be upgraded or changed. No Presidio remediation or
+separate valid-identifier/eight-class research resumes. Provider authority, offline
+UI, agent/model enablement and retirement remain unchanged. Exact subsequent
+scope/privacy/runtime/audit/identity/gateway/integration/authority gates are listed
+in that proposal; a finite policy pass does not close them.

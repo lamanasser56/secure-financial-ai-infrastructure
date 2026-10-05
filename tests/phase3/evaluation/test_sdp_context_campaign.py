@@ -32,11 +32,12 @@ class ContextCampaignTests(unittest.TestCase):
             "scripts/evaluate-sdp-context-policy.py",
             "evaluation/google-sdp-context/result.schema.json",
         })
-        # Unchanged release helper rejects these stale inputs BEFORE build/auth.
+        # Current campaign gate uses a distinct fresh record before build/auth.
         helper = (ROOT / "scripts/qualify-sdp-context-release.sh").read_text()
-        self.assertIn("context image input differs from qualification", helper)
-        self.assertLess(helper.index("context image input differs from qualification"),
+        self.assertIn("campaign image input differs from qualification", helper)
+        self.assertLess(helper.index("campaign image input differs from qualification"),
                         helper.index('bash scripts/build-sdp-context-image.sh'))
+        self.assertIn("campaign-qualification.json", helper)
         self.assertFalse(record["google_detection_proven"])
         self.assertFalse(record["authority_changed"])
         self.assertIsNone(record["candidate"]["registry_manifest_digest"])
@@ -150,3 +151,32 @@ class ContextCampaignTests(unittest.TestCase):
             )["fixtures"]["proposed_live_cases"],
             87,
         )
+
+    def test_bounded_result_cli_accepts_reference_and_rejects_scope_raw_or_duplicates(self):
+        import copy
+        import subprocess
+        import sys
+        import tempfile
+
+        valid = runner.evaluate()
+        values = [json.dumps(valid)]
+        for key, value in (("scope", "context_001_diagnostic_only"), ("raw_text", "private marker"),
+                           ("required_pass", 69), ("observations", 0)):
+            changed = copy.deepcopy(valid)
+            changed[key] = value
+            values.append(json.dumps(changed))
+        values.extend(['{"scope":"context_pattern_v1_campaign","scope":"context_pattern_v1_campaign"}',
+                       " " * 16385, json.dumps(valid).encode("utf-16")])
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "result.json"
+            for index, raw in enumerate(values):
+                path.write_bytes(raw.encode() if isinstance(raw, str) else raw)
+                process = subprocess.run([sys.executable, str(ROOT / "scripts/validate-sdp-context-campaign-result.py"), str(path)],
+                                         capture_output=True, text=True)
+                if index == 0:
+                    self.assertEqual(process.returncode, 0, process.stderr)
+                    self.assertEqual(json.loads(process.stdout)["required_pass"], 70)
+                else:
+                    self.assertNotEqual(process.returncode, 0)
+                    self.assertEqual(process.stderr.strip(), "campaign result contract rejected")
+                    self.assertNotIn("private marker", process.stdout + process.stderr)

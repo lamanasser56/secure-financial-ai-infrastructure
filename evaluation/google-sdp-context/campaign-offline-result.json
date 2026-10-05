@@ -1,0 +1,622 @@
+{
+  "authority_changed": false,
+  "cases": [
+    {
+      "case_id": "context-001",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-002",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-003",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-004",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-005",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-006",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-007",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-008",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-009",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-010",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-011",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-012",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-013",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-014",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-015",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-016",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-017",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-018",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-019",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-020",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-021",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-022",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-023",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-024",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-025",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-026",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-027",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-028",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-029",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-030",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-031",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-032",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-033",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-034",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-035",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-036",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-037",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-038",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-039",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-040",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-041",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-042",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-043",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-044",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-045",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-046",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-047",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 3
+    },
+    {
+      "case_id": "context-048",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 3
+    },
+    {
+      "case_id": "context-049",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 3
+    },
+    {
+      "case_id": "context-050",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 2
+    },
+    {
+      "case_id": "context-051",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-052",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-053",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-054",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-055",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-056",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-057",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-058",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-059",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-060",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-061",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-062",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    },
+    {
+      "case_id": "context-063",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 0
+    },
+    {
+      "case_id": "context-064",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 0
+    },
+    {
+      "case_id": "context-065",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 0
+    },
+    {
+      "case_id": "context-066",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 0
+    },
+    {
+      "case_id": "context-067",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 0
+    },
+    {
+      "case_id": "context-068",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 0
+    },
+    {
+      "case_id": "context-069",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 0
+    },
+    {
+      "case_id": "context-070",
+      "fn": 0,
+      "fp": 0,
+      "status": "OBSERVATION",
+      "tp": 0
+    },
+    {
+      "case_id": "context-071",
+      "fn": 0,
+      "fp": 0,
+      "status": "OBSERVATION",
+      "tp": 0
+    },
+    {
+      "case_id": "context-072",
+      "fn": 0,
+      "fp": 0,
+      "status": "OBSERVATION",
+      "tp": 0
+    },
+    {
+      "case_id": "context-073",
+      "fn": 0,
+      "fp": 0,
+      "status": "OBSERVATION",
+      "tp": 0
+    },
+    {
+      "case_id": "context-074",
+      "fn": 0,
+      "fp": 0,
+      "status": "OBSERVATION",
+      "tp": 0
+    },
+    {
+      "case_id": "context-075",
+      "fn": 0,
+      "fp": 0,
+      "status": "OBSERVATION",
+      "tp": 0
+    },
+    {
+      "case_id": "context-076",
+      "fn": 0,
+      "fp": 0,
+      "status": "OBSERVATION",
+      "tp": 0
+    },
+    {
+      "case_id": "context-077",
+      "fn": 0,
+      "fp": 0,
+      "status": "OBSERVATION",
+      "tp": 0
+    },
+    {
+      "case_id": "context-078",
+      "fn": 0,
+      "fp": 0,
+      "status": "OBSERVATION",
+      "tp": 0
+    },
+    {
+      "case_id": "context-079",
+      "fn": 0,
+      "fp": 0,
+      "status": "OBSERVATION",
+      "tp": 0
+    },
+    {
+      "case_id": "context-080",
+      "fn": 0,
+      "fp": 0,
+      "status": "OBSERVATION",
+      "tp": 0
+    },
+    {
+      "case_id": "context-081",
+      "fn": 0,
+      "fp": 0,
+      "status": "OBSERVATION",
+      "tp": 0
+    },
+    {
+      "case_id": "context-082",
+      "fn": 0,
+      "fp": 0,
+      "status": "OBSERVATION",
+      "tp": 0
+    },
+    {
+      "case_id": "context-083",
+      "fn": 0,
+      "fp": 0,
+      "status": "OBSERVATION",
+      "tp": 0
+    },
+    {
+      "case_id": "context-084",
+      "fn": 0,
+      "fp": 0,
+      "status": "OBSERVATION",
+      "tp": 0
+    },
+    {
+      "case_id": "context-085",
+      "fn": 0,
+      "fp": 0,
+      "status": "OBSERVATION",
+      "tp": 0
+    },
+    {
+      "case_id": "context-086",
+      "fn": 0,
+      "fp": 0,
+      "status": "PASS",
+      "tp": 1
+    }
+  ],
+  "google_quality": "unmeasured",
+  "injected_attempts": 0,
+  "mode": "offline_reference",
+  "observation_failures": 0,
+  "observations": 16,
+  "operational_failures": 0,
+  "outcome": "OFFLINE_REFERENCE_PASS_GOOGLE_UNPROVEN",
+  "policy_id": "context-pattern-v1",
+  "policy_sha256": "c1b782c6fd051243dec4173f903cb33607893010c7d38a6b35bc1372ddb2d4db",
+  "required_fail": 0,
+  "required_pass": 70,
+  "schema_version": 1,
+  "scope": "context_pattern_v1_campaign",
+  "sdk_attempts": 0,
+  "unexecuted": 0
+}
