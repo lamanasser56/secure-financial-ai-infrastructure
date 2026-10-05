@@ -6,6 +6,7 @@ from pathlib import Path
 import socket
 import subprocess
 import sys
+import signal
 import tempfile
 import time
 import unittest
@@ -125,3 +126,83 @@ class LauncherTests(unittest.TestCase):
             status = json.loads((state / 'launcher-status.json').read_text())
             self.assertEqual(set(status), {'stage', 'startup_failure_stage', 'cleanup_complete', 'cleanup_failures'})
             self.assertEqual((state / 'launcher-status.json').stat().st_mode & 0o777, 0o600)
+
+    def test_absent_supervisor_has_finite_reason_without_signalling_children(self):
+        launcher = load('run-qualified-local-agents')
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory); state.chmod(0o700)
+            child = subprocess.Popen([sys.executable, '-c', 'pass'])
+            identity = record(child); child.wait(timeout=5)
+            path = state / 'launcher-owner.json'
+            path.write_text(json.dumps(identity)); path.chmod(0o600)
+            launcher.write_status(state, stage='RUNNING', cleanup_complete=False)
+            with mock.patch.object(os, 'kill') as kill:
+                with self.assertRaises(launcher.LocalApplicationBlocked) as caught:
+                    launcher.stop(state)
+                self.assertEqual(caught.exception.code, 'ORPHANED_LAUNCHER')
+                kill.assert_not_called()
+
+    def test_verified_recovered_status_allows_idempotent_stop(self):
+        launcher = load('run-qualified-local-agents')
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory); state.chmod(0o700)
+            child = subprocess.Popen([sys.executable, '-c', 'pass'])
+            identity = record(child); child.wait(timeout=5)
+            path = state / 'launcher-owner.json'
+            path.write_text(json.dumps(identity)); path.chmod(0o600)
+            launcher.write_status(state, stage='STOPPED', cleanup_complete=True)
+            with mock.patch.object(os, 'kill') as kill:
+                launcher.stop(state)
+                kill.assert_not_called()
+
+    def test_hangup_runs_cleanup_and_repeated_hangup_does_not_interrupt_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            marker = Path(directory) / 'closed'
+            # Real signal/child behavior; no Docker, model or provider double.
+            program = (
+                "import importlib.util,time,pathlib,signal; signal.signal(signal.SIGHUP,signal.SIG_DFL); "
+                "s=importlib.util.spec_from_file_location('launcher',%r); "
+                "m=importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+                "m.install_interrupt_handlers()\n"
+                "try:\n print('ready',flush=True); time.sleep(20)\n"
+                "except KeyboardInterrupt:\n pass\n"
+                "finally:\n m.ignore_interrupt_handlers(); print('cleaning',flush=True); "
+                "time.sleep(.2); pathlib.Path(%r).write_text('owned cleanup complete')\n"
+            ) % (str(ROOT / 'scripts/run-qualified-local-agents.py'), str(marker))
+            child = subprocess.Popen([sys.executable, '-c', program], stdout=subprocess.PIPE,
+                                     text=True, start_new_session=True)
+            try:
+                self.assertEqual(child.stdout.readline().strip(), 'ready')
+                os.kill(child.pid, signal.SIGHUP)
+                self.assertEqual(child.stdout.readline().strip(), 'cleaning')
+                os.kill(child.pid, signal.SIGHUP)
+                self.assertEqual(child.wait(timeout=5), 0)
+                self.assertEqual(marker.read_text(), 'owned cleanup complete')
+            finally:
+                if child.poll() is None: child.terminate()
+                child.wait(timeout=5); child.stdout.close()
+
+    def test_explicit_nohup_disposition_survives_hangup_and_term_cleans_up(self):
+        with tempfile.TemporaryDirectory() as directory:
+            marker = Path(directory) / 'closed'
+            program = (
+                "import importlib.util,time,pathlib,signal; signal.signal(signal.SIGHUP,signal.SIG_IGN); "
+                "s=importlib.util.spec_from_file_location('launcher',%r); "
+                "m=importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+                "m.install_interrupt_handlers()\n"
+                "try:\n print('ready',flush=True); time.sleep(20)\n"
+                "except KeyboardInterrupt:\n pass\n"
+                "finally:\n m.ignore_interrupt_handlers(); pathlib.Path(%r).write_text('closed')\n"
+            ) % (str(ROOT / 'scripts/run-qualified-local-agents.py'), str(marker))
+            child = subprocess.Popen([sys.executable, '-c', program], stdout=subprocess.PIPE,
+                                     text=True, start_new_session=True)
+            try:
+                self.assertEqual(child.stdout.readline().strip(), 'ready')
+                os.kill(child.pid, signal.SIGHUP); time.sleep(.1)
+                self.assertIsNone(child.poll())
+                os.kill(child.pid, signal.SIGTERM)
+                self.assertEqual(child.wait(timeout=5), 0)
+                self.assertEqual(marker.read_text(), 'closed')
+            finally:
+                if child.poll() is None: child.terminate()
+                child.wait(timeout=5); child.stdout.close()

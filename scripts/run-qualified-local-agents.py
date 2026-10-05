@@ -24,6 +24,35 @@ ARCHIVE_SHA = '3c40f12dedf3aa18582db0bda6d4b6de8cb85c32994b718a8c0b78577f41454e'
 CONFIG = 'sha256:58ee07cf0cd4256e3719d4e51e230d1d7c26369002cc2e65050881557abbaa0b'
 
 
+class LocalApplicationBlocked(ValueError):
+    """Only closed supervisor codes may enter the public launcher error."""
+    def __init__(self, code):
+        if code not in ('ORPHANED_LAUNCHER', 'STOP_TIMEOUT'):
+            raise ValueError
+        self.code = code
+        super().__init__(code)
+
+
+def interruption_signals():
+    return (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+
+
+def install_interrupt_handlers():
+    def interrupted(*_):
+        raise KeyboardInterrupt
+    for name in interruption_signals():
+        if name == signal.SIGHUP and signal.getsignal(name) == signal.SIG_IGN:
+            # Preserve explicit nohup disposition for a detached operator run.
+            continue
+        signal.signal(name, interrupted)
+
+
+def ignore_interrupt_handlers():
+    # Repeated terminal hangups must not interrupt owned cleanup phases.
+    for name in interruption_signals():
+        signal.signal(name, signal.SIG_IGN)
+
+
 def write_status(state, **value):
     path = state / 'launcher-status.json'
     path.write_text(json.dumps(value) + '\n')
@@ -81,9 +110,10 @@ def stop(state):
             print(json.dumps({'owned_stack_stopped': True, 'private_audit_retained': True}))
             return
         if not proc.exists():
-            break
+            # No unsafe port-owner kill or unverified orphan recovery.
+            raise LocalApplicationBlocked('ORPHANED_LAUNCHER')
         time.sleep(.1)
-    raise ValueError
+    raise LocalApplicationBlocked('STOP_TIMEOUT')
 
 
 def run(args):
@@ -198,8 +228,7 @@ def run(args):
         failure = stage
         raise
     finally:
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
-        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        ignore_interrupt_handlers()
         def stop_ui():
             if ui is not None and ui.poll() is None:
                 os.killpg(ui.pid, signal.SIGTERM); ui.wait(timeout=10)
@@ -248,12 +277,11 @@ if __name__ == '__main__':
     args.state = args.state.absolute()
     if not args.stop and (args.python is None or args.database_archive is None):
         parser.error('--python and --database-archive are required when starting')
-    def interrupted(*_):
-        raise KeyboardInterrupt
-    signal.signal(signal.SIGTERM, interrupted)
+    install_interrupt_handlers()
     try:
         stop(args.state) if args.stop else run(args)
     except KeyboardInterrupt:
         pass
-    except Exception:
-        raise SystemExit('local_application:blocked; private evidence retained') from None
+    except Exception as failure:
+        stage = '; stage=' + failure.code if isinstance(failure, LocalApplicationBlocked) else ''
+        raise SystemExit('local_application:blocked' + stage + '; private evidence retained') from None

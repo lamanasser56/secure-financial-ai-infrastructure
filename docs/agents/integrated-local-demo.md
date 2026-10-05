@@ -64,6 +64,17 @@ even when another fails; `launcher-status.json` reports bounded stage and cleanu
 codes. Private service logs and audit remain in the state directory. The command
 does not recover states created by the older launcher without an ownership record.
 
+The launcher handles SIGINT, SIGTERM and terminal SIGHUP through owned cleanup;
+repeated signals are ignored during cleanup. For a session that must survive
+terminal disconnect, start under `nohup` with stdin closed and output in its
+private task directory. Observe `launcher-status.json` before opening the UI.
+There is no automatic restart. A missing supervisor with incomplete cleanup
+reports `ORPHANED_LAUNCHER`; it never kills a process solely because it owns a port.
+An interrupted supervisor still needs verified recovery of its exact source,
+state, PID start times, Docker labels and private RAM runtime. Preserve the old
+status as evidence before recording verified recovered cleanup. Disk percentage
+alone is not a failure diagnosis; a new launch may be blocked by orphaned listeners.
+
 For a fixed four-input rehearsal, use a new state and replace the final UI options
 with `--rehearse`. For actual proxy/database integration checks use `--check`.
 These options launch, exercise and clean up their own local stack. They make zero
