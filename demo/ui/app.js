@@ -7,6 +7,7 @@ let csrf = null;
 let busy = false;
 let statusCode = 'loading';
 let selectedReport = null;
+let composition = null;
 const states = {
   infrastructure: {id: null, records: [], budget: null, draft: ''},
   financial: {id: null, records: [], budget: null, draft: ''}
@@ -164,6 +165,7 @@ function renderHistory() {
   renderBudget();
 }
 function applyLanguage() {
+  if (composition === 'local_proxy_stub') byId('composition-notice').textContent = t('localIntegration');
   document.documentElement.lang = language;
   document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
   document.title = t('pageTitle');
@@ -346,6 +348,11 @@ async function bootstrap() {
     const [strings, data] = await Promise.all(responses.map(boundedJSON));
     if (!strings.en || !strings.ar || data.mode !== 'offline_simulation' || data.synthetic_only !== true || typeof data.csrf !== 'string') throw new Error('Boundary unavailable');
     catalog = strings;
+    composition = data.composition;
+    if (composition === 'local_proxy_stub') {
+      byId('composition-notice').hidden = false;
+      byId('composition-notice').textContent = t('localIntegration');
+    }
     csrf = data.csrf;
     byId('language').disabled = false;
     statusCode = 'ready';

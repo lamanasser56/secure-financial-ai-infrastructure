@@ -56,6 +56,15 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+def _unique_response(pairs):
+    value = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError("http:ambiguous_response")
+        value[key] = item
+    return value
+
+
 def _post_json(
     url: str, payload: dict[str, Any], timeout: float, headers: dict[str, str] | None = None
 ) -> Any:
@@ -73,7 +82,7 @@ def _post_json(
         raw = response.read(65_537)
         if len(raw) > 65_536:
             raise ValueError("http:response_too_large")
-        return json.loads(raw.decode("utf-8"))
+        return json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_response)
 
 
 def _project_analyzer_result(raw_item: Any) -> dict[str, Any]:

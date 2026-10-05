@@ -1,4 +1,4 @@
-"""Unwired admission for the existing JSON decision protocol; no tool execution."""
+"""Admission for the existing JSON decision protocol; no tool execution."""
 
 import json
 
@@ -24,7 +24,8 @@ def completion_content(response):
 
     Native/legacy function calls are unsupported by this canonical JSON path.
     Reject them, mixed content, streaming chunks, refusals and truncation. Never
-    dispatch tools, discover schemas or retry. This is not wired to the gateway.
+    dispatch tools, discover schemas or retry. The local composition uses this
+    admission; its upstream remains an explicitly simulated model.
     """
     try:
         choices = response["choices"]
@@ -36,7 +37,11 @@ def completion_content(response):
             _fail()
         message = choice["message"]
         if (message.get("role") != "assistant"
-                or set(message) - {"role", "content", "refusal", "tool_calls", "function_call"}
+                or set(message) - {"role", "content", "refusal", "tool_calls", "function_call", "provider_specific_fields"}
+                # Locked LiteLLM/OpenAI normalization moves the optional null
+                # refusal into provider metadata. Admit only these empty forms;
+                # a refusal value or any additional content remains blocked.
+                or message.get("provider_specific_fields") not in (None, {}, {"refusal": None})
                 or any(message.get(k) is not None for k in ("refusal", "tool_calls", "function_call"))):
             _fail()
         content = message["content"]

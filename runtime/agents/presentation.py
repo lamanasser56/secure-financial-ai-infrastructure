@@ -27,7 +27,7 @@ def present(result, language=None):
     """Called only after the existing core has validated/minimized/redacted."""
     language = language or result.get("language", "en")
     simulated = result["mode"] == "offline_simulation"
-    measurement = result.get("gateway_measurement", {})
+    measurement = result.get("local_transport", result.get("gateway_measurement", {}))
     view = {
         "usage": {
             "simulated_model_requests": result["model_requests"] if simulated else 0,

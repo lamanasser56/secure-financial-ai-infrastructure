@@ -24,14 +24,17 @@ ASSETS = {
 class DemoServer(HTTPServer):
     allow_reuse_address = False
 
-    def __init__(self, address=("127.0.0.1", 8765), *, user="demo-alpha"):
+    def __init__(self, address=("127.0.0.1", 8765), *, user="demo-alpha", agents=None,
+                 composition=None):
         if (
             address[0] != "127.0.0.1"
             or type(address[1]) is not int
             or not 0 <= address[1] <= 65535
         ):
             raise ValueError("ui:loopback_only")
-        self.agents = {p: make_demo(p, user) for p in ("infrastructure", "financial")}
+        self.agents = agents if agents is not None else {
+            p: make_demo(p, user) for p in ("infrastructure", "financial")}
+        self.composition = composition
         self.conversations = ConversationStore(self.agents)
         super().__init__(address, Handler)
         self.origin = f"http://127.0.0.1:{self.server_port}"
@@ -135,6 +138,7 @@ class Handler(BaseHTTPRequestHandler):
                     "mode": "offline_simulation",
                     "authentication": "simulated",
                     "synthetic_only": True,
+                    **({"composition": self.server.composition} if self.server.composition is not None else {}),
                 },
                 cookie=token,
             )

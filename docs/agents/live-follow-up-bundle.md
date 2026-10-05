@@ -1,9 +1,19 @@
 # Bounded live-agent execution boundary
 
-The [independent offline contracts](offline-integration-contracts.md) add unwired
-protocol, trusted tenant transaction and durable audit candidates. Their proposed
-next milestone is offline composition only; no local test, email diagnostic or
-campaign pass authorizes key issuance, deployment, model calls or live agents.
+The [runnable integrated local application](integrated-local-demo.md) replaces the
+previous unwired-composition next step: actual LiteLLM/PostgreSQL, trusted fixture
+identity, tool governance and durable journals now work together behind the
+bilingual UI. Model/redaction remain explicitly simulated. The original offline
+UI is preserved. No live-mode, provider authority or Presidio retirement follows.
+
+The [consolidated synthetic execution checkpoint](integrated-synthetic-execution-checkpoint.md)
+records exact local subjects, admitted catalog and remaining live admission gates.
+Fresh local service qualification passed using isolated worker RAM stores;
+qualified live redaction, processor/model identity and native provenance remain required. No approval is requested
+for unknown image bytes or unspecified resources. The existing eight-attempt email
+diagnostic approval remains separately bound to 5d7107a and its pinned program.
+
+## Historical boundaries retained below
 
 ## Checkpoint: technically blocked
 

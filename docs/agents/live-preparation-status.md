@@ -2,26 +2,28 @@
 
 ## Current checkpoint
 
-Independent [offline integration contracts](offline-integration-contracts.md)
-prepare canonical gateway-response admission, transaction-scoped tenant binding
-and a private durable audit prototype. They remain unwired and qualify no live
-redactor, proxy key, issuer or database. The separately approved four-comparison
-diagnostic source/program and all historical evidence remain fixed.
+The [runnable local application](integrated-local-demo.md) now composes real
+LiteLLM virtual-key enforcement, fixture JWT verification/server grants, tool
+authorization, PostgreSQL tenant reads and durable tool/terminal audit. Both agents
+completed English and Arabic local conversations. The upstream model and redaction
+are explicitly simulated; no general live mode is enabled. The existing worker UI,
+dirty checkout and MASAR are preserved.
 
-The frozen context campaign at `de9f3d1d…` stopped with **59 actual mandatory
-passes and one failure, context-060**: an amount-labelled email had no scored
-finding. Ten mandatory cases and all sixteen unsupported observations remain
-unexecuted. Cleanup is historically verified; no redaction qualification or
-authority selection follows. The [offline assessment](../security/google-sdp-context-email-diagnostics.md)
-found no concrete adapter/scorer defect; the provider reason remains UNKNOWN.
-One [minimal comparison proposal](../security/google-sdp-email-diagnostic-execution-bundle.md)
-is prepared, not executed. No amount exemption, policy change, threshold reduction,
-campaign rerun, Presidio remediation or valid-ID research is introduced.
+The frozen SDP campaign still has **59 actual passes and context-060 failure**.
+Its separately approved four-comparison source/program remain fixed and unrun;
+current image provenance passed, but partial infrastructure creation lost its
+supervisor; the diagnostic stopped and owned cleanup was verified. Accepting the exact two identity-plan metadata
+readbacks did not apply that zero-mutation plan. No IAM/WIF/policy bypass or new
+publication occurred. Presidio remediation and valid-ID research remain paused.
 
-Independent key-to-HTTP binding and operator-only subject revocation remain
-prepared locally; actual proxy database/key and real issuer gates stay unresolved.
-Validation counts below belong to the preceding independent checkpoint; current
-worker totals/source are in the new owner handoff. UI assets remain unchanged.
+The [consolidated execution checkpoint](integrated-synthetic-execution-checkpoint.md)
+is blocked by qualified live redaction, processor/identity/model authority and
+future native publication/network admission. All three local service images are
+freshly qualified. It requests no new live approval of unknown
+bytes/resources. Current test/source/evidence counts are in the private handoff.
+Original historical qualification and failure evidence remain unchanged.
+
+## Historical independent preparation — 2026-10-04
 
 The [independent identity/gateway candidates](identity-and-gateway-preparation.md)
 and [bounded research decision](../security/google-sdp-provenance-decision.md)

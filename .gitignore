@@ -24,3 +24,4 @@ secrets*.yaml
 !example.tfvars
 *.tfvars.json
 terraform.rc
+.qualified/

@@ -115,6 +115,7 @@ class AgentCore:
         simulation=False,
         tools=None,
         limits=None,
+        audit_sink=None,
     ):
         if profile not in PROFILES or type(simulation) is not bool:
             raise ValueError("agent:invalid_configuration")
@@ -144,6 +145,7 @@ class AgentCore:
         self.assessor, self.approval = BoundedInjectionAssessor(), NoWriteApproval()
         self.tools = tools if tools is not None else DemoTools()
         self.limits = limits if limits is not None else Limits()
+        self.audit_sink = audit_sink
 
     def run(self, authorization, request, *, language="en", context=None):
         started = time.monotonic()
@@ -580,6 +582,9 @@ class AgentCore:
                     governance_result="qualified",
                     failure=None,
                 )
+                if self.audit_sink is not None:
+                    # Durable admission precedes dispatch. Failure blocks the tool.
+                    self.audit_sink.append(audit)
                 audits.append(audit)
                 tool_count += 1
                 used.add(tid)

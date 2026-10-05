@@ -11,6 +11,9 @@ fi
 if [ "${PORTFOLIO_CHECK_AGENT_PREPARATION_LOCKS:-0}" = 1 ]; then
   bash scripts/check-agent-preparation-locks.sh
 fi
+if [ "${PORTFOLIO_CHECK_AGENT_COMPOSITION_LOCK:-0}" = 1 ]; then
+  bash scripts/check-agent-composition-lock.sh
+fi
 python3 -B scripts/validate.py
 python3 -B scripts/check-references.py
 bash scripts/validate-google-sdp-deployment.sh

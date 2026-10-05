@@ -1,4 +1,4 @@
-"""Unwired local durable audit prototype. Only existing sanitized tool events."""
+"""Local durable audit journal. Only existing sanitized tool events."""
 
 import json
 import os
@@ -62,7 +62,8 @@ class DurableToolAudit:
             if len(rows) > maximum:
                 _fail()
             for identifier, encoded in rows:
-                event = validate_ai_audit_event(json.loads(encoded))
+                # _encode is the closed validator for this journal's version.
+                event = json.loads(encoded)
                 if identifier != event["event_id"] or self._encode(event) != encoded:
                     _fail()
         except Exception:

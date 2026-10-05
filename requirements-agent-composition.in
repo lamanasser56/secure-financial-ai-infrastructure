@@ -1,0 +1,4 @@
+# Existing gateway dependency versions remain constraints, not upgraded inputs.
+-c requirements-litellm-candidate.txt
+prisma==0.15.0
+psycopg[binary]==3.2.10

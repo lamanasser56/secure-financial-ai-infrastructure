@@ -1,0 +1,3 @@
+[tool.prisma]
+use_global_node = false
+nodeenv_extra_args = ["--node=22.18.0"]

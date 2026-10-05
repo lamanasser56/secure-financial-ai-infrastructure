@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "scope": "server_controlled_synthetic_two_agent_demo",
+  "inputs": [
+    {"id":"demo-001","user":"alpha","agent":"infrastructure","language":"en","question":"Why did Docker archive export fail?","evidence_source":"archive-export"},
+    {"id":"demo-002","user":"alpha","agent":"financial","language":"ar","question":"ما إجمالي مصروفاتي في 2026-01؟","evidence_source":null},
+    {"id":"demo-003","user":"beta","agent":"infrastructure","language":"ar","question":"لماذا فشل تصدير أرشيف Docker؟","evidence_source":"archive-export"},
+    {"id":"demo-004","user":"beta","agent":"financial","language":"en","question":"What are my total expenses for 2026-01?","evidence_source":null}
+  ],
+  "limits":{"model_attempts":16,"tools":12,"redaction_operations":128,"shared_input_output_bytes":524288,"overall_seconds":900,"retries":0},
+  "live_enabled":false
+}
