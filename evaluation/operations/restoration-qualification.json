@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "scope": "fresh_local_security_operations_service_images",
-  "baseline": "5cbd80d20c64c96de9299392378ed42f1768dbe7",
+  "baseline": "77e1cc84233804b3fff9a8506f923b7159d64285",
   "source_commit_bound_in_private_final_handoff": true,
-  "assessed_utc": "2026-10-06T11:39:54.631839+00:00",
+  "assessed_utc": "2026-10-06T21:49:42.210926+00:00",
   "subjects": {
     "gateway": {
       "configuration_id": "sha256:33ffd64cd021c812b1de3d00e8414b350f911622996b72d1ee50d051d7828f59",
@@ -65,21 +65,21 @@
       "historical_scan_assessed_utc": "2026-10-05T23:48:59.609764+00:00"
     },
     "application": {
-      "configuration_id": "sha256:234a61dd1354a2c28783195c61ce15f710d98b26df87348d0f23341fd5e22aee",
-      "local_store_image_id": "sha256:eecd7ba4091b4dea5214b1a0a472917b9020ba5fd9cbb55efa36d4d65e1e2383",
+      "configuration_id": "sha256:406d2f8556c3548eda7ee740e8b00adae46aafc7f09c01bc99a75836e1d046b8",
+      "local_store_image_id": "sha256:f3a9f12e3f314c9c5af1b9b5aba14175cc84473ecc081b62800f31342528da3a",
       "archive_sha256": [
-        "858a3c66a228840792b6244816f84f9cc9872a6a5b94128db05ece7baba8c645",
-        "858a3c66a228840792b6244816f84f9cc9872a6a5b94128db05ece7baba8c645"
+        "d8522cdd4cfc177d6350e438ea1a3c2418b1f3bace0118143db6af2b035e1a13",
+        "d8522cdd4cfc177d6350e438ea1a3c2418b1f3bace0118143db6af2b035e1a13"
       ],
-      "archive_bytes": 203660800,
+      "archive_bytes": 203662336,
       "reproducible": true,
       "vulnerabilities": {
         "MEDIUM": 17,
         "LOW": 8
       },
       "components": 1703,
-      "scan_sha256": "cf982b8f3777b8b27b4ca58ad620de8bb737ec958f523849ec347e0ec152da8a",
-      "sbom_sha256": "9ef9ec119ec07ab0b38c697073833981d0921c728a8953040b82689319e051d7",
+      "scan_sha256": "8d5ec7f6c57df4c8b053b0db6e5f9239b1f7409ddd048bec570edd8627316e78",
+      "sbom_sha256": "e86a5af96c8bc51b49fe44267ff2c5e2c27776f06becd86d94adfc3d8ebfdcb5",
       "high_critical_gate": true,
       "secret_scan_exit": 0,
       "functional_nonroot_readonly_network_none": "PASS",
@@ -403,7 +403,7 @@
           "runtime/agents/tools.py"
         ],
         [
-          "384eb4983c1ce8e353cd38ea81e9c037cc2c54ac64e1fc6f4b28791e6f3fb7b7",
+          "b3b1b1d7d4fc34e39fd8a8e36781f4c4724d1e5887bac76b9f05172a8d2a7057",
           "runtime/agents/trial_composition.py"
         ],
         [
@@ -417,6 +417,10 @@
         [
           "3bd0456b17e29b8c331e1fb6111258151f83d1c86fcf4a727246d3d2b1ffa727",
           "runtime/phase3/adapters.py"
+        ],
+        [
+          "acb49418a79bb15194dcca7810d44de894934d490bd3f5f58b1e5e2f4eca14cf",
+          "runtime/phase3/deterministic_email.py"
         ],
         [
           "bfd7b930fcd070ffa06daf5ee4df495dfed69cae0414548ecb25e90e47d0b8d4",
@@ -494,8 +498,8 @@
       "policy": {
         "allowed": true,
         "reason": "accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding",
-        "subject": "local-docker-archive-application@sha256:858a3c66a228840792b6244816f84f9cc9872a6a5b94128db05ece7baba8c645",
-        "raw_scan_integrity": "cf982b8f3777b8b27b4ca58ad620de8bb737ec958f523849ec347e0ec152da8a",
+        "subject": "local-docker-archive-application@sha256:d8522cdd4cfc177d6350e438ea1a3c2418b1f3bace0118143db6af2b035e1a13",
+        "raw_scan_integrity": "8d5ec7f6c57df4c8b053b0db6e5f9239b1f7409ddd048bec570edd8627316e78",
         "scope": "fresh_actual_local_archive_not_registry",
         "only_artifact_name_binding_changed": true
       },
@@ -516,9 +520,9 @@
   "qualification_mount_removed": true,
   "trivy_database_metadata": {
     "Version": 2,
-    "NextUpdate": "2026-10-07T07:04:23.108323332Z",
-    "UpdatedAt": "2026-10-06T07:04:23.108323632Z",
-    "DownloadedAt": "2026-10-06T11:38:24.155477856Z"
+    "NextUpdate": "2026-10-07T19:11:49.518354706Z",
+    "UpdatedAt": "2026-10-06T19:11:49.518354987Z",
+    "DownloadedAt": "2026-10-06T21:48:12.274589977Z"
   },
   "kev_integrity": "f51fed1c9213e7b797104fcd6dbeb1b0dc0c7073a80467b9d4b1fc25e7dd786b",
   "historical_record_preserved": true
