@@ -170,16 +170,16 @@ function renderHistory() {
 }
 function applyLanguage() {
   if (composition === 'local_proxy_stub') byId('composition-notice').textContent = t('localIntegration');
-  if (composition === 'supervised_candidate_live') {
-    byId('composition-notice').textContent=t('candidateTrial');
-    document.querySelectorAll('.notice [data-i18n]').forEach(x=>setText(x,t('candidateTrial')));
-  }
   document.documentElement.lang = language;
   document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
   document.title = t('pageTitle');
   for (const node of document.querySelectorAll('[data-i18n]')) {
     if (node.tagName === 'OPTION') node.textContent = t(node.dataset.i18n);
     else setText(node, t(node.dataset.i18n));
+  }
+  if (composition === 'supervised_candidate_live') {
+    byId('composition-notice').textContent=t('candidateTrial');
+    document.querySelectorAll('.notice [data-i18n]').forEach(x=>setText(x,t('candidateTrial')));
   }
   byId('language').options[0].textContent = t('enName');
   byId('language').options[1].textContent = t('arName');

@@ -3,7 +3,7 @@
   "scope": "fresh_local_security_operations_service_images",
   "baseline": "b24b23352f85bf7eade09b3b7860f8487d3f9de8",
   "source_commit_bound_in_private_final_handoff": true,
-  "assessed_utc": "2026-10-06T09:23:19.252097+00:00",
+  "assessed_utc": "2026-10-06T09:59:10.400006+00:00",
   "subjects": {
     "gateway": {
       "configuration_id": "sha256:33ffd64cd021c812b1de3d00e8414b350f911622996b72d1ee50d051d7828f59",
@@ -65,11 +65,11 @@
       "historical_scan_assessed_utc": "2026-10-05T23:48:59.609764+00:00"
     },
     "application": {
-      "configuration_id": "sha256:13e2f9f635323682ead3f3d0b71003560c22d1ac6e2a0aa3b580bcb9774b899a",
-      "local_store_image_id": "sha256:282df942dcf0a041375468a6417967c5ea600c68b7bc41b5d4852262528c9409",
+      "configuration_id": "sha256:45da74cdd533b22b567408a03084fc805222ee84314e50177df52f510fb5a208",
+      "local_store_image_id": "sha256:9c8be05431b656db14b481c3d472e61fa5ae4eeb936d643464579dbe94f65294",
       "archive_sha256": [
-        "2cd1796302c5833db0b4cb1ea0d9454bca4c6b97376ca852045a91d1a85b1be2",
-        "2cd1796302c5833db0b4cb1ea0d9454bca4c6b97376ca852045a91d1a85b1be2"
+        "b3caeaef3f6b9d906b51560c8469d56215bcda6610446122e1f48df6742ceea9",
+        "b3caeaef3f6b9d906b51560c8469d56215bcda6610446122e1f48df6742ceea9"
       ],
       "archive_bytes": 203649536,
       "reproducible": true,
@@ -78,8 +78,8 @@
         "LOW": 8
       },
       "components": 1703,
-      "scan_sha256": "89c3839503843610db9ff2134606f0cb968c4a9105b05fb9ea326786a77f5db8",
-      "sbom_sha256": "0ef2e43eecba0428d80be4ae1687091d734686f3531e1926025f8362c8e52518",
+      "scan_sha256": "286a265a435b0a4b04b03897db9c5dfdc0981600ddc0f3c0f59867861f2dd82e",
+      "sbom_sha256": "53b9b0838b0ae2f7f5c30854f88a22693199854c029fb06235710581675a20bf",
       "high_critical_gate": true,
       "secret_scan_exit": 0,
       "functional_nonroot_readonly_network_none": "PASS",
@@ -231,7 +231,7 @@
           "demo/i18n.json"
         ],
         [
-          "6d6326a0c630508405ccbb440eeb93c137b4923b0f0b83e5fcd414408d4e66e3",
+          "e9c6acd70e02bb9e77b47e84d4058dabffc2b051f4ff8a222cf8070a44ccdbf7",
           "demo/ui/app.js"
         ],
         [
@@ -478,8 +478,8 @@
       "policy": {
         "allowed": true,
         "reason": "accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding",
-        "subject": "local-docker-archive-application@sha256:2cd1796302c5833db0b4cb1ea0d9454bca4c6b97376ca852045a91d1a85b1be2",
-        "raw_scan_integrity": "89c3839503843610db9ff2134606f0cb968c4a9105b05fb9ea326786a77f5db8",
+        "subject": "local-docker-archive-application@sha256:b3caeaef3f6b9d906b51560c8469d56215bcda6610446122e1f48df6742ceea9",
+        "raw_scan_integrity": "286a265a435b0a4b04b03897db9c5dfdc0981600ddc0f3c0f59867861f2dd82e",
         "scope": "fresh_actual_local_archive_not_registry",
         "only_artifact_name_binding_changed": true
       },
@@ -502,7 +502,7 @@
     "Version": 2,
     "NextUpdate": "2026-10-07T07:04:23.108323332Z",
     "UpdatedAt": "2026-10-06T07:04:23.108323632Z",
-    "DownloadedAt": "2026-10-06T09:21:48.000370659Z"
+    "DownloadedAt": "2026-10-06T09:47:35.154368903Z"
   },
   "kev_integrity": "f51fed1c9213e7b797104fcd6dbeb1b0dc0c7073a80467b9d4b1fc25e7dd786b",
   "historical_record_preserved": true
