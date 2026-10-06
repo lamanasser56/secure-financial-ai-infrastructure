@@ -131,7 +131,12 @@ class OwnedServiceAdapter:
             # Imports precede UI/action readiness, never a recovery-time cold
             # start or external model call. Service code/recipe remain pinned.
             from litellm.proxy.proxy_cli import run_server
+            # The CLI imports this module inside run_server. Preload the pinned
+            # server before action readiness as well, so a restore does not pay
+            # its cold import cost within the unchanged health deadline.
+            from litellm.proxy.proxy_server import app
             self.warm_proxy=run_server
+            self.warm_server=app
         self.child = None
         self.last = {'health_verified': False, 'restore_attempts': 0, 'attempt_limit': 1,
                      'credentials_renewed': False, 'application_restarted': False,

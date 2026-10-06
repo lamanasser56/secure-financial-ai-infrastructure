@@ -3,7 +3,7 @@
   "scope": "fresh_local_security_operations_service_images",
   "baseline": "b24b23352f85bf7eade09b3b7860f8487d3f9de8",
   "source_commit_bound_in_private_final_handoff": true,
-  "assessed_utc": "2026-10-06T05:19:50.390587+00:00",
+  "assessed_utc": "2026-10-06T09:23:19.252097+00:00",
   "subjects": {
     "gateway": {
       "configuration_id": "sha256:33ffd64cd021c812b1de3d00e8414b350f911622996b72d1ee50d051d7828f59",
@@ -65,11 +65,11 @@
       "historical_scan_assessed_utc": "2026-10-05T23:48:59.609764+00:00"
     },
     "application": {
-      "configuration_id": "sha256:c4e2320c582cff6bba113d0d485f164ae9a1a40df76aee55a3e9c10bbca038ad",
-      "local_store_image_id": "sha256:2a6ad8ddcc09d6112139baa84c1051e1efd97b253d53a94086f0e68d6100991c",
+      "configuration_id": "sha256:13e2f9f635323682ead3f3d0b71003560c22d1ac6e2a0aa3b580bcb9774b899a",
+      "local_store_image_id": "sha256:282df942dcf0a041375468a6417967c5ea600c68b7bc41b5d4852262528c9409",
       "archive_sha256": [
-        "fbc2708807c0c3e267737c35e3c84271979ec5ea56cfa2654f6c8c32fca31018",
-        "fbc2708807c0c3e267737c35e3c84271979ec5ea56cfa2654f6c8c32fca31018"
+        "2cd1796302c5833db0b4cb1ea0d9454bca4c6b97376ca852045a91d1a85b1be2",
+        "2cd1796302c5833db0b4cb1ea0d9454bca4c6b97376ca852045a91d1a85b1be2"
       ],
       "archive_bytes": 203649536,
       "reproducible": true,
@@ -78,8 +78,8 @@
         "LOW": 8
       },
       "components": 1703,
-      "scan_sha256": "4eeca1fc0707b0f1eb7bac38e570525624473b50ef8665b06466c6b54aab6164",
-      "sbom_sha256": "ed407069b3899997c282ec4063e1033da916da6d426b2f833f2d190e6a427dcc",
+      "scan_sha256": "89c3839503843610db9ff2134606f0cb968c4a9105b05fb9ea326786a77f5db8",
+      "sbom_sha256": "0ef2e43eecba0428d80be4ae1687091d734686f3531e1926025f8362c8e52518",
       "high_critical_gate": true,
       "secret_scan_exit": 0,
       "functional_nonroot_readonly_network_none": "PASS",
@@ -367,7 +367,7 @@
           "runtime/agents/schemas.py"
         ],
         [
-          "4f0d4cc038c6f7bbb3bc87ca2854755bc2ef008050fc0fe0fcf6551dfd36ef5f",
+          "3938931b951add4abff4df0fc870a14ec481566098c6a2a1ad0fb9b7ec75794d",
           "runtime/agents/service_restoration.py"
         ],
         [
@@ -478,8 +478,8 @@
       "policy": {
         "allowed": true,
         "reason": "accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding",
-        "subject": "local-docker-archive-application@sha256:fbc2708807c0c3e267737c35e3c84271979ec5ea56cfa2654f6c8c32fca31018",
-        "raw_scan_integrity": "4eeca1fc0707b0f1eb7bac38e570525624473b50ef8665b06466c6b54aab6164",
+        "subject": "local-docker-archive-application@sha256:2cd1796302c5833db0b4cb1ea0d9454bca4c6b97376ca852045a91d1a85b1be2",
+        "raw_scan_integrity": "89c3839503843610db9ff2134606f0cb968c4a9105b05fb9ea326786a77f5db8",
         "scope": "fresh_actual_local_archive_not_registry",
         "only_artifact_name_binding_changed": true
       },
@@ -500,9 +500,9 @@
   "qualification_mount_removed": true,
   "trivy_database_metadata": {
     "Version": 2,
-    "NextUpdate": "2026-10-07T01:08:27.805176349Z",
-    "UpdatedAt": "2026-10-06T01:08:27.80517672Z",
-    "DownloadedAt": "2026-10-06T05:08:13.465041413Z"
+    "NextUpdate": "2026-10-07T07:04:23.108323332Z",
+    "UpdatedAt": "2026-10-06T07:04:23.108323632Z",
+    "DownloadedAt": "2026-10-06T09:21:48.000370659Z"
   },
   "kev_integrity": "f51fed1c9213e7b797104fcd6dbeb1b0dc0c7073a80467b9d4b1fc25e7dd786b",
   "historical_record_preserved": true
