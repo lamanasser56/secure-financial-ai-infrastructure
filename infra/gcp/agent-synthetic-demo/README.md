@@ -16,3 +16,10 @@ IAM readbacks. Any unexpected drift stops. Cleanup removes the five temporary
 identity/role/binding resources; the shared Vertex API remains enabled. Do not
 disable shared APIs. The [consolidated checkpoint](../../../docs/agents/integrated-synthetic-execution-checkpoint.md)
 is blocked and grants no execution authority.
+
+Set `demo_identity_enabled=true` for the reviewed creation plan and `false` for
+the complete cleanup plan. The cleanup plan retains the Vertex API resource in
+state and deletes only the five temporary resources. Do not use a targeted or
+partial plan to approximate that cleanup. This root has not been applied during
+local preparation; current native state and exact saved plans remain execution
+gates.
