@@ -33,6 +33,10 @@ ACKS = {
 }
 PROJECT_ENV = "PORTFOLIO_GOOGLE_SDP_PROJECT_ID"
 SECONDS = 900
+# Provider pacing: at most one case (two SDK calls) per interval, only when a provider is
+# called. 86 cases need ~172 s, well inside SECONDS. Attempts, deadline and acceptance are
+# unchanged; a provider failure still stops the campaign with no retry.
+CASE_INTERVAL_SECONDS = 2.0
 FIELDS = {"schema_version", "scope", "provider_scope", "mode", "policy_sha256", "deterministic_email_sha256",
           "google_qualification_claimed", "authority_changed", "sdk_attempts", "injected_attempts",
           "metadata_sdk_attempts", "required_pass", "required_fail", "observations", "observation_failures",
@@ -98,12 +102,14 @@ def restore(det_spans, provider, mapping, token):
     return restored
 
 
-def evaluate(live=False, *, client=None, clock=time.monotonic):
+def evaluate(live=False, *, client=None, clock=time.monotonic, sleep=time.sleep):
     campaign, det = base(), detector()
     cases = campaign.load_corpus()["cases"]
     if policy_digest() != campaign.POLICY_SHA256 or type(live) is not bool:
         raise GoogleSDPFailure("CONFIGURATION_REJECTED", "startup")
     mapping = load_policy()["mapping"]
+    if CASE_INTERVAL_SECONDS * len(cases) > SECONDS / 2:
+        raise GoogleSDPFailure("CONFIGURATION_REJECTED", "startup")
     budget = ContentAttemptBudget(2 * len(cases))
     redactor = None
     if live:
@@ -120,8 +126,14 @@ def evaluate(live=False, *, client=None, clock=time.monotonic):
               "observations": 0, "observation_failures": 0, "operational_failures": 0,
               "deterministic_email_cases": 0, "unexecuted": len(cases), "cases": []}
     started = clock()
+    next_start = started
     for case in cases:
         observation = case["classification"].startswith("unsupported_")
+        if redactor is not None:
+            wait = next_start - clock()
+            if wait > 0:
+                sleep(min(wait, max(0.0, SECONDS - (clock() - started))))
+            next_start = clock() + CASE_INTERVAL_SECONDS
         if clock() - started >= SECONDS:
             result["operational_failures"] = 1
             result["campaign_diagnostic"] = {"code": "OVERALL_TIMEOUT", "stage": "sequence"}

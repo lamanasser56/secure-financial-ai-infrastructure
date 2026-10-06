@@ -82,7 +82,7 @@ class CompositeCampaign(unittest.TestCase):
 
     def test_provider_never_receives_plain_addresses_and_injected_attempts_are_counted(self):
         client = SimulatedGoogle()
-        result = PROGRAM.evaluate(False, client=client)
+        result = PROGRAM.evaluate(False, client=client, sleep=lambda _: None)  # pacing covered in ProviderPacing
         self.assertEqual((result["required_pass"], result["observations"], result["injected_attempts"], result["outcome"]),
                          (70, 16, 172, "OFFLINE_COMPOSITE_INJECTED_PROVIDER_UNPROVEN"))
         self.assertEqual(len(client.received), 86)
@@ -90,7 +90,7 @@ class CompositeCampaign(unittest.TestCase):
         self.assertEqual(sum("EMAIL_ADDRESS" in text for text in client.received), 3)
 
     def test_provider_miss_on_obfuscated_email_still_fails_and_stops(self):
-        result = PROGRAM.evaluate(False, client=SimulatedGoogle(drop={"PORTFOLIO_OBFUSCATED_EMAIL"}))
+        result = PROGRAM.evaluate(False, client=SimulatedGoogle(drop={"PORTFOLIO_OBFUSCATED_EMAIL"}), sleep=lambda _: None)
         last = result["cases"][-1]
         self.assertEqual((last["case_id"], last["status"], result["required_fail"], result["outcome"]),
                          ("context-057", "FAIL", 1, "FAIL_CLOSED"))
@@ -145,6 +145,81 @@ class CompositeCampaign(unittest.TestCase):
                 "scripts/evaluate-sdp-context-policy.py": "4f4000a845c4bb69f28c489d872da65f1240f0b181e53181feebb9f47b36c5d9"}
         for path, digest in pins.items():
             self.assertEqual(hashlib.sha256((ROOT / path).read_bytes()).hexdigest(), digest, path)
+
+
+class FakeTime:
+    def __init__(self, latency=0.05):
+        self.now, self.latency, self.sleeps = 1000.0, latency, []
+    def clock(self):
+        return self.now
+    def sleep(self, seconds):
+        assert seconds >= 0
+        self.sleeps.append(seconds); self.now += seconds
+
+
+class PacedGoogle(SimulatedGoogle):
+    """Simulated provider on a fake clock; optional quota failure at the n-th inspect call."""
+    def __init__(self, time_source, exhaust_at=None):
+        super().__init__()
+        self.time, self.exhaust_at, self.inspect_times = time_source, exhaust_at, []
+    def inspect_content(self, *, request, retry, timeout):
+        self.inspect_times.append(self.time.now); self.time.now += self.time.latency
+        if self.exhaust_at is not None and len(self.inspect_times) == self.exhaust_at:
+            from google.api_core import exceptions
+            raise exceptions.ResourceExhausted("synthetic quota")
+        return super().inspect_content(request=request, retry=retry, timeout=timeout)
+    def deidentify_content(self, *, request, retry, timeout):
+        self.time.now += self.time.latency
+        return super().deidentify_content(request=request, retry=retry, timeout=timeout)
+
+
+class ProviderPacing(unittest.TestCase):
+    def test_cases_are_spaced_and_attempts_unchanged(self):
+        ft = FakeTime(); client = PacedGoogle(ft)
+        result = PROGRAM.evaluate(False, client=client, clock=ft.clock, sleep=ft.sleep)
+        self.assertEqual((result["required_pass"], result["observations"], result["injected_attempts"], result["outcome"]),
+                         (70, 16, 172, "OFFLINE_COMPOSITE_INJECTED_PROVIDER_UNPROVEN"))
+        gaps = [b - a for a, b in zip(client.inspect_times, client.inspect_times[1:])]
+        self.assertEqual(len(client.inspect_times), 86)
+        self.assertGreaterEqual(min(gaps), PROGRAM.CASE_INTERVAL_SECONDS - 1e-9)
+        per_second = max(sum(1 for t in client.inspect_times if s <= t < s + 1) for s in client.inspect_times)
+        self.assertEqual(per_second, 1)  # at most one case (two SDK calls) in any one-second window
+        self.assertLess(ft.now - 1000.0, PROGRAM.SECONDS)
+        VALIDATOR.validate(CompositeCampaign.write(self, result))
+
+    def test_offline_reference_never_sleeps(self):
+        def forbidden(_):
+            raise AssertionError("no provider, no pacing")
+        self.assertEqual(PROGRAM.evaluate(False, sleep=forbidden)["required_pass"], 70)
+
+    def test_quota_exhaustion_still_stops_without_retry(self):
+        ft = FakeTime(); client = PacedGoogle(ft, exhaust_at=67)
+        result = PROGRAM.evaluate(False, client=client, clock=ft.clock, sleep=ft.sleep)
+        last = result["cases"][-1]
+        self.assertEqual((last["case_id"], last["status"], last["diagnostic"]),
+                         ("context-067", "FAIL_CLOSED", {"code": "RPC_STATUS", "rpc_status": "RESOURCE_EXHAUSTED", "stage": "inspect"}))
+        self.assertEqual((len(client.inspect_times), result["injected_attempts"], result["unexecuted"], result["required_pass"]),
+                         (67, 133, 19, 66))
+        self.assertEqual(len(ft.sleeps), 66)  # nothing is dispatched or paced after the failure
+        VALIDATOR.validate(CompositeCampaign.write(self, result))
+
+    def test_pacing_never_extends_the_deadline(self):
+        ft = FakeTime(latency=12.0); client = PacedGoogle(ft)
+        result = PROGRAM.evaluate(False, client=client, clock=ft.clock, sleep=ft.sleep)
+        self.assertEqual((result["operational_failures"], result["campaign_diagnostic"], result["outcome"]),
+                         (1, {"code": "OVERALL_TIMEOUT", "stage": "sequence"}, "FAIL_CLOSED"))
+        self.assertGreater(result["unexecuted"], 0)
+        self.assertLessEqual(len(client.inspect_times), 38)
+        VALIDATOR.validate(CompositeCampaign.write(self, result))
+
+    def test_interval_bound_is_checked_at_startup(self):
+        original = PROGRAM.CASE_INTERVAL_SECONDS
+        try:
+            PROGRAM.CASE_INTERVAL_SECONDS = 6.0  # 6 s x 86 cases would exceed half the deadline
+            with self.assertRaises(adapter.GoogleSDPFailure):
+                PROGRAM.evaluate(False)
+        finally:
+            PROGRAM.CASE_INTERVAL_SECONDS = original
 
 
 class ImageEquivalentExecution(unittest.TestCase):
