@@ -178,3 +178,20 @@ separate valid-identifier/eight-class research resumes. Provider authority, offl
 UI, agent/model enablement and retirement remain unchanged. Exact subsequent
 scope/privacy/runtime/audit/identity/gateway/integration/authority gates are listed
 in that proposal; a finite policy pass does not close them.
+
+## Isolated application continuation — 2026-10-06
+
+The [isolated application](live-isolated-application.md) now composes the current
+Financial and Operations paths through a peer-checked controller. Actual local
+tests used the freshly qualified application image without a source overlay:
+financial tenant reads, owned service restoration, network/file/foreign-peer
+denials and durable audit failure handling passed. Model/redaction stayed
+stub/simulated. Authenticated reverse SSH channels were tested against loopback
+transport witnesses, not live cloud services. No cloud identity enters the worker.
+
+The legacy infrastructure chat retains its offline scope; the candidate live UI
+admits Financial conversation and structured Operations only. Fixed qualification
+and supervised own wording have distinct grants. Native scans/signatures, current
+service/channel enforcement and the unchanged redaction acceptance remain future
+execution gates. Context-060 cause is UNKNOWN and no repair is justified by the
+retained evidence. No live authority, provider promotion or rerun was issued.

@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "scope": "fresh_local_security_operations_service_images",
-  "baseline": "b24b23352f85bf7eade09b3b7860f8487d3f9de8",
+  "baseline": "5cbd80d20c64c96de9299392378ed42f1768dbe7",
   "source_commit_bound_in_private_final_handoff": true,
-  "assessed_utc": "2026-10-06T09:59:10.400006+00:00",
+  "assessed_utc": "2026-10-06T11:39:54.631839+00:00",
   "subjects": {
     "gateway": {
       "configuration_id": "sha256:33ffd64cd021c812b1de3d00e8414b350f911622996b72d1ee50d051d7828f59",
@@ -65,21 +65,21 @@
       "historical_scan_assessed_utc": "2026-10-05T23:48:59.609764+00:00"
     },
     "application": {
-      "configuration_id": "sha256:45da74cdd533b22b567408a03084fc805222ee84314e50177df52f510fb5a208",
-      "local_store_image_id": "sha256:9c8be05431b656db14b481c3d472e61fa5ae4eeb936d643464579dbe94f65294",
+      "configuration_id": "sha256:234a61dd1354a2c28783195c61ce15f710d98b26df87348d0f23341fd5e22aee",
+      "local_store_image_id": "sha256:eecd7ba4091b4dea5214b1a0a472917b9020ba5fd9cbb55efa36d4d65e1e2383",
       "archive_sha256": [
-        "b3caeaef3f6b9d906b51560c8469d56215bcda6610446122e1f48df6742ceea9",
-        "b3caeaef3f6b9d906b51560c8469d56215bcda6610446122e1f48df6742ceea9"
+        "858a3c66a228840792b6244816f84f9cc9872a6a5b94128db05ece7baba8c645",
+        "858a3c66a228840792b6244816f84f9cc9872a6a5b94128db05ece7baba8c645"
       ],
-      "archive_bytes": 203649536,
+      "archive_bytes": 203660800,
       "reproducible": true,
       "vulnerabilities": {
         "MEDIUM": 17,
         "LOW": 8
       },
       "components": 1703,
-      "scan_sha256": "286a265a435b0a4b04b03897db9c5dfdc0981600ddc0f3c0f59867861f2dd82e",
-      "sbom_sha256": "53b9b0838b0ae2f7f5c30854f88a22693199854c029fb06235710581675a20bf",
+      "scan_sha256": "cf982b8f3777b8b27b4ca58ad620de8bb737ec958f523849ec347e0ec152da8a",
+      "sbom_sha256": "9ef9ec119ec07ab0b38c697073833981d0921c728a8953040b82689319e051d7",
       "high_critical_gate": true,
       "secret_scan_exit": 0,
       "functional_nonroot_readonly_network_none": "PASS",
@@ -231,7 +231,7 @@
           "demo/i18n.json"
         ],
         [
-          "e9c6acd70e02bb9e77b47e84d4058dabffc2b051f4ff8a222cf8070a44ccdbf7",
+          "0a128ffab36c417bb0bec2fae49f7a3737865da3f84fed06b2b16a0d0dd6a984",
           "demo/ui/app.js"
         ],
         [
@@ -287,8 +287,12 @@
           "runtime/agents/cli.py"
         ],
         [
-          "bf469ba3e02e6e6bb3e4e1976352701bace1e5bb470efc3f7ab7ed0ce0dcc6ff",
+          "3123d96048527d3bced4623f822fb5e73758b1d65c09b2f485121e78a83badb1",
           "runtime/agents/composition.py"
+        ],
+        [
+          "a4df1e00cb83061cd394da0de01a99a31da7731dd9050c92f992736970adf4f2",
+          "runtime/agents/control_channel.py"
         ],
         [
           "b90bc31ae2eca07759f5dd719d8253fcb3add839e4d2649019d7f278891347bf",
@@ -323,6 +327,18 @@
           "runtime/agents/identity.py"
         ],
         [
+          "6852e06f700ee4772016c92fe2067e1310998a195e8875c6a1c7b8056a1e6b4b",
+          "runtime/agents/isolated_application.py"
+        ],
+        [
+          "180ea81ecddb54e69dffde116e7ce253b89f1151555870cee86e276fcf810aa1",
+          "runtime/agents/isolation_controller.py"
+        ],
+        [
+          "ac9f51be9ecbe669581635b3a67e38e88abd8f084f515ad5acee6567829ac746",
+          "runtime/agents/isolation_runtime.py"
+        ],
+        [
           "730e2130501e97343c26ef0e83e26f6596bad318f059c4f61bb19a1682c71a29",
           "runtime/agents/localization.py"
         ],
@@ -343,7 +359,7 @@
           "runtime/agents/operations_model.py"
         ],
         [
-          "2ff69b3934ea34ec11917959bd5dc224b61e7d16a24056a04ca723d0a1270a50",
+          "11e6165e664e74c56f6ea7519d012906759d23ec3da444f53b5fddcbf4e0cb6e",
           "runtime/agents/operations_security.py"
         ],
         [
@@ -387,11 +403,11 @@
           "runtime/agents/tools.py"
         ],
         [
-          "f1eda7d79f7a6ebebcf1bedcaf5f5ccdd04295f52bb44216e9ea20ada4e6f912",
+          "384eb4983c1ce8e353cd38ea81e9c037cc2c54ac64e1fc6f4b28791e6f3fb7b7",
           "runtime/agents/trial_composition.py"
         ],
         [
-          "d66ad5ddc008cf42e479241b18e482fc2e22a7f9c90316e234b79fde041edcc5",
+          "4cc7a8646500d1a91a45021eef840a959960f7d11848fe888632184d6ee8e5f3",
           "runtime/agents/web.py"
         ],
         [
@@ -478,8 +494,8 @@
       "policy": {
         "allowed": true,
         "reason": "accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding",
-        "subject": "local-docker-archive-application@sha256:b3caeaef3f6b9d906b51560c8469d56215bcda6610446122e1f48df6742ceea9",
-        "raw_scan_integrity": "286a265a435b0a4b04b03897db9c5dfdc0981600ddc0f3c0f59867861f2dd82e",
+        "subject": "local-docker-archive-application@sha256:858a3c66a228840792b6244816f84f9cc9872a6a5b94128db05ece7baba8c645",
+        "raw_scan_integrity": "cf982b8f3777b8b27b4ca58ad620de8bb737ec958f523849ec347e0ec152da8a",
         "scope": "fresh_actual_local_archive_not_registry",
         "only_artifact_name_binding_changed": true
       },
@@ -502,7 +518,7 @@
     "Version": 2,
     "NextUpdate": "2026-10-07T07:04:23.108323332Z",
     "UpdatedAt": "2026-10-06T07:04:23.108323632Z",
-    "DownloadedAt": "2026-10-06T09:47:35.154368903Z"
+    "DownloadedAt": "2026-10-06T11:38:24.155477856Z"
   },
   "kev_integrity": "f51fed1c9213e7b797104fcd6dbeb1b0dc0c7073a80467b9d4b1fc25e7dd786b",
   "historical_record_preserved": true

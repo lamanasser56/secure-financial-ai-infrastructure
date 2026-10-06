@@ -8,6 +8,7 @@ let busy = false;
 let statusCode = 'loading';
 let selectedReport = null;
 let composition = null;
+let admissionScope = null;
 const states = {
   infrastructure: {id: null, records: [], budget: null, draft: ''},
   financial: {id: null, records: [], budget: null, draft: ''}
@@ -178,7 +179,7 @@ function applyLanguage() {
     else setText(node, t(node.dataset.i18n));
   }
   if (composition === 'supervised_candidate_live') {
-    byId('composition-notice').textContent=t('candidateTrial');
+    byId('composition-notice').textContent=admissionScope==='fixed_inputs_qualification' ? (language==='ar' ? 'تأهيل بمدخلات ثابتة فقط. الأسئلة الحرة غير مأذونة في هذه المرحلة.' : 'Fixed-input qualification only. Own-wording questions are not admitted in this phase.') : t('candidateTrial');
     document.querySelectorAll('.notice [data-i18n]').forEach(x=>setText(x,t('candidateTrial')));
   }
   byId('language').options[0].textContent = t('enName');
@@ -359,6 +360,16 @@ async function bootstrap() {
         || (data.mode==='gateway' && data.composition!=='supervised_candidate_live')) throw new Error('Boundary unavailable');
     catalog = strings;
     composition = data.composition;
+    admissionScope = data.admission_scope;
+    if (composition === 'supervised_candidate_live') {
+      agent = 'financial';
+      tabs[0].hidden = true; // Legacy infrastructure chat has no live admission.
+      tabs.forEach((tab, i) => {
+        tab.setAttribute('aria-selected', String(i === 1));
+        tab.tabIndex = i === 1 ? 0 : -1;
+        byId(tab.getAttribute('aria-controls')).hidden = i !== 1;
+      });
+    }
     if (['local_proxy_stub','supervised_candidate_live'].includes(composition)) {
       byId('composition-notice').hidden = false;
       byId('composition-notice').textContent = t(composition==='local_proxy_stub'?'localIntegration':'candidateTrial');

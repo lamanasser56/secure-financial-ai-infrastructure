@@ -93,15 +93,16 @@ class ProtocolHTTPGateway(HttpLiteLLMGateway):
 
     offline_simulation = True
 
-    def __init__(self, base_url, *, key, redactor):
+    def __init__(self, base_url, *, key, redactor, transport=None):
         super().__init__(base_url, timeout=8, client_key=key)
         self._redactor = redactor
+        self._post = transport or _post_json
 
     def complete(self, model_alias, redacted_text, metadata):
         if model_alias != APPROVED_MODEL_ALIAS or len(redacted_text.encode()) > 4000:
             raise ControlFailure("litellm", "invalid_configuration")
         self.call_count += 1
-        response = _post_json(self._url, {
+        response = self._post(self._url, {
             "model": model_alias,
             "messages": [
                 {"role": "system", "content": "Return only the canonical JSON envelope: summary is the JSON decision string; classification is informational or action_required. Follow the provided tool schemas."},
@@ -112,6 +113,14 @@ class ProtocolHTTPGateway(HttpLiteLLMGateway):
             "metadata": {k: metadata.get(k) for k in ("correlation_id", "tenant_ref")},
         }, self._timeout, headers={"Authorization": self._authorization})
         self.http_responses += 1
+        usage = response.get('usage') if type(response) is dict else None
+        if (type(usage) is dict
+                and all(type(usage.get(k)) is int and 0 <= usage[k] <= 2_000_000 for k in self.usage_totals)
+                and usage['prompt_tokens'] + usage['completion_tokens'] == usage['total_tokens']):
+            for key in self.usage_totals:
+                self.usage_totals[key] += usage[key]
+        else:
+            self.usage_unavailable += 1
         # Reject truncation/native tool calls before interpreting a decision.
         content = completion_content(response)
         safe = redact_checked(self._redactor, content).text
@@ -122,10 +131,10 @@ class ProtocolHTTPGateway(HttpLiteLLMGateway):
 class LocalScopedGateway(ScopedHTTPGateway):
     offline_simulation = True
 
-    def __init__(self, base_url, budget, credential, *, subject, profile, redactor):
+    def __init__(self, base_url, budget, credential, *, subject, profile, redactor, transport=None):
         super().__init__(base_url, budget, credential, subject=subject, profile=profile,
                          timeout=8)
-        self._gateway = ProtocolHTTPGateway(base_url, key=self._bound_key, redactor=redactor)
+        self._gateway = ProtocolHTTPGateway(base_url, key=self._bound_key, redactor=redactor, transport=transport)
 
 
 class TenantDatabaseTools(DemoTools):

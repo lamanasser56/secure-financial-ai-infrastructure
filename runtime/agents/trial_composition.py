@@ -59,7 +59,7 @@ def admit(path, *, scope, source, program_integrity, now=time.time):
             or FORBIDDEN_APPLICATION_ENVIRONMENTS & os.environ.keys()):
         raise ValueError('trial:admission_rejected')
     rows=admission['evidence']
-    expected={'campaign','provenance','network','scoped_client_denials','service_quarantine','policy_acceptance'}
+    expected={'campaign','provenance','network','scoped_client_denials','service_quarantine','policy_acceptance','application_isolation','private_channel'}
     if scope=='supervised_synthetic_free_text':expected.add('fixed_integration')
     if type(rows) is not dict or set(rows)!=expected:raise ValueError('trial:missing_gate')
     receipts={}
@@ -77,9 +77,20 @@ def admit(path, *, scope, source, program_integrity, now=time.time):
             or result['unexecuted'] or result['injected_attempts'] or result['authority_changed']
             or result['outcome']!='SYNTHETIC_POLICY_ONLY_REVIEW_REQUIRED'):
         raise ValueError('trial:redaction_not_qualified')
+    containment=receipts['application_isolation']
+    if (containment.get('source_overlay') is not False
+            or any(containment.get(k) is not True for k in ['peer_namespace_denials','credential_file_denials','network_none','readonly_nonroot','audit_denials','tenant_denials'])
+            or not re.fullmatch('sha256:[a-f0-9]{64}',containment.get('application_configuration',''))):
+        raise ValueError('trial:application_isolation_unqualified')
+    channels=receipts['private_channel']
+    if (channels.get('worker_cloud_identity') is not False
+            or channels.get('gateway')!=GATEWAY or channels.get('redactor')!=REDACTOR
+            or channels.get('authenticated_tunnels') is not True
+            or channels.get('current_listener_ownership') is not True):
+        raise ValueError('trial:private_channels_unqualified')
     if scope=='supervised_synthetic_free_text':
         fixed=receipts['fixed_integration']
-        if fixed.get('scope')!='fixed_inputs_qualification' or fixed.get('all_required_tools_grounded') is not True:
+        if fixed.get('scope')!='fixed_inputs_qualification' or fixed.get('all_required_tools_grounded') is not True or any(fixed.get(k) is not True for k in ['actual_model_responses','owned_restoration_verified','audit_preserved','credentials_budgets_unchanged','denials_verified']):
             raise ValueError('trial:fixed_inputs_do_not_admit_free_text')
     return admission
 
@@ -98,7 +109,10 @@ def consume_admission(path,admission):
 
 
 class TrialLedger(DurableToolAudit):
-    def __init__(self,*args,**kwargs):
+    def __init__(self,*args,scope='supervised_synthetic_free_text',**kwargs):
+        if scope not in SCOPES:raise ValueError('trial:invalid_scope')
+        self.scope=scope
+        self.model_limit,self.subject_limit=(16,8) if scope=='fixed_inputs_qualification' else (32,16)
         super().__init__(*args,**kwargs)
         # Count and commit form one atomic reservation; append also locks.
         self._lock=threading.RLock()
@@ -118,11 +132,11 @@ class TrialLedger(DurableToolAudit):
             self._check_files()
             rows=[json.loads(row[0]) for row in self._db.execute('SELECT event FROM events')]
             used=sum(row['kind']==kind for row in rows)
-            cap={'model':32,'tool':24,'redaction_input':87,'redaction_output':87}[kind]
+            cap={'model':self.model_limit,'tool':24,'redaction_input':87,'redaction_output':87}[kind]
             if kind=='model':
                 if time.time()>=self.expires:raise BudgetAdmissionFailure('run_deadline_exceeded')
                 if used>=cap:raise BudgetAdmissionFailure('total_attempt_budget_exhausted')
-                if sum(row['kind']=='model' and row['subject']==subject for row in rows)>=16:
+                if sum(row['kind']=='model' and row['subject']==subject for row in rows)>=self.subject_limit:
                     raise BudgetAdmissionFailure('subject_attempt_budget_exhausted')
             elif time.time()>=self.expires or used>=cap:
                 raise ControlFailure('agent','request_budget_exhausted')
@@ -133,7 +147,7 @@ class TrialLedger(DurableToolAudit):
 
 class DurableModelBudget(RunAttemptBudget):
     def __init__(self,ledger):
-        super().__init__(total=32,per_subject=16,lifetime=900);self.ledger=ledger
+        super().__init__(total=ledger.model_limit,per_subject=ledger.subject_limit,lifetime=900);self.ledger=ledger
     def reserve(self,subject):
         self.ledger.reserve('model',subject);super().reserve(subject)
     def snapshot(self,subject):

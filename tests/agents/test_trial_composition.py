@@ -26,7 +26,7 @@ class TrialAdmissionTests(unittest.TestCase):
             'program_integrity':self.program,'owner_approved':True,'synthetic_only':True,
             'processor_location_accepted':True,'fixture_authority_accepted':True,
             'expires_at':time.time()+120,'evidence':{},'subject':'local-fixture-alpha'}
-        for name in ['campaign','provenance','network','scoped_client_denials','service_quarantine','policy_acceptance','fixed_integration']:
+        for name in ['campaign','provenance','network','scoped_client_denials','service_quarantine','policy_acceptance','application_isolation','private_channel','fixed_integration']:
             value={'status':'PASS','source':self.source}
             if name=='campaign':value=json.loads((ROOT/'evaluation/google-sdp-context/campaign-offline-result.json').read_text())
             if name=='fixed_integration':value|={'scope':'fixed_inputs_qualification','all_required_tools_grounded':True}
@@ -46,6 +46,35 @@ class TrialAdmissionTests(unittest.TestCase):
     def test_fixed_input_scope_does_not_admit_free_text(self):
         self.claim['scope']='fixed_inputs_qualification';self.write(self.path/'admission.json',self.claim)
         with self.assertRaisesRegex(ValueError,'admission_rejected'):self.check()
+
+    def test_containment_channel_and_actual_fixed_receipts_are_required(self):
+        # Constructed admission objects exercise guards, never qualify Google.
+        qualified={'mode':'live_synthetic','required_pass':70,'required_fail':0,
+            'observations':16,'observation_failures':0,'operational_failures':0,
+            'unexecuted':0,'injected_attempts':0,'authority_changed':False,
+            'outcome':'SYNTHETIC_POLICY_ONLY_REVIEW_REQUIRED'}
+        from types import SimpleNamespace
+        validator=SimpleNamespace(validate=lambda _:qualified)
+        containment={'source_overlay':False,'application_configuration':'sha256:'+'e'*64,
+            **{k:True for k in ['peer_namespace_denials','credential_file_denials','network_none','readonly_nonroot','audit_denials','tenant_denials']}}
+        channel={'worker_cloud_identity':False,'gateway':'http://127.0.0.1:14006',
+            'redactor':'http://127.0.0.1:14007/redact','authenticated_tunnels':True,'current_listener_ownership':True}
+        fixed={'scope':'fixed_inputs_qualification',**{k:True for k in ['all_required_tools_grounded','actual_model_responses','owned_restoration_verified','audit_preserved','credentials_budgets_unchanged','denials_verified']}}
+        def replace(name,fields):
+            row=self.claim['evidence'][name];path=self.path/row['file']
+            self.write(path,{'status':'PASS','source':self.source}|fields)
+            row['integrity']=hashlib.sha256(path.read_bytes()).hexdigest()
+            self.write(self.path/'admission.json',self.claim)
+        for name,fields in [('application_isolation',containment),('private_channel',channel),('fixed_integration',fixed)]:replace(name,fields)
+        with mock.patch('runtime.agents.trial_composition.importlib.util.module_from_spec',return_value=validator),mock.patch('importlib.machinery.SourceFileLoader.exec_module'):
+            self.assertEqual(self.check()['scope'],'supervised_synthetic_free_text')
+            for name,valid,bad in [('application_isolation',containment,{'source_overlay':True}),
+                    ('private_channel',channel,{'worker_cloud_identity':True}),
+                    ('private_channel',channel,{'gateway':'http://unrelated.invalid'}),
+                    ('fixed_integration',fixed,{'actual_model_responses':False})]:
+                replace(name,valid|bad)
+                with self.assertRaises(ValueError):self.check()
+                replace(name,valid)
 
     def test_once_only_admission_cannot_replenish_a_second_state(self):
         consume_admission(self.path/'admission.json',self.claim)

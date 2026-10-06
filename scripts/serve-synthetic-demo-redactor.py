@@ -135,6 +135,11 @@ class Handler(BaseHTTPRequestHandler):
 
 def admit_bridge(admission):
     fields = {'approved', 'program_sha256', 'project_id', 'key', 'expires_at', 'policy_sha256', 'redaction_qualification'}
+    current_fixed=set(admission)==fields|{'scope','campaign_evidence_sha256'}
+    if current_fixed:
+        if (admission['scope']!='fixed_inputs_qualification' or admission['redaction_qualification']!='QUALIFIED_FOR_FIXED_CURRENT_APPLICATION'
+                or len(admission['campaign_evidence_sha256'])!=64 or any(c not in '0123456789abcdef' for c in admission['campaign_evidence_sha256'])):raise ValueError
+        fields=fields|{'scope','campaign_evidence_sha256'}
     trial=set(admission)==fields|{'scope','campaign_evidence_sha256','fixed_integration_evidence_sha256'}
     if trial:
         if (admission['scope']!='supervised_synthetic_free_text'
@@ -144,13 +149,13 @@ def admit_bridge(admission):
             raise ValueError
         fields=fields|{'scope','campaign_evidence_sha256','fixed_integration_evidence_sha256'}
     acknowledgement=(os.environ.get('PORTFOLIO_SUPERVISED_TRIAL_ACK')==TRIAL_ACK if trial
-                     else os.environ.get('PORTFOLIO_SYNTHETIC_LIVE_DEMO_ACK')==ACK)
+                     else os.environ.get('PORTFOLIO_SYNTHETIC_LIVE_DEMO_ACK')==('I_ACKNOWLEDGE_ONE_FIXED_CURRENT_APPLICATION_QUALIFICATION' if current_fixed else ACK))
     if (set(admission) != fields or admission['approved'] is not True
             or not acknowledgement
             or admission['policy_sha256'] != POLICY_HASH
             or type(admission['expires_at']) not in (int, float)
             or not time.time() < admission['expires_at'] <= time.time() + 900
-            or admission['redaction_qualification'] != ('QUALIFIED_FOR_SUPERVISED_SYNTHETIC_SCOPE' if trial else 'QUALIFIED_FOR_THIS_SYNTHETIC_CATALOG')
+            or admission['redaction_qualification'] != ('QUALIFIED_FOR_SUPERVISED_SYNTHETIC_SCOPE' if trial else 'QUALIFIED_FOR_FIXED_CURRENT_APPLICATION' if current_fixed else 'QUALIFIED_FOR_THIS_SYNTHETIC_CATALOG')
             or not isinstance(admission['key'], str) or len(admission['key']) != 64
             or any(c not in '0123456789abcdef' for c in admission['key'])):
         raise ValueError

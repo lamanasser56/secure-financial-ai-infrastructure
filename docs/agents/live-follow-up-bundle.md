@@ -311,3 +311,15 @@ separate valid-identifier/eight-class research resumes. Provider authority, offl
 UI, agent/model enablement and retirement remain unchanged. Exact subsequent
 scope/privacy/runtime/audit/identity/gateway/integration/authority gates are listed
 in that proposal; a finite policy pass does not close them.
+
+## Current isolated integration checkpoint
+
+Use the [isolated application guide](live-isolated-application.md). The qualified
+network-none application talks only to a namespace/UID-checked controller, which
+owns SQL, durable audit, model/redactor transport and registered host actions.
+Actual no-overlay local acceptance passed; no live model or SDP call occurred.
+Two current fixed Financial inputs and controlled Operations qualification precede
+a distinct supervised own-wording grant. The old scripted catalog is not the new
+acceptance path. A single private execution proposal binds these phases, the
+unchanged four email controls and frozen campaign, exact native identities and
+cleanup. No failed stage can be replayed or bypassed by a new local state.

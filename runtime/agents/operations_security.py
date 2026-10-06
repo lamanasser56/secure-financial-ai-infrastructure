@@ -16,8 +16,13 @@ def read_subject(config):
     Signature result is a historical, trusted native-verifier receipt. This reader
     does not perform a new cryptographic Cosign verification or provider call.
     """
-    if set(config) != {'subject', 'source', 'signer', 'issuer', 'files'}:
+    if set(config) not in ({'subject','source','signer','issuer','files'}, {'subject','source','signer','issuer','files','signing_mode'}):
         raise OperationsBlocked('INVALID_REQUEST')
+    mode=config.get('signing_mode','github_workflow')
+    if mode not in {'github_workflow','native_owner'}:
+        raise OperationsBlocked('INVALID_REQUEST')
+    if mode=='native_owner' and config['issuer']!='https://oauth2.sigstore.dev/auth':
+        raise OperationsBlocked('EVIDENCE_CHANGED')
     files = {}
     for name in ('scan', 'signature', 'kev', 'exceptions', 'verification', 'release'):
         record = config['files'][name]
@@ -33,7 +38,7 @@ def read_subject(config):
             or native['registry_digest_reference'] != config['subject']
             or release['registry_digest_reference'] != config['subject']
             or native['source_commit'] != config['source'] or release['source_commit'] != config['source']
-            or native['native_cosign_verification'] != 'PASS exact issuer/workflow/source/dispatch/digest'
+            or native['native_cosign_verification'] != ('PASS exact issuer/workflow/source/dispatch/digest' if mode=='github_workflow' else 'PASS exact issuer/owner/source/digest')
             or native['reviewed_release_subject_receipt_sha256'] != config['files']['release']['integrity']
             or release['evidence_sha256']['trivy.json'] != config['files']['scan']['integrity']
             or release['evidence_sha256']['cosign-verification.json'] != config['files']['signature']['integrity']):
@@ -47,8 +52,9 @@ def read_subject(config):
         if (critical['image']['docker-manifest-digest'] != digest
                 or critical['identity']['docker-reference'] != config['subject'].split('@')[0]
                 or optional['Issuer'] != config['issuer'] or optional['Subject'] != config['signer']
-                or optional['githubWorkflowSha'] != config['source']
-                or optional['githubWorkflowTrigger'] != 'workflow_dispatch'):
+                or (mode=='github_workflow' and (optional.get('githubWorkflowSha') != config['source']
+                    or optional.get('githubWorkflowTrigger') != 'workflow_dispatch'))
+                or (mode=='native_owner' and optional.get('source') != config['source'])):
             raise OperationsBlocked('EVIDENCE_CHANGED')
     spec = importlib.util.spec_from_file_location('vulnerability_policy',
         ROOT / 'scripts/evaluate-container-vulnerability-policy.py')
@@ -57,7 +63,8 @@ def read_subject(config):
     allowed, _ = evaluator.evaluate(files['scan'], config['subject'], files['kev'], files['exceptions'], date.today())
     return {'subject': config['subject'], 'source': config['source'],
         'vulnerability_policy': 'allow' if allowed else 'deny',
-        'signature_evidence': 'historical_native_verified_receipt',
+        'signature_evidence': 'retained_native_owner_receipt' if mode=='native_owner' else 'historical_native_verified_receipt',
+        'signing_mode':mode,
         'fresh_signature_verification': False, 'scope': 'retained_exact_image_bytes',
         'historical_verified_at': native['verified_at'],
         'current_application_qualified': False,

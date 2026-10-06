@@ -8,6 +8,7 @@ model_list:
       timeout: 8
       max_retries: 0
       max_tokens: 1024
+      reasoning_effort: none
 litellm_settings:
   num_retries: 0
   telemetry: false
