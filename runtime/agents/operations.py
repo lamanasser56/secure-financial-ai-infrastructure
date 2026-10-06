@@ -358,6 +358,13 @@ class OperationsController:
         target = self.targets.get(tid)
         if not target or tenant.tenant_ref != target.tenant_ref or not allowed:
             raise OperationsBlocked('TARGET_DENIED')
+        if action!='monitor' and hasattr(self.model,'budgets'):
+            try:self.model.budgets()
+            except Exception:
+                self.poisoned=True
+                raise OperationsBlocked('AUDIT_FAILED') from None
+        if action!='monitor' and self.poisoned:
+            raise OperationsBlocked('AUDIT_FAILED')
         return target, tenant.tenant_ref, hashlib.sha256(claims.subject.encode()).hexdigest()[:16]
 
     def _event(self, phase, request, tid, action, evidence, code='OK', count=0, reclaimed=0, *, outcome_principal=None,verification=None):

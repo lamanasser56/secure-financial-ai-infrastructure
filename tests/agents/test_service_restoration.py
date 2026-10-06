@@ -130,3 +130,36 @@ class RestorationTests(unittest.TestCase):
         with self.assertRaises(OperationsBlocked) as failure:self.controller.propose('owned-service','test_failure',observed['evidence_id'])
         self.assertEqual(failure.exception.code,'AUDIT_FAILED')
         self.assertIsNone(self.stub.poll())
+
+    def test_shared_accounting_failure_after_approval_blocks_immediate_mutation(self):
+        class Accounting:
+            broken=False
+            def budgets(self):
+                if self.broken:raise ControlFailure('audit','invalid_event')
+                return {'available':True}
+        accounting=Accounting();self.controller.model=accounting
+        request,approval=self.approved('test_failure');accounting.broken=True
+        with self.assertRaises(OperationsBlocked) as failure:self.controller.execute(request,approval)
+        self.assertEqual(failure.exception.code,'AUDIT_FAILED')
+        self.assertIsNone(self.stub.poll())
+        self.assertFalse((self.state/'fault-stub.json').exists())
+        self.assertEqual(self.controller.observe('owned-service')['observed'],'SERVICE_HEALTHY')
+
+
+class HealthDeadlineTests(unittest.TestCase):
+    def test_thirty_two_checks_use_existing_twenty_second_deadline_without_retry(self):
+        from unittest import mock
+        for ready_at,successful in [(19,True),(21,False)]:
+            with self.subTest(ready_at=ready_at):
+                clock=[0.0];adapter=OwnedServiceAdapter.__new__(OwnedServiceAdapter)
+                adapter.last={};adapter._owned=mock.Mock(return_value={'pid':1})
+                adapter._health=mock.Mock(side_effect=lambda _:clock[0]>=ready_at)
+                adapter._dependencies=mock.Mock(return_value=True)
+                def sleep(seconds):clock[0]+=seconds
+                with mock.patch('runtime.agents.service_restoration.time.monotonic',side_effect=lambda:clock[0]),mock.patch('runtime.agents.service_restoration.time.sleep',side_effect=sleep):
+                    if successful:adapter._wait_for_outcome('restore',20)
+                    else:
+                        with self.assertRaises(OperationsBlocked):adapter._wait_for_outcome('restore',20)
+                self.assertEqual(adapter.last['health_verified'],successful)
+                self.assertLessEqual(adapter._health.call_count,32)
+                self.assertLess(clock[0],20)

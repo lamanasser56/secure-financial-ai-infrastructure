@@ -265,6 +265,9 @@ class OwnedServiceAdapter:
                 self.last['restore_attempts']=1
             else:
                 raise OperationsBlocked('TARGET_DENIED')
+        self._wait_for_outcome(action,deadline)
+
+    def _wait_for_outcome(self, action, deadline):
         # Health polls are bounded observations, not start retries or model calls.
         checks=0
         while time.monotonic()<deadline and checks<32:
@@ -276,6 +279,10 @@ class OwnedServiceAdapter:
                 self.last.update(health_verified=True,health_checks=checks,credentials_unchanged=True);return
             if action=='restore' and actual is None:
                 break
-            time.sleep(.4)
+            remaining=deadline-time.monotonic()
+            if remaining>0 and checks<32:
+                # Use the existing deadline instead of ending early after 32
+                # fixed sleeps. A slow admitted start still gets a final check.
+                time.sleep(remaining/(33-checks))
         self.last.update(health_verified=False,health_checks=checks)
         raise OperationsBlocked('ACTION_FAILED')

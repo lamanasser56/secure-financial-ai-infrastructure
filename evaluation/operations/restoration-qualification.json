@@ -3,7 +3,7 @@
   "scope": "fresh_local_security_operations_service_images",
   "baseline": "b24b23352f85bf7eade09b3b7860f8487d3f9de8",
   "source_commit_bound_in_private_final_handoff": true,
-  "assessed_utc": "2026-10-06T04:46:59.621024+00:00",
+  "assessed_utc": "2026-10-06T05:19:50.390587+00:00",
   "subjects": {
     "gateway": {
       "configuration_id": "sha256:33ffd64cd021c812b1de3d00e8414b350f911622996b72d1ee50d051d7828f59",
@@ -65,11 +65,11 @@
       "historical_scan_assessed_utc": "2026-10-05T23:48:59.609764+00:00"
     },
     "application": {
-      "configuration_id": "sha256:0fafd9758569b50a2ed5e99571ca74ce140e95f7a0e661a307164cf14cf1dabd",
-      "local_store_image_id": "sha256:ccfd70a5c77ceff8634a44b5903cf0c44f57311adcc709241c73b8f8de2235b6",
+      "configuration_id": "sha256:c4e2320c582cff6bba113d0d485f164ae9a1a40df76aee55a3e9c10bbca038ad",
+      "local_store_image_id": "sha256:2a6ad8ddcc09d6112139baa84c1051e1efd97b253d53a94086f0e68d6100991c",
       "archive_sha256": [
-        "4c984b1876a7b03fc62c03e92065d7cc9f5571858c5e42b01ab344b01f8f0451",
-        "4c984b1876a7b03fc62c03e92065d7cc9f5571858c5e42b01ab344b01f8f0451"
+        "fbc2708807c0c3e267737c35e3c84271979ec5ea56cfa2654f6c8c32fca31018",
+        "fbc2708807c0c3e267737c35e3c84271979ec5ea56cfa2654f6c8c32fca31018"
       ],
       "archive_bytes": 203649536,
       "reproducible": true,
@@ -78,8 +78,8 @@
         "LOW": 8
       },
       "components": 1703,
-      "scan_sha256": "7fd63c4f30a683e7e66e80fbce3bd1ed07f30dff59814d5d421011a31dca7ed3",
-      "sbom_sha256": "cbe2c9184a2f7c7be141022f75eb2c5ef281d965870e89b6fa5cba85a64cc0e8",
+      "scan_sha256": "4eeca1fc0707b0f1eb7bac38e570525624473b50ef8665b06466c6b54aab6164",
+      "sbom_sha256": "ed407069b3899997c282ec4063e1033da916da6d426b2f833f2d190e6a427dcc",
       "high_critical_gate": true,
       "secret_scan_exit": 0,
       "functional_nonroot_readonly_network_none": "PASS",
@@ -327,7 +327,7 @@
           "runtime/agents/localization.py"
         ],
         [
-          "299db6275339e3067d4d410147782ba1bb06ef0362661213e94d7b3051176f61",
+          "ae18bd2a8b4ba613cca57a37c6d1bb5b31b70f94bb6fdb95377aef1a6b24eb72",
           "runtime/agents/operations.py"
         ],
         [
@@ -367,7 +367,7 @@
           "runtime/agents/schemas.py"
         ],
         [
-          "092b6e6a07847f0562ef98030f7d1cd8dbb4850e9dd9efb98337b0b7079ef9df",
+          "4f0d4cc038c6f7bbb3bc87ca2854755bc2ef008050fc0fe0fcf6551dfd36ef5f",
           "runtime/agents/service_restoration.py"
         ],
         [
@@ -478,8 +478,8 @@
       "policy": {
         "allowed": true,
         "reason": "accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding",
-        "subject": "local-docker-archive-application@sha256:4c984b1876a7b03fc62c03e92065d7cc9f5571858c5e42b01ab344b01f8f0451",
-        "raw_scan_integrity": "7fd63c4f30a683e7e66e80fbce3bd1ed07f30dff59814d5d421011a31dca7ed3",
+        "subject": "local-docker-archive-application@sha256:fbc2708807c0c3e267737c35e3c84271979ec5ea56cfa2654f6c8c32fca31018",
+        "raw_scan_integrity": "4eeca1fc0707b0f1eb7bac38e570525624473b50ef8665b06466c6b54aab6164",
         "scope": "fresh_actual_local_archive_not_registry",
         "only_artifact_name_binding_changed": true
       },
@@ -502,7 +502,7 @@
     "Version": 2,
     "NextUpdate": "2026-10-07T01:08:27.805176349Z",
     "UpdatedAt": "2026-10-06T01:08:27.80517672Z",
-    "DownloadedAt": "2026-10-06T04:45:27.836356554Z"
+    "DownloadedAt": "2026-10-06T05:08:13.465041413Z"
   },
   "kev_integrity": "f51fed1c9213e7b797104fcd6dbeb1b0dc0c7073a80467b9d4b1fc25e7dd786b",
   "historical_record_preserved": true
