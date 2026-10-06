@@ -47,3 +47,31 @@ class BootstrapTests(unittest.TestCase):
         with mock.patch.object(bootstrap.urllib.request,'build_opener',return_value=opener):
             with self.assertRaises(OSError):bootstrap.issue_clients(self.config,self.state)
         opener.open.assert_not_called()
+
+
+class HandoffTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.state=Path(self.tmp.name)
+        (self.state/'private-application-configurations.json').write_text('{}')
+    def tearDown(self):self.tmp.cleanup()
+    def test_acknowledged_handoff_removes_private_file(self):
+        clock=[1000.0]
+        def sleep(seconds):
+            clock[0]+=seconds
+            if clock[0]>=1003:(self.state/'handoff-acknowledged').touch()
+        self.assertEqual(bootstrap.await_handoff(self.state,2000,now=lambda:clock[0],sleep=sleep),'ACKNOWLEDGED')
+        self.assertFalse((self.state/'private-application-configurations.json').exists())
+        self.assertLessEqual(clock[0],1003)
+    def test_unacknowledged_handoff_fails_closed_within_bound(self):
+        clock=[1000.0]
+        def sleep(seconds):clock[0]+=seconds
+        with self.assertRaisesRegex(ValueError,'handoff_unacknowledged'):
+            bootstrap.await_handoff(self.state,5000,now=lambda:clock[0],sleep=sleep)
+        self.assertEqual(clock[0],1000+bootstrap.HANDOFF_SECONDS)
+        self.assertFalse((self.state/'private-application-configurations.json').exists())
+    def test_hold_never_exceeds_admission_expiry(self):
+        clock=[1000.0]
+        def sleep(seconds):clock[0]+=seconds
+        with self.assertRaises(ValueError):
+            bootstrap.await_handoff(self.state,1010,now=lambda:clock[0],sleep=sleep)
+        self.assertEqual(clock[0],1010)

@@ -16,6 +16,27 @@ import urllib.request
 TENANTS = {'fixture-a': '11111111-1111-4111-8111-111111111111',
            'fixture-b': '22222222-2222-4222-8222-222222222222'}
 GATEWAY = 'http://gateway.google-agent-demo.svc.cluster.local:4000'
+HANDOFF_SECONDS = 120
+
+
+def await_handoff(state, deadline, *, now=time.time, sleep=time.sleep):
+    """Hold the private client handoff for at most HANDOFF_SECONDS.
+
+    The native operator reads the 0600 file with an authenticated exec (never
+    container logs), then creates the acknowledgement marker. The file is removed
+    on acknowledgement or expiry; an unacknowledged handoff fails closed.
+    """
+    handoff = state / 'private-application-configurations.json'
+    marker = state / 'handoff-acknowledged'
+    hold_until = min(now() + HANDOFF_SECONDS, deadline)
+    try:
+        while not marker.exists():
+            if now() >= hold_until:
+                raise ValueError('bootstrap:handoff_unacknowledged')
+            sleep(1)
+    finally:
+        handoff.unlink(missing_ok=True)
+    return 'ACKNOWLEDGED'
 
 
 def issue_clients(config, state):
@@ -125,10 +146,11 @@ def run(phase):
             'tenant_reference_key': reference_key, 'tenant_directory': TENANTS,
             'tenant_database_url': tenant_db}
     applications['redactor-client.json'] = {'key': config['redactor_key']}
-    # Native operator copies this exact private file into the application Secret
-    # without stdout logging, then deletes this Job/Pod and bootstrap Secret.
+    # Native operator reads this exact private file by authenticated exec without
+    # logging, acknowledges it, then deletes this Job/Pod and bootstrap Secret.
     write(Path('/state/private-application-configurations.json'), applications)
-    print(json.dumps(dict(counts, bootstrap_phase='clients', model_requests=0, sdk_attempts=0)))
+    handoff = await_handoff(Path('/state'), config['expires_at'])
+    print(json.dumps(dict(counts, bootstrap_phase='clients', handoff=handoff, model_requests=0, sdk_attempts=0)))
 
 
 if __name__ == '__main__':
