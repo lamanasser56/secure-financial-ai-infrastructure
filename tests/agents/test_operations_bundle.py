@@ -53,8 +53,11 @@ class OperationsBundleTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[2]
         spec=importlib.util.spec_from_file_location('gate',root/'scripts/verify-operations-image-qualification.py')
         gate=importlib.util.module_from_spec(spec);spec.loader.exec_module(gate)
-        record=json.loads((root/'evaluation/operations/service-qualification.json').read_text())
-        self.assertEqual(gate.verify(record)['references'],100)
+        record=json.loads((root/'evaluation/operations/restoration-qualification.json').read_text())
+        expected=sum(len(gate.required_inputs(name)) for name in record['subjects'])
+        self.assertEqual(gate.verify(record)['references'],expected)
+        altered=copy.deepcopy(record);altered['subjects']['application']['source_inputs'].pop()
+        with self.assertRaises(ValueError):gate.verify(altered)
         altered=copy.deepcopy(record);altered['subjects']['application']['archive_sha256'][1]='b'*64
         with self.assertRaises(ValueError):gate.verify(altered)
         altered=copy.deepcopy(record)

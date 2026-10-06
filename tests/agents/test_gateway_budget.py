@@ -92,10 +92,14 @@ class BudgetTests(unittest.TestCase):
             subject="subject",
             profile="financial",
         )
-        self.assertEqual(
-            wrapper.measurement_snapshot(), {"http_attempts": 1, "usage_unavailable": 1,
-                                             "budget_admissions": 0, "budget_denials": 0}
-        )
+        measured=wrapper.measurement_snapshot()
+        shared=measured.pop('shared_run_budget')
+        self.assertEqual(measured, {"http_attempts": 1, "usage_unavailable": 1,
+                                   "budget_admissions": 0, "budget_denials": 0})
+        self.assertEqual((shared['total_used'],shared['subject_used']), (0,0))
+        self.assertEqual((shared['total_limit'],shared['subject_limit'],shared['retries']), (32,16,0))
+        self.assertGreater(shared['remaining_seconds'],0)
+        self.assertLessEqual(shared['remaining_seconds'],3600)
         self.assertNotIn("cost", wrapper.measurement_snapshot())
 
     def test_scoped_http_factory_uses_exact_handle_and_measured_loopback_requests(self):

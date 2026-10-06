@@ -210,24 +210,41 @@ class DiagnosticTraceCollector(TraceCollector):
         super().emit(dict(value, schema_version=2))
 
 
+class CandidateTraceCollector(TraceCollector):
+    def __init__(self):
+        super().__init__()
+        self.validator=Draft202012Validator(json.loads((Path(__file__).resolve().parents[2]/'contracts/agents/model-trace-v3.schema.json').read_text()))
+    def emit(self,value):
+        if value.get('schema_version')!=1:raise ControlFailure('audit','invalid_event')
+        value=dict(value,schema_version=3,redaction_provider='google_sdp_context_candidate',
+                   model_provider='vertex_via_scoped_litellm',provider_receipts='unverified')
+        if value['failed_stage'] in {'presidio_analyzer','presidio_anonymizer'}:value['failed_stage']='redaction'
+        super().emit(value)
+
+
 class IntegratedCore(AgentCore):
     """Commit bounded terminal accounting before a result can reach the UI."""
 
-    def __init__(self, *args, terminal_sink, **kwargs):
+    def __init__(self, *args, terminal_sink, providers=('simulated','stub'), **kwargs):
+        if providers not in {('simulated','stub'),('google_sdp_context_candidate','vertex_gemini')}:
+            raise ValueError('composition:invalid_providers')
+        self._providers=providers
         self._terminal = terminal_sink
         super().__init__(*args, **kwargs)
 
     def trace_collector(self):
-        return DiagnosticTraceCollector()
+        return DiagnosticTraceCollector() if self.simulation else CandidateTraceCollector()
 
     def run(self, *args, **kwargs):
         before = self.gateway.measurement_snapshot()
         result = super().run(*args, **kwargs)
         after = self.gateway.measurement_snapshot()
+        if 'shared_run_budget' in after:result['shared_run_budget']=after['shared_run_budget']
         result["local_transport"] = {
             "http_attempts": after["http_attempts"] - before["http_attempts"],
             "http_responses": after["http_responses"] - before["http_responses"],
-            "upstream": "stub", "external_model_calls": 0}
+            "upstream": 'stub' if self.simulation else 'vertex_via_litellm',
+            "external_model_calls": 0 if self.simulation else None}
         result['model_attempt_accounting'] = {
             'runtime_invocations': result['model_requests'],
             'budget_admissions': after['budget_admissions'] - before['budget_admissions'],
@@ -240,17 +257,20 @@ class IntegratedCore(AgentCore):
         failure = (validate_terminal_failure(result['terminal_failure'])
                    if result['status'] == 'blocked' else None)
         try:
-            self._terminal.append({"schema_version": 3, "event_id": result["request_id"],
+            self._terminal.append({"schema_version": 3 if self.simulation else 4, "event_id": result["request_id"],
                 "event_type": "turn_terminal", "occurred_at": datetime.now(timezone.utc).isoformat(),
                 "agent": self.profile, "tenant_ref": result["tenant_ref"],
                 "outcome": result["status"], "model_attempts": result["model_requests"],
                 "tool_attempts": result["tool_executions"],
-                "redaction_provider": "simulated", "model_provider": "stub",
+                "redaction_provider": self._providers[0], "model_provider": self._providers[1],
                 'terminal_failure': failure,
                 'model_attempt_accounting': result['model_attempt_accounting']})
         except Exception:
             # No partial answer/facts/history after an audit failure.
             raise ControlFailure("audit", "invalid_event") from None
+        if not self.simulation:
+            result['provider_context']={'redaction':'google_sdp_context_candidate','model':'vertex_via_scoped_litellm',
+                'scope':'supervised_synthetic_trial','provider_receipts':'unverified'}
         return result
 
 

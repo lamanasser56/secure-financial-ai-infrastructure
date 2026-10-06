@@ -150,6 +150,7 @@ class AgentCore:
         self.tools = tools if tools is not None else DemoTools()
         self.limits = limits if limits is not None else Limits()
         self.audit_sink = audit_sink
+        self.language_model_scope = False
 
     def run(self, authorization, request, *, language="en", context=None):
         started = time.monotonic()
@@ -359,7 +360,7 @@ class AgentCore:
                     )
                 ):
                     raise ControlFailure("agent", "invalid_context")
-            scope = (select_scope if self.simulation else select_live_scope)(
+            scope = (select_scope if self.simulation and not self.language_model_scope else select_live_scope)(
                 self.profile,
                 safe_message,
                 validated["period"],

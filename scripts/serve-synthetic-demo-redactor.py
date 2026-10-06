@@ -22,6 +22,7 @@ from runtime.phase3.google_sdp_adapter import ContentAttemptBudget, GoogleSDPFai
 from runtime.phase3.sdp_context_policy import GoogleSDPContextRedactor
 ACK = 'I_ACKNOWLEDGE_ONE_FIXED_SYNTHETIC_CATALOG_NO_AGENT_PROMOTION'
 POLICY_HASH = 'c1b782c6fd051243dec4173f903cb33607893010c7d38a6b35bc1372ddb2d4db'
+TRIAL_ACK='I_ACKNOWLEDGE_SUPERVISED_SYNTHETIC_FREE_TEXT_NOT_FIXED_QUALIFICATION'
 
 
 def unique(pairs):
@@ -132,18 +133,33 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(503, self.server.diagnostic)
 
 
-def run():
-    admission = private(Path('/admission/redactor-server.json'))
+def admit_bridge(admission):
     fields = {'approved', 'program_sha256', 'project_id', 'key', 'expires_at', 'policy_sha256', 'redaction_qualification'}
+    trial=set(admission)==fields|{'scope','campaign_evidence_sha256','fixed_integration_evidence_sha256'}
+    if trial:
+        if (admission['scope']!='supervised_synthetic_free_text'
+                or any(type(admission[k]) is not str or len(admission[k])!=64
+                       or any(c not in '0123456789abcdef' for c in admission[k])
+                       for k in ['campaign_evidence_sha256','fixed_integration_evidence_sha256'])):
+            raise ValueError
+        fields=fields|{'scope','campaign_evidence_sha256','fixed_integration_evidence_sha256'}
+    acknowledgement=(os.environ.get('PORTFOLIO_SUPERVISED_TRIAL_ACK')==TRIAL_ACK if trial
+                     else os.environ.get('PORTFOLIO_SYNTHETIC_LIVE_DEMO_ACK')==ACK)
     if (set(admission) != fields or admission['approved'] is not True
-            or os.environ.get('PORTFOLIO_SYNTHETIC_LIVE_DEMO_ACK') != ACK
+            or not acknowledgement
             or admission['policy_sha256'] != POLICY_HASH
             or type(admission['expires_at']) not in (int, float)
             or not time.time() < admission['expires_at'] <= time.time() + 900
-            or admission['redaction_qualification'] != 'QUALIFIED_FOR_THIS_SYNTHETIC_CATALOG'
+            or admission['redaction_qualification'] != ('QUALIFIED_FOR_SUPERVISED_SYNTHETIC_SCOPE' if trial else 'QUALIFIED_FOR_THIS_SYNTHETIC_CATALOG')
             or not isinstance(admission['key'], str) or len(admission['key']) != 64
             or any(c not in '0123456789abcdef' for c in admission['key'])):
         raise ValueError
+    return 'supervised_synthetic_free_text' if trial else 'fixed_inputs_qualification'
+
+
+def run():
+    admission = private(Path('/admission/redactor-server.json'))
+    scope=admit_bridge(admission)
     code = (Path(__file__).read_bytes() if '__file__' in globals()
             else Path('/proc/self/cmdline').read_bytes().split(b'\x00')[2])
     if hashlib.sha256(code).hexdigest() != admission['program_sha256']:
@@ -161,7 +177,7 @@ def run():
         signal.signal(signal.SIGTERM, lambda *_: stop.__setitem__(0, True))
         while not stop[0] and not server.failed and time.time() < admission['expires_at']:
             server.handle_request()
-    print(json.dumps({'scope': 'synthetic_catalog_redaction_bridge', 'reserved_sdk_slots': journal.reserved(),
+    print(json.dumps({'scope': scope, 'reserved_sdk_slots': journal.reserved(),
                       'sdk_attempts': sum(redactor.operation_counts.values()), 'metadata_sdk_attempts': 0,
                       'retries': 0, 'authority_changed': False, 'diagnostic': server.diagnostic}))
     if server.failed:

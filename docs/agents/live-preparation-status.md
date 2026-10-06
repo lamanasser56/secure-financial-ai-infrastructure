@@ -2,6 +2,16 @@
 
 ## Current checkpoint
 
+The [combined Financial and Operations application](recoverable-agent-application.md)
+adds actual approval-controlled restoration of its separately owned LiteLLM service.
+Financial tenant reads succeed before and after recovery; no identity, client,
+conversation, database or budget is renewed. Actual local tests use a stub model
+and simulated redaction. The [single live checkpoint](recoverable-agent-execution-checkpoint.md)
+separates fixed qualification from a supervised free-text grant. Current redaction
+acceptance and worker application isolation remain blocking native gates.
+
+## Earlier integrated checkpoint
+
 The [runnable local application](integrated-local-demo.md) now composes real
 LiteLLM virtual-key enforcement, fixture JWT verification/server grants, tool
 authorization, PostgreSQL tenant reads and durable tool/terminal audit. Both agents

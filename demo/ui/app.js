@@ -93,6 +93,10 @@ function renderBudget() {
   if (!budget) return;
   byId('budget').append(element('h3', t('budget')));
   cards(byId('budget'), [[t('turns'), budget.turns], [t('modelBudget'), budget.model_requests], [t('toolBudget'), budget.tool_dispatches]]);
+  const shared=budget.shared_run;
+  if(shared)cards(byId('budget'),[[language==='ar'?'طلبات التشغيل المشتركة':'Shared run attempts',shared.total_used+' / '+shared.total_limit],
+    [language==='ar'?'طلبات الهوية المشتركة':'Shared subject attempts',shared.subject_used+' / '+shared.subject_limit],
+    [language==='ar'?'الثواني المتبقية دون تجديد':'Seconds remaining without renewal',Math.floor(shared.remaining_seconds)]]);
 }
 function renderFacts(frame) {
   selectedReport = null;
@@ -166,6 +170,10 @@ function renderHistory() {
 }
 function applyLanguage() {
   if (composition === 'local_proxy_stub') byId('composition-notice').textContent = t('localIntegration');
+  if (composition === 'supervised_candidate_live') {
+    byId('composition-notice').textContent=t('candidateTrial');
+    document.querySelectorAll('.notice [data-i18n]').forEach(x=>setText(x,t('candidateTrial')));
+  }
   document.documentElement.lang = language;
   document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
   document.title = t('pageTitle');
@@ -294,6 +302,7 @@ byId('question-form').addEventListener('submit', async (event) => {
       !/^[0-9a-f-]{36}$/.test(frame.conversation_id)) throw new Error('Invalid response');
     state.id = frame.conversation_id;
     state.budget = frame.budget_remaining;
+    if(frame.shared_run_budget)state.budget.shared_run=frame.shared_run_budget;
     const answer = data.answer ? data.answer.summary : data.question || t(data.reason || 'required_control_failed', lang);
     addMessage(profile, lang, 'assistant', answer, frame);
     status(data.status);
@@ -346,12 +355,13 @@ async function bootstrap() {
     ]);
     if (responses.some((response) => !response.ok)) throw new Error('Unavailable');
     const [strings, data] = await Promise.all(responses.map(boundedJSON));
-    if (!strings.en || !strings.ar || data.mode !== 'offline_simulation' || data.synthetic_only !== true || typeof data.csrf !== 'string') throw new Error('Boundary unavailable');
+    if (!strings.en || !strings.ar || !['offline_simulation','gateway'].includes(data.mode) || data.synthetic_only !== true || typeof data.csrf !== 'string'
+        || (data.mode==='gateway' && data.composition!=='supervised_candidate_live')) throw new Error('Boundary unavailable');
     catalog = strings;
     composition = data.composition;
-    if (composition === 'local_proxy_stub') {
+    if (['local_proxy_stub','supervised_candidate_live'].includes(composition)) {
       byId('composition-notice').hidden = false;
-      byId('composition-notice').textContent = t('localIntegration');
+      byId('composition-notice').textContent = t(composition==='local_proxy_stub'?'localIntegration':'candidateTrial');
     }
     csrf = data.csrf;
     byId('language').disabled = false;

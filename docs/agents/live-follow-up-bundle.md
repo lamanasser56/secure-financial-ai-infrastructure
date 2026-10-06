@@ -1,5 +1,13 @@
 # Bounded live-agent execution boundary
 
+Continue with the [runnable combined application](recoverable-agent-application.md)
+and its [dependency-ordered execution checkpoint](recoverable-agent-execution-checkpoint.md).
+Owned service restoration is implemented and locally verified. It preserves
+tenant data, credentials, expiry and shared accounting. Default model/redaction
+remain simulated; no historical approval admits free text or new external calls.
+
+## Earlier integrated checkpoint
+
 The [runnable integrated local application](integrated-local-demo.md) replaces the
 previous unwired-composition next step: actual LiteLLM/PostgreSQL, trusted fixture
 identity, tool governance and durable journals now work together behind the

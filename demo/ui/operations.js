@@ -5,15 +5,16 @@ const words = {
   ar: {'heading':'وكيل الأمن والعمليات','language-label':'اللغة','operations-tab':'العمليات','security-tab':'الأمن','services-heading':'الخدمات والتخزين','refresh':'تحديث الأهداف المسجلة','target-label':'الهدف المسجل','observe':'فحص','explain':'شرح النموذج','incident-heading':'الحادث والأدلة والمجهول','policy-heading':'قرار السياسة والإجراء المقترح','propose':'اقتراح الإجراء المحدد','approval-heading':'موافقة المشغّل','approval-help':'اقرأ operator-approval.secret من حالة الخادم الخاصة. راجع الإجراء والهدف والدليل قبل الموافقة. لا يستطيع النموذج منح الموافقة.','approve':'الموافقة على المقترح','execute':'تنفيذ مرة واحدة','outcome-heading':'النتيجة المتحقق منها','security-heading':'أدلة الأمن المرتبطة ببصمة الصورة','security-help':'أدلة فحص وتحقق توقيع محفوظة. تأهيل التطبيق الحالي منفصل.','security-refresh':'تقييم الأدلة المسجلة','budget-heading':'الحدود والانتهاء','financial':'فتح المحادثة المالية','notice':'الفحص المحلي والإجراءات المعتمدة متاحان عند تعطل LiteLLM. شرح النموذج معطّل ما لم يُضبط عميل اختبار محلي محدود. الوضع الحي معطّل.'}
 };
 let csrf, observation, proposal, approval, busy = false, latestBudgets;
+words.en.diagnose='Diagnose current evidence'; words.ar.diagnose='تشخيص الدليل الحالي';
 function show(id, value) { node(id).textContent = JSON.stringify(value, null, 2); }
 function budgets(value) { latestBudgets=value; show('budgets',value); node('expiry').textContent=(node('language').value==='ar'?'انتهاء جلسة المشغّل: ':'Operator session expires: ')+new Date(value.expiry_epoch*1000).toLocaleString(node('language').value==='ar'?'ar-SA':'en-GB')+(node('language').value==='ar'?' — لا تحديث تلقائي أو إعادة محاولة.':' — No automatic refresh or retry.'); }
 function localize() {
   const lang = node('language').value;
   document.documentElement.lang = lang; document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
   Object.entries(words[lang]).forEach(([id, value]) => { node(id).textContent = value; });
-  node('action').options[0].textContent = lang === 'ar' ? 'استعادة عملية مسجلة يتيمة' : 'Recover registered orphan';
-  node('action').options[1].textContent = lang === 'ar' ? 'تنظيف ذاكرة مؤقتة مسجلة' : 'Clean registered cache';
-  if(latestBudgets)budgets(latestBudgets);
+  const labels={restore:['Restore failed owned service','استعادة الخدمة المملوكة المتعطلة'],test_failure:['Controlled owned service failure','تعطيل اختباري للخدمة المملوكة'],recover:['Stop registered orphan','إيقاف العملية اليتيمة المسجلة'],clean:['Clean registered cache','تنظيف ذاكرة مؤقتة مسجلة']};
+  Array.from(node('action').options).forEach(x=>{x.textContent=labels[x.value][lang==='ar'?1:0];});
+  if(latestBudgets){budgets(latestBudgets);if(latestBudgets.live_enabled)node('notice').textContent=lang==='ar'?'تجربة حية اصطناعية مُشرفة ومحدودة. لا بيانات شخصية أو ترقية لسلطة التنقيح. قرارات السياسة والموافقة من الخادم.':'Bounded supervised synthetic live trial. No personal data or redaction promotion. Server policy and approval remain authoritative.';}
 }
 async function call(operation, fields = {}) {
   if (busy) return null;
@@ -31,11 +32,13 @@ async function refresh() {
   const value = await call('overview'); if (!value || !value.targets) return;
   node('target').replaceChildren(...value.targets.map(t => { const x=document.createElement('option'); x.value=t.target_id; x.textContent=t.target_id + (t.mutable?'':' [read-only]'); return x; }));
   budgets(value.budgets);
+  node('financial').href=value.financial_ui;
 }
 node('language').onchange = localize;
 node('refresh').onclick = refresh;
 node('observe').onclick = async () => { observation=await call('observe',{target_id:node('target').value}); proposal=approval=null; show('incident',observation); show('proposal',null); show('approval',null); };
-node('explain').onclick = async () => { show('incident',await call('explain',{target_id:node('target').value})); };
+node('diagnose').onclick = async () => { if(!observation || !observation.evidence_id)return; const value=await call('diagnose',{target_id:observation.target_id,evidence_id:observation.evidence_id});show('diagnosis',value);if(value.permitted_action)node('action').value=value.permitted_action; };
+node('explain').onclick = async () => { const value=await call('explain',{target_id:node('target').value});if(value && value.evidence)observation=value.evidence;show('diagnosis',value); };
 node('propose').onclick = async () => { if(!observation || observation.target_id!==node('target').value)return; proposal=await call('propose',{target_id:observation.target_id,action:node('action').value,evidence_id:observation.evidence_id}); approval=null; show('proposal',proposal); };
 node('approve').onclick = async () => { if(!proposal || !proposal.request_id)return; const secret=node('operator-secret').value; node('operator-secret').value=''; approval=await call('approve',{request_id:proposal.request_id,operator_secret:secret}); show('approval',approval); };
 node('execute').onclick = async () => { if(!approval || !approval.approval_id)return; const saved=approval; approval=null; show('outcome',await call('execute',{request_id:saved.request_id,approval_id:saved.approval_id})); };

@@ -46,6 +46,10 @@ def present(result, language=None):
             ),
         }
     }
+    if result.get('provider_context'):
+        view['usage']['redaction_notice']=(
+            'Google SDP context candidate for this admitted synthetic trial only; broader qualification is not established.'
+            if language=='en' else 'مرشح Google SDP ضمن التجربة الاصطناعية المعتمدة فقط؛ لم يثبت التأهيل الأوسع.')
     if result["status"] != "completed":
         return view
     facts = {fact["tool_id"]: fact["result"] for fact in result["facts"]}
@@ -156,6 +160,8 @@ def sanitized_report(result):
         'local_transport',
         'model_attempt_accounting',
         'terminal_failure',
+        'provider_context',
+        'shared_run_budget',
     )
     if result['status'] == 'blocked':
         validate_terminal_failure(result['terminal_failure'])

@@ -18,6 +18,48 @@ TENANTS = {'fixture-a': '11111111-1111-4111-8111-111111111111',
 GATEWAY = 'http://gateway.google-agent-demo.svc.cluster.local:4000'
 
 
+def issue_clients(config, state):
+    """One revoked probe plus four distinct clients; failed calls consume slots.
+
+    No retries, refresh or model call. The once-only phase marker is owned by
+    run(); native scope approval controls whether another phase may be started.
+    """
+    counts = {'client_issuance_attempts': 0, 'client_revocation_attempts': 0}
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    def call(path, data, counter):
+        cap = 5 if counter == 'client_issuance_attempts' else 1
+        if counts[counter] >= cap or time.time() >= config['expires_at']:
+            raise ValueError('bootstrap:client_budget')
+        counts[counter] += 1
+        with (state / 'client-admissions.jsonl').open('a') as out:
+            out.write(json.dumps(counts)+'\n');out.flush();os.fsync(out.fileno())
+        request = urllib.request.Request(GATEWAY + path, data=json.dumps(data).encode(),
+            headers={'Authorization': 'Bearer '+config['master_key'], 'Content-Type': 'application/json'})
+        with opener.open(request, timeout=8) as response:
+            raw = response.read(32769)
+            if response.status != 200 or len(raw)>32768:
+                raise ValueError('bootstrap:client_response')
+            return json.loads(raw)
+    def issue(user, profile, purpose):
+        payload = {'models': ['secure-financial-chat'], 'duration': '15m',
+            'allowed_routes': ['/chat/completions'], 'max_parallel_requests': 1,
+            'rpm_limit': 32, 'tpm_limit': 32768,
+            'metadata': {'agent_profile': profile, 'fixture_subject': user,
+                         'fixture_only': True, 'client_purpose': purpose}}
+        value = call('/key/generate', payload, 'client_issuance_attempts')
+        if not isinstance(value.get('key'),str) or not value['key'].startswith('sk-'):
+            raise ValueError('bootstrap:client_response')
+        return value['key']
+    probe = issue('alpha','infrastructure','revocation-probe')
+    write(state/'revocation-probe.json', {'client_key': probe, 'expires_at': config['expires_at']})
+    call('/key/delete', {'keys': [probe]}, 'client_revocation_attempts')
+    clients = {user: {profile: issue(user,profile,'application')
+               for profile in ('infrastructure','financial')} for user in ('alpha','beta')}
+    if len({key for row in clients.values() for key in row.values()} | {probe}) != 5:
+        raise ValueError('bootstrap:duplicate_client')
+    return clients, counts
+
+
 def write(path, value):
     with path.open('x') as out:
         json.dump(value, out); out.flush(); os.fsync(out.fileno())
@@ -69,24 +111,10 @@ def run(phase):
     cert = private.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo).decode()
     now = int(time.time())
     reference_key = secrets.token_hex(32)
+    issued, counts = issue_clients(config, Path('/state'))
     applications = {}
     for user, tenant in (('alpha', 'fixture-a'), ('beta', 'fixture-b')):
-        keys = {}
-        for profile in ('infrastructure', 'financial'):
-            data = {'models': ['secure-financial-chat'], 'duration': '15m',
-                    'allowed_routes': ['/chat/completions'], 'max_parallel_requests': 1,
-                    'rpm_limit': 32, 'tpm_limit': 32768,
-                    'metadata': {'agent_profile': profile, 'fixture_subject': user, 'fixture_only': True}}
-            request = urllib.request.Request(GATEWAY + '/key/generate', data=json.dumps(data).encode(),
-                headers={'Authorization': 'Bearer ' + config['master_key'], 'Content-Type': 'application/json'})
-            with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request, timeout=8) as response:
-                raw = response.read(32769)
-                if response.status != 200 or len(raw) > 32768:
-                    raise ValueError
-                value = json.loads(raw)
-                if not isinstance(value.get('key'), str) or not value['key'].startswith('sk-'):
-                    raise ValueError
-                keys[profile] = value['key']
+        keys = issued[user]
         token = jwt.encode(crypt.RSASigner.from_string(pem, key_id='local-fixture'), {
             'iss': 'https://fixture-issuer.invalid', 'aud': 'portfolio-local-composition',
             'sub': 'local-fixture-' + user, 'iat': now, 'exp': int(config['expires_at']), 'tenant': tenant}).decode()
@@ -100,7 +128,7 @@ def run(phase):
     # Native operator copies this exact private file into the application Secret
     # without stdout logging, then deletes this Job/Pod and bootstrap Secret.
     write(Path('/state/private-application-configurations.json'), applications)
-    print('{"bootstrap_phase":"clients","client_issuance_attempts":4,"model_requests":0,"sdk_attempts":0}')
+    print(json.dumps(dict(counts, bootstrap_phase='clients', model_requests=0, sdk_attempts=0)))
 
 
 if __name__ == '__main__':

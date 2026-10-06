@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portfolio.invalid/contracts/agents/model-trace-v3.schema.json",
+  "title": "Admitted Candidate Provider Model Trace V3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "tenant_ref",
+    "subject_ref",
+    "outcome",
+    "failed_stage",
+    "policy_outcome",
+    "redaction_status",
+    "detected_categories",
+    "model_alias",
+    "provider_called",
+    "error_category",
+    "redaction_provider",
+    "model_provider",
+    "provider_receipts"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 3
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"
+    },
+    "tenant_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{16}$"
+    },
+    "subject_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{16}$"
+    },
+    "outcome": {
+      "enum": [
+        "success",
+        "blocked"
+      ]
+    },
+    "failed_stage": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "authentication",
+        "tenant_context",
+        "authorization",
+        "structured_input_validation",
+        "agent_policy_engine",
+        "litellm",
+        "structured_output_validation",
+        "redaction",
+        "audit",
+        "agent"
+      ]
+    },
+    "policy_outcome": {
+      "enum": [
+        "allowed",
+        "denied",
+        "not_reached"
+      ]
+    },
+    "redaction_status": {
+      "enum": [
+        "completed",
+        "failed",
+        "not_reached"
+      ]
+    },
+    "detected_categories": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "CREDIT_CARD",
+          "EMAIL_ADDRESS",
+          "IBAN_CODE",
+          "PHONE_NUMBER",
+          "SAUDI_BANK_ACCOUNT",
+          "SAUDI_NATIONAL_ID",
+          "SAUDI_RESIDENT_ID",
+          "SAUDI_VAT_ID"
+        ]
+      }
+    },
+    "model_alias": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "secure-financial-chat"
+      ]
+    },
+    "provider_called": {
+      "type": "boolean"
+    },
+    "error_category": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "invalid_correlation",
+        "invalid_token",
+        "malformed_claims",
+        "malformed_context",
+        "invalid_request",
+        "denied",
+        "timeout",
+        "unavailable",
+        "malformed_decision",
+        "malformed_result",
+        "ambiguous_result",
+        "incomplete_redaction",
+        "attempt_budget",
+        "invalid_configuration",
+        "credential_unavailable",
+        "invalid_event",
+        "request_budget_exhausted",
+        "input_too_large",
+        "output_too_large"
+      ]
+    },
+    "redaction_provider": {
+      "const": "google_sdp_context_candidate"
+    },
+    "model_provider": {
+      "const": "vertex_via_scoped_litellm"
+    },
+    "provider_receipts": {
+      "const": "unverified"
+    }
+  }
+}

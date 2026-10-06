@@ -34,7 +34,8 @@ CODES = frozenset({'OK', 'TARGET_DENIED', 'IDENTITY_DENIED', 'APPROVAL_DENIED',
     'EVIDENCE_CHANGED', 'ACTIVE_FILE', 'UNSAFE_FILE', 'INCOMPLETE_VISIBILITY',
     'OWNER_CHANGED', 'NOT_ORPHANED', 'AUDIT_FAILED', 'ACTION_FAILED',
     'BUDGET_EXHAUSTED', 'GATEWAY_UNAVAILABLE', 'MODEL_RESPONSE_REJECTED', 'MODEL_DISABLED', 'INVALID_REQUEST'})
-ACTIONS = {'monitor': 'operations.monitor', 'recover': 'operations.recover', 'clean': 'operations.clean'}
+ACTIONS = {'monitor': 'operations.monitor', 'recover': 'operations.recover', 'clean': 'operations.clean',
+           'restore': 'operations.restore', 'test_failure': 'operations.test_failure'}
 
 
 class OperationsBlocked(Exception):
@@ -135,6 +136,14 @@ class CacheTarget:
     mutable: bool = False
 
 
+@dataclass(frozen=True)
+class ServiceTarget:
+    """Created only by a trusted owner of a separate composition stack."""
+    tenant_ref: str
+    adapter: object
+    mutable: bool = True
+
+
 def cache_inventory(path):
     root = private_directory(path)
     # Only a flat, specifically disposable public cache, never source or secrets.
@@ -204,8 +213,24 @@ class OperationsAudit(DurableToolAudit):
         fields = {'schema_version', 'event_id', 'phase', 'request_id', 'target_id',
                   'tenant_ref', 'subject_ref', 'action', 'evidence_id', 'code',
                   'mutation_count', 'reclaimed_bytes', 'occurred_at'}
-        if (type(event) is not dict or set(event) != fields or event['schema_version'] != 1
-                or event['phase'] not in {'observation', 'proposal', 'approval', 'admission', 'step', 'outcome'}
+        if type(event) is not dict:raise ControlFailure('audit','invalid_event')
+        if event.get('schema_version')==2:
+            if set(event)!=fields|{'verification'} or event.get('phase')!='outcome':raise ControlFailure('audit','invalid_event')
+            proof=event['verification']
+            required={'health_verified','restore_attempts','attempt_limit','credentials_renewed','application_restarted','database_recreated','request_replayed'}
+            optional={'controlled_failure_verified','health_checks','credentials_unchanged'}
+            if (type(proof) is not dict or not required<=set(proof)<=required|optional
+                    or type(proof['attempt_limit']) is not int or proof['attempt_limit']!=1 or type(proof['restore_attempts']) is not int or not 0<=proof['restore_attempts']<=1
+                    or any(proof[k] is not False for k in ['credentials_renewed','application_restarted','database_recreated','request_replayed'])
+                    or any(type(proof[k]) is not bool for k in set(proof)-{'restore_attempts','attempt_limit','health_checks'})
+                    or 'health_checks' in proof and (type(proof['health_checks']) is not int or not 0<=proof['health_checks']<=32)):
+                raise ControlFailure('audit','invalid_event')
+            if event['code']=='OK' and (event['action']=='restore' and not (proof['health_verified'] and proof['restore_attempts']==1)
+                    or event['action']=='test_failure' and proof.get('controlled_failure_verified') is not True):
+                raise ControlFailure('audit','invalid_event')
+            fields=fields|{'verification'}
+        if (set(event) != fields or type(event['schema_version']) is not int or event['schema_version'] not in {1,2}
+                or event['phase'] not in {'observation', 'proposal', 'approval', 'admission', 'step', 'outcome', 'model_admission', 'model_outcome'}
                 or event['code'] not in CODES or event['action'] not in ACTIONS
                 or not ID.fullmatch(event['target_id'])
                 or not re.fullmatch(r'[a-zA-Z0-9:._-]{8,128}', event['event_id'])
@@ -255,6 +280,9 @@ class ApprovalStore:
 
 def eligible(target, current, action):
     return bool(target.mutable and (
+        (isinstance(target, ServiceTarget) and action in {'restore', 'test_failure'}
+         and current.get('permitted_action') == action)
+        or
         (action == 'recover' and isinstance(target, StackTarget)
          and not current['supervisor_alive'] and current['members_alive']
          and len(target.members) <= 4 and target.resource_scope == 'process_only')
@@ -288,6 +316,14 @@ class OperationsController:
             audit_events = self.audit._db.execute('SELECT COUNT(*) FROM events').fetchone()[0]
         except Exception:
             audit_events = None
+        model_limits=None
+        if hasattr(self.model,'budgets'):
+            try:model_limits=self.model.budgets()
+            except Exception:
+                # Broken shared accounting must neither allow another write nor
+                # make deterministic observations depend on model availability.
+                self.poisoned=True
+                model_limits={'available':False,'code':'REQUIRED_MODEL_ACCOUNTING_UNAVAILABLE'}
         return {'observations_used': self.observations, 'observations_limit': 64,
             'actions_used': self.actions, 'actions_limit': 4,
             'mutation_steps_used': self.mutations, 'mutation_steps_limit': 64,
@@ -295,7 +331,8 @@ class OperationsController:
             'model_attempts_used': self.models, 'model_attempts_limit': 4,
             'per_action_seconds': 20, 'approval_seconds': 180, 'expiry_epoch': self.expires,
             'retries': 0, 'audit_available': not self.poisoned,
-            'model_mode': 'local_stub' if self.model else 'disabled', 'live_enabled': False,
+            'model_mode': getattr(self.model,'mode','local_stub') if self.model else 'disabled',
+            'live_enabled': getattr(self.model,'mode',None)=='admitted_synthetic_trial',
             'cache_file_limit': 32, 'cache_byte_limit': 67108864, 'stack_member_limit': 4,
             'log_byte_limit': 4096,
             'targets_used': len(self.targets), 'targets_limit': 8,
@@ -305,7 +342,7 @@ class OperationsController:
             'audit_file_bytes_limit': 2097152,
             'model_utf8_input_output_limit': 4096, 'model_summary_byte_limit': 2048,
             'model_output_token_limit': 256, 'model_run_seconds': 900,
-            'model_limits': self.model.budgets() if hasattr(self.model, 'budgets') else None}
+            'model_limits': model_limits}
 
     def _principal(self, tid, action):
         if type(tid) is not str or not ID.fullmatch(tid):
@@ -323,7 +360,7 @@ class OperationsController:
             raise OperationsBlocked('TARGET_DENIED')
         return target, tenant.tenant_ref, hashlib.sha256(claims.subject.encode()).hexdigest()[:16]
 
-    def _event(self, phase, request, tid, action, evidence, code='OK', count=0, reclaimed=0, *, outcome_principal=None):
+    def _event(self, phase, request, tid, action, evidence, code='OK', count=0, reclaimed=0, *, outcome_principal=None,verification=None):
         if outcome_principal is None:
             _, tenant, subject = self._principal(tid, action)
         else:
@@ -336,17 +373,20 @@ class OperationsController:
         if self.poisoned:
             raise OperationsBlocked('AUDIT_FAILED')
         try:
-            self.audit.append({'schema_version': 1, 'event_id': str(uuid.uuid4()),
+            self.audit.append({'schema_version': 1 if verification is None else 2, 'event_id': str(uuid.uuid4()),
                 'phase': phase, 'request_id': request, 'target_id': tid,
                 'tenant_ref': tenant, 'subject_ref': subject, 'action': action,
                 'evidence_id': evidence, 'code': code, 'mutation_count': count,
                 'reclaimed_bytes': reclaimed,
+                **({'verification':verification} if verification is not None else {}),
                 'occurred_at': datetime.now(timezone.utc).isoformat()})
         except Exception:
             self.poisoned = True
             raise OperationsBlocked('AUDIT_FAILED') from None
 
     def _snapshot(self, target):
+        if isinstance(target, ServiceTarget):
+            return target.adapter.snapshot()
         if isinstance(target, StackTarget):
             actual = [process_identity(r['pid']) for r in target.members]
             for expected, current in zip(target.members, actual):
@@ -392,12 +432,12 @@ class OperationsController:
             fs = os.statvfs('/')
             public['root_storage'] = {'available_bytes': fs.f_bavail * fs.f_frsize,
                                       'total_bytes': fs.f_blocks * fs.f_frsize}
-            condition = ('ORPHANED' if value.get('members_alive') and not value.get('supervisor_alive')
+            condition = value['condition'] if isinstance(target, ServiceTarget) else ('ORPHANED' if value.get('members_alive') and not value.get('supervisor_alive')
                 else 'RUNNING' if value.get('supervisor_alive') else 'STOPPED') if value['kind'] == 'stack' else ('ACTIVE' if value['active'] else 'DISPOSABLE')
             report = {'target_id': tid, 'evidence_id': evidence, 'observed': condition,
-                'suspected_causes': [], 'unknowns': ['SUPERVISOR_EXIT_CAUSE'] if condition == 'ORPHANED'
+                'suspected_causes': [], 'unknowns': ['SERVICE_EXIT_CAUSE'] if isinstance(target, ServiceTarget) and condition == 'SERVICE_FAILED' else ['SUPERVISOR_EXIT_CAUSE'] if condition == 'ORPHANED'
                     else ['IDENTITY_AND_AUTHORIZED_REQUEST_PATH_UNTESTED'] if isinstance(target, StackTarget) else [],
-                'facts': public, 'actions': ['recover'] if isinstance(target, StackTarget) and target.mutable and condition == 'ORPHANED' and target.resource_scope == 'process_only'
+                'facts': public, 'actions': [value['permitted_action']] if isinstance(target, ServiceTarget) and target.mutable and value.get('permitted_action') else ['recover'] if isinstance(target, StackTarget) and target.mutable and condition == 'ORPHANED' and target.resource_scope == 'process_only'
                     else ['clean'] if isinstance(target, CacheTarget) and target.mutable and not value['active'] and value['files'] else [],
                 'policy_decision': 'monitor_allowed' if not self.poisoned else 'monitor_observed_audit_unavailable',
                 'audit_committed': not self.poisoned, 'budgets': self.budgets()}
@@ -409,7 +449,7 @@ class OperationsController:
 
     def propose(self, tid, action, evidence):
         with self.lock:
-            if action not in {'recover', 'clean'} or not re.fullmatch('[a-f0-9]{64}', evidence):
+            if action not in {'recover', 'clean', 'restore', 'test_failure'} or not re.fullmatch('[a-f0-9]{64}', evidence):
                 raise OperationsBlocked('INVALID_REQUEST')
             target, tenant, subject = self._principal(tid, action)
             current = self._snapshot(target)
@@ -483,9 +523,25 @@ class OperationsController:
             del self.pending[request]
             self.actions += 1
             started, mutations, reclaimed, code = time.monotonic(), 0, 0, 'OK'
+            before_mutations = self.mutations
             storage_before = os.statvfs('/').f_bavail * os.statvfs('/').f_frsize
             try:
-                if isinstance(target, StackTarget):
+                if isinstance(target, ServiceTarget):
+                    def admit_step():
+                        if time.monotonic() - started >= 20 or self.mutations >= 64:
+                            raise OperationsBlocked('BUDGET_EXHAUSTED')
+                        self._principal(tid, action)
+                        if datetime.now(timezone.utc) >= approved_decision.expires_at:
+                            raise OperationsBlocked('APPROVAL_DENIED')
+                        self._event('step', request, tid, action, evidence, count=mutations)
+                        # Audit commit may take time: recheck expiry after it.
+                        self._principal(tid, action)
+                        if datetime.now(timezone.utc) >= approved_decision.expires_at:
+                            raise OperationsBlocked('APPROVAL_DENIED')
+                        self.mutations += 1
+                    target.adapter.execute(action, before, started + 20, admit_step)
+                    mutations = 1
+                elif isinstance(target, StackTarget):
                     if process_identity(target.supervisor['pid']) is not None:
                         raise OperationsBlocked('NOT_ORPHANED')
                     for member in target.members:
@@ -548,9 +604,12 @@ class OperationsController:
                 code = failure.code
             except Exception:
                 code = 'ACTION_FAILED'
+            if isinstance(target, ServiceTarget):
+                mutations = self.mutations - before_mutations
             try:
                 self._event('outcome', request, tid, action, evidence, code, mutations, reclaimed,
-                            outcome_principal=(tenant, subject))
+                            outcome_principal=(tenant, subject),
+                            verification=target.adapter.verification() if isinstance(target,ServiceTarget) else None)
             except OperationsBlocked:
                 code = 'AUDIT_FAILED'
             outcome = {'request_id': request, 'target_id': tid, 'action': action,
@@ -560,11 +619,17 @@ class OperationsController:
                 'root_available_bytes_before': storage_before,
                 'root_available_bytes_after': os.statvfs('/').f_bavail * os.statvfs('/').f_frsize,
                 'budgets': self.budgets()}
+            if isinstance(target, ServiceTarget):
+                outcome['verification'] = target.adapter.verification()
+                # A start attempt is consumed even if startup/verification fails.
+                outcome['mutation_count'] = self.mutations - before_mutations
             self.reports.append(outcome)
             return outcome
 
     def explain(self, tid):
         report = self.observe(tid)
+        if self.poisoned:
+            return {'code':'AUDIT_FAILED','monitoring_available':True,'evidence':report}
         if self.model is None:
             return {'code': 'MODEL_DISABLED', 'monitoring_available': True, 'evidence': report}
         if self.models >= 4:
@@ -572,11 +637,34 @@ class OperationsController:
         self.models += 1
         # Only typed facts and indicator enums; no raw logs, paths or commands.
         try:
+            request=str(uuid.uuid4())
+            self._event('model_admission',request,tid,'monitor',report['evidence_id'])
             result = self.model(report)
-            return {'code': 'OK', 'mode': 'local_stub', 'untrusted_explanation': result,
+            self._event('model_outcome',request,tid,'monitor',report['evidence_id'])
+            return {'code': 'OK', 'mode': getattr(self.model,'mode','local_stub'), 'untrusted_explanation': result,
                     'action_authority': False, 'evidence': report}
+        except OperationsBlocked as failure:
+            return {'code':failure.code,'monitoring_available':True,'evidence':report}
         except ControlFailure as failure:
+            if failure.stage=='audit':
+                self.poisoned=True
+                return {'code':'AUDIT_FAILED','monitoring_available':True,'evidence':report}
             code = 'MODEL_RESPONSE_REJECTED' if failure.stage in {'structured_output_validation', 'model_output_validation'} else 'GATEWAY_UNAVAILABLE'
             return {'code': code, 'monitoring_available': True, 'evidence': report}
         except Exception:
             return {'code': 'GATEWAY_UNAVAILABLE', 'monitoring_available': True, 'evidence': report}
+
+    def diagnose(self, tid, evidence):
+        """Measured observations establish action eligibility, never model text."""
+        with self.lock:
+            target, _, _ = self._principal(tid, 'monitor')
+            current = self._snapshot(target)
+            if digest(current) != evidence:
+                raise OperationsBlocked('EVIDENCE_CHANGED')
+            condition = current.get('condition', 'REGISTERED_LOCAL_TARGET')
+            return {'target_id': tid, 'evidence_id': evidence,
+                'observed': condition, 'confirmed': ['REGISTERED_PROCESS_EXITED'] if condition == 'SERVICE_FAILED' else [],
+                'suspected_causes': [], 'unknowns': ['SERVICE_EXIT_CAUSE'] if condition == 'SERVICE_FAILED' else [],
+                'permitted_action': None if self.poisoned else current.get('permitted_action'),
+                'model_authority': False, 'policy_authority': 'registered_code_controls',
+                'budgets': self.budgets()}

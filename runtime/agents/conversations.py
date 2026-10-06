@@ -291,6 +291,7 @@ class ConversationStore:
             "response": result,
             "report": report,
             "budget_remaining": self.budget(conversation),
+            **({'shared_run_budget':result['shared_run_budget']} if 'shared_run_budget' in result else {}),
         }
         if len(json.dumps(value, ensure_ascii=False).encode()) > 65536:
             raise ConversationRejected("output_too_large")

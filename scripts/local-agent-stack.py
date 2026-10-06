@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Worker-only local proxy/PostgreSQL/stub stack; no live route or cloud call."""
 import argparse
+import importlib.util
 import json
 import ipaddress
 import os
@@ -63,6 +64,9 @@ def http(path, *, key=None, data=None, timeout=10):
 
 
 def spawn(args, state, name, environment):
+    # Seal the creating supervisor's recipe, before libraries mutate their
+    # environment or choose temporary Prisma paths. Recovery never bootstraps.
+    write(state / (name+'-launch.json'), {'argv':args,'environment':environment,'cwd':str(ROOT)})
     log = (state / (name + ".log")).open("ab")
     process = subprocess.Popen(args, stdout=log, stderr=log, env=environment,
                                start_new_session=True, cwd=ROOT)
@@ -139,8 +143,14 @@ def require_listener(record, port):
         raise ValueError('local_stack:listener_not_owned')
 
 
-def up(state, python, postgres_image, *, qualified_nonroot=False):
-    require_free_ports((4001, 8767))
+def up(state, python, postgres_image, *, qualified_nonroot=False, gateway_port=4001, stub_port=8767):
+    global GATEWAY
+    if (type(gateway_port) is not int or type(stub_port) is not int
+            or not all(1024 <= p <= 65535 for p in (gateway_port, stub_port))
+            or gateway_port == stub_port or 8765 in (gateway_port, stub_port)):
+        raise ValueError('local_stack:invalid_ports')
+    GATEWAY = 'http://127.0.0.1:' + str(gateway_port)
+    require_free_ports((gateway_port, stub_port))
     if state.exists():
         raise ValueError("local_stack:new_private_state_required")
     state.mkdir(mode=0o700, parents=False)
@@ -212,12 +222,17 @@ def up(state, python, postgres_image, *, qualified_nonroot=False):
     environment.update({"PRISMA_HOME_DIR": str(tooling),
                         "PRISMA_NODEENV_CACHE_DIR": str(tooling / "nodeenv"),
                         "LD_LIBRARY_PATH": str(tooling / "native-tools/extracted/usr/lib/x86_64-linux-gnu")})
+    gateway_config = state / 'gateway-config.yaml'
+    gateway_config.write_text((ROOT/'deploy/local-agents/litellm-stub.yaml').read_text()
+                             .replace('127.0.0.1:8767', '127.0.0.1:' + str(stub_port)))
+    gateway_config.chmod(0o600)
+    (state/'service-control.lock').touch(mode=0o600, exist_ok=False)
     processes = []
     write(state / "processes.json", processes)
     try:
         progress(state, "PRISMA_MIGRATION")
         processes.append(spawn([str(python), str(ROOT / "scripts/local-agent-upstream.py"),
-                                "--state", str(state)], state, "stub", environment))
+                                "--state", str(state), '--port', str(stub_port)], state, "stub", environment))
         (state / "processes.json").write_text(json.dumps(processes) + "\n")
         gateway_environment = environment | {
             "LITELLM_MASTER_KEY": operator["admin_key"], "LITELLM_SALT_KEY": operator["salt_key"],
@@ -225,6 +240,14 @@ def up(state, python, postgres_image, *, qualified_nonroot=False):
             "DATABASE_URL": "postgresql://portfolio_gateway:" + operator["gateway_password"]
                             + database_address + "litellm",
             "DISABLE_SCHEMA_UPDATE": "true"}
+        if qualified_nonroot:
+            # Reuse the already hash-qualified executable. Prisma's temporary
+            # extraction path is unsuitable for restoring a stopped service.
+            verifier_spec=importlib.util.spec_from_file_location('generated_inputs',ROOT/'scripts/verify-agent-composition-build-inputs.py')
+            verifier=importlib.util.module_from_spec(verifier_spec);verifier_spec.loader.exec_module(verifier);verifier.verify()
+            engine=ROOT/'.qualified/query-engine'
+            if not os.access(engine,os.X_OK):raise ValueError('local_stack:qualified_engine_not_executable')
+            gateway_environment['PRISMA_QUERY_ENGINE_BINARY']=str(engine)
         # Schema provisioning is a separate operator-only step, before server boot.
         if qualified_nonroot:
             # Exact SQL generated offline from the locked official Prisma schema.
@@ -237,8 +260,8 @@ def up(state, python, postgres_image, *, qualified_nonroot=False):
                     state / "migration.log", env=gateway_environment)
         progress(state, "GATEWAY_START")
         processes.append(spawn([str(python), str(ROOT / "scripts/local-agent-proxy.py"),
-            "--config", str(ROOT / "deploy/local-agents/litellm-stub.yaml"),
-            "--host", "127.0.0.1", "--port", "4001"], state, "gateway", gateway_environment))
+            "--config", str(gateway_config),
+            "--host", "127.0.0.1", "--port", str(gateway_port)], state, "gateway", gateway_environment))
         (state / "processes.json").write_text(json.dumps(processes) + "\n")
         readiness_deadline = time.monotonic() + 60
         ready = False
@@ -247,8 +270,8 @@ def up(state, python, postgres_image, *, qualified_nonroot=False):
             try:
                 if http("/health/readiness", key=operator["admin_key"], timeout=2)[0] == 200:
                     require_running(processes)
-                    require_listener(processes[0], 8767)
-                    require_listener(processes[1], 4001)
+                    require_listener(processes[0], stub_port)
+                    require_listener(processes[1], gateway_port)
                     ready = True
                     break
             except Exception:

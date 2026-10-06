@@ -40,15 +40,15 @@ class ExplanationGateway(HttpLiteLLMGateway):
 
 
 class OperationsExplainer:
-    def __init__(self, config):
+    def __init__(self, config, *, model_budget=None, redactor=None):
         url = urlsplit(config['gateway_url'])
         if config.get('mode') != 'local_stub' or config.get('live_enabled') is not False or url.hostname != '127.0.0.1':
             raise ValueError('operations:live_disabled')
-        self.redactor = SharedSimulatedRedactor(BoundaryBudget(operations=8, byte_limit=32768, lifetime=900))
+        self.redactor = redactor or SharedSimulatedRedactor(BoundaryBudget(operations=8, byte_limit=32768, lifetime=900))
         self.credential = ScopedCredential('infrastructure', config['client_keys']['infrastructure'], config['expires_at'])
         self.gateway = BudgetedGateway(ExplanationGateway(config['gateway_url'], 8,
             client_key=self.credential.value('infrastructure')),
-            RunAttemptBudget(total=4, per_subject=4, lifetime=900), self.credential,
+            model_budget or RunAttemptBudget(total=4, per_subject=4, lifetime=900), self.credential,
             subject=config['subject'], profile='infrastructure')
 
     def __call__(self, facts):
@@ -60,6 +60,6 @@ class OperationsExplainer:
 
     def budgets(self):
         return {'content_operations_used': self.redactor.budget.operations,
-            'content_operations_limit': 8, 'utf8_bytes_used': self.redactor.budget.bytes,
-            'utf8_bytes_limit': 32768, 'client_expiry_epoch': self.credential._expires,
+            'content_operations_limit': self.redactor.budget._max_operations, 'utf8_bytes_used': self.redactor.budget.bytes,
+            'utf8_bytes_limit': self.redactor.budget._max_bytes, 'client_expiry_epoch': self.credential._expires,
             'rpc_seconds': 8, 'transport': self.gateway.measurement_snapshot()}

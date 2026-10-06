@@ -138,8 +138,8 @@ class Handler(BaseHTTPRequestHandler):
                 200,
                 {
                     "csrf": session.csrf,
-                    "mode": "offline_simulation",
-                    "authentication": "simulated",
+                    "mode": 'gateway' if self.server.composition=='supervised_candidate_live' else "offline_simulation",
+                    "authentication": 'fixture_issuer_scope_accepted' if self.server.composition=='supervised_candidate_live' else "simulated",
                     "synthetic_only": True,
                     **({'operations_available': True} if self.server.operations else {}),
                     **({"composition": self.server.composition} if self.server.composition is not None else {}),

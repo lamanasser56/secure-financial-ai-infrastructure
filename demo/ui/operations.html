@@ -7,8 +7,8 @@
 <div class="tabs" role="tablist"><button id="operations-tab" role="tab" aria-selected="true" aria-controls="operations">Operations</button><button id="security-tab" role="tab" aria-selected="false" aria-controls="security">Security</button></div>
 <section id="operations" role="tabpanel" aria-labelledby="operations-tab">
 <h2 id="services-heading">Services and storage</h2><button id="refresh">Refresh registered targets</button><label id="target-label" for="target">Registered target</label><select id="target"></select><button id="observe">Observe</button><button id="explain">Model explanation</button>
-<h3 id="incident-heading">Incident, evidence and unknowns</h3><pre id="incident" dir="ltr"></pre>
-<h3 id="policy-heading">Policy and proposed action</h3><select id="action"><option value="recover">Recover registered orphan</option><option value="clean">Clean registered cache</option></select><button id="propose">Propose exact action</button><pre id="proposal" dir="ltr"></pre>
+<h3 id="incident-heading">Incident, evidence and unknowns</h3><pre id="incident" dir="ltr"></pre><button id="diagnose">Diagnose current evidence</button><pre id="diagnosis" dir="ltr"></pre>
+<h3 id="policy-heading">Policy and proposed action</h3><select id="action"><option value="restore">Restore failed owned service</option><option value="test_failure">Controlled owned service failure</option><option value="recover">Stop registered orphan</option><option value="clean">Clean registered cache</option></select><button id="propose">Propose exact action</button><pre id="proposal" dir="ltr"></pre>
 <h3 id="approval-heading">Operator approval</h3><p id="approval-help">Read operator-approval.secret in the private server state. Review action, target and evidence before approving. Models cannot approve.</p><input id="operator-secret" type="password" autocomplete="off" aria-label="Operator approval capability"><button id="approve">Approve proposal</button><pre id="approval" dir="ltr"></pre>
 <button id="execute">Execute once</button><h3 id="outcome-heading">Verified outcome</h3><pre id="outcome" dir="ltr"></pre>
 </section>

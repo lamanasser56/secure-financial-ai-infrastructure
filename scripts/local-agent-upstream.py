@@ -75,7 +75,13 @@ if __name__ == "__main__":
     os.umask(0o077)
     parser = argparse.ArgumentParser()
     parser.add_argument("--state", type=Path, required=True)
+    parser.add_argument('--port', type=int, default=8767)
     args = parser.parse_args()
-    with HTTPServer(("127.0.0.1", 8767), Handler) as server:
-        server.state, server.count = args.state, 0
+    if not 1024 <= args.port <= 65535 or args.port in {8765,8768,8769}:
+        raise SystemExit('stub:invalid_port')
+    with HTTPServer(("127.0.0.1", args.port), Handler) as server:
+        prior = json.loads((args.state/'stub-count.json').read_text()) if (args.state/'stub-count.json').exists() else {'stub_requests':0}
+        if type(prior['stub_requests']) is not int or not 0 <= prior['stub_requests'] <= 256:
+            raise SystemExit('stub:invalid_counter')
+        server.state, server.count = args.state, prior['stub_requests']
         server.serve_forever()

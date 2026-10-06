@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import sys
 import time
+import fcntl
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -48,7 +49,21 @@ def run(state):
             # refresh, request replay, provider call or probe containing data.
             asyncio.run(asyncio.wait_for(healthy(), timeout=2))
         except Exception:
-            stack.stop_process(gateway[0])
+            # Restoration updates the one owned service record while holding the
+            # same lock. Quarantine must select that current process, never an old
+            # PID or an arbitrary listener. No automatic restart is authorized.
+            sys.path.insert(0, str(ROOT))
+            from runtime.agents.service_restoration import service_lock, private_file
+            with service_lock(state) as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX)
+                records = json.loads(private_file(state/'processes.json'))
+                gateway = [record for record in records if record['name']=='gateway']
+                if len(gateway)!=1:
+                    raise ValueError('database_guard:owned_proxy_required')
+                stack.write(state / 'database-quarantined.json', {
+                    'code': 'DATABASE_UNAVAILABLE_PROXY_QUARANTINED',
+                    'automatic_restart': False, 'automatic_request_replay': False})
+                stack.stop_process(gateway[0])
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
                 path = Path(f"/proc/{gateway[0]['pid']}/stat")
@@ -62,9 +77,6 @@ def run(state):
                     raise ValueError("database_guard:process_changed")
                 import signal
                 os.killpg(gateway[0]["pid"], signal.SIGKILL)
-            stack.write(state / "database-quarantined.json", {
-                "code": "DATABASE_UNAVAILABLE_PROXY_QUARANTINED",
-                "automatic_restart": False, "automatic_request_replay": False})
             return
         time.sleep(1)
 

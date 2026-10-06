@@ -17,11 +17,13 @@ def decode_request(body):
 
 
 class OperationsService:
-    def __init__(self, controller, security=None):
+    def __init__(self, controller, security=None, *, financial_url='http://127.0.0.1:8768'):
         self.controller, self.security = controller, security
+        self.financial_url = financial_url
 
     def handle(self, request):
         fields = {'overview': set(), 'observe': {'target_id'},
+                  'diagnose': {'target_id', 'evidence_id'},
                   'propose': {'target_id', 'action', 'evidence_id'},
                   'approve': {'request_id', 'operator_secret'},
                   'execute': {'request_id', 'approval_id'},
@@ -40,15 +42,15 @@ class OperationsService:
                 try:
                     c._principal(key, 'monitor')
                     admitted.append({'target_id': key, 'mutable': target.mutable,
-                                     'kind': 'stack' if hasattr(target, 'members') else 'cache'})
+                                     'kind': 'service' if hasattr(target, 'adapter') else 'stack' if hasattr(target, 'members') else 'cache'})
                 except OperationsBlocked:
                     continue
             return {'targets': [{'target_id': k, 'mutable': v.mutable,
-                                 'kind': 'stack' if hasattr(v, 'members') else 'cache'}
+                                 'kind': 'service' if hasattr(v, 'adapter') else 'stack' if hasattr(v, 'members') else 'cache'}
                                for k, v in c.targets.items() if any(x['target_id'] == k for x in admitted)],
                     'budgets': c.budgets(), 'recent': c.reports[-8:],
-                    'identity_authority': 'local_fixture_operator', 'financial_ui': 'http://127.0.0.1:8768',
-                    'model_boundary': 'disabled' if c.model is None else 'local_stub_simulated_redaction'}
+                    'identity_authority': 'local_fixture_operator', 'financial_ui': self.financial_url,
+                    'model_boundary': 'disabled' if c.model is None else getattr(c.model,'mode','local_stub_simulated_redaction')}
         if operation == 'security':
             if self.security is None:
                 return {'vulnerability_policy': 'unknown', 'code': 'NO_REGISTERED_EVIDENCE',
@@ -60,6 +62,8 @@ class OperationsService:
                         'allow_decision': False}
         if operation == 'observe':
             return c.observe(request['target_id'])
+        if operation == 'diagnose':
+            return c.diagnose(request['target_id'], request['evidence_id'])
         if operation == 'propose':
             return c.propose(request['target_id'], request['action'], request['evidence_id'])
         if operation == 'approve':

@@ -7,7 +7,7 @@
   "properties": {
     "request_id": {"type": "string", "maxLength": 128},
     "target_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{2,47}$"},
-    "action": {"enum": ["recover", "clean"]},
+    "action": {"enum": ["recover", "clean", "restore", "test_failure"]},
     "evidence_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "status": {"enum": ["VERIFIED", "FAILED"]},
     "code": {"enum": ["OK", "TARGET_DENIED", "IDENTITY_DENIED", "APPROVAL_DENIED", "EVIDENCE_CHANGED", "ACTIVE_FILE", "UNSAFE_FILE", "INCOMPLETE_VISIBILITY", "OWNER_CHANGED", "NOT_ORPHANED", "AUDIT_FAILED", "ACTION_FAILED", "BUDGET_EXHAUSTED", "GATEWAY_UNAVAILABLE", "MODEL_RESPONSE_REJECTED", "MODEL_DISABLED", "INVALID_REQUEST"]},
@@ -17,6 +17,7 @@
     "audit_committed": {"type": "boolean"},
     "root_available_bytes_before": {"type": "integer", "minimum": 0},
     "root_available_bytes_after": {"type": "integer", "minimum": 0},
-    "budgets": {"type": "object"}
+    "budgets": {"type": "object"},
+    "verification": {"type": "object"}
   }
 }

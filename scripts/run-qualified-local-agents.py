@@ -149,7 +149,8 @@ def run(args):
             time.sleep(.25)
         raise ValueError
     try:
-        ports = (4001, 8767) if args.check or args.rehearse else (args.port, 4001, 8767)
+        gateway_port, stub_port = getattr(args, 'gateway_port', 4001), getattr(args, 'stub_port', 8767)
+        ports = (gateway_port, stub_port) if args.check or args.rehearse else (args.port, gateway_port, stub_port)
         if not 1024 <= args.port <= 65535 or args.port in (8765, 4001, 8767):
             raise ValueError
         stack.require_free_ports(ports)
@@ -189,11 +190,16 @@ def run(args):
         archive.unlink()
         stack.DOCKER_COMMAND = docker
         stage = 'APPLICATION_STACK_START'
-        stack.up(stack_state, args.python, 'portfolio-agent-database:qualified', qualified_nonroot=True)
+        stack.up(stack_state, args.python, 'portfolio-agent-database:qualified', qualified_nonroot=True,
+                 gateway_port=gateway_port, stub_port=stub_port)
         if args.check:
             checked([str(args.python), str(ROOT / 'scripts/check-local-agent-stack.py'), '--state', str(stack_state)], timeout=180)
         elif args.rehearse:
             checked([str(args.python), str(ROOT / 'scripts/rehearse-integrated-demo.py'), '--state', str(stack_state)], timeout=180)
+        elif getattr(args, 'application_runner', None) is not None:
+            stage = 'RECOVERABLE_APPLICATION'
+            write_status(args.state, stage='RUNNING', cleanup_complete=False)
+            args.application_runner(stack, stack_state)
         else:
             stage = 'UI_START'
             ui_log = (stack_state / 'ui.log').open('xb')

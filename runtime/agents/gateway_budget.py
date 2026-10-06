@@ -48,6 +48,12 @@ class RunAttemptBudget:
             self._used += 1
             self._subjects[subject] = self._subjects.get(subject, 0) + 1
 
+    def snapshot(self, subject):
+        with self._lock:
+            return {'total_used':self._used,'total_limit':self._total,
+                'subject_used':self._subjects.get(subject,0),'subject_limit':self._per_subject,
+                'remaining_seconds':max(0,self._expires-self._clock()),'retries':0}
+
 
 class BudgetedGateway:
     """Trusted composition only; does not execute tools or modify policy."""
@@ -64,7 +70,8 @@ class BudgetedGateway:
 
     def measurement_snapshot(self):
         return self._gateway.measurement_snapshot() | {
-            'budget_admissions': self._admissions, 'budget_denials': self._denials}
+            'budget_admissions': self._admissions, 'budget_denials': self._denials,
+            'shared_run_budget':self._budget.snapshot(self._subject)}
 
     def complete(self, model_alias, redacted_text, metadata):
         if model_alias != APPROVED_MODEL_ALIAS:
