@@ -25,6 +25,7 @@ from runtime.agents.operations import private_directory
 from runtime.agents.terminal_audit import TerminalAudit
 from runtime.agents.terminal_diagnostics import BudgetAdmissionFailure
 from runtime.phase3.adapters import _post_json
+from runtime.phase3.deterministic_email import DeterministicEmailRedactor
 from runtime.phase3.trusted_runtime import ControlFailure, GatewayResult, RedactionResult, SUPPORTED_ENTITIES
 
 ROOT=Path(__file__).resolve().parents[2]
@@ -32,6 +33,9 @@ ACK='I_ACKNOWLEDGE_SUPERVISED_SYNTHETIC_FREE_TEXT_NOT_FIXED_QUALIFICATION'
 GATEWAY='http://127.0.0.1:14006'
 REDACTOR='http://127.0.0.1:14007/redact'
 SCOPES={'fixed_inputs_qualification','supervised_synthetic_free_text'}
+# Owner amendment AM-R4: admission accepts only the composite redaction scope; the
+# Google-only campaign record and validator are unchanged and admit nothing here.
+REDACTION_SCOPE='composite_deterministic_email_plus_provider'
 
 
 def read_json(path):
@@ -48,10 +52,11 @@ def admit(path, *, scope, source, program_integrity, now=time.time):
     private_directory(Path(path).parent)
     admission=read_json(path)
     fields={'schema_version','scope','source','program_integrity','owner_approved','synthetic_only',
-            'processor_location_accepted','fixture_authority_accepted','expires_at','evidence','subject'}
+            'processor_location_accepted','fixture_authority_accepted','expires_at','evidence','subject','redaction_scope'}
     if (set(admission)!=fields or type(admission['schema_version']) is not int or admission['schema_version']!=1 or scope not in SCOPES
             or admission['subject'] not in {'local-fixture-alpha','local-fixture-beta'}
             or admission['scope']!=scope or admission['source']!=source
+            or admission['redaction_scope']!=REDACTION_SCOPE
             or admission['program_integrity']!=program_integrity
             or any(admission[k] is not True for k in ['owner_approved','synthetic_only','processor_location_accepted','fixture_authority_accepted'])
             or not re.fullmatch('[a-f0-9]{40}',source) or not re.fullmatch('[a-f0-9]{64}',program_integrity)
@@ -69,13 +74,14 @@ def admit(path, *, scope, source, program_integrity, now=time.time):
         if hashlib.sha256(raw).hexdigest()!=row['integrity']:raise ValueError('trial:receipt_changed')
         receipts[name]=read_json(Path(path).parent/row['file'])
         if name!='campaign' and (receipts[name].get('status')!='PASS' or receipts[name].get('source')!=source):raise ValueError('trial:gate_failed')
-    spec=importlib.util.spec_from_file_location('trial_campaign_gate',ROOT/'scripts/validate-sdp-context-campaign-result.py')
+    spec=importlib.util.spec_from_file_location('trial_campaign_gate',ROOT/'scripts/validate-composite-email-campaign-result.py')
     validator=importlib.util.module_from_spec(spec);spec.loader.exec_module(validator)
     result=validator.validate(Path(path).parent/rows['campaign']['file'])
-    if (result['mode']!='live_synthetic' or result['required_pass']!=70 or result['required_fail']!=0
-            or result['observations']!=16 or result['observation_failures'] or result['operational_failures']
-            or result['unexecuted'] or result['injected_attempts'] or result['authority_changed']
-            or result['outcome']!='SYNTHETIC_POLICY_ONLY_REVIEW_REQUIRED'):
+    if (result['scope']!=REDACTION_SCOPE or result['mode']!='live_synthetic' or result['required_pass']!=70
+            or result['required_fail']!=0 or result['observations']!=16 or result['observation_failures']
+            or result['operational_failures'] or result['unexecuted'] or result['injected_attempts']
+            or result['metadata_sdk_attempts'] or result['authority_changed'] or result['google_qualification_claimed']
+            or result['outcome']!='COMPOSITE_SYNTHETIC_REVIEW_REQUIRED'):
         raise ValueError('trial:redaction_not_qualified')
     containment=receipts['application_isolation']
     if (containment.get('source_overlay') is not False
@@ -212,7 +218,8 @@ def compose_trial(config,*,admission,ledger,terminal,tools_audit,connect):
             or config.get('subject')!=admission.get('subject')
             or config.get('subject') not in {'local-fixture-alpha','local-fixture-beta'}
             or not time.time()<config['expires_at']<=min(ledger.expires,admission['expires_at'])):raise ValueError('trial:configuration_rejected')
-    budget=DurableModelBudget(ledger);redactor=RemoteRedactor(config['redactor_key'],ledger);agents={}
+    # AM-R4: plain addresses are masked deterministically before the remote provider.
+    budget=DurableModelBudget(ledger);redactor=DeterministicEmailRedactor(RemoteRedactor(config['redactor_key'],ledger));agents={}
     for profile in ['financial','infrastructure']:
         identity=TrustedJWTIdentity(profile,issuer='https://fixture-issuer.invalid',audience='portfolio-local-composition',
             certificates=config['certificates'],snapshot_expires_at=config['expires_at'],

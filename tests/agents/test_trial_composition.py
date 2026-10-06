@@ -18,6 +18,13 @@ from runtime.phase3.trusted_runtime import ControlFailure
 ROOT=Path(__file__).resolve().parents[2]
 
 
+def composite_offline_result():
+    import importlib.util
+    spec=importlib.util.spec_from_file_location('composite_campaign',ROOT/'scripts/evaluate-composite-email-campaign.py')
+    program=importlib.util.module_from_spec(spec);spec.loader.exec_module(program)
+    return program.evaluate(False)
+
+
 class TrialAdmissionTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.path=Path(self.tmp.name);self.path.chmod(0o700)
@@ -25,10 +32,11 @@ class TrialAdmissionTests(unittest.TestCase):
         self.claim={'schema_version':1,'scope':'supervised_synthetic_free_text','source':self.source,
             'program_integrity':self.program,'owner_approved':True,'synthetic_only':True,
             'processor_location_accepted':True,'fixture_authority_accepted':True,
-            'expires_at':time.time()+120,'evidence':{},'subject':'local-fixture-alpha'}
+            'expires_at':time.time()+120,'evidence':{},'subject':'local-fixture-alpha',
+            'redaction_scope':'composite_deterministic_email_plus_provider'}
         for name in ['campaign','provenance','network','scoped_client_denials','service_quarantine','policy_acceptance','application_isolation','private_channel','fixed_integration']:
             value={'status':'PASS','source':self.source}
-            if name=='campaign':value=json.loads((ROOT/'evaluation/google-sdp-context/campaign-offline-result.json').read_text())
+            if name=='campaign':value=composite_offline_result()
             if name=='fixed_integration':value|={'scope':'fixed_inputs_qualification','all_required_tools_grounded':True}
             p=self.path/(name.replace('_','-')+'.json');self.write(p,value)
             self.claim['evidence'][name]={'file':p.name,'integrity':hashlib.sha256(p.read_bytes()).hexdigest()}
@@ -43,16 +51,29 @@ class TrialAdmissionTests(unittest.TestCase):
     def test_offline_campaign_cannot_admit_live_transport(self):
         with self.assertRaisesRegex(ValueError,'redaction_not_qualified'):self.check()
 
+    def test_google_only_campaign_and_missing_or_other_redaction_scope_cannot_admit(self):
+        # AM-R4: the Google-only record keeps its own validator and never admits.
+        google=json.loads((ROOT/'evaluation/google-sdp-context/campaign-offline-result.json').read_text())
+        row=self.claim['evidence']['campaign'];path=self.path/row['file'];self.write(path,google)
+        row['integrity']=hashlib.sha256(path.read_bytes()).hexdigest();self.write(self.path/'admission.json',self.claim)
+        with self.assertRaises(Exception):self.check()
+        for value in [None,'google_sdp_campaign','composite']:
+            claim=dict(self.claim)
+            if value is None:claim.pop('redaction_scope')
+            else:claim['redaction_scope']=value
+            self.write(self.path/'admission.json',claim)
+            with self.assertRaisesRegex(ValueError,'admission_rejected'):self.check()
+
     def test_fixed_input_scope_does_not_admit_free_text(self):
         self.claim['scope']='fixed_inputs_qualification';self.write(self.path/'admission.json',self.claim)
         with self.assertRaisesRegex(ValueError,'admission_rejected'):self.check()
 
     def test_containment_channel_and_actual_fixed_receipts_are_required(self):
         # Constructed admission objects exercise guards, never qualify Google.
-        qualified={'mode':'live_synthetic','required_pass':70,'required_fail':0,
-            'observations':16,'observation_failures':0,'operational_failures':0,
-            'unexecuted':0,'injected_attempts':0,'authority_changed':False,
-            'outcome':'SYNTHETIC_POLICY_ONLY_REVIEW_REQUIRED'}
+        qualified={'scope':'composite_deterministic_email_plus_provider','mode':'live_synthetic','required_pass':70,
+            'required_fail':0,'observations':16,'observation_failures':0,'operational_failures':0,
+            'unexecuted':0,'injected_attempts':0,'metadata_sdk_attempts':0,'authority_changed':False,
+            'google_qualification_claimed':False,'outcome':'COMPOSITE_SYNTHETIC_REVIEW_REQUIRED'}
         from types import SimpleNamespace
         validator=SimpleNamespace(validate=lambda _:qualified)
         containment={'source_overlay':False,'application_configuration':'sha256:'+'e'*64,
