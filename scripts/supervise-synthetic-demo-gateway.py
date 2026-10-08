@@ -14,7 +14,41 @@ import sys
 import time
 
 
+# The image is distroless: prisma's platform probe shells out to `cat` and `openssl`, which do not exist, so the
+# query engine never starts. The engine binary is already fixed by PRISMA_QUERY_ENGINE_BINARY, and the schema is
+# applied by bootstrap-database, so LiteLLM's Prisma CLI path (schema diff/migrations, which downloads Node.js) is
+# not needed. Both replacements are reviewed for these exact package versions only; any drift refuses to start.
+REVIEWED_TOOLCHAIN = {'litellm': '1.104.0', 'prisma': '0.15.0'}
+PRISMA_BINARY_PLATFORM = 'debian-openssl-3.0.x'
+PROXY_PRELUDE = f"""import sys
+from importlib.metadata import version
+for _name, _expected in {sorted(REVIEWED_TOOLCHAIN.items())!r}:
+    if version(_name) != _expected:
+        raise SystemExit('gateway:toolchain_unreviewed:' + _name)
+import prisma.binaries.platform as prisma_platform
+prisma_platform.binary_platform = lambda: {PRISMA_BINARY_PLATFORM!r}
+import litellm_proxy_extras.prisma_toolchain as prisma_toolchain
+prisma_toolchain.prisma_cli_available = lambda: False
+sys.argv = ['/app/proxy.py', *sys.argv[1:]]
+from litellm.proxy.proxy_cli import run_server
+run_server()
+"""
+
+
+class ToolchainUnreviewed(Exception):
+    pass
+
+
+def require_reviewed_toolchain(version=None):
+    if version is None:
+        from importlib.metadata import version
+    found = {name: version(name) for name in REVIEWED_TOOLCHAIN}
+    if found != REVIEWED_TOOLCHAIN:
+        raise ToolchainUnreviewed
+
+
 def run():
+    require_reviewed_toolchain()  # before the once-only start marker: drift has no side effect
     import psycopg
     state = Path('/state')
     fd = os.open(state / 'gateway-started', os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
@@ -30,7 +64,7 @@ def run():
                        PORTFOLIO_VERTEX_PROJECT=config['project_id'])
     log_path = state / 'private-gateway.log'
     with log_path.open('xb') as log:
-        child = subprocess.Popen(['/usr/local/bin/python3.12', '/app/proxy.py',
+        child = subprocess.Popen(['/usr/local/bin/python3.12', '-c', PROXY_PRELUDE,
             '--config', '/configuration/litellm-vertex.yaml', '--host', '0.0.0.0', '--port', '4000'],
             env=environment, stdout=log, stderr=log, start_new_session=True)
         stop = [False]
@@ -69,6 +103,9 @@ if __name__ == '__main__':
         raise SystemExit('gateway:arguments_rejected')
     try:
         run()
+    except ToolchainUnreviewed:
+        print('{"status":"BLOCKED","code":"GATEWAY_TOOLCHAIN_UNREVIEWED","automatic_retry":false}')
+        raise SystemExit(1) from None
     except Exception:
         print('{"status":"BLOCKED","code":"GATEWAY_SUPERVISION_FAILURE","automatic_retry":false}')
         raise SystemExit(1) from None

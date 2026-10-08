@@ -63,12 +63,12 @@ def bundle(project, gateway, application, database):
     security = {'allowPrivilegeEscalation': False, 'readOnlyRootFilesystem': True,
                 'capabilities': {'drop': ['ALL']}, 'seccompProfile': {'type': 'RuntimeDefault'}}
 
-    def workload(name, image, program, secret, *, phase=None, job=False):
+    def workload(name, image, program, secret, *, phase=None, job=False, memory_request='128Mi'):
         args = ['-c', code(program)] + ([] if phase is None else [phase])
         annotations = {'portfolio.example/program-sha256': hashlib.sha256(args[1].encode()).hexdigest()}
         container = {'name': name, 'image': image, 'command': ['/usr/local/bin/python3.12'],
             'args': args, 'securityContext': copy.deepcopy(security),
-            'resources': {'requests': {'cpu': '100m', 'memory': '128Mi'},
+            'resources': {'requests': {'cpu': '100m', 'memory': memory_request},
                           'limits': {'cpu': '1000m', 'memory': '768Mi'}},
             'env': [{'name': 'PORTFOLIO_SYNTHETIC_LIVE_DEMO_ACK', 'value': ACK}],
             'volumeMounts': [{'name': 'admission', 'mountPath': '/admission', 'subPath': 'private', 'readOnly': True},
@@ -99,7 +99,8 @@ def bundle(project, gateway, application, database):
                 'template': {'metadata': metadata, 'spec': pod}}, api='batch/v1')
         value = obj('Pod', name, pod); value['metadata'].update(metadata); return value
 
-    result += [workload('gateway', gateway, 'supervise-synthetic-demo-gateway.py', 'gateway-admission'),
+    # Measured gateway working set ~512 MiB (startup peak ~517 MiB) once the Prisma CLI path is disabled.
+    result += [workload('gateway', gateway, 'supervise-synthetic-demo-gateway.py', 'gateway-admission', memory_request='512Mi'),
                workload('redactor', redactor, 'serve-synthetic-demo-redactor.py', 'redactor-admission'),
                workload('catalog', application, 'run-synthetic-live-catalog.py', 'application-admission', job=True),
                workload('bootstrap-database', application, 'bootstrap-synthetic-demo.py', 'bootstrap-admission', phase='--database', job=True),
