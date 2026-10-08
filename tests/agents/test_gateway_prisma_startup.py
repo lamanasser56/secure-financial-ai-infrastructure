@@ -12,8 +12,9 @@ import unittest
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
-# Bundle of ad966add with only the gateway program, its annotation and its memory request masked.
-NORMALIZED_BUNDLE_SHA256 = 'b3777259224d0ba2d5d2dfb981e38e7524a0f53d5aae2352d13b6817cc9d2f53'
+# Bundle of ad966add with only the gateway program, its annotation, its memory request and the staging init
+# program (changed separately for fsGroup setgid) masked.
+NORMALIZED_BUNDLE_SHA256 = 'c10b14203400fa441de802b2a18eb0d9d4dc4d20f6ec620ea5aefdf8ba1a9c10'
 
 
 def load(name):
@@ -123,6 +124,11 @@ class GatewayPrismaStartup(unittest.TestCase):
         self.assertEqual(gateway['metadata']['annotations']['portfolio.example/program-sha256'], hashlib.sha256(container['args'][1].encode()).hexdigest())
         gateway['metadata']['annotations']['portfolio.example/program-sha256'] = '<gateway-program>'
         container['args'][1] = '<gateway-program>'; container['resources']['requests']['memory'] = '<gateway-request>'
+        for item in normal['items']:
+            if item['kind'] in ('Pod', 'Job'):
+                for init in (item['spec'] if item['kind'] == 'Pod' else item['spec']['template']['spec']).get('initContainers', []):
+                    if init['name'] == 'stage-private-admission':
+                        init['args'][1] = '<staging-program>'
         self.assertEqual(hashlib.sha256(json.dumps(normal, sort_keys=True).encode()).hexdigest(), NORMALIZED_BUNDLE_SHA256)
         others = [c for x in subject['items'] if x['kind'] in ('Pod', 'Job') and x['metadata']['name'] not in ('gateway', 'database')
                   for c in (x['spec'] if x['kind'] == 'Pod' else x['spec']['template']['spec'])['containers']]

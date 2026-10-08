@@ -13,8 +13,11 @@ import sys
 
 def stage():
     source, destination = Path('/projected'), Path('/staging/private')
-    destination.mkdir(mode=0o700)
-    Path('/state-staging/private').mkdir(mode=0o700)
+    for directory in (destination, Path('/state-staging/private')):
+        directory.mkdir(mode=0o700)
+        # fsGroup makes the kubelet mark volume directories setgid, and new directories inherit it; the
+        # readers require exactly 0700, so the mode is set explicitly instead of relying on mkdir.
+        os.chmod(directory, 0o700)
     files = {'run.json', 'redactor-server.json', 'gateway.json', 'bootstrap.json',
              'application-alpha.json', 'application-beta.json', 'redactor-client.json',
              'synthetic-demo.json', 'litellm-vertex.yaml'}
