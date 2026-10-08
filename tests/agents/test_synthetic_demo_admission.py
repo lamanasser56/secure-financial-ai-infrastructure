@@ -14,6 +14,8 @@ import urllib.request
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
+# Canonical NetworkPolicy/FQDNNetworkPolicy objects of 32ba0d6 (the deny-logging fix must leave them byte-identical).
+POLICY_SET_SHA256 = '124a82b93f9db0f11d8e1fc20113474e298aae5762c16bab51c0841e9ebed6f1'
 
 
 def load(name):
@@ -149,6 +151,29 @@ class AdmissionTests(unittest.TestCase):
                 self.assertEqual(server.journal.reserved(), 4)
                 self.assertNotIn('text', value); self.assertNotIn('message', value)
                 server.shutdown(); thread.join(timeout=2)
+
+    def test_namespace_enables_delegated_deny_logging(self):
+        render = load('render-synthetic-demo-bundle')
+        prefix = 'us-east1-docker.pkg.dev/project-fixture/sdp-evaluation-images/agent-demo-'
+        images = [prefix + name + '@sha256:' + 'a' * 64 for name in ('gateway', 'application', 'database')]
+        subject = render.bundle('project-fixture', *images)
+        self.assertEqual(subject, render.bundle('project-fixture', *images))  # deterministic
+        namespaces = [x for x in subject['items'] if x['kind'] == 'Namespace']
+        self.assertEqual(len(namespaces), 1)
+        self.assertEqual(namespaces[0]['metadata'], {
+            'name': 'google-agent-demo', 'labels': {'pod-security.kubernetes.io/enforce': 'restricted'},
+            'annotations': {'policy.network.gke.io/enable-deny-logging': 'true'}})
+        logging = next(x for x in subject['items'] if x['kind'] == 'NetworkLogging')
+        self.assertEqual(logging['spec'], {'cluster': {'allow': {'log': True, 'delegate': True}, 'deny': {'log': True, 'delegate': True}}})
+        policies = {x['metadata']['name']: x for x in subject['items'] if x['kind'] in ('NetworkPolicy', 'FQDNNetworkPolicy')}
+        for policy in policies.values():
+            self.assertEqual(policy['metadata']['annotations'], {'policy.network.gke.io/enable-logging': 'true'})
+        self.assertEqual(policies['deny-all']['spec'], {'podSelector': {}, 'policyTypes': ['Ingress', 'Egress']})
+        self.assertEqual(policies['database']['spec']['egress'], [])
+        for name in ('catalog', 'bootstrap-database', 'bootstrap-clients'):
+            self.assertEqual(policies[name]['spec']['ingress'], [])
+        self.assertEqual(hashlib.sha256(json.dumps([policies[n] for n in sorted(policies)], sort_keys=True).encode()).hexdigest(),
+                         POLICY_SET_SHA256)  # NetworkPolicy and FQDNNetworkPolicy objects byte-identical to 32ba0d6
 
     def test_exact_manifest_and_mutations(self):
         render = load('render-synthetic-demo-bundle')

@@ -45,6 +45,8 @@ def bundle(project, gateway, application, database):
     namespace = obj('Namespace', NS)
     namespace['metadata'].pop('namespace')
     namespace['metadata']['labels'] = {'pod-security.kubernetes.io/enforce': 'restricted'}
+    # NetworkLogging delegates deny logging: denials are logged only in namespaces carrying this annotation.
+    namespace['metadata']['annotations'] = {'policy.network.gke.io/enable-deny-logging': 'true'}
     result = [namespace]
     for name in ('application', 'gateway', 'redactor', 'database', 'bootstrap'):
         sa = obj('ServiceAccount', 'google-agent-demo-' + name, automountServiceAccountToken=False)
