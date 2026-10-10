@@ -157,6 +157,13 @@ class FakeTime:
         self.sleeps.append(seconds); self.now += seconds
 
 
+try:  # the injected quota failure is the real SDK exception type; without the SDK it can't be raised faithfully
+    from google.api_core import exceptions as _api_core_exceptions  # noqa: F401
+    HAS_API_CORE = True
+except ImportError:
+    HAS_API_CORE = False
+
+
 class PacedGoogle(SimulatedGoogle):
     """Simulated provider on a fake clock; optional quota failure at the n-th inspect call."""
     def __init__(self, time_source, exhaust_at=None):
@@ -192,6 +199,7 @@ class ProviderPacing(unittest.TestCase):
             raise AssertionError("no provider, no pacing")
         self.assertEqual(PROGRAM.evaluate(False, sleep=forbidden)["required_pass"], 70)
 
+    @unittest.skipUnless(HAS_API_CORE, 'needs google-api-core; runs in the google-sdp-offline-evaluation CI job')
     def test_quota_exhaustion_still_stops_without_retry(self):
         ft = FakeTime(); client = PacedGoogle(ft, exhaust_at=67)
         result = PROGRAM.evaluate(False, client=client, clock=ft.clock, sleep=ft.sleep)

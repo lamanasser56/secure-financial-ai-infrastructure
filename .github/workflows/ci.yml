@@ -67,6 +67,7 @@ jobs:
       - name: Test offline adapter and runtime containment
         run: |
           python -B -m unittest discover -s tests/phase3/runtime -p 'test_google_sdp_adapter.py'
+          python -B -m unittest discover -s tests/phase3/runtime -p 'test_composite_email_campaign.py' -k ProviderPacing
           python -B -m unittest discover -s tests/phase3/evaluation -p 'test_google_sdp_evaluation.py'
           python -B -m unittest discover -s tests/phase5 -p 'test_ai_path_containment.py'
       - name: Validate synthetic corpus without provider calls
