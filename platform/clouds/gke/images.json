@@ -5,7 +5,7 @@
     "gateway": "agent-demo-gateway@sha256:a3dcf411dc50f7cb4d63dacfbc0b8c6103051a182b27936e703fb798478cd7d4",
     "database": "agent-demo-database@sha256:545d822b1aa7537a177b60bc6d0d72bcd9c68eb6a50512b4bb9403263d25739a",
     "redactor": "google-sdp-context@sha256:667ceec4b8290df1341a91a7685ad140319fca6d23f92b9948dddf9fac64136b",
-    "app": "agent-platform-app@sha256:fe6b1f871e95647780576c9002446bfd91c116fabd176e7718a521dba19636f2",
-    "ops-agent": "agent-platform-ops@sha256:94250ad6c19915e9a9f09d9179680b9c15f5f872fee729dbca34a5ac5a77fa90"
+    "app": "agent-platform-app@sha256:ecec54d1ee881cbf2243bb20ff263327f0fb235a59b7ec8c38a8783c4c4dfc5d",
+    "ops-agent": "agent-platform-ops@sha256:a99fbac915ed7a05ec373ebeac460ead782fbae5e26f2cc284292f096d9bdca3"
   }
 }
