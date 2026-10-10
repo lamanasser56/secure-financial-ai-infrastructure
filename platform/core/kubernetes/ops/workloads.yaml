@@ -1,0 +1,80 @@
+# ops namespace: the Security & Operations Agent. It holds no approver key: approvals are Ed25519 tokens
+# signed by the front door (apps) after the owner approves; the agent only verifies, executes once, verifies.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ops-agent
+  namespace: ops
+  labels: {app.kubernetes.io/name: ops-agent, app.kubernetes.io/part-of: agent-platform}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector: {matchLabels: {app.kubernetes.io/name: ops-agent}}
+  strategy: {type: Recreate}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: ops-agent, app.kubernetes.io/part-of: agent-platform}
+    spec:
+      serviceAccountName: ops-agent
+      automountServiceAccountToken: false
+      securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532, seccompProfile: {type: RuntimeDefault}}
+      containers:
+      - name: ops-agent
+        image: agent-platform/ops-agent
+        command: [/usr/local/bin/python3.12, -m, agent_platform.ops.server]
+        env: [{name: PYTHONPATH, value: /app/platform/src:/app}]
+        ports: [{name: http, containerPort: 8090}]
+        readinessProbe:
+          httpGet: {path: /v1/health, port: 8090}
+          periodSeconds: 10
+        resources:
+          requests: {cpu: 50m, memory: 128Mi}
+          limits: {cpu: 500m, memory: 256Mi}
+        securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}, seccompProfile: {type: RuntimeDefault}}
+        volumeMounts:
+        - {name: api-token, mountPath: /var/run/secrets/kubernetes.io/serviceaccount, readOnly: true}
+        - {name: config, mountPath: /secrets/ops, readOnly: true}
+        - {name: registry, mountPath: /registry, readOnly: true}
+        - {name: tmp, mountPath: /tmp}
+      volumes:
+      - name: api-token # projected, short-lived, audience-bound token for this Pod only
+        projected:
+          defaultMode: 0444
+          sources:
+          - serviceAccountToken: {path: token, expirationSeconds: 3600}
+          - configMap: {name: kube-root-ca.crt, items: [{key: ca.crt, path: ca.crt}]}
+          - downwardAPI: {items: [{path: namespace, fieldRef: {fieldPath: metadata.namespace}}]}
+      - {name: config, secret: {secretName: ops-agent, defaultMode: 0400}}
+      - {name: registry, configMap: {name: ops-agent-registry, defaultMode: 0444}}
+      - {name: tmp, emptyDir: {medium: Memory, sizeLimit: 32Mi}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: ops-agent, namespace: ops}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: ops-agent}
+  ports: [{name: http, port: 8090, targetPort: 8090}]
+---
+# Registered targets: the single source for both the agent (mounted) and the admission policy (parameter).
+# IMAGE:<name> placeholders are pinned to signed digests by the cloud overlay renderer.
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: ops-agent-registry, namespace: ops}
+data:
+  platform.gateway.min: "1"
+  platform.gateway.max: "1"
+  platform.gateway.images: "IMAGE:gateway"
+  platform.gateway.health: "http://gateway.platform.svc.cluster.local:4000/health/liveliness"
+  platform.redactor.min: "1"
+  platform.redactor.max: "2"
+  platform.redactor.images: "IMAGE:redactor"
+  platform.redactor.health: "http://redactor.platform.svc.cluster.local:4003/healthz"
+  apps.app.min: "1"
+  apps.app.max: "1"
+  apps.app.images: "IMAGE:app"
+  apps.app.health: "none"
+  apps.fault-demo.min: "0"
+  apps.fault-demo.max: "3"
+  apps.fault-demo.images: "IMAGE:app"
+  apps.fault-demo.health: "none"

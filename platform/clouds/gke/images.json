@@ -1,0 +1,11 @@
+{
+  "_comment": "Signed image digests for the GKE overlay. Existing C-qualified images are reused unchanged; app and ops-agent are filled from the CI run (keyless cosign + KMS attestation).",
+  "registry": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/",
+  "images": {
+    "gateway": "agent-demo-gateway@sha256:a3dcf411dc50f7cb4d63dacfbc0b8c6103051a182b27936e703fb798478cd7d4",
+    "database": "agent-demo-database@sha256:545d822b1aa7537a177b60bc6d0d72bcd9c68eb6a50512b4bb9403263d25739a",
+    "redactor": "google-sdp-context@sha256:667ceec4b8290df1341a91a7685ad140319fca6d23f92b9948dddf9fac64136b",
+    "app": "PENDING_CI",
+    "ops-agent": "PENDING_CI"
+  }
+}

@@ -1,0 +1,92 @@
+# apps namespace: the bilingual UI + Financial Agent (one front door) and the scripted fault target.
+# The UI listens on loopback only; `kubectl port-forward deploy/app 8080:8080` is the only way in.
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: app, namespace: apps}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: fault-demo, namespace: apps}
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: apps
+  labels: {app.kubernetes.io/name: app, app.kubernetes.io/part-of: agent-platform}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector: {matchLabels: {app.kubernetes.io/name: app}}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: app, app.kubernetes.io/part-of: agent-platform}
+    spec:
+      serviceAccountName: app
+      automountServiceAccountToken: false
+      securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532, seccompProfile: {type: RuntimeDefault}}
+      containers:
+      - name: app
+        image: agent-platform/app
+        command: [/usr/local/bin/python3.12, -m, agent_platform.app]
+        env:
+        - {name: PYTHONPATH, value: /app/platform/src:/app}
+        - {name: PORTFOLIO_USER, value: alpha}
+        readinessProbe:
+          exec: {command: [/usr/local/bin/python3.12, -m, agent_platform.health, "http://127.0.0.1:8080/"]}
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          requests: {cpu: 100m, memory: 256Mi}
+          limits: {cpu: "1", memory: 768Mi}
+        securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}, seccompProfile: {type: RuntimeDefault}}
+        volumeMounts:
+        - {name: config, mountPath: /secrets/app, readOnly: true}
+        - {name: tmp, mountPath: /tmp}
+      volumes:
+      - {name: config, secret: {secretName: app, defaultMode: 0400}}
+      - {name: tmp, emptyDir: {medium: Memory, sizeLimit: 64Mi}}
+---
+# Scripted fault target (make fault F=oom|badimage|crashloop). A tiny HTTP workload from the signed app image.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fault-demo
+  namespace: apps
+  labels: {app.kubernetes.io/name: fault-demo, app.kubernetes.io/part-of: agent-platform}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector: {matchLabels: {app.kubernetes.io/name: fault-demo}}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: fault-demo, app.kubernetes.io/part-of: agent-platform}
+    spec:
+      serviceAccountName: fault-demo
+      automountServiceAccountToken: false
+      securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, seccompProfile: {type: RuntimeDefault}}
+      containers:
+      - name: workload
+        image: agent-platform/app
+        command: [/usr/local/bin/python3.12, -m, agent_platform.programs.fault_demo]
+        env:
+        - {name: PYTHONPATH, value: /app/platform/src:/app}
+        - {name: FAULT_MODE, value: none}
+        ports: [{name: http, containerPort: 8081}]
+        readinessProbe:
+          httpGet: {path: /healthz, port: 8081}
+          periodSeconds: 5
+        resources:
+          requests: {cpu: 20m, memory: 32Mi}
+          limits: {cpu: 200m, memory: 64Mi}
+        securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}, seccompProfile: {type: RuntimeDefault}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: fault-demo, namespace: apps}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: fault-demo}
+  ports: [{name: http, port: 8081, targetPort: 8081}]

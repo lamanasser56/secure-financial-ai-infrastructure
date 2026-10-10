@@ -1,0 +1,25 @@
+# Provider profile: Gemini on Vertex AI (ACTIVE, owner-approved 2026-10-10).
+# Rendered by `make provider P=gemini` into the gateway ConfigMap (platform/core/kubernetes/platform/generated/).
+# Applications only ever call the stable internal alias; switching providers changes this file, not code.
+profile: gemini
+status: active
+approved: {by: owner, on: "2026-10-10", scope: "synthetic data only; US multi-region processing"}
+alias: secure-financial-chat
+model:
+  # Pinned GA version (no auto-updating alias). Official lifecycle: release 2026-05-19, retirement
+  # "May 19, 2027 or later". Not offered in the single region us-east1; the `us` multi-region endpoint
+  # (aiplatform.us.rep.googleapis.com) keeps ML processing inside the United States.
+  litellm_model: vertex_ai/gemini-3.5-flash
+  vertex_location: us
+  # Explicit per-token cost so the $10/month key budget is enforced even if a price map changes.
+  # Conservative: the higher of the official list and LiteLLM 1.104.0 map prices, +10% non-global uplift.
+  input_cost_per_token: 0.00000165
+  output_cost_per_token: 0.0000099
+  limits: {timeout_seconds: 8, max_tokens: 1024, max_retries: 0}
+credential:
+  type: workload_identity            # gateway KSA platform/gateway -> GSA agent-platform-gateway
+  secret: null                       # no key material exists for this provider
+egress:
+  fqdn: [aiplatform.us.rep.googleapis.com]
+  port: 443
+budget: {monthly_usd: 10}

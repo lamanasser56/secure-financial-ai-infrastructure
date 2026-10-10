@@ -1,0 +1,33 @@
+# platform/core: cloud-agnostic base. Cloud overlays (platform/clouds/<cloud>/kubernetes) add identity,
+# storage class, provider egress, API-server egress and signed image digests.
+# Build with --load-restrictor LoadRestrictionsNone: programs and SQL are referenced from their single
+# canonical location (platform/core/src, platform/core/database) instead of being copied here.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- namespaces/namespaces.yaml
+- policies/network.yaml
+- policies/quotas.yaml
+- policies/ops-agent-rbac.yaml
+- policies/admission.yaml
+- platform/workloads.yaml
+- apps/workloads.yaml
+- ops/workloads.yaml
+generatorOptions:
+  disableNameSuffixHash: false
+configMapGenerator:
+- name: platform-programs
+  namespace: platform
+  files:
+  - gateway_entry.py=../src/agent_platform/programs/gateway_entry.py
+  - redactor_server.py=../src/agent_platform/programs/redactor_server.py
+- name: gateway-config
+  namespace: platform
+  files:
+  - litellm.yaml=platform/generated/litellm.yaml
+- name: database-sql
+  namespace: platform
+  files:
+  - litellm-schema.sql=../database/litellm-schema.sql
+  - tenant.sql=../database/tenant.sql
+  - expenses.json=../database/expenses.json

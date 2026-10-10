@@ -25,3 +25,4 @@ secrets*.yaml
 *.tfvars.json
 terraform.rc
 .qualified/
+.cache/

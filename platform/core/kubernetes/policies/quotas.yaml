@@ -1,0 +1,39 @@
+# Bounded resources per namespace (sized for one e2-standard-4 node) and container defaults.
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: bounds, namespace: platform}
+spec:
+  hard: {pods: "8", requests.cpu: 1500m, requests.memory: 3Gi, limits.cpu: "4", limits.memory: 4Gi,
+         persistentvolumeclaims: "1", requests.storage: 10Gi, services.loadbalancers: "0", services.nodeports: "0"}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: bounds, namespace: apps}
+spec:
+  hard: {pods: "6", requests.cpu: 1, requests.memory: 1Gi, limits.cpu: "3", limits.memory: 2Gi,
+         persistentvolumeclaims: "0", services.loadbalancers: "0", services.nodeports: "0"}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: bounds, namespace: ops}
+spec:
+  hard: {pods: "3", requests.cpu: 500m, requests.memory: 512Mi, limits.cpu: "1", limits.memory: 1Gi,
+         persistentvolumeclaims: "0", services.loadbalancers: "0", services.nodeports: "0"}
+---
+apiVersion: v1
+kind: LimitRange
+metadata: {name: defaults, namespace: platform}
+spec:
+  limits: [{type: Container, default: {cpu: 500m, memory: 256Mi}, defaultRequest: {cpu: 50m, memory: 64Mi}, max: {cpu: "1", memory: 1Gi}}]
+---
+apiVersion: v1
+kind: LimitRange
+metadata: {name: defaults, namespace: apps}
+spec:
+  limits: [{type: Container, default: {cpu: 500m, memory: 256Mi}, defaultRequest: {cpu: 20m, memory: 32Mi}, max: {cpu: "1", memory: 1Gi}}]
+---
+apiVersion: v1
+kind: LimitRange
+metadata: {name: defaults, namespace: ops}
+spec:
+  limits: [{type: Container, default: {cpu: 500m, memory: 256Mi}, defaultRequest: {cpu: 50m, memory: 64Mi}, max: {cpu: 500m, memory: 512Mi}}]

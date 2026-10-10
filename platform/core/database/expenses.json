@@ -1,0 +1,46 @@
+{
+  "synthetic": true,
+  "source_id": "synthetic-expenses-v1",
+  "currency": "SAR",
+  "tenants": {
+    "fixture-a": [
+      {
+        "period": "2026-01",
+        "category": "software",
+        "amount_minor_units": 12000
+      },
+      {
+        "period": "2026-01",
+        "category": "transport",
+        "amount_minor_units": 4000
+      },
+      {
+        "period": "2026-01",
+        "category": "software",
+        "amount_minor_units": 8000
+      },
+      {
+        "period": "2026-02",
+        "category": "office",
+        "amount_minor_units": 7000
+      }
+    ],
+    "fixture-b": [
+      {
+        "period": "2026-01",
+        "category": "office",
+        "amount_minor_units": 6000
+      },
+      {
+        "period": "2026-01",
+        "category": "transport",
+        "amount_minor_units": 3000
+      },
+      {
+        "period": "2026-02",
+        "category": "software",
+        "amount_minor_units": 11000
+      }
+    ]
+  }
+}

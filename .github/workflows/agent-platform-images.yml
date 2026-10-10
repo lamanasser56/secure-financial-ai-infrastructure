@@ -1,0 +1,110 @@
+# Agent platform images (Phase E, ADR-008): app and ops.
+# build -> Trivy (HIGH/CRITICAL, fail-closed) -> CycloneDX SBOM -> push by digest -> keyless cosign (this job's OIDC
+# identity, no device login, no stored key) -> cosign verify (exact workflow identity) -> Binary Authorization
+# attestation with the Cloud KMS attestor key (GKE admission cannot enforce keyless signatures natively).
+# Credentials: Workload Identity Federation provider agent-platform-ci (repository + ref + workflow bound).
+name: agent-platform-images
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths: ['platform/core/**', 'runtime/**', 'contracts/**', 'demo/**', 'requirements-litellm-candidate.txt', 'requirements-agent-composition.txt', '.github/workflows/agent-platform-images.yml']
+
+permissions: {}
+
+concurrency:
+  group: agent-platform-images
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: true
+      matrix:
+        target: [app, ops]
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      REGISTRY: us-east1-docker.pkg.dev
+      REPOSITORY: sdp-evaluation-images
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Pinned qualification tools (Trivy 0.72.0, Syft 1.44.0, cosign 2.6.2; sha256-verified)
+        run: bash scripts/install-qualification-tools.sh "$RUNNER_TEMP/tools"
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+        with:
+          version: v0.30.1
+          driver: docker-container
+          driver-opts: image=moby/buildkit@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea
+          platforms: linux/amd64
+          use: true
+          cache-binary: false
+      - name: Build (no credentials yet)
+        run: |
+          set -Eeuo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_RUN_ATTEMPT" == 1 ]]
+          docker buildx build --platform linux/amd64 --target "${{ matrix.target }}" \
+            --file platform/core/images/Dockerfile --provenance=false --sbom=false \
+            --tag "local/agent-platform-${{ matrix.target }}:${GITHUB_SHA}" --load .
+      - name: Trivy (HIGH,CRITICAL; fail-closed) and SBOM
+        run: |
+          set -Eeuo pipefail
+          image="local/agent-platform-${{ matrix.target }}:${GITHUB_SHA}"
+          "$RUNNER_TEMP/tools/trivy" image --severity HIGH,CRITICAL --exit-code 1 --ignore-unfixed=false \
+            --format json --output "$RUNNER_TEMP/trivy.json" "$image"
+          "$RUNNER_TEMP/tools/syft" "$image" -o "cyclonedx-json=$RUNNER_TEMP/sbom.cdx.json"
+          python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['bomFormat']=='CycloneDX' and d['components']" "$RUNNER_TEMP/sbom.cdx.json"
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        id: auth
+        with:
+          workload_identity_provider: ${{ vars.AGENT_PLATFORM_CI_WIF_PROVIDER }}
+          service_account: ${{ vars.AGENT_PLATFORM_CI_SERVICE_ACCOUNT }}
+          token_format: access_token
+          create_credentials_file: true
+          export_environment_variables: true
+      - name: Push by digest, keyless sign, verify, KMS attest
+        id: publish
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          PROJECT_ID: ${{ vars.AGENT_PLATFORM_PROJECT_ID }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$PROJECT_ID" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]]
+          name="agent-platform-${{ matrix.target }}"
+          remote="$REGISTRY/$PROJECT_ID/$REPOSITORY/$name:sha-$GITHUB_SHA"
+          printf '%s' "$ACCESS_TOKEN" | docker login "https://$REGISTRY" -u oauth2accesstoken --password-stdin >/dev/null
+          docker tag "local/$name:$GITHUB_SHA" "$remote"
+          docker push "$remote" > "$RUNNER_TEMP/push.log"
+          digest=$(docker buildx imagetools inspect "$remote" --format '{{json .Manifest}}' | python3 -c "import json,sys; print(json.load(sys.stdin)['digest'])")
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          ref="$REGISTRY/$PROJECT_ID/$REPOSITORY/$name@$digest"
+          "$RUNNER_TEMP/tools/cosign" sign --yes "$ref"
+          "$RUNNER_TEMP/tools/cosign" verify "$ref" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/agent-platform-images.yml@refs/heads/main" > /dev/null
+          gcloud beta container binauthz attestations sign-and-create --project "$PROJECT_ID" --artifact-url "$ref" \
+            --attestor "projects/$PROJECT_ID/attestors/agent-platform-ci" \
+            --keyversion "projects/$PROJECT_ID/locations/us-east1/keyRings/agent-platform/cryptoKeys/binauthz-attestor/cryptoKeyVersions/1"
+          python3 - "$ref" "$RUNNER_TEMP/trivy.json" > "$RUNNER_TEMP/receipt.json" <<'PY'
+          import hashlib, json, sys
+          trivy = json.load(open(sys.argv[2]))
+          findings = sum(len(r.get('Vulnerabilities') or []) for r in trivy.get('Results', []))
+          print(json.dumps({'image': sys.argv[1], 'trivy_high_critical': findings, 'cosign': 'keyless_verified',
+                            'binauthz': 'attested_kms', 'sbom': 'cyclonedx'}, sort_keys=True))
+          PY
+          docker logout "https://$REGISTRY" >/dev/null
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: agent-platform-${{ matrix.target }}-evidence
+          path: |
+            ${{ runner.temp }}/receipt.json
+            ${{ runner.temp }}/sbom.cdx.json
+            ${{ runner.temp }}/trivy.json
+          retention-days: 30

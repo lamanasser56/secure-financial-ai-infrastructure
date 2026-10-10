@@ -1,0 +1,62 @@
+# GKE-specific objects. Contract with the base: identities, storage, egress and logging only; no workload logic.
+# PROJECT_ID and CONTROL_PLANE_CIDR are filled by platform/clouds/gke/render.py from the Terraform outputs.
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: platform-settings, namespace: platform}
+data:
+  project_id: PROJECT_ID
+---
+# Postgres disk survives Pod/StatefulSet deletion and node scale-to-0; snapshotted before each `make down`.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata: {name: agent-platform-retain}
+provisioner: pd.csi.storage.gke.io
+parameters: {type: pd-balanced}
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: false
+---
+# Workload Identity tokens come from the GKE metadata server; only gateway and redactor may reach it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: workload-identity-metadata, namespace: platform}
+spec:
+  podSelector:
+    matchExpressions: [{key: app.kubernetes.io/name, operator: In, values: [gateway, redactor]}]
+  policyTypes: [Egress]
+  egress:
+  - to: [{ipBlock: {cidr: 169.254.169.254/32}}]
+    ports: [{protocol: TCP, port: 80}]
+---
+# Redactor: Sensitive Data Protection regional endpoint only (the adapter's fixed endpoint).
+apiVersion: networking.gke.io/v1alpha1
+kind: FQDNNetworkPolicy
+metadata:
+  name: redactor-provider
+  namespace: platform
+  annotations: {policy.network.gke.io/enable-logging: "true"}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: redactor}}
+  egress:
+  - matches: [{name: dlp.us-east1.rep.googleapis.com}]
+    ports: [{protocol: TCP, port: 443}]
+---
+# Ops agent -> Kubernetes API server (private control-plane endpoint; Dataplane V2 evaluates post-DNAT).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: ops-agent-apiserver, namespace: ops}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: ops-agent}}
+  policyTypes: [Egress]
+  egress:
+  - to: [{ipBlock: {cidr: CONTROL_PLANE_CIDR}}]
+    ports: [{protocol: TCP, port: 443}]
+---
+# Allow and deny decisions are logged (delegated to annotated policies/namespaces).
+apiVersion: networking.gke.io/v1alpha1
+kind: NetworkLogging
+metadata: {name: default}
+spec:
+  cluster:
+    allow: {log: true, delegate: true}
+    deny: {log: true, delegate: true}

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Security &amp; Operations</title><link rel="stylesheet" href="/style.css"><script defer src="/operations.js"></script></head>
+<body><main>
+<header><h1 id="heading">Security &amp; Operations</h1><label id="language-label" for="language">Language</label><select id="language"><option value="en">English</option><option value="ar">العربية</option></select></header>
+<aside class="notice"><p id="notice">Actual local observations. Models disabled; local operator fixture identity. Financial conversation stays separate.</p><a id="financial" href="http://127.0.0.1:8768/" rel="noreferrer">Open financial conversation</a></aside>
+<div class="tabs" role="tablist"><button id="operations-tab" role="tab" aria-selected="true" aria-controls="operations">Operations</button><button id="security-tab" role="tab" aria-selected="false" aria-controls="security">Security</button></div>
+<section id="operations" role="tabpanel" aria-labelledby="operations-tab">
+<h2 id="services-heading">Services and storage</h2><button id="refresh">Refresh registered targets</button><label id="target-label" for="target">Registered target</label><select id="target"></select><button id="observe">Observe</button><button id="explain">Model explanation</button>
+<h3 id="incident-heading">Incident, evidence and unknowns</h3><pre id="incident" dir="ltr"></pre><button id="diagnose">Diagnose current evidence</button><pre id="diagnosis" dir="ltr"></pre>
+<h3 id="policy-heading">Policy and proposed action</h3><select id="action"><option value="restore">Restore failed owned service</option><option value="test_failure">Controlled owned service failure</option><option value="recover">Stop registered orphan</option><option value="clean">Clean registered cache</option></select><button id="propose">Propose exact action</button><pre id="proposal" dir="ltr"></pre>
+<h3 id="approval-heading">Operator approval</h3><p id="approval-help">Read operator-approval.secret in the private server state. Review action, target and evidence before approving. Models cannot approve.</p><input id="operator-secret" type="password" autocomplete="off" aria-label="Operator approval capability"><button id="approve">Approve proposal</button><pre id="approval" dir="ltr"></pre>
+<button id="execute">Execute once</button><h3 id="outcome-heading">Verified outcome</h3><pre id="outcome" dir="ltr"></pre>
+</section>
+<section id="security" role="tabpanel" aria-labelledby="security-tab" hidden><h2 id="security-heading">Digest-linked security evidence</h2><p id="security-help">Retained scan and native signature verification receipts. Current application qualification is separate.</p><button id="security-refresh">Evaluate registered evidence</button><pre id="security-evidence" dir="ltr"></pre></section>
+<section id="activity" hidden><h2 id="activity-heading">Agent activity</h2><h3 id="pending-heading">Pending approvals</h3><ul id="pending" dir="ltr"></ul><h3 id="timeline-heading">Timeline: observed → diagnosed → proposed → approved → executed → verified</h3><ol id="timeline" dir="ltr"></ol><h3 id="denials-heading">Policy denials</h3><ul id="denials" dir="ltr"></ul></section>
+<section><h2 id="budget-heading">Budgets and expiry</h2><p id="expiry"></p><pre id="budgets" dir="ltr"></pre></section><p id="status" role="status" aria-live="polite"></p>
+</main></body></html>

@@ -1,0 +1,20 @@
+# Provider profile: Claude via the Anthropic API (INACTIVE — portability proof only).
+# Rendering refuses an inactive profile. Enabling it needs an owner decision on cost and data destination,
+# a Kubernetes Secret mounted only into the gateway, the egress FQDN below, and (because nodes have no
+# internet egress) a NAT gateway: see docs/porting-guide.md. Never live-tested in this project.
+profile: claude
+status: inactive
+approved: null
+alias: secure-financial-chat
+model:
+  litellm_model: anthropic/claude-sonnet-5-5   # pin an exact dated version when enabling
+  input_cost_per_token: null                    # set from the provider's price list when enabling
+  output_cost_per_token: null
+  limits: {timeout_seconds: 8, max_tokens: 1024, max_retries: 0}
+credential:
+  type: api_key
+  secret: {name: gateway-provider-claude, key: api_key, env: ANTHROPIC_API_KEY}
+egress:
+  fqdn: [api.anthropic.com]
+  port: 443
+budget: {monthly_usd: 10}
