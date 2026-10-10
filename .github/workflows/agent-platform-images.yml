@@ -37,7 +37,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
       - name: Pinned qualification tools (Trivy 0.72.0, Syft 1.44.0, cosign 2.6.2; sha256-verified)
-        run: bash scripts/install-qualification-tools.sh "$RUNNER_TEMP/tools"
+        run: mkdir -p "$RUNNER_TEMP/tools" && bash scripts/install-qualification-tools.sh "$RUNNER_TEMP/tools"
       - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
         with:
           version: v0.30.1
