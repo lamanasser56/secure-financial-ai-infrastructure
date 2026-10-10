@@ -12,6 +12,7 @@ import hmac
 import json
 import os
 from pathlib import Path
+import re
 import threading
 import time
 import urllib.request
@@ -74,6 +75,12 @@ def response_shape(response):
         shape['decision'] = names(decision) if type(decision) is not list else ['list', len(decision)]
         if type(decision) is dict:
             shape['kind'] = decision.get('kind') if decision.get('kind') in {'tool', 'final', 'clarification', 'refusal'} else '?'
+            # Value types and sizes only (which schema rule failed), never the values.
+            shape['decision_types'] = {k if k in KNOWN_KEYS else '?': type(v).__name__ + (f':{len(v)}' if isinstance(v, (str, list, dict)) else '')
+                                       for k, v in decision.items()}
+            if decision.get('kind') == 'final':
+                period = decision.get('period')
+                shape['period_format_ok'] = type(period) is str and re.fullmatch(r'20[0-9]{2}-(0[1-9]|1[0-2])', period) is not None
     except Exception as error:
         shape['stopped_at'] = type(error).__name__
     return shape

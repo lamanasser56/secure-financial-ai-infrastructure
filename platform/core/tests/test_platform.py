@@ -329,3 +329,4 @@ class ModelResponseAdmission(unittest.TestCase):
         self.assertEqual(shape['provider_specific_fields'], ['thought_signatures'])
         self.assertEqual(shape['kind'], 'tool')
         self.assertEqual(shape['usage']['reasoning_tokens'], 3)
+        self.assertEqual(shape['decision_types'], {'kind': 'str:4', 'tool_id': 'str:15', 'arguments': 'dict:1'})

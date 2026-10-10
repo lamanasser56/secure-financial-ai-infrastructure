@@ -1,0 +1,62 @@
+{
+ "alias": "secure-financial-chat",
+ "budget": {
+  "approved_total": 30,
+  "pre_run_diagnostic_requests": 6,
+  "run_budget": 24,
+  "run_requests": 3
+ },
+ "cases": [
+  {
+   "case": "1a-en-totals-categories",
+   "checks": {
+    "completed": false,
+    "language": true,
+    "no_invented_figures": true,
+    "no_other_tenant_figures": true,
+    "period": false,
+    "source": false,
+    "tools": false
+   },
+   "group": 1,
+   "language": "en",
+   "model_requests": 3,
+   "result": "FAIL",
+   "status": "blocked",
+   "terminal_failure": {
+    "reason": "output_schema_mismatch",
+    "stage": "structured_output_validation"
+   },
+   "tool_executions": 2,
+   "tool_ids": []
+  }
+ ],
+ "gateway": "LiteLLM 1.104.0, reasoning_effort none (thinkingLevel minimal, includeThoughts false), num_retries 0, no fallbacks",
+ "limitations": [
+  "person names are outside the qualified redaction entity set (no PERSON category); 5a uses email + phone",
+  "RTL rendering is checked by screenshot, not by this runner"
+ ],
+ "model": "vertex_ai/gemini-3.5-flash (us)",
+ "not_run": [
+  {
+   "group": 3,
+   "note": "tool selection is assessed from groups 1-2: the protocol requires both financial tools and every decision is schema-validated before dispatch"
+  },
+  {
+   "group": 7,
+   "note": "composite email campaign subset not run in this budget; the deterministic email layer is exercised by 5a and qualified in the R campaign evidence"
+  }
+ ],
+ "note": "Written by platform/clouds/gke/requalify.py; never edited by hand. No model text is recorded.",
+ "spend_usd": {
+  "after": 0.02802,
+  "before": 0.02802,
+  "delta": 0.0
+ },
+ "started_at": "2026-10-10T20:32:49Z",
+ "status": "STOPPED",
+ "stop": {
+  "case": "1a-en-totals-categories",
+  "reason": "first_failure"
+ }
+}

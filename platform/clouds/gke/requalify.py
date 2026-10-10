@@ -18,7 +18,7 @@ import attack_suite as a
 import lifecycle
 
 HERE = Path(__file__).resolve().parent
-EVIDENCE = HERE.parents[2] / 'docs/evidence/requalification.json'
+EVIDENCE = HERE.parents[2] / 'docs/evidence/requalification.json'  # per attempt: requalification-attempt-N.json
 TURN_CEILING = 4  # runtime/agents/core.py Limits.model_requests
 FINANCIAL_TOOLS = {'expense_summary', 'expense_categories'}
 SOURCE = 'synthetic-expenses-v1'
@@ -212,4 +212,7 @@ def run(budget):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--budget', type=int, required=True, help='model requests remaining of the approved 30')
-    sys.exit(run(parser.parse_args().budget))
+    parser.add_argument('--attempt', type=int, required=True, help='attempt number; earlier attempts stay recorded')
+    args = parser.parse_args()
+    EVIDENCE = EVIDENCE.with_name(f'requalification-attempt-{args.attempt}.json')
+    sys.exit(run(args.budget))
