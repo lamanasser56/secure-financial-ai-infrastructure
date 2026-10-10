@@ -23,6 +23,7 @@ class Agent:
         self.timeline = collections.deque(maxlen=200)
         self.denials = collections.deque(maxlen=100)
         self.proposals, self.findings = {}, {}
+        self._explanations = {}  # (target, finding, revision) -> explanation: one model call per episode
         self._lock = threading.Lock()
         self._verify_kwargs = verify_kwargs or {}
 
@@ -58,7 +59,9 @@ class Agent:
             if previous is None or previous['evidence_digest'] != finding['evidence_digest']:
                 self.record('observed', key, pods=len(pods), available=finding['available_replicas'], desired=finding['desired_replicas'])
                 self.record('diagnosed', key, finding=finding['finding'], evidence_digest=finding['evidence_digest'])
-                if finding['finding'] != 'HEALTHY':
+                if finding['finding'] == 'HEALTHY':
+                    self._explanations = {k: v for k, v in self._explanations.items() if k[0] != key}
+                else:
                     for action in finding['suggested_actions']:
                         arguments = {'replicas': min(self.targets[key].max_replicas, finding['desired_replicas'] + 1)} if action == 'scale' else {}
                         self.propose(key, action, arguments, finding)
@@ -73,7 +76,12 @@ class Agent:
                     'args_digest': approval.args_digest(arguments), 'evidence_digest': finding['evidence_digest'],
                     'finding': finding['finding'], 'created_at': round(self.clock(), 3), 'state': 'proposed'}
         if self.explainer is not None:
-            proposal['explanation'] = self.explainer(finding)  # untrusted text, display only
+            # Evidence (e.g. a restart count) changes on every crash; the explanation is per episode, not per
+            # proposal, so a crash loop cannot turn into an unbounded number of model requests.
+            episode = (key, finding['finding'], finding.get('revision'))
+            if episode not in self._explanations:
+                self._explanations[episode] = self.explainer(finding)
+            proposal['explanation'] = self._explanations[episode]  # untrusted text, display only
         with self._lock:
             self.proposals[proposal['request_id']] = proposal
         self.record('proposed', key, request_id=proposal['request_id'], action=action, finding=finding['finding'])

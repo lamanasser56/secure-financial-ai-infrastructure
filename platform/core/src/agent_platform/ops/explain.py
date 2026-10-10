@@ -3,6 +3,7 @@ and returned as untrusted display text. It can never change targets, actions or 
 import json
 import urllib.request
 
+from agent_platform import audit
 from agent_platform.redaction import RedactorClient
 
 SYSTEM = ('You explain a Kubernetes diagnosis to an operator in two short sentences. Use only the JSON facts. '
@@ -23,6 +24,7 @@ class Explainer:
                     'messages': [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': prompt}]}
             request = urllib.request.Request(self._url, data=json.dumps(body).encode(), method='POST',
                                              headers={'Authorization': 'Bearer ' + self._key, 'Content-Type': 'application/json'})
+            audit.emit('ops_explanation_requested', 'ops-agent', finding=facts['finding'])  # counted model request
             with self._open(request, timeout=self._timeout) as response:
                 answer = json.loads(response.read(65536))['choices'][0]['message']['content']
             return {'untrusted_text': self._redactor.redact(str(answer)[:1500]).text, 'source': 'model_via_gateway'}

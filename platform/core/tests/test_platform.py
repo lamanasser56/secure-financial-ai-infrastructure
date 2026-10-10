@@ -86,6 +86,7 @@ class Providers(unittest.TestCase):
         config = outputs[providers.GATEWAY_CONFIG]
         self.assertIn('model: vertex_ai/gemini-3.5-flash', config)
         self.assertIn('vertex_location: us', config)
+        self.assertIn('reasoning_effort: none', config)
         self.assertIn('aiplatform.us.rep.googleapis.com', outputs[providers.EGRESS])
         for path, text in outputs.items():
             self.assertEqual(path.read_text(), text, 'generated file drifted: run make provider P=gemini')
@@ -97,7 +98,8 @@ class Providers(unittest.TestCase):
         for mutate in (lambda p: p['model'].update(litellm_model='vertex_ai/gemini-flash-latest'),
                        lambda p: p['model'].update(input_cost_per_token=None),
                        lambda p: p['egress'].update(fqdn=['*']),
-                       lambda p: p['budget'].update(monthly_usd=100)):
+                       lambda p: p['budget'].update(monthly_usd=100),
+                       lambda p: p['model'].update(reasoning_effort='low')):  # would expose thought text
             profile = copy.deepcopy(base); mutate(profile)
             with self.assertRaises(providers.ProfileRejected):
                 check(profile)

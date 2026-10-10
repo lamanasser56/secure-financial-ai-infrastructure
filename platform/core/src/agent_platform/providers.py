@@ -40,6 +40,9 @@ def load(name):
     limits = model.get('limits') or {}
     if limits != {'timeout_seconds': 8, 'max_tokens': 1024, 'max_retries': 0}:
         raise ProfileRejected('limits')
+    # Only efforts for which LiteLLM 1.104.0 sends includeThoughts=false (thought text never leaves the provider).
+    if model.get('reasoning_effort', 'none') not in ('none', 'disable'):
+        raise ProfileRejected('reasoning_effort must keep thoughts hidden')
     if credential.get('type') not in ('workload_identity', 'api_key'):
         raise ProfileRejected('credential type')
     hosts = egress.get('fqdn')
@@ -57,6 +60,8 @@ def gateway_config(profile):
               'input_cost_per_token': model['input_cost_per_token'], 'output_cost_per_token': model['output_cost_per_token']}
     if model['litellm_model'].startswith('vertex_ai/'):
         params |= {'vertex_project': 'os.environ/PORTFOLIO_PROJECT_ID', 'vertex_location': model['vertex_location']}
+    if 'reasoning_effort' in model:
+        params['reasoning_effort'] = model['reasoning_effort']
     if profile['credential']['type'] == 'api_key':
         params['api_key'] = 'os.environ/' + profile['credential']['secret']['env']
     return {

@@ -181,6 +181,21 @@ class AgentFlow(unittest.TestCase):
         self.assertEqual(result['code'], 'EVIDENCE_CHANGED')
         self.assertEqual(self.client.patches, [])
 
+    def test_one_explanation_per_episode(self):
+        calls = []
+        self.agent.explainer = lambda finding: calls.append(finding['finding']) or {'untrusted_text': 'x', 'source': 'model_via_gateway'}
+        for restarts in (5, 6, 7):  # each crash changes the evidence digest and creates new proposals
+            self.client.pods = [pod(waiting='CrashLoopBackOff', restarts=restarts)]
+            self.agent.scan()
+        self.assertEqual(len(self.agent.snapshot()['pending']), 6)  # rollback + restart for each evidence change
+        self.assertEqual(calls, ['CRASH_LOOP'])  # but one model request for the episode
+        self.client.pods = [pod()]
+        self.client.deployment['status']['availableReplicas'] = 1
+        self.agent.scan()  # healthy again: the next episode is explained afresh
+        self.client.pods = [pod(waiting='CrashLoopBackOff', restarts=9)]
+        self.agent.scan()
+        self.assertEqual(calls, ['CRASH_LOOP', 'CRASH_LOOP'])
+
     def test_unregistered_target_or_action_cannot_be_proposed(self):
         finding = diagnose.diagnose(deployment(), [pod(waiting='CrashLoopBackOff')], [])
         for key, action in (('apps.app', 'restart'), ('apps.fault-demo', 'delete'), ('apps.fault-demo', 'exec')):

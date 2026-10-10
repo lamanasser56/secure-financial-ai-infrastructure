@@ -16,6 +16,9 @@ model:
   input_cost_per_token: 0.00000165
   output_cost_per_token: 0.0000099
   limits: {timeout_seconds: 8, max_tokens: 1024, max_retries: 0}
+  # Thinking tokens count against max_tokens (live 2026-10-10: 689 of 795 output tokens on a final answer).
+  # LiteLLM 1.104.0 maps `none` on Gemini 3 flash to thinkingLevel=minimal, includeThoughts=false.
+  reasoning_effort: none
 credential:
   type: workload_identity            # gateway KSA platform/gateway -> GSA agent-platform-gateway
   secret: null                       # no key material exists for this provider

@@ -58,8 +58,8 @@ class UI:
                     self.close()
                     raise
 
-    def ask(self, profile, text):
-        body = json.dumps({'agent': profile, 'language': 'en', 'question': text, 'conversation_id': None,
+    def ask(self, profile, text, language='en'):
+        body = json.dumps({'agent': profile, 'language': language, 'question': text, 'conversation_id': None,
                            'evidence_source': None}).encode()  # the existing UI's conversation contract
         request = urllib.request.Request('http://127.0.0.1:8080/api/conversation', data=body, method='POST', headers={
             'Content-Type': 'application/json', 'Origin': 'http://127.0.0.1:8080', 'X-Demo-CSRF': self.csrf})
