@@ -18,79 +18,79 @@ spec:
     kind: ConfigMap
   matchConstraints:
     resourceRules:
-    - apiGroups: ["*"]
-      apiVersions: ["*"]
-      operations: [CREATE, UPDATE, DELETE, CONNECT]
-      resources: ["*/*"]
+      - apiGroups: ["*"]
+        apiVersions: ["*"]
+        operations: [CREATE, UPDATE, DELETE, CONNECT]
+        resources: ["*/*"]
   matchConditions:
-  - name: ops-agent-only
-    expression: request.userInfo.username == 'system:serviceaccount:ops:ops-agent'
+    - name: ops-agent-only
+      expression: request.userInfo.username == 'system:serviceaccount:ops:ops-agent'
   variables:
-  - name: key
-    expression: request.namespace + '.' + request.name
-  - name: isDeploymentUpdate
-    expression: >-
-      request.operation == 'UPDATE' && request.resource.group == 'apps' &&
-      request.resource.resource == 'deployments' && (!has(request.subResource) || request.subResource == '')
-  - name: registered
-    expression: >-
-      variables.isDeploymentUpdate && (variables.key + '.max') in params.data &&
-      (variables.key + '.min') in params.data && (variables.key + '.images') in params.data
-  - name: oldT
-    expression: 'variables.registered ? oldObject.spec.template : null'
-  - name: newT
-    expression: 'variables.registered ? object.spec.template : null'
-  - name: annOld
-    expression: "variables.registered && has(variables.oldT.metadata.annotations) ? variables.oldT.metadata.annotations : {}"
-  - name: annNew
-    expression: "variables.registered && has(variables.newT.metadata.annotations) ? variables.newT.metadata.annotations : {}"
-  - name: restartKey
-    expression: "'kubectl.kubernetes.io/restartedAt'"
+    - name: key
+      expression: request.namespace + '.' + request.name
+    - name: isDeploymentUpdate
+      expression: >-
+        request.operation == 'UPDATE' && request.resource.group == 'apps' &&
+        request.resource.resource == 'deployments' && (!has(request.subResource) || request.subResource == '')
+    - name: registered
+      expression: >-
+        variables.isDeploymentUpdate && (variables.key + '.max') in params.data &&
+        (variables.key + '.min') in params.data && (variables.key + '.images') in params.data
+    - name: oldT
+      expression: 'variables.registered ? oldObject.spec.template : null'
+    - name: newT
+      expression: 'variables.registered ? object.spec.template : null'
+    - name: annOld
+      expression: "variables.registered && has(variables.oldT.metadata.annotations) ? variables.oldT.metadata.annotations : {}"
+    - name: annNew
+      expression: "variables.registered && has(variables.newT.metadata.annotations) ? variables.newT.metadata.annotations : {}"
+    - name: restartKey
+      expression: "'kubectl.kubernetes.io/restartedAt'"
   validations:
-  - expression: variables.registered
-    message: ops-agent may only UPDATE a registered Deployment (no other kind, verb or subresource)
-    reason: Forbidden
-  - expression: >-
-      !variables.registered || (
-        object.spec.selector == oldObject.spec.selector &&
-        (has(object.spec.strategy) ? object.spec.strategy : {}) == (has(oldObject.spec.strategy) ? oldObject.spec.strategy : {}) &&
-        (has(object.metadata.labels) ? object.metadata.labels : {}) == (has(oldObject.metadata.labels) ? oldObject.metadata.labels : {}) &&
-        (has(object.spec.minReadySeconds) ? object.spec.minReadySeconds : 0) == (has(oldObject.spec.minReadySeconds) ? oldObject.spec.minReadySeconds : 0) &&
-        (has(object.spec.paused) ? object.spec.paused : false) == false)
-    message: ops-agent may not change selector, strategy, labels, minReadySeconds or pause a rollout
-    reason: Forbidden
-  - expression: >-
-      !variables.registered || (
-        int(object.spec.replicas) >= int(params.data[variables.key + '.min']) &&
-        int(object.spec.replicas) <= int(params.data[variables.key + '.max']))
-    message: replicas outside the registered bounds
-    reason: Forbidden
-  - expression: >-
-      !variables.registered ||
-      (variables.newT == variables.oldT) ||
-      (variables.newT.spec == variables.oldT.spec &&
-       (has(variables.newT.metadata.labels) ? variables.newT.metadata.labels : {}) ==
-         (has(variables.oldT.metadata.labels) ? variables.oldT.metadata.labels : {}) &&
-       variables.annNew.all(k, k == variables.restartKey || (k in variables.annOld && variables.annOld[k] == variables.annNew[k])) &&
-       variables.annOld.all(k, k == variables.restartKey || k in variables.annNew)) ||
-      ((has(variables.newT.spec.serviceAccountName) ? variables.newT.spec.serviceAccountName : '') ==
-         (has(variables.oldT.spec.serviceAccountName) ? variables.oldT.spec.serviceAccountName : '') &&
-       (has(variables.newT.spec.securityContext) ? variables.newT.spec.securityContext : {}) ==
-         (has(variables.oldT.spec.securityContext) ? variables.oldT.spec.securityContext : {}) &&
-       (has(variables.newT.spec.volumes) ? variables.newT.spec.volumes : []) ==
-         (has(variables.oldT.spec.volumes) ? variables.oldT.spec.volumes : []) &&
-       (has(variables.newT.spec.initContainers) ? variables.newT.spec.initContainers : []) ==
-         (has(variables.oldT.spec.initContainers) ? variables.oldT.spec.initContainers : []) &&
-       (has(variables.newT.spec.automountServiceAccountToken) ? variables.newT.spec.automountServiceAccountToken : true) ==
-         (has(variables.oldT.spec.automountServiceAccountToken) ? variables.oldT.spec.automountServiceAccountToken : true) &&
-       size(variables.newT.spec.containers) == size(variables.oldT.spec.containers) &&
-       variables.newT.spec.containers.all(c, variables.oldT.spec.containers.exists(o, o.name == c.name &&
-         (has(o.securityContext) ? o.securityContext : {}) == (has(c.securityContext) ? c.securityContext : {}) &&
-         (has(o.volumeMounts) ? o.volumeMounts : []) == (has(c.volumeMounts) ? c.volumeMounts : []) &&
-         (has(o.ports) ? o.ports : []) == (has(c.ports) ? c.ports : []))) &&
-       variables.newT.spec.containers.all(c, c.image in params.data[variables.key + '.images'].split(',')))
-    message: template change must be unchanged, a rollout restart, or a bounded rollback to registered images
-    reason: Forbidden
+    - expression: variables.registered
+      message: ops-agent may only UPDATE a registered Deployment (no other kind, verb or subresource)
+      reason: Forbidden
+    - expression: >-
+        !variables.registered || (
+          object.spec.selector == oldObject.spec.selector &&
+          (has(object.spec.strategy) ? object.spec.strategy : {}) == (has(oldObject.spec.strategy) ? oldObject.spec.strategy : {}) &&
+          (has(object.metadata.labels) ? object.metadata.labels : {}) == (has(oldObject.metadata.labels) ? oldObject.metadata.labels : {}) &&
+          (has(object.spec.minReadySeconds) ? object.spec.minReadySeconds : 0) == (has(oldObject.spec.minReadySeconds) ? oldObject.spec.minReadySeconds : 0) &&
+          (has(object.spec.paused) ? object.spec.paused : false) == false)
+      message: ops-agent may not change selector, strategy, labels, minReadySeconds or pause a rollout
+      reason: Forbidden
+    - expression: >-
+        !variables.registered || (
+          int(object.spec.replicas) >= int(params.data[variables.key + '.min']) &&
+          int(object.spec.replicas) <= int(params.data[variables.key + '.max']))
+      message: replicas outside the registered bounds
+      reason: Forbidden
+    - expression: >-
+        !variables.registered ||
+        (variables.newT == variables.oldT) ||
+        (variables.newT.spec == variables.oldT.spec &&
+         (has(variables.newT.metadata.labels) ? variables.newT.metadata.labels : {}) ==
+           (has(variables.oldT.metadata.labels) ? variables.oldT.metadata.labels : {}) &&
+         variables.annNew.all(k, k == variables.restartKey || (k in variables.annOld && variables.annOld[k] == variables.annNew[k])) &&
+         variables.annOld.all(k, k == variables.restartKey || k in variables.annNew)) ||
+        ((has(variables.newT.spec.serviceAccountName) ? variables.newT.spec.serviceAccountName : '') ==
+           (has(variables.oldT.spec.serviceAccountName) ? variables.oldT.spec.serviceAccountName : '') &&
+         (has(variables.newT.spec.securityContext) ? variables.newT.spec.securityContext : {}) ==
+           (has(variables.oldT.spec.securityContext) ? variables.oldT.spec.securityContext : {}) &&
+         (has(variables.newT.spec.volumes) ? variables.newT.spec.volumes : []) ==
+           (has(variables.oldT.spec.volumes) ? variables.oldT.spec.volumes : []) &&
+         (has(variables.newT.spec.initContainers) ? variables.newT.spec.initContainers : []) ==
+           (has(variables.oldT.spec.initContainers) ? variables.oldT.spec.initContainers : []) &&
+         (has(variables.newT.spec.automountServiceAccountToken) ? variables.newT.spec.automountServiceAccountToken : true) ==
+           (has(variables.oldT.spec.automountServiceAccountToken) ? variables.oldT.spec.automountServiceAccountToken : true) &&
+         size(variables.newT.spec.containers) == size(variables.oldT.spec.containers) &&
+         variables.newT.spec.containers.all(c, variables.oldT.spec.containers.exists(o, o.name == c.name &&
+           (has(o.securityContext) ? o.securityContext : {}) == (has(c.securityContext) ? c.securityContext : {}) &&
+           (has(o.volumeMounts) ? o.volumeMounts : []) == (has(c.volumeMounts) ? c.volumeMounts : []) &&
+           (has(o.ports) ? o.ports : []) == (has(c.ports) ? c.ports : []))) &&
+         variables.newT.spec.containers.all(c, c.image in params.data[variables.key + '.images'].split(',')))
+      message: template change must be unchanged, a rollout restart, or a bounded rollback to registered images
+      reason: Forbidden
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding

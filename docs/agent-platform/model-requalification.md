@@ -1,6 +1,7 @@
 # Minimal requalification: gemini-3.5-flash (us multi-region) behind `secure-financial-chat`
 
 **Approved by owner:**
+
 - Decision: 2026-10-10.
 - Run: one bounded live run, at most **30 model requests**, through the real path (UI → redactor → gateway → Vertex), synthetic data only.
 - Change type: gateway configuration only (`providers/gemini.yaml`). The pinned LiteLLM 1.104.0 builds the

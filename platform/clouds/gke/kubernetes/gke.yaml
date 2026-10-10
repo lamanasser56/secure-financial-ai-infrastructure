@@ -25,8 +25,8 @@ spec:
     matchExpressions: [{key: app.kubernetes.io/name, operator: In, values: [gateway, redactor]}]
   policyTypes: [Egress]
   egress:
-  - to: [{ipBlock: {cidr: 169.254.169.254/32}}]
-    ports: [{protocol: TCP, port: 80}]
+    - to: [ipBlock: {cidr: 169.254.169.254/32}]
+      ports: [{protocol: TCP, port: 80}]
 ---
 # Redactor: Sensitive Data Protection regional endpoint only (the adapter's fixed endpoint).
 apiVersion: networking.gke.io/v1alpha1
@@ -38,8 +38,8 @@ metadata:
 spec:
   podSelector: {matchLabels: {app.kubernetes.io/name: redactor}}
   egress:
-  - matches: [{name: dlp.us-east1.rep.googleapis.com}]
-    ports: [{protocol: TCP, port: 443}]
+    - matches: [name: dlp.us-east1.rep.googleapis.com]
+      ports: [{protocol: TCP, port: 443}]
 ---
 # Ops agent -> Kubernetes API server (private control-plane endpoint; Dataplane V2 evaluates post-DNAT).
 apiVersion: networking.k8s.io/v1
@@ -49,8 +49,8 @@ spec:
   podSelector: {matchLabels: {app.kubernetes.io/name: ops-agent}}
   policyTypes: [Egress]
   egress:
-  - to: [{ipBlock: {cidr: CONTROL_PLANE_CIDR}}]
-    ports: [{protocol: TCP, port: 443}]
+    - to: [ipBlock: {cidr: CONTROL_PLANE_CIDR}]
+      ports: [{protocol: TCP, port: 443}]
 ---
 # Allow and deny decisions are logged (delegated to annotated policies/namespaces).
 apiVersion: networking.gke.io/v1alpha1

@@ -54,6 +54,7 @@ documented, not tested.
 ## Reference control path (unchanged, reused by the platform)
 
 The reference runtime enforces the sequence in `runtime/phase3/trusted_runtime.py`:
+
 - Authentication derives identity, and the tenant resolver derives tenant context from trusted claims. Caller-supplied tenant fields are rejected.
 - Authorization and policy must succeed before redaction or LiteLLM is called.
 - The runtime consumes a provider-neutral redaction result.
@@ -62,6 +63,7 @@ The reference runtime enforces the sequence in `runtime/phase3/trusted_runtime.p
 - Any failed control stops the sequence and emits a sanitized failure category.
 
 Phase 4 provides a registry and a governance coordinator for tool requests:
+
 - Tool metadata binds an action, risk class, schemas, limits and approval requirement.
 - Unknown or disabled tools fail closed.
 - Prompt-injection assessment, policy and verified human approval are explicit boundaries before any execution.

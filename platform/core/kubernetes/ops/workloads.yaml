@@ -19,34 +19,34 @@ spec:
       automountServiceAccountToken: false
       securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532, seccompProfile: {type: RuntimeDefault}}
       containers:
-      - name: ops-agent
-        image: agent-platform/ops-agent
-        command: [/usr/local/bin/python3.12, -m, agent_platform.ops.server]
-        env: [{name: PYTHONPATH, value: /app/platform/src:/app}]
-        ports: [{name: http, containerPort: 8090}]
-        readinessProbe:
-          httpGet: {path: /v1/health, port: 8090}
-          periodSeconds: 10
-        resources:
-          requests: {cpu: 50m, memory: 128Mi}
-          limits: {cpu: 500m, memory: 256Mi}
-        securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}, seccompProfile: {type: RuntimeDefault}}
-        volumeMounts:
-        - {name: api-token, mountPath: /var/run/secrets/kubernetes.io/serviceaccount, readOnly: true}
-        - {name: config, mountPath: /secrets/ops, readOnly: true}
-        - {name: registry, mountPath: /registry, readOnly: true}
-        - {name: tmp, mountPath: /tmp}
+        - name: ops-agent
+          image: agent-platform/ops-agent
+          command: [/usr/local/bin/python3.12, -m, agent_platform.ops.server]
+          env: [{name: PYTHONPATH, value: /app/platform/src:/app}]
+          ports: [{name: http, containerPort: 8090}]
+          readinessProbe:
+            httpGet: {path: /v1/health, port: 8090}
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}, seccompProfile: {type: RuntimeDefault}}
+          volumeMounts:
+            - {name: api-token, mountPath: /var/run/secrets/kubernetes.io/serviceaccount, readOnly: true}
+            - {name: config, mountPath: /secrets/ops, readOnly: true}
+            - {name: registry, mountPath: /registry, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
       volumes:
-      - name: api-token # projected, short-lived, audience-bound token for this Pod only
-        projected:
-          defaultMode: 0444
-          sources:
-          - serviceAccountToken: {path: token, expirationSeconds: 3600}
-          - configMap: {name: kube-root-ca.crt, items: [{key: ca.crt, path: ca.crt}]}
-          - downwardAPI: {items: [{path: namespace, fieldRef: {fieldPath: metadata.namespace}}]}
-      - {name: config, secret: {secretName: ops-agent, defaultMode: 0400}}
-      - {name: registry, configMap: {name: ops-agent-registry, defaultMode: 0444}}
-      - {name: tmp, emptyDir: {medium: Memory, sizeLimit: 32Mi}}
+        - name: api-token # projected, short-lived, audience-bound token for this Pod only
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken: {path: token, expirationSeconds: 3600}
+              - configMap: {name: kube-root-ca.crt, items: [{key: ca.crt, path: ca.crt}]}
+              - downwardAPI: {items: [{path: namespace, fieldRef: {fieldPath: metadata.namespace}}]}
+        - {name: config, secret: {secretName: ops-agent, defaultMode: 0400}}
+        - {name: registry, configMap: {name: ops-agent-registry, defaultMode: 0444}}
+        - {name: tmp, emptyDir: {medium: Memory, sizeLimit: 32Mi}}
 ---
 apiVersion: v1
 kind: Service

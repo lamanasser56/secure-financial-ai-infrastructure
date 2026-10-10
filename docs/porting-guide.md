@@ -5,6 +5,7 @@ This guide maps each GKE dependency to its usual equivalent so an `eks/` or `aks
 same contracts. No EKS or AKS code exists in this repository.
 
 ## What is portable as-is (`platform/core`)
+
 - **Kubernetes base** (`platform/core/kubernetes`):
   - namespaces with Pod Security "restricted"
   - default-deny NetworkPolicies and explicit allow paths
@@ -49,6 +50,7 @@ A cloud module (`platform/clouds/<cloud>`) must provide:
 | Node scale to zero | node pool resize 0⇄1 | managed node group desired 0⇄1 | node pool count 0⇄1 (user pool) |
 
 ## Steps to add a cloud (not done)
+
 1. `platform/clouds/<cloud>/terraform` produces the contract outputs above.
 2. `platform/clouds/<cloud>/kubernetes` overlay:
    - workload-identity annotations

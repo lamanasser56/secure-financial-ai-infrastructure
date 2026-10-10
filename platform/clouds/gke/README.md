@@ -14,6 +14,7 @@ Everything Google-specific lives here. The cloud-agnostic platform is in `platfo
 | `token_guard.py` | refusing user-ADC credential guard for Terraform (no static token) |
 
 **Contract.**
+
 - **Inputs:** `project_id`, `project_number`, `gke_version`; image digests.
 - **Outputs used by the overlay:** `control_plane_cidr`, `gateway_service_account`, the redactor account, `attestor`,
   `ci_workload_identity_provider`, `ci_service_account`.

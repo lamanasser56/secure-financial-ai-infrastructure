@@ -4,6 +4,7 @@ This is the first cloud gate. Everything before it is implemented and tested off
 covers steps 1–9 below. On any deviation, execution stops and reports back to you; it never improvises.
 
 ## What is ready (offline, branch `phase-e-platform`, worktree `../secure-financial-ai-infrastructure-phase-e`, uncommitted)
+
 - **`platform/core` (cloud-agnostic):**
   - namespaces `platform`/`apps`/`ops` (PSS restricted), default-deny NetworkPolicies and explicit paths, quotas
     (LB/NodePort = 0)
@@ -43,6 +44,7 @@ covers steps 1–9 below. On any deviation, execution stops and reports back to 
 | new SA `agent-platform-ci` | `roles/binaryauthorization.attestorsViewer` | attestor only |
 
 **Other resources:**
+
 - APIs enabled: binaryauthorization, cloudkms, containeranalysis (`disable_on_destroy=false`)
 - network `agent-platform` (no NAT, Private Google Access, flow logs)
 - private cluster `agent-platform` with pool `work` (1 × e2-standard-4, 50 GB pd-balanced)
@@ -53,6 +55,7 @@ covers steps 1–9 below. On any deviation, execution stops and reports back to 
 **Expected plan:** about 31 to add, 0 to change, 0 to destroy. `lifecycle.py apply` refuses any destroy or replace.
 
 ## Steps (in order; I run them, you only do the items marked **you**)
+
 1. **you:**
    - approve a local commit, a push of branch `phase-e-platform`, and a fast-forward PR into `main`.
      `origin/main` is an ancestor (+21 C commits, then Phase E).
@@ -82,6 +85,7 @@ covers steps 1–9 below. On any deviation, execution stops and reports back to 
 | Idle after `make down` | ≈ $0.1–0.2/day; +$2.40/day while masar-gke still exists (two clusters exceed the free tier) |
 
 ## Risks to watch at the gate
+
 1. Trivy is fail-closed. Unfixed upstream CVEs in the reused dependency set could block CI. Fallback: the repo's exact-scope
    policy evaluator with an explicit register (your decision).
 2. Reaching `aiplatform.us.rep.googleapis.com` and `dlp.us-east1.rep.googleapis.com` through Private Google Access with
@@ -91,6 +95,7 @@ covers steps 1–9 below. On any deviation, execution stops and reports back to 
 5. The model was never called through this path before the requalification run.
 
 ## Decisions needed (all in this one checkpoint)
+
 1. Approve this bundle (steps 1–9), including commit + push + PR to `main` and the IAM diff above.
 2. GitHub variables: you set them, or approve `gh variable set`.
 3. Trivy fallback if CI blocks: allow the exact-scope evaluator with a register, or stop.

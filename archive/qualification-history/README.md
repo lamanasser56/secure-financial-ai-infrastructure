@@ -3,6 +3,7 @@
 Engineering history, out of the platform path. Nothing here is built, deployed or tested by `make`.
 
 **Honest record of C** (source 91d7e8c7):
+
 - All 9 pre-channel C stages passed live in four windows (w13, w14, w15, w18): render, base, egress, secrets, database,
   bootstrap-database, quarantine, services, clients.
 - The post-channel chain (channel verify → denials → compose → worker qualify → close) never completed. The causes were operator tunnels and Cloud
@@ -11,6 +12,7 @@ Engineering history, out of the platform path. Nothing here is built, deployed o
   ([ADR-008](../../docs/architecture/decisions/ADR-008-persistent-agent-platform.md)).
 
 What moves here during the final week (Nov 3–7), sanitized:
+
 - **Window tooling:** runners, transports, installers, verifiers, rebind tools, with their tests.
 - **Receipts:** summaries only, no project-private values, keys or tokens.
 - **The window timeline** (handoff excerpts).

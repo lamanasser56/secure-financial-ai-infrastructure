@@ -1,11 +1,13 @@
 # Teardown plan (target 2026-11-06; credit expiry 2026-11-08)
 
 The portfolio must stand without a live system. Before anything is deleted, the durable proof is committed (sanitized):
+
 - README: architecture diagram, claims matrix, engineering story
 - `docs/evidence/`: attack-suite results, image digests and signature status, requalification summary, dashboard screenshots
 - the demo video script and recording
 
 ## Order (each cloud deletion is shown to the owner as one batch and then executed)
+
 1. **Final evidence run:** `make up` → `make attack` → screenshots and recording → `make down` (last Postgres snapshot).
 2. **Platform:**
    - set `deletion_protection = false` in `terraform/root`

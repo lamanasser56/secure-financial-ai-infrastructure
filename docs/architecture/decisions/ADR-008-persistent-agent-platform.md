@@ -6,6 +6,7 @@
 - Related: ADR-001 (provider gateway), ADR-002 (tenant authority), ADR-003 (image promotion), ADR-006/007 (redaction).
 
 ## Context
+
 - C proved the hardened GKE root and the in-cluster gateway/redactor/database stages: all 9 pre-channel stages passed live in four
   windows.
 - C never completed its post-channel chain. Every failure came from operator ceremony outside the system: laptop/Cloud Shell
@@ -13,6 +14,7 @@
 - The project goal is a reusable, tight, portfolio-grade platform where strictness is enforced by the system itself.
 
 ## Decision
+
 1. One persistent private GKE cluster (`agent-platform`, zonal us-east1-b) built from a persistent variant of the C-proven root.
    - It has new resource names and a new state prefix, and no cleanup clock.
    - Its single node pool runs 1 node while working and **0 nodes when idle**.
@@ -41,6 +43,7 @@
    billable is torn down by ~2026-11-06, followed by a final inventory, and the durable proof stays in the repository.
 
 ## Consequences
+
 - **Positive:**
   - No tunnels, worker adapters or per-window recovery.
   - Demos are repeatable in about 15 minutes.

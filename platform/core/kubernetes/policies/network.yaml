@@ -25,10 +25,10 @@ spec:
   podSelector: {}
   policyTypes: [Egress]
   egress:
-  - to:
-    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
-      podSelector: {matchLabels: {k8s-app: kube-dns}}
-    ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+          podSelector: {matchLabels: {k8s-app: kube-dns}}
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -37,10 +37,10 @@ spec:
   podSelector: {}
   policyTypes: [Egress]
   egress:
-  - to:
-    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
-      podSelector: {matchLabels: {k8s-app: kube-dns}}
-    ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+          podSelector: {matchLabels: {k8s-app: kube-dns}}
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -49,10 +49,10 @@ spec:
   podSelector: {}
   policyTypes: [Egress]
   egress:
-  - to:
-    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
-      podSelector: {matchLabels: {k8s-app: kube-dns}}
-    ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+          podSelector: {matchLabels: {k8s-app: kube-dns}}
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
 ---
 # gateway: called by the app and the ops agent; reads/writes its key/budget tables in Postgres.
 apiVersion: networking.k8s.io/v1
@@ -62,16 +62,16 @@ spec:
   podSelector: {matchLabels: {app.kubernetes.io/name: gateway}}
   policyTypes: [Ingress, Egress]
   ingress:
-  - from:
-    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: apps}}
-      podSelector: {matchLabels: {app.kubernetes.io/name: app}}
-    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ops}}
-      podSelector: {matchLabels: {app.kubernetes.io/name: ops-agent}}
-    - podSelector: {matchLabels: {app.kubernetes.io/name: schema}}
-    ports: [{protocol: TCP, port: 4000}]
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: apps}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: app}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ops}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: ops-agent}}
+        - podSelector: {matchLabels: {app.kubernetes.io/name: schema}}
+      ports: [{protocol: TCP, port: 4000}]
   egress:
-  - to: [{podSelector: {matchLabels: {app.kubernetes.io/name: postgres}}}]
-    ports: [{protocol: TCP, port: 5432}]
+    - to: [podSelector: {matchLabels: {app.kubernetes.io/name: postgres}}]
+      ports: [{protocol: TCP, port: 5432}]
 ---
 # redactor: called by the app and the ops agent before any model request.
 apiVersion: networking.k8s.io/v1
@@ -81,12 +81,12 @@ spec:
   podSelector: {matchLabels: {app.kubernetes.io/name: redactor}}
   policyTypes: [Ingress, Egress]
   ingress:
-  - from:
-    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: apps}}
-      podSelector: {matchLabels: {app.kubernetes.io/name: app}}
-    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ops}}
-      podSelector: {matchLabels: {app.kubernetes.io/name: ops-agent}}
-    ports: [{protocol: TCP, port: 4003}]
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: apps}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: app}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ops}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: ops-agent}}
+      ports: [{protocol: TCP, port: 4003}]
   egress: []
 ---
 # postgres: the gateway (its own tables), the app (non-owner RLS role) and the one-shot schema job.
@@ -97,12 +97,12 @@ spec:
   podSelector: {matchLabels: {app.kubernetes.io/name: postgres}}
   policyTypes: [Ingress, Egress]
   ingress:
-  - from:
-    - podSelector: {matchLabels: {app.kubernetes.io/name: gateway}}
-    - podSelector: {matchLabels: {app.kubernetes.io/name: schema}}
-    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: apps}}
-      podSelector: {matchLabels: {app.kubernetes.io/name: app}}
-    ports: [{protocol: TCP, port: 5432}]
+    - from:
+        - podSelector: {matchLabels: {app.kubernetes.io/name: gateway}}
+        - podSelector: {matchLabels: {app.kubernetes.io/name: schema}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: apps}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: app}}
+      ports: [{protocol: TCP, port: 5432}]
   egress: []
 ---
 apiVersion: networking.k8s.io/v1
@@ -112,10 +112,10 @@ spec:
   podSelector: {matchLabels: {app.kubernetes.io/name: schema}}
   policyTypes: [Egress]
   egress:
-  - to: [{podSelector: {matchLabels: {app.kubernetes.io/name: postgres}}}]
-    ports: [{protocol: TCP, port: 5432}]
-  - to: [{podSelector: {matchLabels: {app.kubernetes.io/name: gateway}}}]
-    ports: [{protocol: TCP, port: 4000}]
+    - to: [podSelector: {matchLabels: {app.kubernetes.io/name: postgres}}]
+      ports: [{protocol: TCP, port: 5432}]
+    - to: [podSelector: {matchLabels: {app.kubernetes.io/name: gateway}}]
+      ports: [{protocol: TCP, port: 4000}]
 ---
 # app: gateway, redactor, its RLS database role, and the ops agent API (dashboard + approvals). No internet.
 apiVersion: networking.k8s.io/v1
@@ -126,22 +126,22 @@ spec:
   policyTypes: [Ingress, Egress]
   ingress: []
   egress:
-  - to:
-    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: platform}}
-      podSelector: {matchLabels: {app.kubernetes.io/name: gateway}}
-    ports: [{protocol: TCP, port: 4000}]
-  - to:
-    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: platform}}
-      podSelector: {matchLabels: {app.kubernetes.io/name: redactor}}
-    ports: [{protocol: TCP, port: 4003}]
-  - to:
-    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: platform}}
-      podSelector: {matchLabels: {app.kubernetes.io/name: postgres}}
-    ports: [{protocol: TCP, port: 5432}]
-  - to:
-    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ops}}
-      podSelector: {matchLabels: {app.kubernetes.io/name: ops-agent}}
-    ports: [{protocol: TCP, port: 8090}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: platform}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: gateway}}
+      ports: [{protocol: TCP, port: 4000}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: platform}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: redactor}}
+      ports: [{protocol: TCP, port: 4003}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: platform}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: postgres}}
+      ports: [{protocol: TCP, port: 5432}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ops}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: ops-agent}}
+      ports: [{protocol: TCP, port: 8090}]
 ---
 # fault-demo: the scripted fault target. No network at all besides DNS.
 apiVersion: networking.k8s.io/v1
@@ -161,16 +161,16 @@ spec:
   podSelector: {matchLabels: {app.kubernetes.io/name: ops-agent}}
   policyTypes: [Ingress, Egress]
   ingress:
-  - from:
-    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: apps}}
-      podSelector: {matchLabels: {app.kubernetes.io/name: app}}
-    ports: [{protocol: TCP, port: 8090}]
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: apps}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: app}}
+      ports: [{protocol: TCP, port: 8090}]
   egress:
-  - to:
-    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: platform}}
-      podSelector: {matchLabels: {app.kubernetes.io/name: gateway}}
-    ports: [{protocol: TCP, port: 4000}]
-  - to:
-    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: platform}}
-      podSelector: {matchLabels: {app.kubernetes.io/name: redactor}}
-    ports: [{protocol: TCP, port: 4003}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: platform}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: gateway}}
+      ports: [{protocol: TCP, port: 4000}]
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: platform}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: redactor}}
+      ports: [{protocol: TCP, port: 4003}]

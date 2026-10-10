@@ -9,11 +9,11 @@ metadata:
   namespace: platform
 spec:
   egress:
-  - matches:
-    - name: aiplatform.us.rep.googleapis.com
-    ports:
-    - port: 443
-      protocol: TCP
+    - matches:
+        - name: aiplatform.us.rep.googleapis.com
+      ports:
+        - port: 443
+          protocol: TCP
   podSelector:
     matchLabels:
       app.kubernetes.io/name: gateway
