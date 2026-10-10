@@ -62,7 +62,8 @@ def gateway_config(profile):
     return {
         'model_list': [{'model_name': ALIAS, 'litellm_params': params}],
         'litellm_settings': {'num_retries': 0, 'telemetry': False, 'set_verbose': False,
-                             'turn_off_message_logging': True, 'drop_params': False},
+                             'turn_off_message_logging': True, 'drop_params': False,
+                             'callbacks': 'gateway_hooks.thought_signature_boundary'},  # /config/gateway_hooks.py
         'router_settings': {'num_retries': 0, 'fallbacks': [], 'context_window_fallbacks': [],
                             'content_policy_fallbacks': []},
         'general_settings': {'master_key': 'os.environ/LITELLM_MASTER_KEY', 'database_url': 'os.environ/DATABASE_URL',

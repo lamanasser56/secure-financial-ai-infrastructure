@@ -79,29 +79,11 @@ def response_shape(response):
     return shape
 
 
-def drop_thought_signatures(response):
-    """Gemini 3.x returns an opaque thoughtSignature with every reply; LiteLLM 1.104.0 always surfaces it as
-    message.provider_specific_fields.thought_signatures. It carries no answer text and is only needed to resume
-    thinking across turns, which this protocol never does. Remove exactly that field when it is a list of
-    strings and the only provider-specific field; anything else is left for the core admission to reject."""
-    try:
-        message = response['choices'][0]['message']
-        fields = message.get('provider_specific_fields')
-        if (type(fields) is dict and set(fields) == {'thought_signatures'} and type(fields['thought_signatures']) is list
-                and all(type(item) is str for item in fields['thought_signatures'])):
-            message['provider_specific_fields'] = None
-            return len(fields['thought_signatures'])
-    except (KeyError, IndexError, TypeError):
-        pass
-    return 0
-
-
 def shaped_post(url, payload, timeout, headers):
     from runtime.phase3.adapters import _post_json
     response = _post_json(url, payload, timeout, headers=headers)
-    shape = response_shape(response)
-    shape['thought_signatures_dropped'] = drop_thought_signatures(response)
-    audit.emit('model_response_shape', 'app', shape=shape)
+    # The gateway hook removes Gemini thought signatures; if one ever arrives here, the core admission rejects it.
+    audit.emit('model_response_shape', 'app', shape=response_shape(response))
     return response
 
 

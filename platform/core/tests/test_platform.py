@@ -235,38 +235,62 @@ class DashboardAssets(unittest.TestCase):
 
 
 class ModelResponseAdmission(unittest.TestCase):
-    """Gemini 3.x via LiteLLM 1.104.0: only the opaque thought signature is normalized; the core admission decides."""
+    """Gemini 3.x via LiteLLM 1.104.0: the gateway hook removes the opaque thought signature; the core admission decides."""
     SECRET = 'Tenant secret answer text'
+    ENVELOPE = json.dumps({'summary': json.dumps({'kind': 'tool', 'tool_id': 'expense_summary', 'arguments': {'period': '2026-02'}}),
+                           'classification': 'informational'})
 
     def reply(self, **message):
-        envelope = json.dumps({'summary': json.dumps({'kind': 'tool', 'tool_id': 'expense_summary', 'arguments': {}}),
-                               'classification': 'informational', 'note': self.SECRET})
-        base = {'role': 'assistant', 'content': envelope}
+        base = {'role': 'assistant', 'content': self.ENVELOPE}
         base.update(message)
         return {'choices': [{'index': 0, 'finish_reason': 'stop', 'message': base}],
                 'usage': {'prompt_tokens': 10, 'completion_tokens': 5, 'total_tokens': 15,
                           'completion_tokens_details': {'reasoning_tokens': 3}}}
 
-    def test_thought_signature_only_is_dropped_and_admitted(self):
-        from agent_platform import app
+    def test_signature_reaching_the_app_is_rejected(self):
         from runtime.agents.protocol_preparation import completion_content
-        response = self.reply(provider_specific_fields={'thought_signatures': ['b3BhcXVl']})
-        with self.assertRaises(ControlFailure):
-            completion_content(copy.deepcopy(response))  # why the live call was blocked
-        self.assertEqual(app.drop_thought_signatures(response), 1)
-        self.assertEqual(completion_content(response), response['choices'][0]['message']['content'])
+        with self.assertRaises(ControlFailure):  # fail closed if the gateway hook were ever bypassed
+            completion_content(self.reply(provider_specific_fields={'thought_signatures': ['b3BhcXVl']}))
 
-    def test_anything_else_still_rejected(self):
-        from agent_platform import app
+    @unittest.skipUnless(importlib.util.find_spec('litellm'), 'litellm needed for the gateway hook')
+    def test_gateway_hook_on_real_litellm_types(self):
+        import asyncio
+        from litellm.types.utils import Choices, Message, ModelResponse
         from runtime.agents.protocol_preparation import completion_content
-        for message in ({'provider_specific_fields': {'thought_signatures': ['x'], 'other': 1}},
-                        {'provider_specific_fields': {'thought_signatures': [{'x': 1}]}},
-                        {'provider_specific_fields': {'thought_signatures': ['x']}, 'reasoning_content': self.SECRET},
-                        {'provider_specific_fields': {'thought_signatures': ['x']}, 'tool_calls': [{'id': 'a'}]}):
-            response = self.reply(**message)
-            app.drop_thought_signatures(response)
-            with self.assertRaises(ControlFailure):
-                completion_content(response)
+        sys.path.insert(0, str(REPO / 'platform/core/src/agent_platform/programs'))
+        import gateway_hooks
+
+        def gemini(fields):
+            message = Message(role='assistant', content=self.ENVELOPE, provider_specific_fields=fields)
+            return ModelResponse(choices=[Choices(index=0, finish_reason='stop', message=message)])
+        response = gemini({'thought_signatures': ['b3BhcXVl']})
+        returned = asyncio.run(gateway_hooks.thought_signature_boundary.async_post_call_success_hook({}, None, response))
+        wire = json.loads(returned.model_dump_json())  # what the proxy sends to the app
+        self.assertNotIn('b3BhcXVl', json.dumps(wire))
+        self.assertEqual(completion_content(wire), self.ENVELOPE)
+        other = gemini({'thought_signatures': ['b3BhcXVl'], 'other': 1})
+        gateway_hooks.strip_thought_signatures(other)
+        with self.assertRaises(ControlFailure):  # anything else still reaches the core admission and is rejected
+            completion_content(json.loads(other.model_dump_json()))
+
+    def test_every_model_request_is_stateless(self):
+        """No model turn is ever replayed to the provider, so no thought signature round-trip exists."""
+        from runtime.agents.composition import ProtocolHTTPGateway
+        from runtime.phase3.trusted_runtime import RedactionResult
+        sent = []
+
+        class Redactor:
+            def redact(self, value):
+                return RedactionResult(value, ())
+
+        def transport(url, payload, timeout, headers):
+            sent.append(payload)
+            return self.reply()
+        gateway = ProtocolHTTPGateway('http://gateway.invalid:4000', key='k' * 64, redactor=Redactor(), transport=transport)
+        for step in ('model', 'model after tool'):
+            gateway.complete('secure-financial-chat', json.dumps({'step': step, 'observations': []}), {})
+        self.assertEqual([[m['role'] for m in p['messages']] for p in sent], [['system', 'user'], ['system', 'user']])
+        self.assertNotIn('tools', sent[0])
 
     def test_shape_carries_no_text(self):
         from agent_platform import app
@@ -275,6 +299,6 @@ class ModelResponseAdmission(unittest.TestCase):
         self.assertNotIn('Tenant', json.dumps(shape))
         self.assertNotIn('b3BhcXVl', json.dumps(shape))
         self.assertEqual(shape['finish_reason'], 'stop')
-        self.assertEqual(shape['envelope'], ['?', 'classification', 'summary'])
+        self.assertEqual(shape['provider_specific_fields'], ['thought_signatures'])
         self.assertEqual(shape['kind'], 'tool')
         self.assertEqual(shape['usage']['reasoning_tokens'], 3)

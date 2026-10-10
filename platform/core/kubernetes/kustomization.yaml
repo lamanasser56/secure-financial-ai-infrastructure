@@ -25,6 +25,7 @@ configMapGenerator:
     namespace: platform
     files:
       - litellm.yaml=platform/generated/litellm.yaml
+      - gateway_hooks.py=../src/agent_platform/programs/gateway_hooks.py
   - name: database-sql
     namespace: platform
     files:
