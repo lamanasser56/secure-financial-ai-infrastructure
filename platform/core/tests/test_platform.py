@@ -260,8 +260,10 @@ class ModelResponseAdmission(unittest.TestCase):
         sys.path.insert(0, str(REPO / 'platform/core/src/agent_platform/programs'))
         import gateway_hooks
 
-        def gemini(fields):
-            message = Message(role='assistant', content=self.ENVELOPE, provider_specific_fields=fields)
+        def gemini(fields, thinking=()):
+            message = Message(role='assistant', content=self.ENVELOPE, provider_specific_fields=fields,
+                              thinking_blocks=list(thinking))
+            message.images = []  # LiteLLM 1.104.0 sets both placeholders on every Gemini reply (live, 2026-10-10)
             return ModelResponse(choices=[Choices(index=0, finish_reason='stop', message=message)])
         response = gemini({'thought_signatures': ['b3BhcXVl']})
         returned = asyncio.run(gateway_hooks.thought_signature_boundary.async_post_call_success_hook({}, None, response))
@@ -272,6 +274,10 @@ class ModelResponseAdmission(unittest.TestCase):
         gateway_hooks.strip_thought_signatures(other)
         with self.assertRaises(ControlFailure):  # anything else still reaches the core admission and is rejected
             completion_content(json.loads(other.model_dump_json()))
+        thought = gemini({'thought_signatures': ['b3BhcXVl']}, [{'type': 'thinking', 'thinking': self.SECRET}])
+        gateway_hooks.strip_thought_signatures(thought)
+        with self.assertRaises(ControlFailure):  # real thought text is never admitted
+            completion_content(json.loads(thought.model_dump_json()))
 
     def test_every_model_request_is_stateless(self):
         """No model turn is ever replayed to the provider, so no thought signature round-trip exists."""

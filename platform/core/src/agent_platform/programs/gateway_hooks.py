@@ -8,6 +8,10 @@ tool_calls) and every model request is stateless (one system and one user messag
 there is no signature round-trip to preserve. The signature is removed here, before the response leaves the gateway:
 the app and its output validator never receive it, and it is never logged. Any other provider-specific field is left
 in place, so the core admission still rejects it (fail closed).
+
+LiteLLM also always sets message.thinking_blocks and message.images for Gemini, as empty lists when the model returned
+no thought text (includeThoughts is never requested) and no image. Only those empty placeholders are removed; a
+non-empty value stays and is rejected by the core admission.
 """
 from litellm.integrations.custom_logger import CustomLogger
 
@@ -22,6 +26,10 @@ def strip_thought_signatures(response):
             removed += 1
             rest = {key: value for key, value in fields.items() if key != 'thought_signatures'}
             message.provider_specific_fields = rest or None
+        for name in ('thinking_blocks', 'images'):
+            value = getattr(message, name, None)
+            if isinstance(value, list) and not value:
+                delattr(message, name)  # as LiteLLM's Message does for absent fields, so it is not serialized
     return removed
 
 
