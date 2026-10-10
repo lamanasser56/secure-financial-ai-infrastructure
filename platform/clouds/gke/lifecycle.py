@@ -77,7 +77,7 @@ def plan():
 
 
 def summarize(plan):
-    counts, changes = {'create': 0, 'update': 0, 'delete': 0, 'replace': 0}, []
+    counts, changes = {'create': 0, 'update': 0, 'delete': 0, 'replace': 0, 'read': 0}, []
     for rc in plan.get('resource_changes', []):
         actions = rc['change']['actions']
         if actions == ['no-op']:

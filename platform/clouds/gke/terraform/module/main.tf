@@ -112,10 +112,8 @@ resource "google_container_cluster" "platform" {
       enabled = false
     }
   }
-  master_authorized_networks_config {
-    gcp_public_cidrs_access_enabled      = false
-    private_endpoint_enforcement_enabled = true
-  }
+  # No master_authorized_networks_config: IP endpoints are disabled entirely (DNS endpoint with IAM only), so the
+  # API keeps no authorized-networks state and declaring it only produced a perpetual diff.
   binary_authorization {
     evaluation_mode = "PROJECT_SINGLETON_POLICY_ENFORCE"
   }

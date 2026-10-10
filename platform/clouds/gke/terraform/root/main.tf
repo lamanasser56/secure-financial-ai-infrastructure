@@ -3,6 +3,9 @@
 provider "google" {
   project = var.project_id
   region  = "us-east1"
+  # User ADC needs an explicit quota project for some APIs (Binary Authorization); bill the platform project.
+  user_project_override = true
+  billing_project       = var.project_id
 }
 
 module "platform" {
