@@ -4,6 +4,7 @@
 #   make provider P=gemini render a provider profile (only active, owner-approved profiles render)
 #   make plan | apply      Terraform for platform/clouds/gke (plan = cloud read, apply = cloud write)
 #   make up | down         scale 0->1 + deploy + bootstrap  |  Postgres snapshot + scale to 0
+#   make secrets           owner, once: generate platform Secrets (types the approval passphrase)
 #   make port-forward      the only way in: http://127.0.0.1:8080/
 #   make fault F=oom|crashloop|badimage   scripted fault on apps/fault-demo (owner identity)
 #   make attack            live attack suite -> docs/evidence/attack-suite.json
@@ -66,3 +67,6 @@ attack:
 
 inventory:
 	$(LIFECYCLE) inventory
+
+secrets:
+	$(LIFECYCLE) secrets

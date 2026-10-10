@@ -111,7 +111,8 @@ class Handler(BaseHTTPRequestHandler):
             audit('redaction', caller=caller, categories=sorted(set(result.categories)))
             self.reply(200, {'text': result.text, 'categories': sorted(set(result.categories))})
         except Exception as error:  # provider/budget/input failure: fail closed, no content in logs
-            audit('redaction_failed', caller=caller, reason=type(error).__name__)
+            audit('redaction_failed', caller=caller, reason=type(error).__name__,
+                  diagnostic=getattr(error, 'diagnostic', None))  # finite constants only (adapter contract)
             self.reply(503, {'code': 'REDACTION_UNAVAILABLE'})
 
 

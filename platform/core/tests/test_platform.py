@@ -159,6 +159,7 @@ class Manifest(unittest.TestCase):
 
     def test_pending_images_refused_without_flag(self):
         images = json.loads((REPO / 'platform/clouds/gke/images.json').read_text())
+        images['images']['app'] = 'PENDING_CI'  # an image whose CI publication has not happened yet
         with self.assertRaises(render.Rejected):
             render.substitute('x', images=images, **self.ARGS)
 
@@ -231,3 +232,49 @@ class DashboardAssets(unittest.TestCase):
         for open_, close in ('()', '[]', '{}'):
             self.assertEqual(script.count(open_), script.count(close), open_ + close)
         self.assertLessEqual(len(script.encode()), 16384)  # read_fixed limit of the UI server
+
+
+class ModelResponseAdmission(unittest.TestCase):
+    """Gemini 3.x via LiteLLM 1.104.0: only the opaque thought signature is normalized; the core admission decides."""
+    SECRET = 'Tenant secret answer text'
+
+    def reply(self, **message):
+        envelope = json.dumps({'summary': json.dumps({'kind': 'tool', 'tool_id': 'expense_summary', 'arguments': {}}),
+                               'classification': 'informational', 'note': self.SECRET})
+        base = {'role': 'assistant', 'content': envelope}
+        base.update(message)
+        return {'choices': [{'index': 0, 'finish_reason': 'stop', 'message': base}],
+                'usage': {'prompt_tokens': 10, 'completion_tokens': 5, 'total_tokens': 15,
+                          'completion_tokens_details': {'reasoning_tokens': 3}}}
+
+    def test_thought_signature_only_is_dropped_and_admitted(self):
+        from agent_platform import app
+        from runtime.agents.protocol_preparation import completion_content
+        response = self.reply(provider_specific_fields={'thought_signatures': ['b3BhcXVl']})
+        with self.assertRaises(ControlFailure):
+            completion_content(copy.deepcopy(response))  # why the live call was blocked
+        self.assertEqual(app.drop_thought_signatures(response), 1)
+        self.assertEqual(completion_content(response), response['choices'][0]['message']['content'])
+
+    def test_anything_else_still_rejected(self):
+        from agent_platform import app
+        from runtime.agents.protocol_preparation import completion_content
+        for message in ({'provider_specific_fields': {'thought_signatures': ['x'], 'other': 1}},
+                        {'provider_specific_fields': {'thought_signatures': [{'x': 1}]}},
+                        {'provider_specific_fields': {'thought_signatures': ['x']}, 'reasoning_content': self.SECRET},
+                        {'provider_specific_fields': {'thought_signatures': ['x']}, 'tool_calls': [{'id': 'a'}]}):
+            response = self.reply(**message)
+            app.drop_thought_signatures(response)
+            with self.assertRaises(ControlFailure):
+                completion_content(response)
+
+    def test_shape_carries_no_text(self):
+        from agent_platform import app
+        response = self.reply(provider_specific_fields={'thought_signatures': ['b3BhcXVl']}, reasoning_content=self.SECRET)
+        shape = app.response_shape(response)
+        self.assertNotIn('Tenant', json.dumps(shape))
+        self.assertNotIn('b3BhcXVl', json.dumps(shape))
+        self.assertEqual(shape['finish_reason'], 'stop')
+        self.assertEqual(shape['envelope'], ['?', 'classification', 'summary'])
+        self.assertEqual(shape['kind'], 'tool')
+        self.assertEqual(shape['usage']['reasoning_tokens'], 3)

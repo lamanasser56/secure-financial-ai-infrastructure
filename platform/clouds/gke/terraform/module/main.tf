@@ -2,7 +2,8 @@
 # infra/gcp/agent-platform supplies the project, names and exact versions.
 # Derived from the C-proven infra/gcp/google-sdp-evaluation-cluster root (private nodes, private
 # endpoint + IAM-only DNS endpoint, Dataplane V2 + FQDN policy, Workload Identity, Shielded nodes).
-# Differences: no Cloud NAT (Google APIs through Private Google Access only), persistent-disk CSI on
+# Differences: no Cloud NAT (Google APIs through Private Google Access; the two
+# rep.googleapis.com endpoints through Private Service Connect, private_endpoints.tf), persistent-disk CSI on
 # for Postgres, Managed Prometheus on, Binary Authorization enforced, one pool scaled 0<->1 outside
 # Terraform, deletion protection on by default.
 
@@ -32,7 +33,7 @@ resource "google_compute_subnetwork" "platform" {
   region                   = local.region
   network                  = google_compute_network.platform.id
   ip_cidr_range            = var.node_cidr
-  private_ip_google_access = true # the only egress path: Google APIs (Artifact Registry, Vertex, DLP, Logging)
+  private_ip_google_access = true # Google APIs (Artifact Registry, Logging, ...); rep endpoints: private_endpoints.tf
   secondary_ip_range {
     range_name    = "${local.name}-pods"
     ip_cidr_range = var.pod_cidr

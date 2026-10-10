@@ -140,14 +140,29 @@ def up():
     o = outputs()
     rendered = run(sys.executable, '-B', HERE / 'render.py', '--project-id', o['project_id'], '--control-plane-cidr', o['control_plane_cidr'],
                    '--gateway-gsa', o['gateway_gsa'], '--redactor-gsa', o['redactor_gsa'], '--kubectl', KUBECTL, capture=True).stdout
-    kubectl('apply', '--server-side', '--field-manager=agent-platform', '-f', '-', input=rendered)
-    run(sys.executable, '-B', '-m', 'agent_platform.platform_secrets', '--kubectl', KUBECTL,
-        env=dict(os.environ, PYTHONPATH=str(REPO / 'platform/core/src') + ':' + str(REPO), KUBECONFIG=str(STATE / 'kubeconfig')))
+    import yaml
+    docs = [d for d in yaml.safe_load_all(rendered) if d]
+    addon = [d for d in docs if d['kind'] == 'NetworkLogging']  # owned by GKE's addon manager (EnsureExists): client-side apply
+    kubectl('apply', '--server-side', '--field-manager=agent-platform', '-f', '-',
+            input=yaml.safe_dump_all([d for d in docs if d['kind'] != 'NetworkLogging']))
+    kubectl('apply', '-f', '-', input=yaml.safe_dump_all(addon))
+    missing = [ns + '/' + name for ns, name in (('platform', 'postgres'), ('platform', 'gateway'), ('platform', 'redactor'),
+                                                 ('platform', 'bootstrap'), ('apps', 'app'), ('ops', 'ops-agent'))
+               if not kubectl('-n', ns, 'get', 'secret', name, '--ignore-not-found', '-o', 'name', capture=True).stdout.strip()]
+    if missing:  # the owner types the approval passphrase interactively; Claude never does
+        print(json.dumps({'result': 'NEEDS_SECRETS', 'missing': missing, 'next': 'run `make secrets`, then `make up` again'}))
+        raise SystemExit(3)
     kubectl('-n', 'platform', 'rollout', 'status', 'statefulset/postgres', '--timeout=300s')
     kubectl('-n', 'platform', 'wait', '--for=condition=complete', 'job/schema', '--timeout=600s')
     for ns, name in (('platform', 'gateway'), ('platform', 'redactor'), ('apps', 'app'), ('apps', 'fault-demo'), ('ops', 'ops-agent')):
         kubectl('-n', ns, 'rollout', 'status', 'deployment/' + name, '--timeout=300s')
     print(json.dumps({'result': 'UP', 'minutes': round((time.time() - started) / 60, 1), 'access': 'make port-forward -> http://127.0.0.1:8080/'}))
+
+
+def secrets():
+    kubeconfig()
+    os.execve(sys.executable, [sys.executable, '-B', '-m', 'agent_platform.platform_secrets', '--kubectl', str(KUBECTL)],
+              dict(os.environ, PYTHONPATH=str(REPO / 'platform/core/src') + ':' + str(REPO), KUBECONFIG=str(STATE / 'kubeconfig')))
 
 
 def down():
@@ -205,6 +220,8 @@ def inventory():
              'disks': ['compute', 'disks', 'list'], 'snapshots': ['compute', 'snapshots', 'list'],
              'addresses': ['compute', 'addresses', 'list'], 'forwarding_rules': ['compute', 'forwarding-rules', 'list'],
              'routers': ['compute', 'routers', 'list'], 'networks': ['compute', 'networks', 'list'],
+             'regional_endpoints': ['network-connectivity', 'regional-endpoints', 'list', '--region', 'us-east1'],
+             'dns_zones': ['dns', 'managed-zones', 'list'],
              'kms_keys': ['kms', 'keys', 'list', '--keyring', NAME, '--location', 'us-east1'],
              'log_buckets': ['logging', 'buckets', 'list', '--location', 'us-east1'],
              'repositories': ['artifacts', 'repositories', 'list']}
@@ -217,11 +234,11 @@ def inventory():
 
 def main(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['plan', 'apply', 'kubeconfig', 'attest', 'up', 'down', 'fault', 'port-forward', 'inventory'])
+    parser.add_argument('command', choices=['plan', 'apply', 'kubeconfig', 'attest', 'up', 'down', 'fault', 'port-forward', 'inventory', 'secrets'])
     parser.add_argument('args', nargs='*')
     a = parser.parse_args(argv)
     {'plan': plan, 'apply': apply, 'kubeconfig': lambda: print(kubeconfig()), 'up': up, 'down': down,
-     'port-forward': port_forward, 'inventory': inventory}.get(a.command, lambda: None)()
+     'port-forward': port_forward, 'inventory': inventory, 'secrets': secrets}.get(a.command, lambda: None)()
     if a.command == 'fault':
         fault((a.args or [''])[0])
     if a.command == 'attest':

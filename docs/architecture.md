@@ -8,7 +8,7 @@ not by operator procedure.
 ```mermaid
 flowchart LR
   owner([Owner laptop]) -- "kubectl port-forward 8080<br/>(IAM-gated DNS endpoint)" --> ui
-  subgraph cluster [GKE agent-platform: private nodes, no LB/Ingress/external IP, no NAT]
+  subgraph cluster [GKE agent-platform: private nodes, no LB/Ingress/external IP, no NAT, no internet egress]
     subgraph apps [ns apps: PSS restricted, default deny]
       ui[UI + Financial Agent<br/>loopback only]
       fault[fault-demo target]
@@ -30,8 +30,8 @@ flowchart LR
     agent --> gateway
     gateway --> pg
   end
-  gateway -- "Workload Identity, FQDN allowlist<br/>Private Google Access" --> vertex[[Vertex AI gemini-3.5-flash<br/>us multi-region]]
-  redactor -- "Workload Identity" --> dlp[[Sensitive Data Protection]]
+  gateway -- "Workload Identity, FQDN allowlist<br/>PSC regional endpoint (private DNS)" --> vertex[[Vertex AI gemini-3.5-flash<br/>us multi-region]]
+  redactor -- "Workload Identity, FQDN allowlist<br/>PSC regional endpoint (private DNS)" --> dlp[[Sensitive Data Protection]]
   ci[[GitHub Actions: Trivy, SBOM,<br/>keyless cosign, KMS attestation]] -. signed digests .-> ar[(Artifact Registry)]
   ar -. Binary Authorization .-> cluster
 ```
@@ -39,6 +39,7 @@ flowchart LR
 | Boundary | Enforced by | Evidence |
 |---|---|---|
 | No public exposure | private nodes and endpoint; no LB/Ingress; quota `services.loadbalancers: 0` | render invariants (`make test`), live attack suite |
+| No internet egress | no Cloud NAT and no external IPs; Google APIs via Private Google Access, and the two `rep.googleapis.com` endpoints (Vertex `us`, SDP `us-east1`), which Private Google Access does not serve, via Private Service Connect regional endpoints with private DNS zones (`private_endpoints.tf`) | Terraform plan; live chain check pending (see [claims matrix](agent-platform/claims-matrix.md)) |
 | Namespace isolation | default-deny NetworkPolicies + explicit paths; FQDN egress only for gateway (Vertex) and redactor (DLP) | render invariants, live attack suite (direct egress blocked) |
 | Workload hardening | Pod Security "restricted" in every namespace; nonroot, read-only root, no capabilities | `make test-policies` (real kube-apiserver), render invariants |
 | Tenant isolation | Postgres FORCE ROW LEVEL SECURITY; app role non-owner, NOBYPASSRLS; tenant set server-side | bootstrap contract check, live attack suite (cross-tenant read) |

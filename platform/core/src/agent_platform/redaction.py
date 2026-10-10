@@ -45,4 +45,4 @@ class RedactorClient:
         except ControlFailure:
             raise
         except (urllib.error.URLError, OSError, ValueError):
-            raise ControlFailure('redaction', 'unavailable') from None
+            raise ControlFailure('presidio_anonymizer', 'unavailable') from None  # a runtime REDACTION_STAGES name

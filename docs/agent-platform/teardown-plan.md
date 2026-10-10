@@ -12,7 +12,8 @@ The portfolio must stand without a live system. Before anything is deleted, the 
 2. **Platform:**
    - set `deletion_protection = false` in `terraform/root`
    - `terraform destroy` (cluster, pool, network, identities, CI WIF pool, KMS key versions scheduled for destruction,
-     attestor/policy reset, log bucket/sink)
+     attestor/policy reset, log bucket/sink, the two Private Service Connect regional endpoints `agent-platform-dlp` and
+     `agent-platform-vertex`, and their private DNS zones and A records)
    - delete the platform Postgres snapshots and the retained Postgres PV disk
 3. **secure-infra-worker:** stop, then delete the VM and its disk (services 8765/8768/8769 end with it; owner approval).
 4. **masar-gke** (owner-approved separately):
@@ -28,7 +29,8 @@ The portfolio must stand without a live system. Before anything is deleted, the 
 7. **Identities:** delete the remaining service accounts, custom roles (soft-deleted) and WIF pools (soft-deleted 30 days, no charge).
 
 ## Final inventory (proof that nothing billable remains)
-`make inventory`, which reads: clusters, instances, disks, snapshots, addresses, forwarding rules, routers/NAT, networks,
+`make inventory`, which reads: clusters, instances, disks, snapshots, addresses, forwarding rules, PSC regional
+endpoints, Cloud DNS managed zones, routers/NAT, networks,
 KMS key versions (only DESTROYED/DESTROY_SCHEDULED), log buckets, Artifact Registry repositories, buckets.
 
 - **Expected:** all empty, except the KMS key ring (no cost without enabled versions) and the free default network objects.

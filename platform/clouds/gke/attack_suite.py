@@ -46,10 +46,17 @@ class UI:
         self.forward = subprocess.Popen([str(lifecycle.KUBECTL), '--kubeconfig', str(lifecycle.STATE / 'kubeconfig'), '-n', 'apps',
                                          'port-forward', '--address', '127.0.0.1', 'deployment/app', '8080:8080'],
                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        time.sleep(4)
         self.jar = http.cookiejar.CookieJar()
         self.open = urllib.request.build_opener(urllib.request.ProxyHandler({}), urllib.request.HTTPCookieProcessor(self.jar)).open
-        self.csrf = json.loads(self.open(urllib.request.Request('http://127.0.0.1:8080/api/bootstrap'), timeout=10).read())['csrf']
+        for attempt in range(30):  # the port-forward is ready when the front door answers (bounded wait)
+            time.sleep(1)
+            try:
+                self.csrf = json.loads(self.open(urllib.request.Request('http://127.0.0.1:8080/api/bootstrap'), timeout=10).read())['csrf']
+                break
+            except urllib.error.URLError:
+                if attempt == 29 or self.forward.poll() is not None:
+                    self.close()
+                    raise
 
     def ask(self, profile, text):
         body = json.dumps({'agent': profile, 'language': 'en', 'question': text, 'conversation_id': None,

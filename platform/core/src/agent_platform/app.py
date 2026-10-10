@@ -39,6 +39,72 @@ def load_config(path=Path('/secrets/app/app.json')):
     return config
 
 
+KNOWN_KEYS = frozenset({'choices', 'usage', 'id', 'model', 'object', 'created', 'system_fingerprint', 'index', 'finish_reason',
+                        'message', 'role', 'content', 'refusal', 'tool_calls', 'function_call', 'provider_specific_fields',
+                        'reasoning_content', 'thinking_blocks', 'annotations', 'audio', 'images', 'thought_signatures',
+                        'summary', 'classification', 'kind', 'tool_id', 'arguments', 'agent', 'language', 'limitations', 'period',
+                        'evidence_ids', 'reason_code', 'observed_failure', 'suspected_cause', 'proposed_repair', 'logprobs'})
+
+
+def response_shape(response):
+    """Structure of one gateway response with no model text: key names (known names only), types, lengths."""
+    def names(value):
+        return sorted(k if k in KNOWN_KEYS else '?' for k in value) if type(value) is dict else type(value).__name__
+    shape = {'top': names(response)}
+    try:
+        choices = response['choices']
+        shape['choices'] = len(choices)
+        choice = choices[0]
+        shape['finish_reason'] = choice.get('finish_reason') if choice.get('finish_reason') in {
+            'stop', 'length', 'tool_calls', 'content_filter', 'function_call', None} else '?'
+        message = choice['message']
+        shape['message'] = names(message)
+        shape['provider_specific_fields'] = names(message.get('provider_specific_fields'))
+        content = message.get('content')
+        shape['content_bytes'] = len(content.encode()) if type(content) is str else type(content).__name__
+        usage = response.get('usage') or {}
+        shape['usage'] = {k: usage.get(k) for k in ('prompt_tokens', 'completion_tokens', 'total_tokens')
+                          if type(usage.get(k)) is int}
+        details = usage.get('completion_tokens_details')
+        if type(details) is dict and type(details.get('reasoning_tokens')) is int:
+            shape['usage']['reasoning_tokens'] = details['reasoning_tokens']
+        envelope = json.loads(content)
+        shape['envelope'] = names(envelope)
+        decision = json.loads(envelope['summary']) if type(envelope.get('summary')) is str else envelope.get('summary')
+        shape['decision'] = names(decision) if type(decision) is not list else ['list', len(decision)]
+        if type(decision) is dict:
+            shape['kind'] = decision.get('kind') if decision.get('kind') in {'tool', 'final', 'clarification', 'refusal'} else '?'
+    except Exception as error:
+        shape['stopped_at'] = type(error).__name__
+    return shape
+
+
+def drop_thought_signatures(response):
+    """Gemini 3.x returns an opaque thoughtSignature with every reply; LiteLLM 1.104.0 always surfaces it as
+    message.provider_specific_fields.thought_signatures. It carries no answer text and is only needed to resume
+    thinking across turns, which this protocol never does. Remove exactly that field when it is a list of
+    strings and the only provider-specific field; anything else is left for the core admission to reject."""
+    try:
+        message = response['choices'][0]['message']
+        fields = message.get('provider_specific_fields')
+        if (type(fields) is dict and set(fields) == {'thought_signatures'} and type(fields['thought_signatures']) is list
+                and all(type(item) is str for item in fields['thought_signatures'])):
+            message['provider_specific_fields'] = None
+            return len(fields['thought_signatures'])
+    except (KeyError, IndexError, TypeError):
+        pass
+    return 0
+
+
+def shaped_post(url, payload, timeout, headers):
+    from runtime.phase3.adapters import _post_json
+    response = _post_json(url, payload, timeout, headers=headers)
+    shape = response_shape(response)
+    shape['thought_signatures_dropped'] = drop_thought_signatures(response)
+    audit.emit('model_response_shape', 'app', shape=shape)
+    return response
+
+
 def compose(config, user, connect):
     """One hour-long session: identity snapshot, token, scoped credentials and run budget."""
     from runtime.agents.composition import IntegratedCore, TenantDatabaseTools, BoundaryBudget
@@ -68,7 +134,7 @@ def compose(config, user, connect):
                 def complete(self, *args):
                     result = super().complete(*args)
                     return GatewayResult(result.output, True, 'live')
-            self._gateway = Protocol(GATEWAY, key=self._bound_key, redactor=redactor)
+            self._gateway = Protocol(GATEWAY, key=self._bound_key, redactor=redactor, transport=shaped_post)
 
     agents = {}
     for profile in PROFILES:
