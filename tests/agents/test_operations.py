@@ -17,6 +17,12 @@ from runtime.agents.web import DemoServer
 from runtime.phase3.trusted_runtime import ControlFailure
 
 
+# The production visibility backend reads /proc through the operator's passwordless `sudo -n` helper (as on the
+# operations host and GitHub runners). Without it, visibility is incomplete and the controller correctly fails closed.
+NATIVE_VISIBILITY = subprocess.run(['sudo', '-n', 'true'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+needs_visibility = unittest.skipUnless(NATIVE_VISIBILITY, 'needs passwordless sudo -n for complete /proc visibility')
+
+
 class OperationsTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -51,6 +57,7 @@ class OperationsTests(unittest.TestCase):
         self.child.wait(timeout=3)
         self.assertIsNone(process_identity(self.child.pid))
 
+    @needs_visibility
     def test_actual_disposable_cache_measured_reclamation(self):
         result = self.controller.execute(*self.approval('sandbox-cache', 'clean'))
         self.assertEqual(result['status'], 'VERIFIED')
@@ -67,6 +74,7 @@ class OperationsTests(unittest.TestCase):
             self.controller.observe('unregistered-target')
         self.assertIsNone(self.child.poll())
 
+    @needs_visibility
     def test_active_file_denial_uses_actual_process_handles(self):
         with (self.root / 'disposable-cache/public-1.cache').open('rb'):
             observed = self.controller.observe('sandbox-cache')
@@ -75,6 +83,7 @@ class OperationsTests(unittest.TestCase):
                 self.controller.propose('sandbox-cache', 'clean', observed['evidence_id'])
         self.assertTrue((self.root / 'disposable-cache/public-1.cache').exists())
 
+    @needs_visibility
     def test_file_opened_after_approval_is_denied(self):
         request, approval = self.approval('sandbox-cache', 'clean')
         with (self.root / 'disposable-cache/public-1.cache').open('rb'):
@@ -82,6 +91,7 @@ class OperationsTests(unittest.TestCase):
                 self.controller.execute(request, approval)
         self.assertTrue((self.root / 'disposable-cache/public-1.cache').exists())
 
+    @needs_visibility
     def test_current_evidence_change_and_approval_replay_are_denied(self):
         request, approval = self.approval('sandbox-cache', 'clean')
         file = self.root / 'disposable-cache/public-1.cache'
@@ -181,6 +191,7 @@ class OperationsTests(unittest.TestCase):
         self.assertEqual(blocked.exception.code, 'BUDGET_EXHAUSTED')
         self.assertEqual(file.stat().st_blocks, before.st_blocks)
 
+    @needs_visibility
     def test_sqlite_reopen_and_outcome_schema(self):
         request,approval=self.approval('sandbox-cache','clean')
         result=self.controller.execute(request,approval)
