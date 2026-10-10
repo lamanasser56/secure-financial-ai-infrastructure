@@ -61,6 +61,25 @@ class Redaction(unittest.TestCase):
                 client.redact('secret text')
 
 
+class RedactionWindow(unittest.TestCase):
+    def test_budget_renews_every_window_and_fails_as_a_runtime_stage(self):
+        from agent_platform.redaction import WindowedBoundaryBudget
+        now = [0.0]
+        budget = WindowedBoundaryBudget(operations=2, clock=lambda: now[0])
+        budget.reserve('a'); budget.reserve('b')
+        with self.assertRaises(ControlFailure):
+            budget.reserve('c')  # per-window limit still holds
+        now[0] = 901.0  # past the core's 900 s maximum lifetime: a fresh window, same limits
+        budget.reserve('d')
+        self.assertEqual(budget.operations, 1)
+        client = RedactorClient('http://redactor.invalid:4003', 'k' * 64, budget=budget,
+                                opener=lambda *a, **k: Response(json.dumps({'text': 'x', 'categories': []}).encode()))
+        client.redact('e')
+        with self.assertRaises(ControlFailure) as failure:
+            client.redact('f')
+        self.assertEqual((failure.exception.stage, failure.exception.category), ('presidio_anonymizer', 'unavailable'))
+
+
 class Providers(unittest.TestCase):
     def test_gemini_renders_and_is_committed(self):
         outputs = providers.render('gemini')

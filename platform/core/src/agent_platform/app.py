@@ -20,7 +20,7 @@ import uuid
 from agent_platform import audit
 from agent_platform.identity_fixture import mint
 from agent_platform.ops.approval import Signer
-from agent_platform.redaction import RedactorClient
+from agent_platform.redaction import RedactorClient, WindowedBoundaryBudget
 
 GATEWAY = 'http://gateway.platform.svc.cluster.local:4000'
 REDACTOR = 'http://redactor.platform.svc.cluster.local:4003'
@@ -89,7 +89,7 @@ def shaped_post(url, payload, timeout, headers):
 
 def compose(config, user, connect):
     """One hour-long session: identity snapshot, token, scoped credentials and run budget."""
-    from runtime.agents.composition import IntegratedCore, TenantDatabaseTools, BoundaryBudget
+    from runtime.agents.composition import IntegratedCore, TenantDatabaseTools
     from runtime.agents.credentials import ScopedCredential
     from runtime.agents.gateway_budget import RunAttemptBudget, ScopedHTTPGateway
     from runtime.agents.identity import SubjectGrant, TrustedJWTIdentity
@@ -102,7 +102,7 @@ def compose(config, user, connect):
     expires = now + SESSION_SECONDS
     token = mint(config['issuer_private_key'], subject=subject, tenant=tenant, issued_at=now, expires_at=expires)
     budget = RunAttemptBudget(total=32, per_subject=16, lifetime=SESSION_SECONDS)
-    redactor = DeterministicEmailRedactor(RedactorClient(REDACTOR, config['redactor_key'], budget=BoundaryBudget(lifetime=900)))
+    redactor = DeterministicEmailRedactor(RedactorClient(REDACTOR, config['redactor_key'], budget=WindowedBoundaryBudget()))
 
     class LiveGateway(ScopedHTTPGateway):
         offline_simulation = False
