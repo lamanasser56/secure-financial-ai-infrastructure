@@ -253,7 +253,8 @@ class ImageEquivalentExecution(unittest.TestCase):
 
 class DeploymentProfile(unittest.TestCase):
     def test_rendered_job_matches_validator_and_bounds(self):
-        P = "project-b1e55144-cfd4-4fef-89a"
+        # Synthetic placeholder; no real project identifier in the tree (override for a native rehearsal only).
+        P = os.environ.get("PORTFOLIO_TEST_PROJECT_ID", "example-project-123")
         digest = "us-east1-docker.pkg.dev/" + P + "/sdp-evaluation-images/google-sdp-context@sha256:667ceec4b8290df1341a91a7685ad140319fca6d23f92b9948dddf9fac64136b"
         rendered = subprocess.run(["bash", str(ROOT / "scripts/render-sdp-composite-email-campaign-job.sh"), P,
                                    "google-sdp-runtime@" + P + ".iam.gserviceaccount.com", digest], capture_output=True, text=True, check=True).stdout

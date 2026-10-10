@@ -17,3 +17,10 @@ What moves here during the final week (Nov 3–7), sanitized:
 
 Sanitization rule: no project number or ID, no service-account emails, no IPs, no secret material, no raw provider
 output. Hashes of evidence are kept so the history stays verifiable against the retained private copies.
+
+## Historical identifier note
+Commits up to `91d7e8c7` (the qualified C source, kept unchanged to preserve the provenance chain: program manifest,
+owner signatures and the C record) contain the evaluation project's GCP project identifier in one test
+(`tests/phase3/runtime/test_composite_email_campaign.py`). A project identifier is not a credential: access requires
+IAM permissions that it does not grant. The current tree uses a synthetic placeholder and passes `scripts/validate.py`.
+The project and everything billable in it are torn down by 2026-11-08 (see `docs/agent-platform/teardown-plan.md`).

@@ -98,9 +98,10 @@ def check(profile):
 
 @unittest.skipUnless(Path(KUBECTL).exists(), 'kubectl needed for kustomize')
 class Manifest(unittest.TestCase):
-    ARGS = dict(project_id='example-project-123', control_plane_cidr='172.16.0.16/28',
-                gateway_gsa='agent-platform-gateway@example-project-123.iam.gserviceaccount.com',
-                redactor_gsa='google-sdp-runtime@example-project-123.iam.gserviceaccount.com')
+    PROJECT = 'example-project-123'
+    ARGS = dict(project_id=PROJECT, control_plane_cidr='172.16.0.16/28',
+                gateway_gsa=f'agent-platform-gateway@{PROJECT}.iam.gserviceaccount.com',
+                redactor_gsa=f'google-sdp-runtime@{PROJECT}.iam.gserviceaccount.com')
 
     @classmethod
     def setUpClass(cls):
