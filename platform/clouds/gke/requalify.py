@@ -19,6 +19,7 @@ import lifecycle
 
 HERE = Path(__file__).resolve().parent
 EVIDENCE = HERE.parents[2] / 'docs/evidence/requalification.json'  # per attempt: requalification-attempt-N.json
+APPROVED_TOTAL = 36  # 30 approved 2026-10-10, +6 approved 2026-10-11 for attempt 3
 TURN_CEILING = 4  # runtime/agents/core.py Limits.model_requests
 FINANCIAL_TOOLS = {'expense_summary', 'expense_categories'}
 SOURCE = 'synthetic-expenses-v1'
@@ -194,7 +195,7 @@ def run(budget):
         'status': 'PASSED' if passed else 'STOPPED',
         'started_at': started, 'model': 'vertex_ai/gemini-3.5-flash (us)', 'alias': 'secure-financial-chat',
         'gateway': GATEWAY,
-        'budget': {'approved_total': 30, 'pre_run_diagnostic_requests': 30 - budget, 'run_budget': budget, 'run_requests': used},
+        'budget': {'approved_total': APPROVED_TOTAL, 'used_before_this_attempt': APPROVED_TOTAL - budget, 'run_budget': budget, 'run_requests': used},
         'spend_usd': {'before': spend_before, 'after': spend_after,
                       'delta': None if None in (spend_before, spend_after) else round(spend_after - spend_before, 6)},
         'cases': results, 'stop': stop,
@@ -214,7 +215,7 @@ def run(budget):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--budget', type=int, required=True, help='model requests remaining of the approved 30')
+    parser.add_argument('--budget', type=int, required=True, help='model requests remaining of APPROVED_TOTAL')
     parser.add_argument('--attempt', type=int, required=True, help='attempt number; earlier attempts stay recorded')
     args = parser.parse_args()
     EVIDENCE = EVIDENCE.with_name(f'requalification-attempt-{args.attempt}.json')

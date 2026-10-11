@@ -98,3 +98,39 @@ inside the run's < $1 criterion and the $10 monthly key budget.
   the attempt; 17 remain.
 - **Fix:** pending an owner decision. The core instruction (`runtime/agents/core.py`) and the schema
   (`contracts/agents/decision.schema.json`) are hash-bound in the qualified core.
+
+## Attempt 3 preparation (2026-10-11)
+
+**Owner decisions:**
+
+- **Empty `limitations` fix:** a platform-level instruction in `platform/core/src/agent_platform/app.py`, outside the
+  qualified core. It is appended to the system message and says that every free-text decision field (summary,
+  limitations, observed_failure, suspected_cause, proposed_repair) must be a non-empty sentence; if there are no
+  limitations, the field states the data scope (source and period). The schema and the validator are unchanged.
+  Tests check that the instruction names every required free-text field of `decision.schema.json` and that
+  `minLength: 1` still holds.
+- **Budget:** +6 requests approved for attempt 3, at an extra cost under $0.10. **The approved total is now 36.**
+
+**Accounting correction:** `make down` on 2026-10-11 drained the nodes while the ops agent was still running. It
+diagnosed every target as PENDING and requested explanations; one reached the model (gateway log 11:30:45Z).
+
+| Requests used | Count |
+|---|---|
+| 2026-10-10: pre-run diagnostics, ops startup explanation, attempt 1 | 5 + 1 + 3 = 9 |
+| 2026-10-11: ops startup explanation, attempt 2, ops explanation during `make down` | 1 + 3 + 1 = 5 |
+| **Used** | **14 of 36** |
+| **Remaining for attempt 3** | **22** |
+
+**Unplanned ops requests, causes and fix:**
+
+- **Causes:**
+  - At `make up`, the ops agent started while the gateway was still warming up (READINESS_FAILING on
+    platform.gateway).
+  - At `make down`, the node drain left every target PENDING.
+  - The fault-demo target was not involved.
+- **Fix in `platform/clouds/gke/lifecycle.py` and the manifests:**
+  - The ops agent and fault-demo are declared at 0 replicas.
+  - `make up` starts the ops agent only after the gateway, redactor and app have rolled out.
+  - `make down` stops the ops agent (and fault-demo) before the drain.
+  - `make fault` brings fault-demo to 1 replica in the same patch as the fault, so only the requalification fault
+    case (6a) runs it.

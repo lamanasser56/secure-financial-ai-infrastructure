@@ -133,10 +133,21 @@ def resize(count):
         '--location', ZONE, '--project', s['project_id'], '--quiet')
 
 
+# Started last and stopped first: the ops agent must never see platform warmup or node drain as a fault.
+STAGED = (('ops', 'ops-agent'), ('apps', 'fault-demo'))
+
+
+def scale_staged_to_zero():
+    for ns, name in STAGED:  # the manifests declare 0; a session that ended without `make down` may have left 1
+        if kubectl('-n', ns, 'get', 'deployment', name, '--ignore-not-found', '-o', 'name', capture=True).stdout.strip():
+            kubectl('-n', ns, 'scale', 'deployment/' + name, '--replicas=0')
+
+
 def up():
     started = time.time()
     resize(1)
     kubeconfig()
+    scale_staged_to_zero()
     o = outputs()
     rendered = run(sys.executable, '-B', HERE / 'render.py', '--project-id', o['project_id'], '--control-plane-cidr', o['control_plane_cidr'],
                    '--gateway-gsa', o['gateway_gsa'], '--redactor-gsa', o['redactor_gsa'], '--kubectl', KUBECTL, capture=True).stdout
@@ -154,8 +165,10 @@ def up():
         raise SystemExit(3)
     kubectl('-n', 'platform', 'rollout', 'status', 'statefulset/postgres', '--timeout=300s')
     kubectl('-n', 'platform', 'wait', '--for=condition=complete', 'job/schema', '--timeout=600s')
-    for ns, name in (('platform', 'gateway'), ('platform', 'redactor'), ('apps', 'app'), ('apps', 'fault-demo'), ('ops', 'ops-agent')):
+    for ns, name in (('platform', 'gateway'), ('platform', 'redactor'), ('apps', 'app')):
         kubectl('-n', ns, 'rollout', 'status', 'deployment/' + name, '--timeout=300s')
+    kubectl('-n', 'ops', 'scale', 'deployment/ops-agent', '--replicas=1')  # every target is ready now
+    kubectl('-n', 'ops', 'rollout', 'status', 'deployment/ops-agent', '--timeout=300s')
     print(json.dumps({'result': 'UP', 'minutes': round((time.time() - started) / 60, 1), 'access': 'make port-forward -> http://127.0.0.1:8080/'}))
 
 
@@ -170,6 +183,9 @@ def down():
     kubeconfig()
     pv = kubectl('-n', 'platform', 'get', 'pvc', 'data-postgres-0', '-o', 'jsonpath={.spec.volumeName}', capture=True).stdout.strip()
     disk = kubectl('get', 'pv', pv, '-o', 'jsonpath={.spec.csi.volumeHandle}', capture=True).stdout.strip().rsplit('/', 1)[-1]
+    scale_staged_to_zero()  # before the drain: pods going Pending must not be diagnosed and explained
+    kubectl('-n', 'ops', 'wait', '--for=delete', 'pod', '-l', 'app.kubernetes.io/name=ops-agent', '--timeout=120s',
+            check=False)  # no pod left is the goal; `wait` reports "no matching resources" as an error
     stamp = time.strftime('%Y%m%d-%H%M%S', time.gmtime())
     run('gcloud', 'compute', 'disks', 'snapshot', disk, '--zone', ZONE, '--project', s['project_id'],
         '--snapshot-names', f'{NAME}-postgres-{stamp}', '--labels', 'purpose=agent-platform', '--quiet')
@@ -190,8 +206,10 @@ def fault(kind):
     if kind == 'badimage':
         unsigned = 'us-east1-docker.pkg.dev/' + settings()['project_id'] + '/sdp-evaluation-images/unsigned-demo@sha256:' + '0' * 64
         kubectl('-n', 'apps', 'set', 'image', 'deployment/fault-demo', 'workload=' + unsigned)
-    elif kind in FAULTS:
-        kubectl('-n', 'apps', 'patch', 'deployment', 'fault-demo', '--type', 'strategic', '-p', json.dumps(FAULTS[kind]))
+        kubectl('-n', 'apps', 'scale', 'deployment/fault-demo', '--replicas=1')
+    elif kind in FAULTS:  # fault-demo idles at 0 replicas; the fault and the scale-up are one patch
+        patch = dict(FAULTS[kind], spec=dict(FAULTS[kind]['spec'], replicas=1))
+        kubectl('-n', 'apps', 'patch', 'deployment', 'fault-demo', '--type', 'strategic', '-p', json.dumps(patch))
     else:
         raise SystemExit('usage: fault oom|crashloop|inject|badimage')
     print(json.dumps({'fault': kind, 'target': 'apps/fault-demo', 'applied_by': 'owner'}))

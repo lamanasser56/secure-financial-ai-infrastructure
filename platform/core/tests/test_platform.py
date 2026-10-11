@@ -137,6 +137,37 @@ class Explanation(unittest.TestCase):
             self.assertEqual(self.explain(choice)[0], {'untrusted_text': None, 'source': 'unavailable'})
 
 
+class PlatformInstruction(unittest.TestCase):
+    """The platform instruction reaches the system message only and names every free-text decision field."""
+
+    def test_system_message_only(self):
+        from agent_platform import app
+        sent = []
+        payload = {'model': 'secure-financial-chat', 'max_tokens': 1024,
+                   'messages': [{'role': 'system', 'content': 'core rule'}, {'role': 'user', 'content': 'redacted'}]}
+        app.instructed(lambda url, body, timeout, headers: sent.append(body) or 'ok')('u', payload, 8, {})
+        self.assertEqual(sent[0]['messages'], [{'role': 'system', 'content': 'core rule ' + app.PLATFORM_INSTRUCTION},
+                                               {'role': 'user', 'content': 'redacted'}])
+        self.assertEqual(payload['messages'][0]['content'], 'core rule')  # the core's payload is not mutated
+        self.assertEqual(sent[0]['max_tokens'], 1024)
+        with self.assertRaises(ValueError):
+            app.instructed(lambda *a: None)('u', {'messages': [{'role': 'user', 'content': 'x'}]}, 8, {})
+
+    def test_names_every_required_free_text_field(self):
+        from agent_platform import app
+        schema = json.loads((REPO / 'contracts/agents/decision.schema.json').read_text())
+        free_text = {name for branch in schema['oneOf'] for name in branch['required']
+                     if branch['properties'][name].get('type') == 'string' and 'pattern' not in branch['properties'][name]}
+        self.assertEqual(free_text, {'summary', 'limitations', 'observed_failure', 'suspected_cause', 'proposed_repair'})
+        for name in free_text:
+            self.assertIn(name, app.PLATFORM_INSTRUCTION)
+
+    def test_schema_is_not_relaxed(self):
+        schema = json.loads((REPO / 'contracts/agents/decision.schema.json').read_text())
+        finals = [b for b in schema['oneOf'] if b['properties']['kind'] == {'const': 'final'}]
+        self.assertTrue(finals and all(b['properties']['limitations']['minLength'] == 1 for b in finals))
+
+
 def check(profile):
     """Re-run load()'s validation on an in-memory profile."""
     import yaml

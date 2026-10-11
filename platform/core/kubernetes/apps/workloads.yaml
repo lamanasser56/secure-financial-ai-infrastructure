@@ -57,7 +57,7 @@ metadata:
   namespace: apps
   labels: {app.kubernetes.io/name: fault-demo, app.kubernetes.io/part-of: agent-platform}
 spec:
-  replicas: 1
+  replicas: 0  # scaled to 1 only by `make fault` (the fault is applied in the same patch)
   revisionHistoryLimit: 5
   selector: {matchLabels: {app.kubernetes.io/name: fault-demo}}
   template:
