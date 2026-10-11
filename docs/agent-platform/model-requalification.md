@@ -83,3 +83,18 @@ and that file is hash-bound in `evaluation/operations/restoration-qualification.
 about $0.010 in output. One ops explanation rises from at most about $0.002 to at most about $0.010. In the worst case,
 all 21 remaining requests at the ceiling cost about $0.21 in output, plus input tokens (about $0.002 per 1,000). That is
 inside the run's < $1 criterion and the $10 monthly key budget.
+
+## Attempt 2 result (2026-10-11): stopped at 1a
+
+`docs/evidence/requalification-attempt-2.json`: 3 requests, 2 tool executions, 0 unredacted sends, spend $0.0052.
+
+- **The thinking change worked.** Replies carried only `content` and `role`; no thought text left the gateway. Output used
+  109–195 tokens per reply, well under the 1024 ceiling.
+- **Cause of the stop (from the value-type diagnostic, no text):** the final decision had every required key with the
+  right types, and its period matched the expected format, but `limitations` was an empty string. The decision schema
+  requires `minLength: 1`. The core instruction lists the field name only (`final: {…,limitations,…}`) and does not say
+  the field must be non-empty, and the schema itself is not sent to the model.
+- **Budget:** one ops explanation (`READINESS_FAILING`) was requested at startup after `make up`. 30 − 10 = 20 before
+  the attempt; 17 remain.
+- **Fix:** pending an owner decision. The core instruction (`runtime/agents/core.py`) and the schema
+  (`contracts/agents/decision.schema.json`) are hash-bound in the qualified core.
