@@ -9,15 +9,21 @@ there is no signature round-trip to preserve. The signature is removed here, bef
 the app and its output validator never receive it, and it is never logged. Any other provider-specific field is left
 in place, so the core admission still rejects it (fail closed).
 
-LiteLLM also always sets message.thinking_blocks and message.images for Gemini, as empty lists when the model returned
-no thought text (includeThoughts is never requested) and no image. Only those empty placeholders are removed; a
-non-empty value stays and is rejected by the core admission.
+Thought text: the profile requests thinkingLevel=low, which LiteLLM 1.104.0 can only send with includeThoughts=true
+(owner decision 2026-10-11: thinkingLevel=minimal failed the decision schema; the qualified core fixes max_tokens at
+1024, which the default level can exhaust). LiteLLM puts that text in message.reasoning_content and
+message.thinking_blocks. Both are removed here, whatever their value, so thought text stays inside the gateway: it is
+never sent to the app and never logged (turn_off_message_logging; no logging callback is configured). The answer
+itself is message.content, which LiteLLM builds from the non-thought parts only. LiteLLM also sets message.images as
+an empty list on every Gemini reply; only that empty placeholder is removed, so a real image still reaches the core
+admission and is rejected (fail closed).
 """
 from litellm.integrations.custom_logger import CustomLogger
 
 
 def strip_thought_signatures(response):
-    """Remove exactly provider_specific_fields.thought_signatures from each choice; return how many were removed."""
+    """Remove provider_specific_fields.thought_signatures and thought text from each choice; return how many signatures
+    were removed."""
     removed = 0
     for choice in getattr(response, 'choices', None) or []:
         message = getattr(choice, 'message', None)
@@ -26,10 +32,12 @@ def strip_thought_signatures(response):
             removed += 1
             rest = {key: value for key, value in fields.items() if key != 'thought_signatures'}
             message.provider_specific_fields = rest or None
-        for name in ('thinking_blocks', 'images'):
-            value = getattr(message, name, None)
-            if isinstance(value, list) and not value:
+        for name in ('reasoning_content', 'thinking_blocks'):
+            if hasattr(message, name):
                 delattr(message, name)  # as LiteLLM's Message does for absent fields, so it is not serialized
+        images = getattr(message, 'images', None)
+        if isinstance(images, list) and not images:
+            delattr(message, 'images')
     return removed
 
 

@@ -58,3 +58,28 @@ the run window.
   recorded limitation.
 - **Case 6:** one crash-loop explanation.
 - **Case 7:** not run in this budget. The deterministic email layer is exercised by case 5.
+
+## Attempt 1 and the attempt 2 thinking configuration (2026-10-11)
+
+**Attempt 1 stopped at case 1a** (`docs/evidence/requalification-attempt-1.json`): under `thinkingLevel: minimal` the
+final decision had the right keys but failed the decision schema. 3 requests, 0 unredacted sends. **9 of the 30
+requests are used; 21 remain** for attempt 2 (minus any ops explanation requested since `make up`).
+
+**Owner decision for attempt 2:** the preferred option was the provider's default thinking (thoughts hidden) with a
+2048-token ceiling. It is not used, because the 1024 ceiling is fixed by the qualified core:
+`runtime/agents/composition.py` sends `max_tokens: 1024` in every request (the request value overrides the gateway's),
+and that file is hash-bound in `evaluation/operations/restoration-qualification.json`. The owner's fallback applies:
+
+- `reasoning_effort: low`. LiteLLM 1.104.0 sends `thinkingLevel: low` with `includeThoughts: true`; it cannot request
+  `low` with thoughts hidden.
+- The gateway hook (`programs/gateway_hooks.py`) removes `reasoning_content` and `thinking_blocks` from every reply, so
+  the thought text stays inside the gateway: it is never sent to the app and never logged. The answer is
+  `message.content`, which LiteLLM builds from non-thought parts only. If the hook were ever bypassed, the core
+  admission still rejects thought text (fail closed).
+- The ops explanation request rises from 200 to 1024 tokens, because thinking counts against it. A reply that is
+  truncated (`finish_reason` other than `stop`) or empty is shown as unavailable and never as text.
+
+**Cost impact:** none on the ceiling. At $9.90 per million output tokens, one financial request still costs at most
+about $0.010 in output. One ops explanation rises from at most about $0.002 to at most about $0.010. In the worst case,
+all 21 remaining requests at the ceiling cost about $0.21 in output, plus input tokens (about $0.002 per 1,000). That is
+inside the run's < $1 criterion and the $10 monthly key budget.

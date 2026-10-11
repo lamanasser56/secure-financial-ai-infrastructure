@@ -20,7 +20,7 @@ model_list:
       max_tokens: 1024
       model: vertex_ai/gemini-3.5-flash
       output_cost_per_token: 9.9e-06
-      reasoning_effort: none
+      reasoning_effort: low
       timeout: 8
       vertex_location: us
       vertex_project: os.environ/PORTFOLIO_PROJECT_ID

@@ -16,6 +16,7 @@ PROFILES = REPO / 'providers'
 GATEWAY_CONFIG = REPO / 'platform/core/kubernetes/platform/generated/litellm.yaml'
 EGRESS = REPO / 'platform/clouds/gke/kubernetes/generated/provider-egress.yaml'
 ALIAS = 'secure-financial-chat'
+MAX_TOKENS = 1024  # fixed by the qualified core request; thinking tokens count against it
 
 
 class ProfileRejected(ValueError):
@@ -38,11 +39,12 @@ def load(name):
         if type(model.get(key)) is not float or not 0 < model[key] < 0.001:
             raise ProfileRejected('explicit cost required for budget enforcement: ' + key)
     limits = model.get('limits') or {}
-    if limits != {'timeout_seconds': 8, 'max_tokens': 1024, 'max_retries': 0}:
+    if limits != {'timeout_seconds': 8, 'max_tokens': MAX_TOKENS, 'max_retries': 0}:
         raise ProfileRejected('limits')
-    # Only efforts for which LiteLLM 1.104.0 sends includeThoughts=false (thought text never leaves the provider).
-    if model.get('reasoning_effort', 'none') not in ('none', 'disable'):
-        raise ProfileRejected('reasoning_effort must keep thoughts hidden')
+    # none/disable: LiteLLM 1.104.0 sends includeThoughts=false. low: thought text is returned and the gateway hook
+    # (programs/gateway_hooks.py) removes it before the reply leaves the gateway. Higher efforts are refused.
+    if model.get('reasoning_effort', 'none') not in ('none', 'disable', 'low'):
+        raise ProfileRejected('reasoning_effort outside the approved thinking levels')
     if credential.get('type') not in ('workload_identity', 'api_key'):
         raise ProfileRejected('credential type')
     hosts = egress.get('fqdn')
@@ -56,7 +58,7 @@ def load(name):
 
 def gateway_config(profile):
     model = profile['model']
-    params = {'model': model['litellm_model'], 'timeout': 8, 'max_retries': 0, 'max_tokens': 1024,
+    params = {'model': model['litellm_model'], 'timeout': 8, 'max_retries': 0, 'max_tokens': MAX_TOKENS,
               'input_cost_per_token': model['input_cost_per_token'], 'output_cost_per_token': model['output_cost_per_token']}
     if model['litellm_model'].startswith('vertex_ai/'):
         params |= {'vertex_project': 'os.environ/PORTFOLIO_PROJECT_ID', 'vertex_location': model['vertex_location']}

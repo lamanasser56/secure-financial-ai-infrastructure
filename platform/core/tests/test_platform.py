@@ -86,7 +86,8 @@ class Providers(unittest.TestCase):
         config = outputs[providers.GATEWAY_CONFIG]
         self.assertIn('model: vertex_ai/gemini-3.5-flash', config)
         self.assertIn('vertex_location: us', config)
-        self.assertIn('reasoning_effort: none', config)
+        self.assertIn('reasoning_effort: low', config)  # thought text is removed by the gateway hook
+        self.assertIn('max_tokens: 1024', config)
         self.assertIn('aiplatform.us.rep.googleapis.com', outputs[providers.EGRESS])
         for path, text in outputs.items():
             self.assertEqual(path.read_text(), text, 'generated file drifted: run make provider P=gemini')
@@ -99,10 +100,41 @@ class Providers(unittest.TestCase):
                        lambda p: p['model'].update(input_cost_per_token=None),
                        lambda p: p['egress'].update(fqdn=['*']),
                        lambda p: p['budget'].update(monthly_usd=100),
-                       lambda p: p['model'].update(reasoning_effort='low')):  # would expose thought text
+                       lambda p: p['model'].update(reasoning_effort='medium'),  # beyond the approved levels
+                       lambda p: p['model'].update(reasoning_effort='high'),
+                       lambda p: p['model']['limits'].update(max_tokens=2048)):
             profile = copy.deepcopy(base); mutate(profile)
             with self.assertRaises(providers.ProfileRejected):
                 check(profile)
+
+
+class Explanation(unittest.TestCase):
+    """Ops explanations request the profile ceiling and never show a truncated or empty answer."""
+    FINDING = {'deployment': 'demo', 'namespace': 'apps', 'finding': 'CRASH_LOOP', 'evidence': {}, 'suggested_actions': []}
+
+    def explain(self, choice):
+        from agent_platform.ops.explain import Explainer
+        sent = []
+
+        class Redactor:
+            def redact(self, value):
+                return type('R', (), {'text': value})()
+
+        def opener(request, timeout):
+            sent.append(json.loads(request.data))
+            return Response({'choices': [choice]})
+        return Explainer('http://gateway.invalid:4000', 'k', Redactor(), opener=opener)(self.FINDING), sent
+
+    def test_complete_answer_is_shown(self):
+        result, sent = self.explain({'finish_reason': 'stop', 'message': {'content': 'Pod restarts.'}})
+        self.assertEqual(result, {'untrusted_text': 'Pod restarts.', 'source': 'model_via_gateway'})
+        self.assertEqual(sent[0]['max_tokens'], providers.MAX_TOKENS)
+
+    def test_truncated_or_empty_answer_is_unavailable(self):
+        for choice in ({'finish_reason': 'length', 'message': {'content': 'Pod rest'}},
+                       {'finish_reason': 'stop', 'message': {'content': None}},
+                       {'finish_reason': 'stop', 'message': {'content': ' '}}):
+            self.assertEqual(self.explain(choice)[0], {'untrusted_text': None, 'source': 'unavailable'})
 
 
 def check(profile):
@@ -296,9 +328,19 @@ class ModelResponseAdmission(unittest.TestCase):
         with self.assertRaises(ControlFailure):  # anything else still reaches the core admission and is rejected
             completion_content(json.loads(other.model_dump_json()))
         thought = gemini({'thought_signatures': ['b3BhcXVl']}, [{'type': 'thinking', 'thinking': self.SECRET}])
-        gateway_hooks.strip_thought_signatures(thought)
-        with self.assertRaises(ControlFailure):  # real thought text is never admitted
-            completion_content(json.loads(thought.model_dump_json()))
+        thought.choices[0].message.reasoning_content = self.SECRET
+        unstripped = json.loads(thought.model_dump_json())
+        with self.assertRaises(ControlFailure):  # thought text is never admitted if the hook were ever bypassed
+            completion_content(unstripped)
+        returned = asyncio.run(gateway_hooks.thought_signature_boundary.async_post_call_success_hook({}, None, thought))
+        wire = json.loads(returned.model_dump_json())  # reasoning_effort low: thought text stays in the gateway
+        self.assertNotIn(self.SECRET, json.dumps(wire))
+        self.assertEqual(completion_content(wire), self.ENVELOPE)
+        image = gemini({})
+        image.choices[0].message.images = [{'type': 'image_url', 'image_url': {'url': 'data:,'}}]
+        gateway_hooks.strip_thought_signatures(image)
+        with self.assertRaises(ControlFailure):  # a real image still reaches the core admission
+            completion_content(json.loads(image.model_dump_json()))
 
     def test_every_model_request_is_stateless(self):
         """No model turn is ever replayed to the provider, so no thought signature round-trip exists."""
