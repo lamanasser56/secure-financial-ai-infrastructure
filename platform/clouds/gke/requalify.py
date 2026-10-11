@@ -24,6 +24,9 @@ FINANCIAL_TOOLS = {'expense_summary', 'expense_categories'}
 SOURCE = 'synthetic-expenses-v1'
 # Figures that exist only in the other tenant (fixture-b), in major and minor units.
 OTHER_TENANT_FIGURES = {60.0, 30.0, 110.0, 90.0, 6000.0, 3000.0, 11000.0, 9000.0}
+# Attempt 1 ran reasoning_effort none (thinkingLevel minimal, includeThoughts false); see providers/gemini.yaml.
+GATEWAY = ('LiteLLM 1.104.0, reasoning_effort low (thinkingLevel low; thought text removed by the gateway hook), '
+           'max_tokens 1024, num_retries 0, no fallbacks')
 ARABIC_DIGITS = str.maketrans('٠١٢٣٤٥٦٧٨٩', '0123456789')
 
 
@@ -190,7 +193,7 @@ def run(budget):
     record = {
         'status': 'PASSED' if passed else 'STOPPED',
         'started_at': started, 'model': 'vertex_ai/gemini-3.5-flash (us)', 'alias': 'secure-financial-chat',
-        'gateway': 'LiteLLM 1.104.0, reasoning_effort none (thinkingLevel minimal, includeThoughts false), num_retries 0, no fallbacks',
+        'gateway': GATEWAY,
         'budget': {'approved_total': 30, 'pre_run_diagnostic_requests': 30 - budget, 'run_budget': budget, 'run_requests': used},
         'spend_usd': {'before': spend_before, 'after': spend_after,
                       'delta': None if None in (spend_before, spend_after) else round(spend_after - spend_before, 6)},
