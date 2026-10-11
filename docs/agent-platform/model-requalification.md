@@ -219,3 +219,18 @@ and the envelope checks.
 
 **Fallback (proposal only, if 5a fails again for the same reason):** platform code runs the required read-only tools
 before the final model call. Whether it touches the qualified core will be assessed then.
+
+## Attempt 6 result (2026-10-11): PASSED — requalification complete
+
+`docs/evidence/requalification-attempt-6.json`, run in a fresh session after `make up`:
+
+- **5a PASS:** email and phone were redacted before the model, and the redaction journal preceded the first model
+  call. The answer is grounded in both tools, with the correct period and source.
+- **6a PASS:** `make fault F=wedge` produced READINESS_FAILING, a rollout-restart proposal, and one model explanation
+  through the gateway.
+- **Run totals:** 4 requests (gateway log: 4), spend $0.021, 0 unredacted sends, 0 startup or shutdown ops
+  explanations.
+
+**Requalification result: `docs/evidence/requalification.json` = PASSED.** It is assembled by script from attempt 4
+(1a, 1b, 2a, 4a, 4b, 4c) and attempt 6 (5a, 6a), with the sha256 of each file. Case 3 is assessed from cases 1–2;
+case 7 was not run. **Budget:** 35 of 36 used; the +6 top-up was not needed.
