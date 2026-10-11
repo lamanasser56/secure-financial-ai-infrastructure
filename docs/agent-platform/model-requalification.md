@@ -148,3 +148,20 @@ diagnosed every target as PENDING and requested explanations; one reached the mo
 - **Fix:** `UI.ask` resets the conversation before every question, so each case stays independent. A refusal by the
   front door is now recorded as a failed case instead of a crash. A test covers the reset contract.
 - **Budget:** 14 + 3 = 17 of 36 used. **Remaining: 19** for attempt 4.
+
+## Attempt 4 result (2026-10-11): 6 cases passed, stopped at 5a by the session attempt budget
+
+`docs/evidence/requalification-attempt-4.json`: **1a, 1b, 2a, 4a, 4b and 4c passed.** Spend $0.042, 0 unredacted
+sends, 0 ops explanations.
+
+- **5a stopped before any model call** with `litellm / subject_attempt_budget_exhausted`. The app allows 16 model
+  attempts per user per one-hour session (`RunAttemptBudget(per_subject=16)` in `app.py`). Attempts 3 and 4 ran in the
+  same session (3 + 12 requests sent), so the control refused the next turn. The control worked as designed; the
+  model did not fail.
+- **Accounting:**
+  - The gateway log shows 12 completions in attempt 4 and 3 in attempt 3, so **29 of 36** requests are actually used.
+  - The runner's own count is 15 for attempt 4, because it counts the blocked attempt as reserved. By that count
+    32 of 36 are used.
+- **`make down`:** the staged ops agent stopped before the node drain, and 0 explanations were requested.
+- **Next:** pending an owner decision. Every case needs a fresh app session (or a session restart inside the run), and
+  the remaining approved budget does not cover a full rerun.
