@@ -180,3 +180,19 @@ app session and conversation), so our own runs do not exhaust it.
 F=wedge` gives a READINESS_FAILING finding, a rollout-restart proposal, and a model explanation through the gateway.
 
 **Budget:** 7 of 36 remain (29 used per the gateway log). Up to +6 more is approved if 7 are not enough.
+
+## Attempt 5 result (2026-10-11): stopped at 5a (model skipped a required tool)
+
+`docs/evidence/requalification-attempt-5.json`: 2 requests (gateway log: 2), spend $0.0057, 0 unredacted sends, 0 ops
+explanations. 6a did not run.
+
+- **Redaction passed.** The phone number was redacted before the model, and the redaction journal preceded the
+  first model call.
+- **The turn was blocked by the core:** `agent / ungrounded_response`. For "What were my total expenses in January
+  2026?" the model called `expense_summary` and then returned a final decision without calling
+  `expense_categories`. The core accepts a final decision only after every tool of the profile has run
+  (`Get all profile tools before final`). This is a model compliance failure; the control worked.
+- **Budget:** 31 of 36 used, 5 remaining (+6 approved top-up available).
+- **Proposed fix (pending an owner decision):** extend the platform-level instruction in `app.py` (same mechanism as
+  the attempt 3 fix): call every listed tool before returning a final decision, even when the question needs only one
+  of them. The core rule, schema and validator stay unchanged.
