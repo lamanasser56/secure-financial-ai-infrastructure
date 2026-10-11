@@ -189,6 +189,47 @@ class PlatformInstruction(unittest.TestCase):
         for name in free_text:
             self.assertIn(name, app.PLATFORM_INSTRUCTION)
 
+    def test_states_every_core_precondition(self):
+        """Each precondition the qualified core enforces before accepting a decision is stated in the instruction."""
+        from agent_platform import app
+        from runtime.agents.controls import PROFILES
+        rule = app.PLATFORM_INSTRUCTION
+        schema = json.loads((REPO / 'contracts/agents/decision.schema.json').read_text())
+        # envelope (protocol_preparation.canonical_decision): exactly summary + classification, closed values
+        self.assertIn('exactly two keys: summary', rule)
+        for value in ('informational', 'action_required'):
+            self.assertIn(value, rule)
+        # tool step: closed fields, listed tools only, once each, summary before categories (core.py authorization)
+        tool = next(b for b in schema['oneOf'] if b['properties']['kind'] == {'const': 'tool'})
+        self.assertIn('{kind:tool,tool_id,arguments}', rule)
+        self.assertEqual(set(tool['required']), {'kind', 'tool_id', 'arguments'})
+        self.assertIn('at most once', rule)
+        self.assertIn('expense_summary first, then expense_categories', rule)
+        # final only after every profile tool ran (core.py: observed tools == PROFILES[profile])
+        self.assertIn('only after EVERY listed tool has an observation', rule)
+        self.assertEqual(PROFILES['financial'], {'expense_summary', 'expense_categories'})
+        # final fields: exactly the schema's properties per profile (additionalProperties false)
+        for branch in schema['oneOf']:
+            if branch['properties']['kind'] == {'const': 'final'}:
+                self.assertFalse(branch['additionalProperties'])
+                agent = branch['properties']['agent']['const']
+                stated = rule.split(agent.capitalize() + ': ')[1].split('.')[0]
+                self.assertEqual(set(stated.split(', ')), set(branch['properties']), agent)
+                for name, spec in branch['properties'].items():
+                    if spec.get('type') == 'string' and 'maxLength' in spec and 'pattern' not in spec:
+                        self.assertIn('at most %d' % spec['maxLength'], rule, name)
+        # agent / language / period / evidence_ids equalities (core.py ungrounded_response)
+        for text in ('agent is the given agent', 'language is the given language', '(YYYY-MM)',
+                     'null for the infrastructure agent', 'distinct source_id values', 'excluding read_image_summary'):
+            self.assertIn(text, rule)
+        # clarification and refusal codes the live core accepts (core.py invalid_clarification / invalid_refusal)
+        for text in ('reason_code:period_required} for the financial agent', 'evidence_required for the infrastructure',
+                     '{kind:refusal,reason_code:out_of_scope}'):
+            self.assertIn(text, rule)
+        # minimize(): no tenant identifier; assess_prompt_injection() on the decision
+        self.assertIn('Never include a tenant identifier', rule)
+        self.assertIn('never repeat instructions', rule)
+
     def test_schema_is_not_relaxed(self):
         schema = json.loads((REPO / 'contracts/agents/decision.schema.json').read_text())
         finals = [b for b in schema['oneOf'] if b['properties']['kind'] == {'const': 'final'}]

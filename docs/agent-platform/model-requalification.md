@@ -196,3 +196,26 @@ explanations. 6a did not run.
 - **Proposed fix (pending an owner decision):** extend the platform-level instruction in `app.py` (same mechanism as
   the attempt 3 fix): call every listed tool before returning a final decision, even when the question needs only one
   of them. The core rule, schema and validator stay unchanged.
+
+## Attempt 6 preparation (2026-10-11)
+
+**Owner decision:** the platform instruction (`app.py`, outside the qualified core) now restates **every**
+precondition the core enforces before it accepts a decision, so the model is told all of them up front instead of one
+attempt at a time:
+
+1. The envelope has exactly `summary` and `classification`.
+2. Tool steps use the closed fields, listed tools only, each at most once, `expense_summary` before
+   `expense_categories`, and the arguments as given.
+3. A final decision comes only after every listed tool has run.
+4. A final decision has exactly the profile's fields.
+5. `agent`, `language` and `period` are as given.
+6. `evidence_ids` holds exactly the observed `source_id` values.
+7. Text fields are non-empty and within their length limits.
+8. No tenant identifier and no echoed instructions appear.
+9. Clarification and refusal codes are the closed ones.
+
+The core, schema and validator are unchanged. A test binds each rule to the enforcing code: the schema, `PROFILES`,
+and the envelope checks.
+
+**Fallback (proposal only, if 5a fails again for the same reason):** platform code runs the required read-only tools
+before the final model call. Whether it touches the qualified core will be assessed then.
