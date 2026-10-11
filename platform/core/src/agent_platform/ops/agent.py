@@ -55,12 +55,19 @@ class Agent:
                 continue
             finding = diagnose.diagnose(deployment, pods, events)
             previous = self.findings.get(key)
+            if previous is not None and previous['evidence_digest'] == finding['evidence_digest'] and 'explanation' in previous:
+                finding['explanation'] = previous['explanation']
             self.findings[key] = finding
             if previous is None or previous['evidence_digest'] != finding['evidence_digest']:
                 self.record('observed', key, pods=len(pods), available=finding['available_replicas'], desired=finding['desired_replicas'])
                 self.record('diagnosed', key, finding=finding['finding'], evidence_digest=finding['evidence_digest'])
                 if finding['finding'] == 'HEALTHY':
                     self._explanations = {k: v for k, v in self._explanations.items() if k[0] != key}
+                elif not finding['suggested_actions']:
+                    # No automated fix (the fix needs a Pod spec change): diagnose, explain and recommend an owner action.
+                    explanation = self.explain(key, finding)
+                    if explanation is not None:
+                        finding['explanation'] = explanation  # untrusted text, display only
                 else:
                     for action in finding['suggested_actions']:
                         arguments = {'replicas': min(self.targets[key].max_replicas, finding['desired_replicas'] + 1)} if action == 'scale' else {}
@@ -75,17 +82,23 @@ class Agent:
         proposal = {'request_id': str(uuid.uuid4()), 'target': key, 'action': action, 'arguments': arguments,
                     'args_digest': approval.args_digest(arguments), 'evidence_digest': finding['evidence_digest'],
                     'finding': finding['finding'], 'created_at': round(self.clock(), 3), 'state': 'proposed'}
-        if self.explainer is not None:
-            # Evidence (e.g. a restart count) changes on every crash; the explanation is per episode, not per
-            # proposal, so a crash loop cannot turn into an unbounded number of model requests.
-            episode = (key, finding['finding'], finding.get('revision'))
-            if episode not in self._explanations:
-                self._explanations[episode] = self.explainer(finding)
-            proposal['explanation'] = self._explanations[episode]  # untrusted text, display only
+        explanation = self.explain(key, finding)
+        if explanation is not None:
+            proposal['explanation'] = explanation  # untrusted text, display only
         with self._lock:
             self.proposals[proposal['request_id']] = proposal
         self.record('proposed', key, request_id=proposal['request_id'], action=action, finding=finding['finding'])
         return proposal
+
+    def explain(self, key, finding):
+        """One model explanation per fault episode (target, finding, revision), not per proposal or evidence change, so
+        a crash loop cannot turn into an unbounded number of model requests."""
+        if self.explainer is None:
+            return None
+        episode = (key, finding['finding'], finding.get('revision'))
+        if episode not in self._explanations:
+            self._explanations[episode] = self.explainer(finding)
+        return self._explanations[episode]
 
     # execute (single attempt) + verify --------------------------------------------------------------------
     def execute(self, request_id, token):

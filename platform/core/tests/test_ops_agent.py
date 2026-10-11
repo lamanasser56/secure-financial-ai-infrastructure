@@ -190,6 +190,20 @@ class AgentFlow(unittest.TestCase):
         self.agent.scan()
         self.assertEqual(calls, ['CRASH_LOOP', 'CRASH_LOOP'])
 
+    def test_spec_fixes_are_explained_and_left_to_the_owner(self):
+        calls = []
+        self.agent.explainer = lambda finding: calls.append(finding['finding']) or {'untrusted_text': 'x', 'source': 'model_via_gateway'}
+        self.client.pods = [pod(waiting='CrashLoopBackOff', last='OOMKilled')]
+        for _ in range(3):
+            self.agent.scan()
+        finding = self.agent.snapshot()['findings']['apps.fault-demo']
+        self.assertEqual((finding['finding'], finding['automated_fix'], finding['owner_action']),
+                         ('OOM_KILLED', False, 'RAISE_MEMORY_LIMIT_OR_FIX_WORKLOAD'))
+        self.assertEqual(finding['explanation']['source'], 'model_via_gateway')
+        self.assertEqual(self.agent.snapshot()['pending'], [])  # diagnosed and explained, never fixed by the agent
+        self.assertEqual(calls, ['OOM_KILLED'])
+        self.assertEqual(self.client.patches, [])
+
     def test_unregistered_target_or_action_cannot_be_proposed(self):
         finding = diagnose.diagnose(deployment(), [pod(waiting='CrashLoopBackOff')], [])
         for key, action in (('apps.app', 'restart'), ('apps.fault-demo', 'delete'), ('apps.fault-demo', 'exec')):

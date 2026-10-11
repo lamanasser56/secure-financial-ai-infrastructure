@@ -224,7 +224,8 @@ class ClusterOperations:
             matches = [p for p in snapshot['pending'] if p['target'] == request['target_id']
                        and (operation == 'explain' or (p['action'] == request.get('action') and p['evidence_digest'] == request.get('evidence_id')))]
             if operation == 'explain':
-                return {'evidence': finding, 'explanations': [p.get('explanation') for p in matches], 'untrusted_model_text': True}
+                explanations = [p.get('explanation') for p in matches] + ([finding['explanation']] if finding.get('explanation') else [])
+                return {'evidence': finding, 'explanations': explanations, 'untrusted_model_text': True}
             if not matches:
                 raise self._blocked('NO_AGENT_PROPOSAL')
             return matches[-1]

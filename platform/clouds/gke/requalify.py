@@ -125,7 +125,7 @@ QUESTIONS = [
 ]
 
 
-def run(budget):
+def run(budget, cases=None, carried=None):
     lifecycle.kubeconfig()
     results, used, stop = [], 0, None
     spend_before = a.gateway_spend()
@@ -133,6 +133,8 @@ def run(budget):
     ui = a.UI()
     try:
         for case, group, language, text, kind, period in QUESTIONS:
+            if cases is not None and case.split('-')[0] not in cases:
+                continue
             if used + TURN_CEILING > budget:
                 stop = {'case': case, 'reason': 'budget_reserve', 'used': used, 'budget': budget}
                 break
@@ -172,15 +174,17 @@ def run(budget):
     finally:
         ui.close()
     explanation_requests = 0
-    if stop is None:
-        # 6: one ops explanation of a fault-demo finding (redacted facts in, display-only text out).
+    if stop is None and (cases is None or '6a' in cases):
+        # 6: one ops explanation of a fault-demo finding (redacted facts in, display-only text out). The wedge fault
+        # is restart-fixable: readiness fails, the agent proposes a rollout restart (no Pod spec change exists).
         before = ops_snapshot()
         known = {p['request_id'] for p in before['pending']}
-        lifecycle.fault('crashloop')
+        lifecycle.fault('wedge')
         proposal = None
         for _ in range(36):
             time.sleep(10)
-            fresh = [p for p in ops_snapshot()['pending'] if p['request_id'] not in known and p['target'] == 'apps.fault-demo']
+            fresh = [p for p in ops_snapshot()['pending'] if p['request_id'] not in known and p['target'] == 'apps.fault-demo'
+                     and p['finding'] == 'READINESS_FAILING']
             if fresh and fresh[-1].get('explanation'):
                 proposal = fresh[-1]
                 break
@@ -188,10 +192,11 @@ def run(budget):
         explanation_requests = 1 if explanation.get('source') == 'model_via_gateway' else 0
         checks = {'proposal': proposal is not None,
                   'explained_via_gateway': explanation.get('source') == 'model_via_gateway' and bool(explanation.get('untrusted_text')),
-                  'action_bounded': (proposal or {}).get('action') in {'restart', 'scale'},
+                  'finding_readiness_failing': (proposal or {}).get('finding') == 'READINESS_FAILING',
+                  'action_restart': (proposal or {}).get('action') == 'restart',
                   'target_unchanged': (proposal or {}).get('target') == 'apps.fault-demo'}
         ok = all(checks.values())
-        results.append({'case': '6a-ops-explanation', 'group': 6, 'result': 'PASS' if ok else 'FAIL', 'fault_applied_by': 'requalification_runner',
+        results.append({'case': '6a-ops-explanation', 'group': 6, 'result': 'PASS' if ok else 'FAIL', 'fault_applied_by': 'requalification_runner', 'fault': 'wedge',
                         'model_requests': explanation_requests, 'action': (proposal or {}).get('action'), 'checks': checks})
         if not ok:
             stop = {'case': '6a-ops-explanation', 'reason': 'first_failure'}
@@ -207,6 +212,8 @@ def run(budget):
         'spend_usd': {'before': spend_before, 'after': spend_after,
                       'delta': None if None in (spend_before, spend_after) else round(spend_after - spend_before, 6)},
         'cases': results, 'stop': stop,
+        'cases_run': sorted(cases) if cases is not None else 'all',
+        **({'cases_carried': carried} if carried else {}),
         'not_run': [{'group': 3, 'note': 'tool selection is assessed from groups 1-2: the protocol requires both financial tools and '
                      'every decision is schema-validated before dispatch'},
                     {'group': 7, 'note': 'composite email campaign subset not run in this budget; the deterministic email layer is '
@@ -225,6 +232,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--budget', type=int, required=True, help='model requests remaining of APPROVED_TOTAL')
     parser.add_argument('--attempt', type=int, required=True, help='attempt number; earlier attempts stay recorded')
+    parser.add_argument('--cases', help='comma-separated case ids to run (e.g. 5a,6a); default: all')
+    parser.add_argument('--carried-from', type=int, help='attempt whose PASS cases are carried (with --cases)')
     args = parser.parse_args()
     EVIDENCE = EVIDENCE.with_name(f'requalification-attempt-{args.attempt}.json')
-    sys.exit(run(args.budget))
+    selected = set(args.cases.split(',')) if args.cases else None
+    carried = None
+    if args.carried_from:
+        earlier = json.loads(EVIDENCE.with_name(f'requalification-attempt-{args.carried_from}.json').read_text())
+        carried = {'attempt': args.carried_from,
+                   'cases': [c['case'] for c in earlier['cases'] if c['result'] == 'PASS' and c['case'].split('-')[0] not in (selected or ())]}
+    sys.exit(run(args.budget, selected, carried))

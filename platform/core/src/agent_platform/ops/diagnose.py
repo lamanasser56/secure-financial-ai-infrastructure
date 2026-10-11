@@ -11,6 +11,9 @@ import json
 # outside the agent's authority (no rollback; see policies/admission.yaml).
 SUGGESTED = {'CRASH_LOOP': ('restart',), 'OOM_KILLED': (), 'IMAGE_PULL': (), 'ADMISSION_DENIED': (),
              'PENDING': ('scale',), 'READINESS_FAILING': ('restart',), 'HEALTHY': ()}
+# The recommendation shown to the owner for those findings (closed codes; the UI localizes them).
+OWNER_ACTION = {'OOM_KILLED': 'RAISE_MEMORY_LIMIT_OR_FIX_WORKLOAD', 'IMAGE_PULL': 'DEPLOY_VALID_SIGNED_DIGEST',
+                'ADMISSION_DENIED': 'DEPLOY_ATTESTED_IMAGE'}
 
 
 def _waiting(status):
@@ -62,6 +65,8 @@ def diagnose(deployment, pods, events, replicasets=()):
               'observed_generation': status.get('observedGeneration'), 'desired_replicas': desired,
               'available_replicas': int(status.get('availableReplicas', 0)),
               'revision': (deployment['metadata'].get('annotations') or {}).get('deployment.kubernetes.io/revision')}
+    result['automated_fix'] = bool(SUGGESTED[primary])
+    result['owner_action'] = OWNER_ACTION.get(primary)
     result['evidence_digest'] = hashlib.sha256(json.dumps(
         {k: result[k] for k in ('deployment', 'namespace', 'finding', 'evidence', 'revision')}, sort_keys=True).encode()).hexdigest()
     return result

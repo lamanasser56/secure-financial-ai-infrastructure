@@ -165,3 +165,18 @@ sends, 0 ops explanations.
 - **`make down`:** the staged ops agent stopped before the node drain, and 0 explanations were requested.
 - **Next:** pending an owner decision. Every case needs a fresh app session (or a session restart inside the run), and
   the remaining approved budget does not cover a full rerun.
+
+## Attempt 5 preparation (2026-10-11)
+
+**Note A (owner):** the stop at 5a in attempt 4 was the platform's per-session rate limit (16 model attempts per user
+per hour) working as designed. The limit stays unchanged. Attempt 5 runs in a fresh session (a new `make up`, so a new
+app session and conversation), so our own runs do not exhaust it.
+
+**Scope (owner decision, option a):** attempt 5 runs only **5a** (redaction of email and phone before the model) and
+**6a** (ops explanation). 1a, 1b, 2a, 4a, 4b and 4c are carried as passed from attempt 4
+(`requalify.py --cases 5a,6a --carried-from 4` records them under `cases_carried`).
+
+**6a uses the wedge fault.** Rollback was removed from the ops agent (PR #22), so 6a now checks that `make fault
+F=wedge` gives a READINESS_FAILING finding, a rollout-restart proposal, and a model explanation through the gateway.
+
+**Budget:** 7 of 36 remain (29 used per the gateway log). Up to +6 more is approved if 7 are not enough.

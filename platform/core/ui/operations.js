@@ -9,6 +9,18 @@ words.en.diagnose='Diagnose current evidence'; words.ar.diagnose='تشخيص ا�
 Object.assign(words.en,{'activity-heading':'Agent activity','pending-heading':'Pending approvals','timeline-heading':'Timeline: observed → diagnosed → proposed → approved → executed → verified','denials-heading':'Policy denials'});
 Object.assign(words.ar,{'activity-heading':'نشاط الوكيل','pending-heading':'موافقات معلّقة','timeline-heading':'الخط الزمني: رُصد ← شُخّص ← اقتُرح ← وُوفق ← نُفّذ ← تُحقّق','denials-heading':'حالات الرفض بالسياسة'});
 const clusterActions={restart:['Rollout restart','إعادة تشغيل متدرجة'],scale:['Bounded scale','تحجيم ضمن الحدود']};
+// Findings whose fix needs a Pod spec change: the agent diagnoses and explains, the owner acts (no automated fix).
+const ownerActions={
+  RAISE_MEMORY_LIMIT_OR_FIX_WORKLOAD:['The workload exceeds its memory limit. Raise the limit or fix the workload, then redeploy.','يتجاوز الحمل حد الذاكرة. ارفع الحد أو أصلح الحمل ثم أعد النشر.'],
+  DEPLOY_VALID_SIGNED_DIGEST:['The image cannot be pulled. Deploy a valid, signed image digest.','تعذّر سحب الصورة. انشر بصمة صورة صالحة وموقّعة.'],
+  DEPLOY_ATTESTED_IMAGE:['Binary Authorization rejected the image. Deploy an image with a valid attestation.','رفض Binary Authorization الصورة. انشر صورة تحمل شهادة اعتماد صالحة.']};
+let lastDiagnosis;
+function ownerAction(value) {
+  lastDiagnosis=value;
+  const code=value && value.owner_action, lang=node('language').value==='ar'?1:0;
+  node('owner-action').hidden=!ownerActions[code];
+  if(ownerActions[code]) node('owner-action').textContent=(lang?'مطلوب إجراء من المالك — لا يوجد إصلاح آلي. ':'Owner action required — no automated fix. ')+ownerActions[code][lang]+(lang?' الوكيل يشخّص ويشرح فقط ولا يغيّر مواصفات الـ Pod.':' The agent only diagnoses and explains; it never changes a Pod spec.');
+}
 function items(id, rows, render) { node(id).replaceChildren(...rows.map(r => { const li=document.createElement('li'); li.textContent=render(r); return li; })); }
 function activity(value) {
   if (!value || !value.timeline) return;
@@ -23,6 +35,7 @@ function localize() {
   const lang = node('language').value;
   document.documentElement.lang = lang; document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
   Object.entries(words[lang]).forEach(([id, value]) => { node(id).textContent = value; });
+  ownerAction(lastDiagnosis);
   const labels=Object.assign({restore:['Restore failed owned service','استعادة الخدمة المملوكة المتعطلة'],test_failure:['Controlled owned service failure','تعطيل اختباري للخدمة المملوكة'],recover:['Stop registered orphan','إيقاف العملية اليتيمة المسجلة'],clean:['Clean registered cache','تنظيف ذاكرة مؤقتة مسجلة']},clusterActions);
   Array.from(node('action').options).forEach(x=>{x.textContent=labels[x.value][lang==='ar'?1:0];});
   if(latestBudgets){budgets(latestBudgets);if(latestBudgets.live_enabled)node('notice').textContent=lang==='ar'?'تجربة حية اصطناعية مُشرفة ومحدودة. لا بيانات شخصية أو ترقية لسلطة التنقيح. قرارات السياسة والموافقة من الخادم.':'Bounded supervised synthetic live trial. No personal data or redaction promotion. Server policy and approval remain authoritative.';}
@@ -50,7 +63,7 @@ async function refresh() {
 node('language').onchange = localize;
 node('refresh').onclick = refresh;
 node('observe').onclick = async () => { observation=await call('observe',{target_id:node('target').value}); proposal=approval=null; show('incident',observation); show('proposal',null); show('approval',null); };
-node('diagnose').onclick = async () => { if(!observation || !observation.evidence_id)return; const value=await call('diagnose',{target_id:observation.target_id,evidence_id:observation.evidence_id});show('diagnosis',value);if(value.permitted_action)node('action').value=value.permitted_action; };
+node('diagnose').onclick = async () => { if(!observation || !observation.evidence_id)return; const value=await call('diagnose',{target_id:observation.target_id,evidence_id:observation.evidence_id});show('diagnosis',value);ownerAction(value);if(value.permitted_action)node('action').value=value.permitted_action; };
 node('explain').onclick = async () => { const value=await call('explain',{target_id:node('target').value});if(value && value.evidence)observation=value.evidence;show('diagnosis',value); };
 node('propose').onclick = async () => { if(!observation || observation.target_id!==node('target').value)return; proposal=await call('propose',{target_id:observation.target_id,action:node('action').value,evidence_id:observation.evidence_id}); approval=null; show('proposal',proposal); };
 node('approve').onclick = async () => { if(!proposal || !proposal.request_id)return; const secret=node('operator-secret').value; node('operator-secret').value=''; approval=await call('approve',{request_id:proposal.request_id,operator_secret:secret}); show('approval',approval); };

@@ -340,6 +340,10 @@ class DashboardAssets(unittest.TestCase):
         for label in ('نشاط الوكيل', 'موافقات معلّقة', 'حالات الرفض بالسياسة', 'Rollout restart', 'Bounded scale'):
             self.assertIn(label, script)
         self.assertNotIn('rollback', script.lower())
+        for text in ('Owner action required — no automated fix.', 'مطلوب إجراء من المالك — لا يوجد إصلاح آلي.',
+                     'RAISE_MEMORY_LIMIT_OR_FIX_WORKLOAD', 'DEPLOY_VALID_SIGNED_DIGEST', 'DEPLOY_ATTESTED_IMAGE'):
+            self.assertIn(text, script)
+        self.assertIn('id="owner-action"', html)
         for element in ('activity', 'pending', 'timeline', 'denials'):
             self.assertIn('id="' + element + '"', html)
             self.assertIn("'" + element + "'", script)
