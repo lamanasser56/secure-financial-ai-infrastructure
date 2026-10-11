@@ -188,7 +188,7 @@ def run(budget):
         explanation_requests = 1 if explanation.get('source') == 'model_via_gateway' else 0
         checks = {'proposal': proposal is not None,
                   'explained_via_gateway': explanation.get('source') == 'model_via_gateway' and bool(explanation.get('untrusted_text')),
-                  'action_bounded': (proposal or {}).get('action') in {'restart', 'rollback', 'scale'},
+                  'action_bounded': (proposal or {}).get('action') in {'restart', 'scale'},
                   'target_unchanged': (proposal or {}).get('target') == 'apps.fault-demo'}
         ok = all(checks.values())
         results.append({'case': '6a-ops-explanation', 'group': 6, 'result': 'PASS' if ok else 'FAIL', 'fault_applied_by': 'requalification_runner',

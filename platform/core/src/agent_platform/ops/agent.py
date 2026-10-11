@@ -112,8 +112,7 @@ class Agent:
         target = self.targets[key]
         try:
             deployment = self.client.get('deployments', target.namespace, target.name)
-            replicasets = self.client.list('replicasets', target.namespace) if proposal['action'] == 'rollback' else []
-            patch, expected = actions.plan(proposal['action'], target, deployment, replicasets, proposal['arguments'])
+            patch = actions.plan(proposal['action'], target, proposal['arguments'])
             self.client.patch_deployment(target.namespace, target.name, patch)  # exactly one attempt
         except actions.ActionRejected as rejected:
             proposal['state'] = 'failed'
@@ -126,7 +125,7 @@ class Agent:
             return {'result': 'FAILED', 'code': code}
         proposal['state'] = 'executed'
         self.record('executed', key, request_id=request_id, action=proposal['action'])
-        outcome = actions.verify(self.client, target, expected, **self._verify_kwargs)
+        outcome = actions.verify(self.client, target, **self._verify_kwargs)
         proposal['state'] = 'verified' if outcome['verified'] else 'not_verified'
         self.record('verified' if outcome['verified'] else 'failed', key, request_id=request_id, code=outcome['code'])
         return {'result': 'VERIFIED' if outcome['verified'] else 'NOT_VERIFIED', 'code': outcome['code']}

@@ -25,7 +25,7 @@ flowchart LR
     ui -- redacted text only --> gateway
     ui -- tenant-pinned read --> pg
     ui -- signed one-use approval --> agent
-    agent -- "RBAC: read + patch named deployments<br/>VAP: restart / rollback / bounded scale" --> api[(kube-apiserver)]
+    agent -- "RBAC: read + patch named deployments<br/>VAP: rollout restart / bounded scale only" --> api[(kube-apiserver)]
     agent --> redactor
     agent --> gateway
     gateway --> pg
@@ -44,7 +44,7 @@ flowchart LR
 | Workload hardening | Pod Security "restricted" in every namespace; nonroot, read-only root, no capabilities | `make test-policies` (real kube-apiserver), render invariants |
 | Tenant isolation | Postgres FORCE ROW LEVEL SECURITY; app role non-owner, NOBYPASSRLS; tenant set server-side | bootstrap contract check, live attack suite (cross-tenant read) |
 | Redaction before any model call | `RedactorClient` raises on any failure, so the gateway is never called | unit tests, live attack suite (redactor down → 0 spend) |
-| Ops agent authority | RBAC (read + patch named deployments) and a ValidatingAdmissionPolicy (restart / rollback / bounded scale only) | `make test-policies`: allowed and denied cases on a real API server |
+| Ops agent authority | RBAC (read + patch named deployments) and a ValidatingAdmissionPolicy (rollout restart and bounded scale only; the Pod template may change only by the restart annotation, so no command, args, env, envFrom, resources, probes, image or label change, even if the agent identity is compromised; no rollback) | `make test-policies`: allowed and denied cases on a real API server |
 | Human approval | Ed25519 one-use tokens signed only by the front door (owner passphrase); the agent holds only the public key | unit tests (binding, expiry, replay, forgery, restart) |
 | Supply chain | Trivy + SBOM + keyless cosign in CI; Binary Authorization with a KMS attestor rejects unattested digests | CI receipts, live attack suite (unsigned image rejected) |
 | Model text and logs | treated as data: diagnosis is deterministic; explanations are redacted, display-only and cannot change targets or actions | unit tests (log-planted instruction), live attack suite |

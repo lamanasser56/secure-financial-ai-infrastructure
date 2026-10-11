@@ -6,7 +6,7 @@
 #   make up | down         scale 0->1 + deploy + bootstrap  |  Postgres snapshot + scale to 0
 #   make secrets           owner, once: generate platform Secrets (types the approval passphrase)
 #   make port-forward      the only way in: http://127.0.0.1:8080/
-#   make fault F=oom|crashloop|badimage   scripted fault on apps/fault-demo (owner identity)
+#   make fault F=wedge|oom|crashloop|badimage   scripted fault on apps/fault-demo (owner identity)
 #   make attack            live attack suite -> docs/evidence/attack-suite.json
 #   make inventory         read-only list of everything billable in the project
 SHELL := /bin/bash

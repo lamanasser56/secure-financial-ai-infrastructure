@@ -49,7 +49,7 @@ spec:
         - {name: config, secret: {secretName: app, defaultMode: 0400}}
         - {name: tmp, emptyDir: {medium: Memory, sizeLimit: 64Mi}}
 ---
-# Scripted fault target (make fault F=oom|badimage|crashloop). A tiny HTTP workload from the signed app image.
+# Scripted fault target (make fault F=wedge|oom|badimage|crashloop). A tiny HTTP workload from the signed app image.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -57,7 +57,7 @@ metadata:
   namespace: apps
   labels: {app.kubernetes.io/name: fault-demo, app.kubernetes.io/part-of: agent-platform}
 spec:
-  replicas: 0  # scaled to 1 only by `make fault` (the fault is applied in the same patch)
+  replicas: 0  # scaled to 1 only by `make fault`
   revisionHistoryLimit: 5
   selector: {matchLabels: {app.kubernetes.io/name: fault-demo}}
   template:

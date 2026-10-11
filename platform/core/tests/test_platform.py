@@ -137,6 +137,33 @@ class Explanation(unittest.TestCase):
             self.assertEqual(self.explain(choice)[0], {'untrusted_text': None, 'source': 'unavailable'})
 
 
+class FaultDemoWedge(unittest.TestCase):
+    """`make fault F=wedge`: loopback-only trigger; readiness fails until a new Pod (rollout restart) replaces it."""
+
+    def test_wedge_is_loopback_only_and_fails_readiness(self):
+        import threading
+        from http.server import HTTPServer
+        from agent_platform.programs import fault_demo
+        server = HTTPServer(('127.0.0.1', 0), fault_demo.Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        base = 'http://127.0.0.1:%d' % server.server_address[1]
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+        def status(path, method='GET'):
+            try:
+                return opener.open(urllib.request.Request(base + path, method=method), timeout=5).status
+            except urllib.error.HTTPError as error:
+                return error.code
+        try:
+            self.assertEqual(status('/healthz'), 200)
+            self.assertEqual(status('/other', 'POST'), 403)
+            self.assertEqual(status('/wedge', 'POST'), 204)
+            self.assertEqual(status('/healthz'), 503)
+        finally:
+            server.shutdown()
+            fault_demo.Handler.wedged = False
+
+
 class PlatformInstruction(unittest.TestCase):
     """The platform instruction reaches the system message only and names every free-text decision field."""
 
@@ -233,7 +260,9 @@ class Manifest(unittest.TestCase):
     def test_registry_and_admission_share_the_same_digests(self):
         registry = self.find(self.docs, 'ConfigMap', 'ops-agent-registry', 'ops')['data']
         app_image = self.find(self.docs, 'Deployment', 'app')['spec']['template']['spec']['containers'][0]['image']
-        self.assertEqual(registry['apps.app.images'], app_image)
+        self.assertNotIn('IMAGE:', json.dumps(registry))
+        self.assertFalse([k for k in registry if k.endswith('.images')])  # no rollback: the agent never selects an image
+        self.assertTrue(app_image.startswith('us-east1-docker.pkg.dev/'))
         binding = self.find(self.docs, 'ValidatingAdmissionPolicyBinding', 'ops-agent-bounded-remediation')
         self.assertEqual(binding['spec']['paramRef'], {'name': 'ops-agent-registry', 'namespace': 'ops', 'parameterNotFoundAction': 'Deny'})
         remediate = {(r['metadata']['namespace'], n) for r in self.docs if r['kind'] == 'Role' and r['metadata']['name'] == 'ops-agent-remediate'
@@ -272,7 +301,7 @@ class FrontDoorApprovals(unittest.TestCase):
         from agent_platform import app, platform_secrets
         secret = next(d for d in platform_secrets.generate('correct horse battery') if d['metadata']['name'] == 'app')
         self.config = json.loads(__import__('base64').b64decode(secret['data']['app.json']))
-        self.proposal = {'request_id': 'r1', 'target': 'apps.fault-demo', 'action': 'rollback', 'args_digest': 'a' * 64,
+        self.proposal = {'request_id': 'r1', 'target': 'apps.fault-demo', 'action': 'restart', 'args_digest': 'a' * 64,
                          'evidence_digest': 'e' * 64}
         self.calls = []
 
@@ -308,8 +337,9 @@ class DashboardAssets(unittest.TestCase):
         html = (REPO / 'platform/core/ui/operations.html').read_text()
         self.assertNotIn('innerHTML', script)
         self.assertIn("lang === 'ar' ? 'rtl' : 'ltr'", script)
-        for label in ('نشاط الوكيل', 'موافقات معلّقة', 'حالات الرفض بالسياسة', 'Rollback to previous revision'):
+        for label in ('نشاط الوكيل', 'موافقات معلّقة', 'حالات الرفض بالسياسة', 'Rollout restart', 'Bounded scale'):
             self.assertIn(label, script)
+        self.assertNotIn('rollback', script.lower())
         for element in ('activity', 'pending', 'timeline', 'denials'):
             self.assertIn('id="' + element + '"', html)
             self.assertIn("'" + element + "'", script)

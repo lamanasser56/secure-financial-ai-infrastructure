@@ -7,7 +7,7 @@
   attest REF..   KMS attestation for already-signed digests (owner identity; CI attests new images)
   up             scale the pool 0->1, render + validate + apply manifests, bootstrap, wait ready     [cloud write]
   down           snapshot the Postgres disk, then scale the pool to 0                               [cloud write]
-  fault F        oom | crashloop | badimage on apps/fault-demo (owner identity, not the agent)      [cloud write]
+  fault F        wedge | oom | crashloop | badimage on apps/fault-demo (owner identity, not the agent) [cloud write]
   port-forward   kubectl port-forward deploy/app 8080:8080 (the only way in)
   inventory      read-only: everything billable that exists in the project                          [cloud read]
 Terraform uses the user-ADC guard (no static token, no metadata dependency). No command prints secrets.
@@ -203,7 +203,13 @@ FAULTS = {'oom': {'spec': {'template': {'spec': {'containers': [{'name': 'worklo
 
 def fault(kind):
     kubeconfig()
-    if kind == 'badimage':
+    if kind == 'wedge':  # restart-fixable: the running process is wedged, the Pod spec is untouched
+        kubectl('-n', 'apps', 'scale', 'deployment/fault-demo', '--replicas=1')
+        kubectl('-n', 'apps', 'rollout', 'status', 'deployment/fault-demo', '--timeout=180s')
+        kubectl('-n', 'apps', 'exec', 'deployment/fault-demo', '-c', 'workload', '--', '/usr/local/bin/python3.12', '-c',
+                "import urllib.request as u; u.build_opener(u.ProxyHandler({})).open("
+                "u.Request('http://127.0.0.1:8081/wedge', method='POST'), timeout=5)")
+    elif kind == 'badimage':
         unsigned = 'us-east1-docker.pkg.dev/' + settings()['project_id'] + '/sdp-evaluation-images/unsigned-demo@sha256:' + '0' * 64
         kubectl('-n', 'apps', 'set', 'image', 'deployment/fault-demo', 'workload=' + unsigned)
         kubectl('-n', 'apps', 'scale', 'deployment/fault-demo', '--replicas=1')
@@ -211,7 +217,7 @@ def fault(kind):
         patch = dict(FAULTS[kind], spec=dict(FAULTS[kind]['spec'], replicas=1))
         kubectl('-n', 'apps', 'patch', 'deployment', 'fault-demo', '--type', 'strategic', '-p', json.dumps(patch))
     else:
-        raise SystemExit('usage: fault oom|crashloop|inject|badimage')
+        raise SystemExit('usage: fault wedge|oom|crashloop|inject|badimage')
     print(json.dumps({'fault': kind, 'target': 'apps/fault-demo', 'applied_by': 'owner'}))
 
 

@@ -7,8 +7,8 @@ from agent_platform.ops.registry import parse
 GOOD = 'reg/app@sha256:' + 'a' * 64
 BAD = 'reg/unsigned@sha256:' + 'b' * 64
 
-REGISTRY = parse({'apps.fault-demo.min': '0', 'apps.fault-demo.max': '3', 'apps.fault-demo.images': GOOD, 'apps.fault-demo.health': 'none',
-                  'platform.gateway.min': '1', 'platform.gateway.max': '1', 'platform.gateway.images': 'reg/gw@sha256:' + 'c' * 64,
+REGISTRY = parse({'apps.fault-demo.min': '0', 'apps.fault-demo.max': '3', 'apps.fault-demo.health': 'none',
+                  'platform.gateway.min': '1', 'platform.gateway.max': '1',
                   'platform.gateway.health': 'http://gateway.platform.svc.cluster.local:4000/health/liveliness'})
 
 

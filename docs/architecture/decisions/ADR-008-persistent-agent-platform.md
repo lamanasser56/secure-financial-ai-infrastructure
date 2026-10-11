@@ -28,7 +28,11 @@
    Default-deny ingress and egress everywhere; only declared paths are allowed. Provider egress is an FQDN allowlist on the gateway only.
 4. **Enforcement in the system:**
    - NetworkPolicy, RBAC, Postgres RLS (non-owner role, no BYPASSRLS), and mandatory redaction before any model request.
-   - A built-in ValidatingAdmissionPolicy limits the Ops Agent to restart, rollback and bounded scale of registered deployments.
+   - A built-in ValidatingAdmissionPolicy limits the Ops Agent to rollout restart and bounded scale of registered deployments.
+     *Amended 2026-10-11:* rollback was removed. Its branch did not compare command, args, env, envFrom, resources, probes,
+     workingDir, lifecycle or template labels, so a compromised agent identity could "roll back" to a registered image
+     with a changed command (for example printing a credential to logs). A fix that needs a Pod spec change is now an
+     owner action.
    - Binary Authorization admits only signed image digests.
 5. **Operations remediation:** observe → diagnose → propose → one-use owner approval (5 min, bound to request/target/evidence) →
    single execution with no retry → verification → audit. The model never approves or selects targets outside the catalog.

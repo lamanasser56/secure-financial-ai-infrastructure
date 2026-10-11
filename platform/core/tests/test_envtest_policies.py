@@ -107,22 +107,42 @@ class LivePolicies(unittest.TestCase):
         self.assertAllowed(self.ops_patch('platform', 'gateway', restart))
         self.assertAllowed(self.ops_patch('apps', 'fault-demo', {'spec': {'replicas': 3}}))
         self.assertAllowed(self.ops_patch('apps', 'fault-demo', {'spec': {'replicas': 1}}))
-        rollback = {'spec': {'template': {'spec': {'containers': [{'name': 'workload', 'image': GOOD, 'command': ['/usr/local/bin/python3.12', '-m', 'agent_platform.programs.fault_demo'],
-            'env': [{'name': 'PYTHONPATH', 'value': '/app/platform/src:/app'}, {'name': 'FAULT_MODE', 'value': 'none'}],
-            'ports': [{'name': 'http', 'containerPort': 8081}], 'resources': {'requests': {'cpu': '20m', 'memory': '32Mi'}, 'limits': {'cpu': '200m', 'memory': '48Mi'}},
-            'readinessProbe': {'httpGet': {'path': '/healthz', 'port': 8081}, 'periodSeconds': 5},
-            'securityContext': {'allowPrivilegeEscalation': False, 'readOnlyRootFilesystem': True, 'capabilities': {'drop': ['ALL']}, 'seccompProfile': {'type': 'RuntimeDefault'}}}]}}}}
-        self.assertAllowed(self.ops_patch('apps', 'fault-demo', rollback))  # bounded rollback: env/resources change, same security fields, registered image
+
+    def container(self, **change):
+        current = json.loads(self.kubectl('-n', 'apps', 'get', 'deployment', 'fault-demo', '-o', 'json').stdout)
+        container = current['spec']['template']['spec']['containers'][0]
+        container.update(change)
+        return {'spec': {'template': {'spec': {'containers': [container]}}}}
+
+    def test_admission_policy_denies_any_pod_spec_change(self):
+        """No rollback: a compromised ops-agent identity cannot change what a registered workload runs."""
+        template = 'the Pod template may only be unchanged or changed by the rollout-restart annotation'
+        leak = ['/usr/local/bin/python3.12', '-c', 'print(open("/var/run/secrets/tokens/token").read())']
+        for name, patch in (
+                ('command', self.container(command=leak)),
+                ('args', self.container(args=['--print-key'])),
+                ('env', self.container(env=[{'name': 'PYTHONPATH', 'value': '/app/platform/src:/app'}, {'name': 'FAULT_MODE', 'value': 'oom'}])),
+                ('envFrom', self.container(envFrom=[{'secretRef': {'name': 'app'}}])),
+                ('resources', self.container(resources={'requests': {'cpu': '20m', 'memory': '32Mi'}, 'limits': {'cpu': '2', 'memory': '1Gi'}})),
+                ('workingDir', self.container(workingDir='/tmp')),
+                ('readinessProbe', self.container(readinessProbe={'tcpSocket': {'port': 8081}})),
+                ('lifecycle', self.container(lifecycle={'postStart': {'exec': {'command': ['/bin/true']}}})),
+                ('registered image', self.container(image=GOOD.replace('a' * 64, 'b' * 64))),
+                ('other workload image', self.container(image=GATEWAY)),
+                ('unsigned image', self.container(image=OTHER)),
+                ('securityContext', self.container(securityContext={'allowPrivilegeEscalation': True})),
+                ('template labels', {'spec': {'template': {'metadata': {'labels': {'app.kubernetes.io/name': 'fault-demo', 'app.kubernetes.io/part-of': 'agent-platform', 'egress': 'gateway'}}}}}),
+                ('serviceAccountName', {'spec': {'template': {'spec': {'serviceAccountName': 'app'}}}}),
+                ('restart plus env', dict(self.container(env=[{'name': 'FAULT_MODE', 'value': 'none'}]),
+                                          spec=dict(self.container(env=[{'name': 'FAULT_MODE', 'value': 'none'}])['spec'],
+                                                    template=dict(self.container(env=[{'name': 'FAULT_MODE', 'value': 'none'}])['spec']['template'],
+                                                                  metadata={'annotations': {'kubectl.kubernetes.io/restartedAt': '2026-10-11T00:00:00Z'}}))))):
+            with self.subTest(name):
+                self.assertDenied(self.ops_patch('apps', 'fault-demo', patch), template)
 
     def test_admission_policy_denies_out_of_bounds_changes(self):
         self.assertDenied(self.ops_patch('apps', 'fault-demo', {'spec': {'replicas': 4}}), 'replicas outside the registered bounds')
         self.assertDenied(self.ops_patch('platform', 'gateway', {'spec': {'replicas': 2}}), 'replicas outside the registered bounds')
-        swap = {'spec': {'template': {'spec': {'containers': [{'name': 'workload', 'image': OTHER}]}}}}
-        self.assertDenied(self.ops_patch('apps', 'fault-demo', swap), 'bounded rollback to registered images')
-        escalate = {'spec': {'template': {'spec': {'containers': [{'name': 'workload', 'image': GOOD, 'securityContext': {'allowPrivilegeEscalation': True}}]}}}}
-        self.assertDenied(self.ops_patch('apps', 'fault-demo', escalate), 'bounded rollback to registered images')
-        sa = {'spec': {'template': {'spec': {'serviceAccountName': 'app'}}}}
-        self.assertDenied(self.ops_patch('apps', 'fault-demo', sa), 'bounded rollback to registered images')
         self.assertDenied(self.ops_patch('apps', 'fault-demo', {'metadata': {'labels': {'owned-by': 'agent'}}}), 'may not change selector, strategy, labels')
         self.assertDenied(self.ops_patch('apps', 'fault-demo', {'spec': {'paused': True}}), 'may not change selector, strategy, labels')
 

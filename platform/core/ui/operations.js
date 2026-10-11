@@ -8,7 +8,7 @@ let csrf, observation, proposal, approval, busy = false, latestBudgets;
 words.en.diagnose='Diagnose current evidence'; words.ar.diagnose='تشخيص الدليل الحالي';
 Object.assign(words.en,{'activity-heading':'Agent activity','pending-heading':'Pending approvals','timeline-heading':'Timeline: observed → diagnosed → proposed → approved → executed → verified','denials-heading':'Policy denials'});
 Object.assign(words.ar,{'activity-heading':'نشاط الوكيل','pending-heading':'موافقات معلّقة','timeline-heading':'الخط الزمني: رُصد ← شُخّص ← اقتُرح ← وُوفق ← نُفّذ ← تُحقّق','denials-heading':'حالات الرفض بالسياسة'});
-const clusterActions={restart:['Rollout restart','إعادة تشغيل متدرجة'],rollback:['Rollback to previous revision','الرجوع إلى المراجعة السابقة'],scale:['Bounded scale','تحجيم ضمن الحدود']};
+const clusterActions={restart:['Rollout restart','إعادة تشغيل متدرجة'],scale:['Bounded scale','تحجيم ضمن الحدود']};
 function items(id, rows, render) { node(id).replaceChildren(...rows.map(r => { const li=document.createElement('li'); li.textContent=render(r); return li; })); }
 function activity(value) {
   if (!value || !value.timeline) return;

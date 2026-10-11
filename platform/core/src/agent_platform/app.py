@@ -28,7 +28,7 @@ REDACTOR = 'http://redactor.platform.svc.cluster.local:4003'
 OPS = 'http://ops-agent.ops.svc.cluster.local:8090'
 SESSION_SECONDS, REFRESH_SECONDS = 3600, 3000
 PROFILES = ('financial', 'infrastructure')
-ACTIONS = ('restart', 'rollback', 'scale')
+ACTIONS = ('restart', 'scale')
 
 
 def load_config(path=Path('/secrets/app/app.json')):

@@ -7,9 +7,10 @@ never parsed for instructions, only counted/attached as untrusted, redacted cont
 import hashlib
 import json
 
-SUGGESTED = {'CRASH_LOOP': ('rollback', 'restart'), 'OOM_KILLED': ('rollback',), 'IMAGE_PULL': ('rollback',),
-             'ADMISSION_DENIED': ('rollback',), 'PENDING': ('scale',), 'READINESS_FAILING': ('restart', 'rollback'),
-             'HEALTHY': ()}
+# Findings whose fix needs a Pod spec change (image, env, resources) get no proposal: that is an owner change,
+# outside the agent's authority (no rollback; see policies/admission.yaml).
+SUGGESTED = {'CRASH_LOOP': ('restart',), 'OOM_KILLED': (), 'IMAGE_PULL': (), 'ADMISSION_DENIED': (),
+             'PENDING': ('scale',), 'READINESS_FAILING': ('restart',), 'HEALTHY': ()}
 
 
 def _waiting(status):
