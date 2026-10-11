@@ -137,7 +137,15 @@ def run(budget):
                 stop = {'case': case, 'reason': 'budget_reserve', 'used': used, 'budget': budget}
                 break
             since = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-            reply = ui.ask('financial', text, language)['response']
+            answer = ui.ask('financial', text, language)
+            if 'response' not in answer:  # refused by the front door: a recorded failure, never a crash
+                time.sleep(3)
+                used += len(model_shapes(since))  # model requests seen by the app in this case, if any
+                results.append({'case': case, 'group': group, 'language': language, 'result': 'FAIL',
+                                'front_door': {k: answer.get(k) for k in ('http_status', 'error')}})
+                stop = {'case': case, 'reason': 'first_failure'}
+                break
+            reply = answer['response']
             used += int(reply.get('model_requests') or 0)
             if kind == 'grounded':
                 checks = grounded(reply, period, language)

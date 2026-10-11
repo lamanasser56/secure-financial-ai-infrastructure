@@ -134,3 +134,17 @@ diagnosed every target as PENDING and requested explanations; one reached the mo
   - `make down` stops the ops agent (and fault-demo) before the drain.
   - `make fault` brings fault-demo to 1 replica in the same patch as the fault, so only the requalification fault
     case (6a) runs it.
+
+## Attempt 3 result (2026-10-11): stopped by a runner defect after 1a completed
+
+- **No startup explanations.** The staged ops agent started after every target was ready; all four targets
+  were HEALTHY and no model explanation was requested.
+- **1a completed** in the app: 3 model requests, 2 tools (expense_summary, expense_categories), and a final decision
+  that passed schema validation (`limitations` 79 bytes). The platform instruction fixed the attempt 2 cause.
+- **The runner then crashed on 1b** before sending it (0 model requests). The runner sent every question with
+  `conversation_id: null`, and the front door refuses a second question in a session that already has a conversation
+  (`conversation_reset_required`). Attempts 1 and 2 never reached a second question, so the defect stayed hidden.
+  The crash also meant no evidence file was written; this paragraph is the record.
+- **Fix:** `UI.ask` resets the conversation before every question, so each case stays independent. A refusal by the
+  front door is now recorded as a failed case instead of a crash. A test covers the reset contract.
+- **Budget:** 14 + 3 = 17 of 36 used. **Remaining: 19** for attempt 4.

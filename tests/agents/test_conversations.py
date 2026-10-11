@@ -431,6 +431,14 @@ class ConversationTests(unittest.TestCase):
         fresh = self.turn()
         self.assertNotEqual(first["conversation_id"], fresh["conversation_id"])
 
+    def test_independent_questions_need_a_reset_with_null_identifier(self):
+        """The requalification and attack runners reset with conversation_id null before every question."""
+        first = self.turn()
+        with self.assertRaisesRegex(ConversationRejected, "conversation_reset_required"):
+            self.turn()
+        self.assertEqual(self.store.reset(self.token, {"agent": "financial", "conversation_id": None}), {"reset": True})
+        self.assertNotEqual(self.turn()["conversation_id"], first["conversation_id"])
+
     def test_eight_turn_limit_includes_clarifications_without_tools(self):
         identifier = None
         for i in range(8):

@@ -58,15 +58,22 @@ class UI:
                     self.close()
                     raise
 
-    def ask(self, profile, text, language='en'):
-        body = json.dumps({'agent': profile, 'language': language, 'question': text, 'conversation_id': None,
-                           'evidence_source': None}).encode()  # the existing UI's conversation contract
-        request = urllib.request.Request('http://127.0.0.1:8080/api/conversation', data=body, method='POST', headers={
+    def post(self, path, payload, timeout):
+        request = urllib.request.Request('http://127.0.0.1:8080' + path, data=json.dumps(payload).encode(), method='POST', headers={
             'Content-Type': 'application/json', 'Origin': 'http://127.0.0.1:8080', 'X-Demo-CSRF': self.csrf})
         try:
-            return json.loads(self.open(request, timeout=60).read())
+            return json.loads(self.open(request, timeout=timeout).read())
         except urllib.error.HTTPError as error:
             return {'http_status': error.code, **json.loads(error.read() or b'{}')}
+
+    def ask(self, profile, text, language='en'):
+        """One independent question: a new conversation each time (the front door refuses a second question with
+        conversation_id null while a conversation exists: conversation_reset_required)."""
+        reset = self.post('/api/reset', {'agent': profile, 'conversation_id': None}, 10)
+        if reset != {'reset': True}:
+            return reset
+        return self.post('/api/conversation', {'agent': profile, 'language': language, 'question': text,
+                                               'conversation_id': None, 'evidence_source': None}, 60)
 
     def close(self):
         self.forward.terminate()
