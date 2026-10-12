@@ -114,7 +114,7 @@ the redesign.
      - the note: "Your approval is valid once, for this action on this service, for 5 minutes."
    - **Execute → Verified outcome:** "Verified: the service is healthy again (1 of 1 ready)."
    - **Owner-action findings** (out of memory, image pull, admission denied): "Owner action required — no automated
-     fix: <recommendation>". There is no Approve button.
+     fix: [the recommendation]". There is no Approve button.
 3. **Timeline.** It shows meaningful changes only: fault detected, diagnosis, proposal, approval, execution,
    verification, denial. Repeated "healthy" observations are collapsed into one line ("Healthy since 1:47 م").
 4. **Human messages:**
