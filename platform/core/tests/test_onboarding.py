@@ -2,10 +2,14 @@
 import copy
 import io
 import json
+import sys
 import unittest
 
 from agent_platform import onboarding
 from agent_platform.onboarding import Rejected
+
+
+FAKE_HASH = lambda passwords: {u: '$argon2id$v=19$fake' for u in passwords}
 
 
 def hello():
@@ -52,27 +56,23 @@ class Rejections(unittest.TestCase):
             with self.subTest(value):
                 self.rejected(lambda m: m.update(redaction=value), 'redaction: must be required')
 
-    def test_tools_must_be_registered_enabled_and_read_only(self):
-        self.rejected(lambda m: m.update(tools=['delete_all_expenses']), 'tool not registered')
-        self.rejected(lambda m: m.update(tools=['expense_summary', 'expense_summary']), 'distinct')
-        registry = onboarding.tools_registry()
-        original = onboarding.tools_registry
-        try:
-            for change, reason in ((dict(operation_type='write'), 'not read-only'), (dict(risk_classification='high_risk_write'), 'not read-only'),
-                                   (dict(enabled=False), 'disabled'), (dict(approval={'required': True}), 'needs approval')):
-                tampered = {k: dict(v, **change) if k == 'expense_summary' else v for k, v in registry.items()}
-                onboarding.tools_registry = lambda tampered=tampered: tampered
-                with self.subTest(change):
-                    self.rejected(lambda m: m.update(tools=['expense_summary']), reason)
-        finally:
-            onboarding.tools_registry = original
+    def test_tools_must_be_declared_read_only(self):
+        tool = {'id': 'monthly_total', 'access': 'read', 'description': 'Total in a month.'}
+        self.rejected(lambda m: m.update(tools=[dict(tool, access='write')]), 'not read-only')
+        self.rejected(lambda m: m.update(tools=[dict(tool, id='delete_expenses')]), 'looks like a write')
+        self.rejected(lambda m: m.update(tools=[dict(tool, id='transfer_money')]), 'looks like a write')
+        self.rejected(lambda m: m.update(tools=[dict(tool, sql='DELETE FROM x')]), 'tools\\[\\]: not allowed: sql')
+        self.rejected(lambda m: m.update(tools=[tool, tool]), 'distinct')
+        self.rejected(lambda m: m.update(tools=[dict(tool, id='t' + 'x' * i) for i in range(6)]), 'up to 5')
 
     def test_data_is_read_only_under_row_level_security(self):
-        data = {'role': 'portfolio_app', 'access': 'read', 'row_level_security': 'required'}
-        self.rejected(lambda m: m.update(data=dict(data, access='write')), 'read only')
-        self.rejected(lambda m: m.update(data=dict(data, role='postgres')), 'existing platform role')
+        data = {'database': 'finance', 'agent_access': 'read', 'user_entry': 'own-rows', 'row_level_security': 'required'}
+        self.rejected(lambda m: m.update(data=dict(data, agent_access='write')), 'agent_access: read only')
+        self.rejected(lambda m: m.update(data=dict(data, database='postgres')), 'platform database')
         self.rejected(lambda m: m.update(data=dict(data, row_level_security='off')), 'row_level_security: required')
+        self.rejected(lambda m: m.update(data=dict(data, user_entry='any-rows')), 'user_entry')
         self.rejected(lambda m: m.update(data=dict(data, bypass_rls=True)), 'data: not allowed: bypass_rls')
+        self.rejected(lambda m: m.update(data=dict(data, role='postgres')), 'data: not allowed: role')
 
     def test_runtime_is_bounded_and_signed(self):
         for change, reason in ((lambda r: r.update(image='nginx:latest'), 'signed and pinned'),
@@ -91,7 +91,7 @@ class Rejections(unittest.TestCase):
             with self.subTest(name), self.assertRaises(Rejected):
                 onboarding.load(name)
         self.rejected(lambda m: m.update(agent='other'), 'match its directory')
-        self.rejected(lambda m: m.update(placement='front-door'), 'reserved for the legacy Financial Agent')
+        self.rejected(lambda m: m.update(placement='front-door'), 'placement: namespace')
         self.rejected(lambda m: m.pop('runtime'), 'runtime: required')
 
 
@@ -114,7 +114,14 @@ class Inheritance(unittest.TestCase):
         targets = {(e['to'][0]['podSelector']['matchLabels']['app.kubernetes.io/name'], e['ports'][0]['port']) for e in egress}
         self.assertEqual(targets, {('gateway', 4000), ('redactor', 4003)})
         access = onboarding.render_platform_access(onboarding.load_all())
-        self.assertEqual(sorted(p['metadata']['name'] for p in access), ['agent-hello-to-gateway', 'agent-hello-to-redactor'])
+        self.assertEqual(sorted(p['metadata']['name'] for p in access),
+                         ['agent-financial-to-gateway', 'agent-financial-to-postgres', 'agent-financial-to-redactor',
+                          'agent-hello-to-gateway', 'agent-hello-to-redactor'])  # Postgres only for the agent that declares data
+
+    def test_database_path_only_when_declared(self):
+        manifests = onboarding.load_all()
+        ports = lambda name: sorted(e['ports'][0]['port'] for e in onboarding.egress(manifests[name]))
+        self.assertEqual((ports('hello'), ports('financial')), ([4000, 4003], [4000, 4003, 5432]))
 
     def test_hardened_pod_without_api_token(self):
         pod = self.docs[('Deployment', 'agent')]['spec']['template']['spec']
@@ -128,24 +135,42 @@ class Inheritance(unittest.TestCase):
 
     def test_budgets_sum_to_the_platform_total(self):
         limits = onboarding.budgets(onboarding.load_all())
-        self.assertEqual(limits, {'app-infrastructure': 2.5, 'ops-explain': 2.0, 'app-financial': 5.0, 'agent-hello': 0.5})
+        self.assertEqual(limits, {'app-infrastructure': 2.5, 'ops-explain': 2.0, 'app-financial': 0.0,  # retired, refused at the gateway
+                                  'agent-financial': 5.0, 'agent-hello': 0.5})
         self.assertEqual(round(sum(limits.values()), 2), 10.0)
 
 
 class FinancialTenantOne(unittest.TestCase):
-    """The Financial Agent's manifest declares exactly what the platform gives it today (no drift)."""
+    """The Financial Agent's manifest is bound to its code: same read-only tools, its own image, its own data rules."""
 
-    def test_manifest_matches_the_running_configuration(self):
-        from runtime.agents.controls import PROFILES
-        from agent_platform import platform_secrets
+    def test_manifest_matches_the_agent_code(self):
+        sys.path.insert(0, str(onboarding.REPO / 'platform/agents/financial'))
+        from finance_agent.tools import READ_ONLY, TOOLS
         financial = onboarding.load_all()['financial']
-        self.assertEqual(set(financial['tools']), set(PROFILES['financial']))
-        self.assertEqual(onboarding.key_alias(financial), 'app-financial')
-        docs = {(d['metadata']['namespace'], d['metadata']['name']): d for d in platform_secrets.generate('correct horse battery')}
-        boot = json.loads(__import__('base64').b64decode(docs[('platform', 'bootstrap')]['data']['bootstrap.json']))
-        self.assertEqual({k['alias']: k['max_budget'] for k in boot['virtual_keys']}['app-financial'], financial['model']['budget_usd_month'])
-        tenant = (onboarding.REPO / 'platform/core/database/tenant.sql').read_text()
-        self.assertIn('FORCE ROW LEVEL SECURITY', tenant.upper())
+        self.assertEqual({t['id'] for t in financial['tools']}, set(TOOLS))
+        self.assertEqual(set(TOOLS), set(READ_ONLY))
+        self.assertTrue(all(t['access'] == 'read' for t in financial['tools']))
+        self.assertEqual((financial['runtime']['image'], financial['data']['database']), ('agent-financial', 'finance'))
+        self.assertIn('FORCE ROW LEVEL SECURITY', (onboarding.REPO / 'platform/core/database/finance.sql').read_text())
+
+    def test_secrets_give_it_only_its_own_keys_and_hashed_users(self):
+        from agent_platform import platform_secrets
+        passwords = {}
+        docs = {(d['metadata']['namespace'], d['metadata']['name']): d
+                for d in platform_secrets.generate('correct horse battery', hasher=FAKE_HASH, users_out=passwords)}
+        decode = lambda d, k: json.loads(__import__('base64').b64decode(d['data'][k]))
+        boot = decode(docs[('platform', 'bootstrap')], 'bootstrap.json')
+        agent = decode(docs[('agent-financial', 'agent')], 'agent.json')
+        self.assertEqual(set(agent), {'gateway_key', 'redactor_key', 'web_db_url', 'agent_db_url', 'session_key'})
+        self.assertIn('finance_web:' + boot['finance']['web_password'], agent['web_db_url'])
+        self.assertIn('finance_agent:' + boot['finance']['agent_password'], agent['agent_db_url'])
+        self.assertEqual(sorted(passwords), ['lama', 'omar', 'sara'])
+        self.assertTrue(all(u['password_hash'].startswith('$argon2id$') for u in boot['finance']['users']))
+        for password in passwords.values():  # plaintext passwords never enter the cluster
+            self.assertNotIn(password, json.dumps([d['data'] for d in docs.values()]))
+            self.assertNotIn(password, json.dumps(boot))
+        hello_keys = decode(docs[('agent-hello', 'agent')], 'agent.json')
+        self.assertEqual(set(hello_keys), {'gateway_key', 'redactor_key'})  # no data declared: no database access
 
 
 class HelloAgent(unittest.TestCase):

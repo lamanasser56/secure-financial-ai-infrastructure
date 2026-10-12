@@ -28,6 +28,10 @@ REDACTOR = 'http://redactor.platform.svc.cluster.local:4003'
 OPS = 'http://ops-agent.ops.svc.cluster.local:8090'
 SESSION_SECONDS, REFRESH_SECONDS = 3600, 3000
 PROFILES = ('financial', 'infrastructure')
+# The front-door Financial Agent (the qualified reference, requalified 2026-10-11) is retired from the product: the new
+# Financial Agent runs in its own namespace (platform/agents/financial). Its gateway key has budget 0, and the front door
+# no longer composes it, so a financial request here is refused. Code and evidence stay as the qualified reference.
+SERVED = ('infrastructure',)
 ACTIONS = ('restart', 'scale')
 
 
@@ -168,7 +172,7 @@ def compose(config, user, connect):
             self._gateway = Protocol(GATEWAY, key=self._bound_key, redactor=redactor, transport=instructed(shaped_post))
 
     agents = {}
-    for profile in PROFILES:
+    for profile in SERVED:
         identity = TrustedJWTIdentity(profile, issuer='https://fixture-issuer.invalid', audience='portfolio-local-composition',
                                       certificates={'platform-fixture': config['issuer_certificate']}, snapshot_expires_at=expires,
                                       subjects={subject: SubjectGrant(tenant, frozenset(PROFILES))},

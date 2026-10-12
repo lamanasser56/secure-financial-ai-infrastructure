@@ -8,7 +8,8 @@ the platform decides everything security-relevant (docs/agent-developer-guide.md
 - egress only to DNS, the redactor and the LiteLLM gateway (never the internet, never a model provider);
 - a scoped gateway key with the declared monthly budget (the platform total stays $10) and a redactor client key,
   created by `make up` (platform_secrets.onboard) without rotating any existing key;
-- tools only from the registry, read-only, enabled.
+- tools declared read-only (the agent's code is bound to its manifest by a test);
+- data only through platform roles under row-level security (egress to Postgres only when declared).
 
 Anything outside the closed manifest shape is rejected with a reason, before anything is rendered.
 `check` verifies that the committed generated files match the manifests (run by `make test`).
@@ -24,20 +25,21 @@ REPO = Path(__file__).resolve().parents[4]
 AGENTS = REPO / 'platform/agents'
 GENERATED = REPO / 'platform/core/kubernetes/agents'
 IMAGES = REPO / 'platform/clouds/gke/images.json'
-REGISTRY = REPO / 'contracts/agents/tool-registry.json'
 
 PLATFORM_TOTAL_USD = 10.0
-# Platform-owned gateway keys (not onboarded agents): the infrastructure demo profile and ops explanations.
-PLATFORM_KEYS = {'app-infrastructure': 2.5, 'ops-explain': 2.0}
+# Platform-owned gateway keys (not onboarded agents): the infrastructure demo profile, ops explanations, and the
+# retired front-door Financial Agent (budget 0: the gateway refuses it; owner decision 2026-10-12).
+PLATFORM_KEYS = {'app-infrastructure': 2.5, 'ops-explain': 2.0, 'app-financial': 0.0}
 # Images that are platform components; an agent may only run an agent image that CI signed and pinned.
 PLATFORM_IMAGES = {'gateway', 'database', 'redactor', 'ops-agent'}
 RESERVED = {'platform', 'apps', 'ops', 'default', 'app', 'gateway', 'redactor', 'postgres', 'schema', 'ops-agent',
             'infrastructure', 'kube-system', 'kube-public', 'kube-node-lease'}
-# Agents that still run inside the front door (apps/app) until the Financial Agent rewrite moves them out.
-FRONT_DOOR = {'financial'}
-DATA_ROLES = {'portfolio_app'}
+DATABASES = {'finance'}  # platform databases with per-user row-level security (platform/core/database/*.sql)
 GATEWAY = ('platform', 'gateway', 4000)
 REDACTOR = ('platform', 'redactor', 4003)
+POSTGRES = ('platform', 'postgres', 5432)
+TOOL_ID = re.compile(r'[a-z][a-z_]{2,40}')
+WRITE_WORDS = re.compile(r'add|create|insert|update|delete|remove|set|write|pay|transfer|send|approve|execute', re.I)
 NAME = re.compile(r'[a-z][a-z0-9-]{1,20}[a-z0-9]')
 
 
@@ -63,10 +65,6 @@ def quantity(value, unit, maximum, where):
     require(match is not None and int(match.group(1)) <= maximum, where + ': must be at most %d%s' % (maximum, unit))
 
 
-def tools_registry():
-    return {t['id']: t for t in json.loads(REGISTRY.read_text())['tools']}
-
-
 def names():
     return sorted(p.name for p in AGENTS.iterdir() if (p / 'agent.yaml').is_file())
 
@@ -87,8 +85,7 @@ def validate(m, name, *, others=None):
     require(m['agent'] == name, 'agent must match its directory name')
     for field, limit in (('team', 60), ('description', 200)):
         require(isinstance(m[field], str) and 0 < len(m[field].strip()) <= limit, field + ': 1-%d characters' % limit)
-    require(m['placement'] in ('namespace', 'front-door'), 'placement: namespace (front-door is legacy)')
-    require(m['placement'] == 'namespace' or name in FRONT_DOOR, 'placement front-door is reserved for the legacy Financial Agent')
+    require(m['placement'] == 'namespace', 'placement: namespace (every onboarded agent gets its own namespace)')
     require(m['redaction'] == 'required', 'redaction: must be required (every model call is redacted first)')
     # Model: a budget only. The alias, provider, model version and credentials belong to the platform.
     closed(m['model'], {'budget_usd_month'}, 'model')
@@ -97,25 +94,26 @@ def validate(m, name, *, others=None):
             'model.budget_usd_month: a number of dollars above 0 and at most 5.00')
     total = sum(PLATFORM_KEYS.values()) + budget + sum(o['model']['budget_usd_month'] for o in (others or []))
     require(round(total, 2) <= PLATFORM_TOTAL_USD, 'model budget: the platform total would exceed $10.00/month')
-    # Tools: registered, enabled, read-only. Nothing that writes can be onboarded.
-    registry = tools_registry()
-    require(isinstance(m['tools'], list) and len(m['tools']) == len(set(m['tools'])) <= 5, 'tools: a list of up to 5 distinct ids')
+    # Tools: declared, read-only. Nothing that writes can be onboarded (the agent's code is bound to this list by a test).
+    require(isinstance(m['tools'], list) and len(m['tools']) <= 5, 'tools: a list of up to 5 tools')
+    ids = []
     for tool in m['tools']:
-        require(tool in registry, 'tool not registered: ' + str(tool))
-        entry = registry[tool]
-        require(entry['enabled'] is True, 'tool disabled: ' + tool)
-        require(entry['operation_type'] == 'read' and entry['risk_classification'].endswith('_read'), 'tool is not read-only: ' + tool)
-        require(entry['approval']['required'] is False, 'tool needs approval (not onboardable): ' + tool)
-    # Data: none, or read access through an existing non-owner role under row-level security.
+        closed(tool, {'id', 'access', 'description'}, 'tools[]')
+        require(isinstance(tool['id'], str) and TOOL_ID.fullmatch(tool['id']) is not None, 'tool id: lowercase letters and _')
+        require(tool['access'] == 'read', 'tool is not read-only: ' + tool['id'])
+        require(not WRITE_WORDS.search(tool['id']), 'tool name looks like a write: ' + tool['id'])
+        require(isinstance(tool['description'], str) and 0 < len(tool['description']) <= 200, 'tool description: 1-200 characters')
+        ids.append(tool['id'])
+    require(len(ids) == len(set(ids)), 'tools: distinct ids')
+    # Data: none, or a platform database under per-user row-level security. The agent's tools read only; the agent's
+    # web API may add the signed-in user's own rows. Roles and network paths are created by the platform.
     if m['data'] != 'none':
-        closed(m['data'], {'role', 'access', 'row_level_security'}, 'data')
-        require(m['data']['role'] in DATA_ROLES, 'data.role: must be an existing platform role')
-        require(m['data']['access'] == 'read', 'data.access: read only')
+        closed(m['data'], {'database', 'agent_access', 'user_entry', 'row_level_security'}, 'data')
+        require(m['data']['database'] in DATABASES, 'data.database: must be a platform database')
+        require(m['data']['agent_access'] == 'read', 'data.agent_access: read only')
+        require(m['data']['user_entry'] in ('none', 'own-rows'), 'data.user_entry: none or own-rows')
         require(m['data']['row_level_security'] == 'required', 'data.row_level_security: required')
-    if m['placement'] == 'front-door':
-        require('runtime' not in m, 'runtime: not allowed for front-door placement')
-        return
-    require('runtime' in m, 'runtime: required for namespace placement')
+    require('runtime' in m, 'runtime: required')
     r = m['runtime']
     closed(r, {'image', 'command', 'port', 'replicas', 'resources'}, 'runtime')
     images = json.loads(IMAGES.read_text())['images']
@@ -142,7 +140,7 @@ def load_all():
 
 
 def key_alias(manifest):
-    return ('app-' if manifest['placement'] == 'front-door' else 'agent-') + manifest['agent']
+    return 'agent-' + manifest['agent']
 
 
 def budgets(manifests):
@@ -151,7 +149,12 @@ def budgets(manifests):
 
 
 def namespace_agents(manifests):
-    return sorted(n for n, m in manifests.items() if m['placement'] == 'namespace')
+    return sorted(manifests)
+
+
+def egress(manifest):
+    """The only destinations an agent's pods may reach (plus DNS): the gateway, the redactor, and Postgres if declared."""
+    return [_peer(*GATEWAY), _peer(*REDACTOR)] + ([_peer(*POSTGRES)] if manifest['data'] != 'none' else [])
 
 
 def _peer(namespace, name, port):
@@ -162,6 +165,7 @@ def _peer(namespace, name, port):
 
 def render_agent(m):
     name, r = m['agent'], m['runtime']
+    surge = lambda quantity, unit: str(int(quantity[:-len(unit)]) * (r['replicas'] + 1)) + unit
     ns = 'agent-' + name
     labels = {'app.kubernetes.io/name': 'agent', 'app.kubernetes.io/part-of': 'agent-platform', 'agent-platform/agent': name}
     meta = lambda kind_name: {'name': kind_name, 'namespace': ns}
@@ -174,8 +178,9 @@ def render_agent(m):
                                              'pod-security.kubernetes.io/audit': 'restricted',
                                              'pod-security.kubernetes.io/warn': 'restricted'}}},
         {'apiVersion': 'v1', 'kind': 'ResourceQuota', 'metadata': meta('bounds'),
-         'spec': {'hard': {'pods': str(r['replicas'] + 1), 'requests.cpu': '250m', 'requests.memory': '256Mi',
-                           'limits.cpu': '500m', 'limits.memory': '512Mi', 'persistentvolumeclaims': '0',
+         # room for the declared replicas plus one surge pod during a rolling update, and nothing more
+         'spec': {'hard': {'pods': str(r['replicas'] + 1), 'requests.cpu': surge(cpu, 'm'), 'requests.memory': surge(memory, 'Mi'),
+                           'limits.cpu': surge(cpu, 'm'), 'limits.memory': surge(memory, 'Mi'), 'persistentvolumeclaims': '0',
                            'services.loadbalancers': '0', 'services.nodeports': '0'}}},
         {'apiVersion': 'v1', 'kind': 'LimitRange', 'metadata': meta('defaults'),
          'spec': {'limits': [{'type': 'Container', 'default': {'cpu': cpu, 'memory': memory},
@@ -215,7 +220,7 @@ def render_agent(m):
                               'ports': [{'protocol': 'UDP', 'port': 53}, {'protocol': 'TCP', 'port': 53}]}]}},
         {'apiVersion': 'networking.k8s.io/v1', 'kind': 'NetworkPolicy', 'metadata': meta('agent'),
          'spec': {'podSelector': {'matchLabels': {'app.kubernetes.io/name': 'agent'}}, 'policyTypes': ['Egress'],
-                  'egress': [_peer(*GATEWAY), _peer(*REDACTOR)]}},
+                  'egress': egress(m)}},
     ]
 
 
@@ -223,7 +228,10 @@ def render_platform_access(manifests):
     """Additive NetworkPolicies in `platform`: the gateway and the redactor accept each onboarded agent namespace."""
     docs = []
     for name in namespace_agents(manifests):
-        for target, port in (('gateway', GATEWAY[2]), ('redactor', REDACTOR[2])):
+        targets = [('gateway', GATEWAY[2]), ('redactor', REDACTOR[2])]
+        if manifests[name]['data'] != 'none':
+            targets.append(('postgres', POSTGRES[2]))
+        for target, port in targets:
             docs.append({'apiVersion': 'networking.k8s.io/v1', 'kind': 'NetworkPolicy',
                          'metadata': {'name': 'agent-' + name + '-to-' + target, 'namespace': 'platform'},
                          'spec': {'podSelector': {'matchLabels': {'app.kubernetes.io/name': target}}, 'policyTypes': ['Ingress'],
@@ -261,14 +269,13 @@ def outputs():
 
 
 def summary(manifest):
-    inherited = ['redaction before every model call', 'gateway key only (no provider access)', 'audit']
-    if manifest['placement'] == 'namespace':
-        inherited = ['own namespace agent-' + manifest['agent'] + ' (Pod Security restricted)',
-                     'default-deny network; egress only to the redactor and the gateway',
-                     'no Kubernetes API token', 'no public Service'] + inherited
+    reach = 'the redactor and the gateway' + (' and Postgres (row-level security)' if manifest['data'] != 'none' else '')
+    inherited = ['own namespace agent-' + manifest['agent'] + ' (Pod Security restricted)',
+                 'default-deny network; egress only to ' + reach, 'no Kubernetes API token', 'no public Service',
+                 'redaction before every model call', 'gateway key only (no provider access)', 'audit']
     return {'agent': manifest['agent'], 'result': 'ACCEPTED', 'placement': manifest['placement'],
             'gateway_key': key_alias(manifest), 'monthly_budget_usd': manifest['model']['budget_usd_month'],
-            'tools': manifest['tools'], 'inherits': inherited}
+            'tools': [t['id'] for t in manifest['tools']], 'inherits': inherited}
 
 
 def main(argv):

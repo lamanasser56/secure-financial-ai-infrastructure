@@ -32,4 +32,5 @@ configMapGenerator:
     files:
       - litellm-schema.sql=../database/litellm-schema.sql
       - tenant.sql=../database/tenant.sql
+      - finance.sql=../database/finance.sql
       - expenses.json=../database/expenses.json

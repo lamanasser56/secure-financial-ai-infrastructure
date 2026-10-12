@@ -9,7 +9,7 @@ agent must never do. An agent that does not meet the contract is not deployed.
 [developer guide](agent-developer-guide.md). Three agents are declared today:
 
 - the **Security & Operations Agent** (the flagship, a platform component);
-- the **Financial Agent**, tenant #1 (`platform/agents/financial/agent.yaml`, still placed in the front door);
+- the **Financial Agent**, tenant #1 (`platform/agents/financial/agent.yaml`, namespace `agent-financial`, its own image);
 - the **hello agent**, the smallest onboarded example (`platform/agents/hello/agent.yaml`, namespace `agent-hello`).
 
 ## 1. What every agent inherits

@@ -1,0 +1,10 @@
+:root { --bg: #f7f7f5; --fg: #1d1d1b; --muted: #5d5d58; --line: #d9d9d2; --accent: #1f5f8b; }
+@media (prefers-color-scheme: dark) { :root { --bg: #161615; --fg: #ececea; --muted: #a6a69f; --line: #34342f; --accent: #7fb6dc; } }
+body { margin: 0 auto; max-width: 880px; padding: 16px; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
+header { display: flex; gap: 8px; align-items: center; } header h1 { flex: 1; font-size: 1.4rem; }
+section { border-top: 1px solid var(--line); padding: 12px 0; }
+label { display: inline-flex; flex-direction: column; margin: 4px 8px 4px 0; font-size: .9rem; color: var(--muted); }
+input, select, textarea, button { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--fg); }
+textarea { width: 100%; box-sizing: border-box; } button { cursor: pointer; border-color: var(--accent); color: var(--accent); }
+table { width: 100%; border-collapse: collapse; margin-top: 8px; } th, td { text-align: start; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.answer { font-size: 1.15rem; } .hint, .intro { color: var(--muted); } bdi { unicode-bidi: isolate; }

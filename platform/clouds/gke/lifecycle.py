@@ -10,6 +10,7 @@
   fault F        wedge | oom | crashloop | badimage on apps/fault-demo (owner identity, not the agent) [cloud write]
   port-forward   kubectl port-forward deploy/app 8080:8080 (the only way in)
   hello NAME     one greeting through the onboarded hello agent (one model request on its own key)
+  agent-forward A  port-forward an onboarded agent's port to 127.0.0.1 (e.g. A=financial -> http://127.0.0.1:8081/)
   inventory      read-only: everything billable that exists in the project                          [cloud read]
 Terraform uses the user-ADC guard (no static token, no metadata dependency). No command prints secrets.
 """
@@ -167,7 +168,9 @@ def up():
         print(json.dumps({'result': 'NEEDS_SECRETS', 'missing': missing, 'next': 'run `make secrets`, then `make up` again'}))
         raise SystemExit(3)
     # Onboarded agents (platform/agents/*/agent.yaml): add their keys and apply manifest budgets, no rotation.
-    onboarded = run(sys.executable, '-B', '-m', 'agent_platform.platform_secrets', '--kubectl', KUBECTL, '--onboard', capture=True,
+    finance_tools()
+    onboarded = run(sys.executable, '-B', '-m', 'agent_platform.platform_secrets', '--kubectl', KUBECTL, '--onboard',
+                    '--users-file', STATE / 'financial-users.json', capture=True,
                     env=dict(os.environ, PYTHONPATH=str(REPO / 'platform/core/src') + ':' + str(REPO),
                              KUBECONFIG=str(STATE / 'kubeconfig'))).stdout
     if json.loads(onboarded)['platform_keys_changed']:  # new or re-budgeted gateway keys, new redactor client keys
@@ -185,10 +188,28 @@ def up():
     print(json.dumps({'result': 'UP', 'minutes': round((time.time() - started) / 60, 1), 'access': 'make port-forward -> http://127.0.0.1:8080/'}))
 
 
+def finance_tools():
+    """argon2 for the Financial Agent users' hashes, from its hash-locked set, in a local venv (owner laptop)."""
+    python = REPO / '.cache/finance-tools/bin/python'
+    if not python.exists():
+        run(sys.executable, '-m', 'venv', REPO / '.cache/finance-tools')
+        run(python, '-m', 'pip', 'install', '--quiet', '--require-hashes', '--no-deps', '-r', REPO / 'requirements-financial-agent.txt')
+
+
 def onboarding_namespaces():
     sys.path.insert(0, str(REPO / 'platform/core/src'))
     from agent_platform import onboarding
     return onboarding.namespace_agents(onboarding.load_all())
+
+
+def agent_forward(name):
+    sys.path.insert(0, str(REPO / 'platform/core/src'))
+    from agent_platform import onboarding
+    port = str(onboarding.load_all()[name]['runtime']['port'])
+    kubeconfig()
+    print(json.dumps({'agent': name, 'open': 'http://127.0.0.1:' + port + '/'}), flush=True)
+    os.execv(str(KUBECTL), [str(KUBECTL), '--kubeconfig', str(STATE / 'kubeconfig'), '-n', 'agent-' + name, 'port-forward',
+                            '--address', '127.0.0.1', 'deployment/agent', port + ':' + port])
 
 
 def hello(name):
@@ -304,7 +325,7 @@ def inventory():
 
 def main(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['plan', 'apply', 'kubeconfig', 'attest', 'up', 'down', 'fault', 'port-forward', 'inventory', 'secrets', 'hello'])
+    parser.add_argument('command', choices=['plan', 'apply', 'kubeconfig', 'attest', 'up', 'down', 'fault', 'port-forward', 'inventory', 'secrets', 'hello', 'agent-forward'])
     parser.add_argument('args', nargs='*')
     a = parser.parse_args(argv)
     {'plan': plan, 'apply': apply, 'kubeconfig': lambda: print(kubeconfig()), 'up': up, 'down': down,
@@ -313,6 +334,8 @@ def main(argv):
         fault((a.args or [''])[0])
     if a.command == 'attest':
         attest(a.args)
+    if a.command == 'agent-forward':
+        agent_forward((a.args or [''])[0])
     if a.command == 'hello':
         hello(' '.join(a.args) or 'Lama')
 

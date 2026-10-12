@@ -273,7 +273,7 @@ class Manifest(unittest.TestCase):
 
     def test_rendered_manifest_holds_every_invariant(self):
         summary = render.validate(self.docs, self.refs)
-        self.assertEqual(summary['kinds']['Namespace'], 4)  # platform, apps, ops + the onboarded agent-hello
+        self.assertEqual(summary['kinds']['Namespace'], 5)  # platform, apps, ops + onboarded agent-financial, agent-hello
         self.assertNotIn('Ingress', summary['kinds'])
 
     def test_each_violation_is_rejected(self):
@@ -327,7 +327,7 @@ class Manifest(unittest.TestCase):
 class SecretSeparation(unittest.TestCase):
     def test_who_holds_what(self):
         from agent_platform import platform_secrets
-        docs = {(d['metadata']['namespace'], d['metadata']['name']): d for d in platform_secrets.generate('correct horse battery')}
+        docs = {(d['metadata']['namespace'], d['metadata']['name']): d for d in platform_secrets.generate('correct horse battery', hasher=lambda pw: {u: '$argon2id$fake' for u in pw})}
         decode = lambda d, k: __import__('base64').b64decode(d['data'][k]).decode()
         app = json.loads(decode(docs[('apps', 'app')], 'app.json'))
         ops = json.loads(decode(docs[('ops', 'ops-agent')], 'ops.json'))
@@ -340,7 +340,7 @@ class SecretSeparation(unittest.TestCase):
         proposal = {'request_id': 'r', 'target': 't', 'action': 'restart', 'args_digest': 'a', 'evidence_digest': 'e'}
         self.assertEqual(approval.Verifier(ops['approver_public_key']).consume(signer.sign(proposal), proposal)['approver'], 'owner')
         self.assertNotIn(boot['master_key'], json.dumps(app) + json.dumps(ops))
-        self.assertTrue(all(d['metadata']['namespace'] in ('platform', 'apps', 'ops', 'agent-hello') for d in docs.values()))
+        self.assertTrue(all(d['metadata']['namespace'] in ('platform', 'apps', 'ops', 'agent-hello', 'agent-financial') for d in docs.values()))
         # an onboarded agent holds only its own gateway key and its own redactor key
         hello = json.loads(decode(docs[('agent-hello', 'agent')], 'agent.json'))
         clients = json.loads(decode(docs[('platform', 'redactor')], 'clients.json'))
@@ -354,7 +354,7 @@ class SecretSeparation(unittest.TestCase):
 class FrontDoorApprovals(unittest.TestCase):
     def setUp(self):
         from agent_platform import app, platform_secrets
-        secret = next(d for d in platform_secrets.generate('correct horse battery') if d['metadata']['name'] == 'app')
+        secret = next(d for d in platform_secrets.generate('correct horse battery', hasher=lambda pw: {u: '$argon2id$fake' for u in pw}) if d['metadata']['name'] == 'app')
         self.config = json.loads(__import__('base64').b64decode(secret['data']['app.json']))
         self.proposal = {'request_id': 'r1', 'target': 'apps.fault-demo', 'action': 'restart', 'args_digest': 'a' * 64,
                          'evidence_digest': 'e' * 64}

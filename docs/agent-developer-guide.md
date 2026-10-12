@@ -96,10 +96,23 @@ make hello NAME=Lama            # one greeting = one model request on the hello 
 make down
 ```
 
+## 7. A real example: the Financial Agent
+
+[`platform/agents/financial/agent.yaml`](../platform/agents/financial/agent.yaml) is tenant #1:
+
+- **Image:** its own image (`platform/agents/financial/Dockerfile`), built, scanned, signed and attested by the same CI
+  pipeline, and pinned in `images.json` as `agent-financial`.
+- **Data:** `finance` under per-user row-level security. Its tools read through a read-only role; its web API adds
+  the signed-in user's own rows. The platform creates the roles, the network path to Postgres (only because data is
+  declared), and the users.
+- **Users:** three local users (lama, sara, omar) with argon2id hashes. `make up` writes their passwords once to the
+  owner's private state (`financial-users.json`, mode 0600); they are never printed or committed.
+- **Access:** `make agent-forward A=financial`, then open `http://127.0.0.1:8081/`.
+
 ## Known limitations
 
 - **Person names are not redacted.** The redaction entity set has no person-name category.
-- **Agent images:** today, onboarded agents run the platform's signed `app` image. Your own agent image would be
-  added to the CI image pipeline (scan, sign, attest) and pinned in `platform/clouds/gke/images.json`.
-- **Front-door placement:** the Financial Agent still runs inside the front door. Its manifest (`placement:
-  front-door`) declares exactly what it has today. The Financial Agent rewrite moves it to its own namespace.
+- **Agent images:** the hello agent runs the platform's signed `app` image; the Financial Agent shows the pattern for
+  your own image (a Dockerfile, one line in the CI image matrix, a pin in `platform/clouds/gke/images.json`).
+- **Retired front-door agent:** the earlier, qualified Financial Agent in the front door is retired from the product
+  (gateway budget 0, not composed). Its code and requalification evidence stay as the qualified reference.

@@ -19,12 +19,12 @@ metadata:
   namespace: agent-hello
 spec:
   hard:
-    limits.cpu: 500m
-    limits.memory: 512Mi
+    limits.cpu: 100m
+    limits.memory: 192Mi
     persistentvolumeclaims: '0'
     pods: '2'
-    requests.cpu: 250m
-    requests.memory: 256Mi
+    requests.cpu: 100m
+    requests.memory: 192Mi
     services.loadbalancers: '0'
     services.nodeports: '0'
 ---

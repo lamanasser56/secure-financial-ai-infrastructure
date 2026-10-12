@@ -1,4 +1,4 @@
-# Agent platform images (Phase E, ADR-008): app and ops.
+# Agent platform images (Phase E, ADR-008): app and ops, plus onboarded agents' own images (agent-financial).
 # build -> Trivy (HIGH/CRITICAL, fail-closed) -> CycloneDX SBOM -> push by digest -> keyless cosign (this job's OIDC
 # identity, no device login, no stored key) -> cosign verify (exact workflow identity) -> Binary Authorization
 # attestation with the Cloud KMS attestor key (GKE admission cannot enforce keyless signatures natively).
@@ -9,7 +9,7 @@ on:
   workflow_dispatch: {}
   push:
     branches: [main]
-    paths: ['platform/core/**', 'runtime/**', 'contracts/**', 'demo/**', 'requirements-litellm-candidate.txt', 'requirements-agent-composition.txt', '.github/workflows/agent-platform-images.yml']
+    paths: ['platform/core/**', 'platform/agents/**', 'runtime/**', 'contracts/**', 'demo/**', 'requirements-litellm-candidate.txt', 'requirements-agent-composition.txt', 'requirements-financial-agent.txt', '.github/workflows/agent-platform-images.yml']
 
 permissions: {}
 
@@ -24,7 +24,10 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        target: [app, ops]
+        include:
+          - {image: agent-platform-app, target: app, dockerfile: platform/core/images/Dockerfile}
+          - {image: agent-platform-ops, target: ops, dockerfile: platform/core/images/Dockerfile}
+          - {image: agent-financial, target: runtime, dockerfile: platform/agents/financial/Dockerfile}
     permissions:
       contents: read
       id-token: write
@@ -51,12 +54,12 @@ jobs:
           set -Eeuo pipefail
           [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_RUN_ATTEMPT" == 1 ]]
           docker buildx build --platform linux/amd64 --target "${{ matrix.target }}" \
-            --file platform/core/images/Dockerfile --provenance=false --sbom=false \
-            --tag "local/agent-platform-${{ matrix.target }}:${GITHUB_SHA}" --load .
+            --file "${{ matrix.dockerfile }}" --provenance=false --sbom=false \
+            --tag "local/${{ matrix.image }}:${GITHUB_SHA}" --load .
       - name: Trivy (HIGH,CRITICAL; fail-closed) and SBOM
         run: |
           set -Eeuo pipefail
-          image="local/agent-platform-${{ matrix.target }}:${GITHUB_SHA}"
+          image="local/${{ matrix.image }}:${GITHUB_SHA}"
           "$RUNNER_TEMP/tools/trivy" image --severity HIGH,CRITICAL --exit-code 1 --ignore-unfixed=false \
             --format json --output "$RUNNER_TEMP/trivy.json" "$image"
           "$RUNNER_TEMP/tools/syft" "$image" -o "cyclonedx-json=$RUNNER_TEMP/sbom.cdx.json"
@@ -77,7 +80,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           [[ "$PROJECT_ID" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]]
-          name="agent-platform-${{ matrix.target }}"
+          name="${{ matrix.image }}"
           remote="$REGISTRY/$PROJECT_ID/$REPOSITORY/$name:sha-$GITHUB_SHA"
           printf '%s' "$ACCESS_TOKEN" | docker login "https://$REGISTRY" -u oauth2accesstoken --password-stdin >/dev/null
           docker tag "local/$name:$GITHUB_SHA" "$remote"
@@ -102,7 +105,7 @@ jobs:
           docker logout "https://$REGISTRY" >/dev/null
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: agent-platform-${{ matrix.target }}-evidence
+          name: ${{ matrix.image }}-evidence
           path: |
             ${{ runner.temp }}/receipt.json
             ${{ runner.temp }}/sbom.cdx.json

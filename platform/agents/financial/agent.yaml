@@ -1,15 +1,25 @@
 # Agent manifest for the Financial Agent: tenant #1 of the platform (docs/agent-developer-guide.md).
-# It still runs inside the front door (apps/app); the Financial Agent rewrite moves it to its own namespace.
-# `make test` checks that what this manifest declares is exactly what the platform gives it today.
+# Written from scratch (platform/agents/financial/finance_agent): local users with argon2id sign-in, the user's own
+# expenses (add/list), and an AI assistant that answers only from read-only tools over the user's own rows.
 agent: financial
 team: finance-demo
-description: Answers questions about the signed-in user's own expenses, grounded in read-only tools.
-placement: front-door
+description: Personal expenses with sign-in; the assistant answers only from read-only tools over the user's own rows.
+placement: namespace          # its own namespace: agent-financial
+runtime:
+  image: agent-financial      # its own image, built/scanned/signed/attested by CI (platform/agents/financial/Dockerfile)
+  command: [/usr/local/bin/python3.12, -m, finance_agent.server]
+  port: 8081
+  replicas: 1
+  resources: {cpu: 250m, memory: 256Mi}
 model:
-  budget_usd_month: 5.0
+  budget_usd_month: 5.0       # moved from the retired front-door Financial Agent (owner decision 2026-10-12)
 redaction: required
-tools: [expense_summary, expense_categories]
+tools:                        # bound to finance_agent/tools.py by a test
+  - {id: monthly_total, access: read, description: "Total spent and number of expenses in one month."}
+  - {id: spending_by_category, access: read, description: "Spending per category in one month."}
+  - {id: find_transactions, access: read, description: "Individual expenses in one month, optionally filtered."}
 data:
-  role: portfolio_app
-  access: read
+  database: finance           # platform/core/database/finance.sql
+  agent_access: read          # the tools use the read-only role finance_agent
+  user_entry: own-rows        # the web API adds the signed-in user's own expenses (finance_web)
   row_level_security: required
