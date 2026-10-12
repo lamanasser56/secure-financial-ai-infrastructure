@@ -105,6 +105,18 @@ class FinanceDatabase(unittest.TestCase):
         with self.as_role('finance_agent') as db, self.assertRaises(psycopg.Error):
             db.execute('SELECT * FROM finance.login_lookup(%s)', ('lama',))  # the agent role cannot call it
 
+    def test_lookup_function_contract(self):
+        """Owner is a NOLOGIN, non-superuser role; SECURITY DEFINER; pinned search_path; EXECUTE only for finance_web."""
+        info = psycopg.conninfo.conninfo_to_dict(self.dsn)
+        with psycopg.connect(**dict(info, dbname='finance')) as db:
+            row = db.execute(
+                "SELECT r.rolname, r.rolcanlogin, r.rolsuper, r.rolbypassrls, p.prosecdef, p.proconfig, "
+                "has_function_privilege('finance_web', p.oid, 'EXECUTE'), has_function_privilege('finance_agent', p.oid, 'EXECUTE'), "
+                "(SELECT count(*) FROM aclexplode(p.proacl) a WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE'), "
+                "has_table_privilege('finance_owner', 'finance.expenses', 'SELECT') "
+                "FROM pg_proc p JOIN pg_roles r ON r.oid = p.proowner WHERE p.oid = 'finance.login_lookup(text)'::regprocedure").fetchone()
+        self.assertEqual(row, ('finance_owner', False, False, False, True, ['search_path=pg_catalog, finance'], True, False, 0, False))
+
     def test_web_cannot_change_or_delete(self):
         lama, _ = USERS
         for statement in ('DELETE FROM finance.expenses', 'UPDATE finance.expenses SET amount_minor = 1'):

@@ -66,6 +66,15 @@ def database(config):
 
 
 FINANCE_ROLES = ('finance_web', 'finance_agent')
+# Owner of the SECURITY DEFINER sign-in lookup: cannot log in, reads finance.users only (idempotent; also for existing DBs).
+LOOKUP_OWNERSHIP = (
+    'GRANT USAGE ON SCHEMA finance TO finance_owner',
+    'GRANT SELECT ON finance.users TO finance_owner',
+    'ALTER FUNCTION finance.login_lookup(text) OWNER TO finance_owner',
+    'ALTER FUNCTION finance.login_lookup(text) SET search_path = pg_catalog, finance',
+    'REVOKE ALL ON FUNCTION finance.login_lookup(text) FROM PUBLIC',
+    'GRANT EXECUTE ON FUNCTION finance.login_lookup(text) TO finance_web',
+)
 
 
 def finance(config, connect=None):
@@ -79,6 +88,8 @@ def finance(config, connect=None):
             verb = 'ALTER' if db.execute('SELECT 1 FROM pg_roles WHERE rolname=%s', (role,)).fetchone() else 'CREATE'
             db.execute(sql.SQL(verb + ' ROLE {} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD {}')
                        .format(sql.Identifier(role), sql.Literal(password)))
+        if not db.execute("SELECT 1 FROM pg_roles WHERE rolname='finance_owner'").fetchone():
+            db.execute('CREATE ROLE finance_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS')
         if not db.execute("SELECT 1 FROM pg_database WHERE datname='finance'").fetchone():
             db.execute('CREATE DATABASE finance')
         db.execute('REVOKE CONNECT ON DATABASE finance FROM PUBLIC')
@@ -87,6 +98,8 @@ def finance(config, connect=None):
         if not db.execute("SELECT to_regclass('finance.expenses')").fetchone()[0]:
             db.execute((SQL / 'finance.sql').read_text())
             log(step='finance_schema', created=True)
+        for statement in LOOKUP_OWNERSHIP:
+            db.execute(statement)
         for user in secrets['users']:
             db.execute('INSERT INTO finance.users(id, username, display_name, password_hash) VALUES (%s, %s, %s, %s) '
                        'ON CONFLICT (username) DO NOTHING', (user['id'], user['username'], user['display_name'], user['password_hash']))
@@ -97,10 +110,16 @@ def finance(config, connect=None):
         agent_users = db.execute("SELECT has_table_privilege('finance_agent', 'finance.users', 'SELECT')").fetchone()[0]
         web_changes = db.execute("SELECT has_table_privilege('finance_web', 'finance.expenses', 'UPDATE,DELETE')").fetchone()[0]
         web_users = db.execute("SELECT has_table_privilege('finance_web', 'finance.users', 'SELECT')").fetchone()[0]
+        lookup = db.execute(
+            "SELECT r.rolname, r.rolcanlogin, r.rolsuper, p.prosecdef, p.proconfig, "
+            "has_function_privilege('finance_web', p.oid, 'EXECUTE'), has_function_privilege('finance_agent', p.oid, 'EXECUTE'), "
+            "(SELECT count(*) FROM aclexplode(p.proacl) a WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE') "
+            "FROM pg_proc p JOIN pg_roles r ON r.oid = p.proowner WHERE p.oid = 'finance.login_lookup(text)'::regprocedure").fetchone()
+        lookup_ok = lookup == ('finance_owner', False, False, True, ['search_path=pg_catalog, finance'], True, False, 0)
         if (rls != (True, True) or [r[1:] for r in roles] != [(False, False), (False, False)]
-                or agent_writes or agent_users or web_changes or web_users):
+                or agent_writes or agent_users or web_changes or web_users or not lookup_ok):
             raise SystemExit('bootstrap:finance_rls_contract_violated')
-    log(step='finance', rls_forced=True, users=len(secrets['users']), agent_read_only=True)
+    log(step='finance', rls_forced=True, users=len(secrets['users']), agent_read_only=True, lookup_owner='finance_owner')
 
 
 def _gateway(path, body, master_key, method='POST'):

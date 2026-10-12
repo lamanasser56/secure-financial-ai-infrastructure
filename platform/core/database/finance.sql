@@ -34,7 +34,9 @@ REVOKE ALL ON SCHEMA public FROM PUBLIC;
 REVOKE ALL ON SCHEMA finance FROM PUBLIC;
 GRANT USAGE ON SCHEMA finance TO finance_web, finance_agent;
 -- Sign-in lookup: the web role cannot read the users table; it can only ask for ONE user's row by exact username.
--- SECURITY DEFINER (owned by the database owner) with a fixed search_path; returns at most one row.
+-- SECURITY DEFINER owned by finance_owner, a NOLOGIN role whose only privilege is reading finance.users; fixed
+-- search_path; returns at most one row (username is UNIQUE, LIMIT 1). bootstrap.finance re-applies the ownership and
+-- grants idempotently and verifies them (fail closed).
 CREATE FUNCTION finance.login_lookup(requested text)
   RETURNS TABLE (id uuid, display_name text, password_hash text)
   LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, finance
