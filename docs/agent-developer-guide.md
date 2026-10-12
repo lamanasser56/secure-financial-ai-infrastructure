@@ -77,7 +77,18 @@ must follow the pattern in
 2. Call `http://gateway.platform.svc.cluster.local:4000/v1/chat/completions` with your key and the alias.
 3. Accept only a complete reply (`finish_reason` = `stop`) and treat its text as untrusted data.
 
-## 5. Try it
+## 5. How users reach your agent
+
+- **Today: port-forward only.** An onboarded agent has no public endpoint and no route through the front door. Its
+  only way in is an IAM-gated `kubectl port-forward` from the owner's laptop to its ClusterIP Service, for example
+  `make hello`, which forwards `127.0.0.1:18080` to `agent-hello` and sends one request. Its default-deny ingress
+  admits no other pod in the cluster.
+- **Future work: front-door routing.** The front door (`apps/app`) would authenticate the user, apply the per-user
+  rate limit and budget, and forward the request to the agent's Service. That needs an explicit ingress rule from the
+  front door to the agent's namespace (a network change, reviewed as a diff). The Financial Agent rewrite is the first
+  candidate.
+
+## 6. Try it
 
 ```bash
 make up

@@ -1,0 +1,39 @@
+{
+ "agent": "hello",
+ "budgets_in_gateway": {
+  "agent-hello": 0.5,
+  "app-financial": 5.0,
+  "app-infrastructure": 2.5,
+  "ops-explain": 2.0
+ },
+ "date": "2026-10-12",
+ "deploy": {
+  "make_up": "UP after fix #33 (fsGroup); first make up failed closed: the agent could not read its 0400 key file"
+ },
+ "greeting": {
+  "agent_hello_spend_usd": 0.002835,
+  "charged_to_key": "agent-hello",
+  "command": "make hello NAME=\"Lama, email lama@example.com\"",
+  "http_status": 200,
+  "masked_before_model": [
+   "EMAIL_ADDRESS"
+  ],
+  "model_requests": 1
+ },
+ "namespace": "agent-hello",
+ "network_from_agent_pod": {
+  "database postgres.platform:5432": "BLOCKED",
+  "front door app.apps:8080": "BLOCKED",
+  "gateway.platform:4000": "CONNECTED (allowed)",
+  "internet 8.8.8.8:443": "BLOCKED",
+  "internet www.google.com:443": "BLOCKED",
+  "kubernetes API": "BLOCKED",
+  "metadata server 169.254.169.254:80": "BLOCKED",
+  "model provider aiplatform.us.rep.googleapis.com:443": "BLOCKED",
+  "ops agent ops-agent.ops:8090": "BLOCKED",
+  "redactor.platform:4003": "CONNECTED (allowed)"
+ },
+ "ops_explanations_at_startup": 0,
+ "record": "agent onboarding live check",
+ "recorded_by": "operator session; transcribed from command output (no model text beyond the greeting outcome)"
+}
