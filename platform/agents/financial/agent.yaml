@@ -1,0 +1,15 @@
+# Agent manifest for the Financial Agent: tenant #1 of the platform (docs/agent-developer-guide.md).
+# It still runs inside the front door (apps/app); the Financial Agent rewrite moves it to its own namespace.
+# `make test` checks that what this manifest declares is exactly what the platform gives it today.
+agent: financial
+team: finance-demo
+description: Answers questions about the signed-in user's own expenses, grounded in read-only tools.
+placement: front-door
+model:
+  budget_usd_month: 5.0
+redaction: required
+tools: [expense_summary, expense_categories]
+data:
+  role: portfolio_app
+  access: read
+  row_level_security: required

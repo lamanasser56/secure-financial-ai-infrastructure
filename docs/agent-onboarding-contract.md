@@ -5,9 +5,12 @@ team does not rebuild them. This page states what the platform guarantees, what 
 agent must never do. An agent that does not meet the contract is not deployed.
 
 **Status:** this contract describes the platform as designed. A control counts as live-tested only when the
-[claims matrix](agent-platform/claims-matrix.md) says so. Two agents run on the platform today: the **Security &
-Operations Agent** (the flagship) and the Financial Agent. The planned sample Financial Agent (see "Reference
-consumer" below) will be the first agent onboarded through this contract end to end.
+[claims matrix](agent-platform/claims-matrix.md) says so. Onboarding is implemented by `make onboard`; see the
+[developer guide](agent-developer-guide.md). Three agents are declared today:
+
+- the **Security & Operations Agent** (the flagship, a platform component);
+- the **Financial Agent**, tenant #1 (`platform/agents/financial/agent.yaml`, still placed in the front door);
+- the **hello agent**, the smallest onboarded example (`platform/agents/hello/agent.yaml`, namespace `agent-hello`).
 
 ## 1. What every agent inherits
 
@@ -54,11 +57,14 @@ consumer" below) will be the first agent onboarded through this contract end to 
 
 ## 4. Onboarding steps
 
-1. Open a PR with the manifest, tool registry entries, RLS policies and attack tests.
-2. CI runs the unit tests, render invariants and policy tests. The image pipeline builds, scans, signs and attests.
-3. The owner reviews any IAM, network or Terraform change shown as a diff; nothing is applied without approval.
-4. After the merge, `make up` deploys by digest.
-5. A live run proves the agent's attack tests and one end-to-end turn. Its claims enter the claims matrix as
+1. Write `platform/agents/<name>/agent.yaml` (closed fields; see the developer guide).
+2. Run `make onboard A=<name>`. It refuses the manifest with a reason, or it generates the namespace, network,
+   quota, workload and platform-side access into `platform/core/kubernetes/agents/`.
+3. Open a PR with the manifest, the generated files and the agent's attack tests. CI runs the unit tests, the
+   rejection tests, the render invariants and the policy tests on a real kube-apiserver.
+4. The owner reviews any IAM, network or Terraform change shown as a diff; nothing is applied without approval.
+5. After the merge, `make up` deploys by signed digest and creates the agent's keys without rotating others.
+6. A live run proves the agent's attack tests and one end-to-end turn. Its claims enter the claims matrix as
    live-tested only after that run passes.
 
 ## 5. Known limitations every agent inherits

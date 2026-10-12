@@ -17,7 +17,18 @@ import yaml
 
 HERE = Path(__file__).resolve().parent
 OVERLAY = HERE / 'kubernetes'
-NAMESPACES = ('platform', 'apps', 'ops')
+PLATFORM_NAMESPACES = ('platform', 'apps', 'ops')
+AGENT_EGRESS = [  # an onboarded agent may reach only the gateway and the redactor (plus DNS, in allow-dns)
+    {'to': [{'namespaceSelector': {'matchLabels': {'kubernetes.io/metadata.name': 'platform'}},
+             'podSelector': {'matchLabels': {'app.kubernetes.io/name': 'gateway'}}}], 'ports': [{'protocol': 'TCP', 'port': 4000}]},
+    {'to': [{'namespaceSelector': {'matchLabels': {'kubernetes.io/metadata.name': 'platform'}},
+             'podSelector': {'matchLabels': {'app.kubernetes.io/name': 'redactor'}}}], 'ports': [{'protocol': 'TCP', 'port': 4003}]}]
+
+
+def agent_namespaces():
+    sys.path.insert(0, str(HERE.parents[1] / 'core/src'))
+    from agent_platform import onboarding
+    return tuple('agent-' + n for n in onboarding.namespace_agents(onboarding.load_all()))
 IMAGE_NAMES = ('gateway', 'database', 'redactor', 'app', 'ops-agent')
 WORKLOAD_IDENTITY = {('platform', 'gateway'), ('platform', 'redactor')}
 FORBIDDEN_KINDS = {'Ingress', 'Gateway', 'HTTPRoute', 'ClusterRole', 'ClusterRoleBinding', 'PodSecurityPolicy',
@@ -83,7 +94,18 @@ def validate(docs, refs):
         for token in ('PROJECT_ID', 'CONTROL_PLANE_CIDR', 'GATEWAY_GSA', 'REDACTOR_GSA', 'IMAGE:'):
             require(token not in raw, 'unrendered placeholder ' + token + ' in ' + doc['kind'] + '/' + doc['metadata']['name'])
     namespaces = {d['metadata']['name']: d for d in by_kind.get('Namespace', [])}
-    require(set(namespaces) == set(NAMESPACES), 'namespaces')
+    agents = agent_namespaces()
+    require(set(namespaces) == set(PLATFORM_NAMESPACES + agents), 'namespaces')
+    for name in namespaces:
+        quota = [q for q in by_kind.get('ResourceQuota', []) if q['metadata']['namespace'] == name]
+        require(len(quota) == 1 and quota[0]['spec']['hard'].get('services.loadbalancers') == '0'
+                and quota[0]['spec']['hard'].get('services.nodeports') == '0', 'quota without exposure: ' + name)
+    for name in agents:  # onboarded agents: only the generated network paths, nothing else
+        policies = {p['metadata']['name']: p['spec'] for p in by_kind['NetworkPolicy'] if p['metadata']['namespace'] == name}
+        require(set(policies) == {'default-deny', 'allow-dns', 'agent'}, 'agent network policies: ' + name)
+        require(policies['agent']['egress'] == AGENT_EGRESS and 'ingress' not in policies['agent'], 'agent egress: ' + name)
+        require(not [r for r in by_kind.get('Role', []) + by_kind.get('RoleBinding', []) if r['metadata']['namespace'] == name],
+                'no RBAC in agent namespaces: ' + name)
     for name, ns in namespaces.items():
         require(ns['metadata']['labels'].get('pod-security.kubernetes.io/enforce') == 'restricted', 'PSS restricted: ' + name)
         deny = [p for p in by_kind['NetworkPolicy'] if p['metadata']['namespace'] == name and p['metadata']['name'] == 'default-deny']

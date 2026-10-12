@@ -12,6 +12,7 @@ import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
+import re
 from pathlib import Path
 import sys
 import threading
@@ -123,7 +124,9 @@ def main():
         raise SystemExit('redactor:policy_hash')
     project = os.environ['PORTFOLIO_PROJECT_ID']
     keys = json.loads(Path('/secrets/redactor/clients.json').read_text(), object_pairs_hook=unique)
-    if set(keys) != {'app', 'ops'} or any(type(k) is not str or len(k) != 64 for k in keys.values()):
+    # One key per calling namespace: the front door (app), the ops agent (ops) and each onboarded agent (agent-<name>).
+    if (not {'app', 'ops'} <= set(keys) or not all(c in ('app', 'ops') or re.fullmatch(r'agent-[a-z][a-z0-9-]{1,20}[a-z0-9]', c) for c in keys)
+            or any(type(k) is not str or len(k) != 64 for k in keys.values())):
         raise SystemExit('redactor:client_keys')
     server = ThreadingHTTPServer(('0.0.0.0', 4003), Handler)
     server.daemon_threads = True

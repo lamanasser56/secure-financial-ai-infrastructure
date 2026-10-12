@@ -9,6 +9,7 @@
   down           snapshot the Postgres disk, then scale the pool to 0                               [cloud write]
   fault F        wedge | oom | crashloop | badimage on apps/fault-demo (owner identity, not the agent) [cloud write]
   port-forward   kubectl port-forward deploy/app 8080:8080 (the only way in)
+  hello NAME     one greeting through the onboarded hello agent (one model request on its own key)
   inventory      read-only: everything billable that exists in the project                          [cloud read]
 Terraform uses the user-ADC guard (no static token, no metadata dependency). No command prints secrets.
 """
@@ -21,6 +22,8 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
@@ -163,13 +166,56 @@ def up():
     if missing:  # the owner types the approval passphrase interactively; Claude never does
         print(json.dumps({'result': 'NEEDS_SECRETS', 'missing': missing, 'next': 'run `make secrets`, then `make up` again'}))
         raise SystemExit(3)
+    # Onboarded agents (platform/agents/*/agent.yaml): add their keys and apply manifest budgets, no rotation.
+    onboarded = run(sys.executable, '-B', '-m', 'agent_platform.platform_secrets', '--kubectl', KUBECTL, '--onboard', capture=True,
+                    env=dict(os.environ, PYTHONPATH=str(REPO / 'platform/core/src') + ':' + str(REPO),
+                             KUBECONFIG=str(STATE / 'kubeconfig'))).stdout
+    if json.loads(onboarded)['platform_keys_changed']:  # new or re-budgeted gateway keys, new redactor client keys
+        job = [d for d in docs if d['kind'] == 'Job' and d['metadata']['name'] == 'schema']
+        kubectl('-n', 'platform', 'delete', 'job', 'schema', '--ignore-not-found', '--wait=true')
+        kubectl('apply', '--server-side', '--field-manager=agent-platform', '-f', '-', input=yaml.safe_dump_all(job))
+        kubectl('-n', 'platform', 'rollout', 'restart', 'deployment/redactor')
     kubectl('-n', 'platform', 'rollout', 'status', 'statefulset/postgres', '--timeout=300s')
     kubectl('-n', 'platform', 'wait', '--for=condition=complete', 'job/schema', '--timeout=600s')
-    for ns, name in (('platform', 'gateway'), ('platform', 'redactor'), ('apps', 'app')):
+    agents = tuple(('agent-' + n, 'agent') for n in onboarding_namespaces())
+    for ns, name in (('platform', 'gateway'), ('platform', 'redactor'), ('apps', 'app')) + agents:
         kubectl('-n', ns, 'rollout', 'status', 'deployment/' + name, '--timeout=300s')
     kubectl('-n', 'ops', 'scale', 'deployment/ops-agent', '--replicas=1')  # every target is ready now
     kubectl('-n', 'ops', 'rollout', 'status', 'deployment/ops-agent', '--timeout=300s')
     print(json.dumps({'result': 'UP', 'minutes': round((time.time() - started) / 60, 1), 'access': 'make port-forward -> http://127.0.0.1:8080/'}))
+
+
+def onboarding_namespaces():
+    sys.path.insert(0, str(REPO / 'platform/core/src'))
+    from agent_platform import onboarding
+    return onboarding.namespace_agents(onboarding.load_all())
+
+
+def hello(name):
+    """One greeting through the onboarded hello agent (one model request on its own $0.50 key)."""
+    kubeconfig()
+    forward = subprocess.Popen([str(KUBECTL), '--kubeconfig', str(STATE / 'kubeconfig'), '-n', 'agent-hello', 'port-forward',
+                                '--address', '127.0.0.1', 'deployment/agent', '18080:8080'],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        for attempt in range(30):
+            time.sleep(1)
+            try:
+                opener.open('http://127.0.0.1:18080/healthz', timeout=5)
+                break
+            except OSError:
+                if attempt == 29:
+                    raise SystemExit('hello:agent_unreachable')
+        request = urllib.request.Request('http://127.0.0.1:18080/hello', data=json.dumps({'name': name}).encode(), method='POST',
+                                         headers={'Content-Type': 'application/json'})
+        try:
+            with opener.open(request, timeout=30) as response:
+                print(response.read().decode())
+        except urllib.error.HTTPError as error:
+            print(json.dumps({'http_status': error.code, **json.loads(error.read() or b'{}')}))
+    finally:
+        forward.terminate()
 
 
 def secrets():
@@ -258,7 +304,7 @@ def inventory():
 
 def main(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['plan', 'apply', 'kubeconfig', 'attest', 'up', 'down', 'fault', 'port-forward', 'inventory', 'secrets'])
+    parser.add_argument('command', choices=['plan', 'apply', 'kubeconfig', 'attest', 'up', 'down', 'fault', 'port-forward', 'inventory', 'secrets', 'hello'])
     parser.add_argument('args', nargs='*')
     a = parser.parse_args(argv)
     {'plan': plan, 'apply': apply, 'kubeconfig': lambda: print(kubeconfig()), 'up': up, 'down': down,
@@ -267,6 +313,8 @@ def main(argv):
         fault((a.args or [''])[0])
     if a.command == 'attest':
         attest(a.args)
+    if a.command == 'hello':
+        hello(' '.join(a.args) or 'Lama')
 
 
 if __name__ == '__main__':

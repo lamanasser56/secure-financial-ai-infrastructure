@@ -84,8 +84,11 @@ def keys(config, wait_seconds=300):
         raise SystemExit('bootstrap:budget_total_must_be_10')
     for item in config['virtual_keys']:
         try:
-            _gateway('/key/info?key=' + item['key'], None, config['master_key'], method='GET')
-            log(step='virtual_key', alias=item['alias'], created=False)
+            info = _gateway('/key/info?key=' + item['key'], None, config['master_key'], method='GET')
+            current = ((info or {}).get('info') or {}).get('max_budget')
+            if current != item['max_budget']:  # a manifest changed this key's budget (agent onboarding)
+                _gateway('/key/update', {'key': item['key'], 'max_budget': item['max_budget']}, config['master_key'])
+            log(step='virtual_key', alias=item['alias'], created=False, max_budget=item['max_budget'])
             continue
         except urllib.error.HTTPError as error:
             if error.code not in (400, 404):

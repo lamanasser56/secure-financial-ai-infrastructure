@@ -273,12 +273,18 @@ class Manifest(unittest.TestCase):
 
     def test_rendered_manifest_holds_every_invariant(self):
         summary = render.validate(self.docs, self.refs)
-        self.assertEqual(summary['kinds']['Namespace'], 3)
+        self.assertEqual(summary['kinds']['Namespace'], 4)  # platform, apps, ops + the onboarded agent-hello
         self.assertNotIn('Ingress', summary['kinds'])
 
     def test_each_violation_is_rejected(self):
         def lb(d): self.find(d, 'Service', 'gateway')['spec']['type'] = 'LoadBalancer'
         def nodeport(d): self.find(d, 'Service', 'fault-demo')['spec']['type'] = 'NodePort'
+        def agent_internet(d): self.find(d, 'NetworkPolicy', 'agent', 'agent-hello')['spec']['egress'].append({'to': [{'ipBlock': {'cidr': '0.0.0.0/0'}}]})
+        def agent_rbac(d): d.append({'apiVersion': 'rbac.authorization.k8s.io/v1', 'kind': 'Role', 'metadata': {'name': 'x', 'namespace': 'agent-hello'},
+                                     'rules': [{'apiGroups': [''], 'resources': ['pods'], 'verbs': ['get']}]})
+        def agent_quota(d): d.remove(self.find(d, 'ResourceQuota', 'bounds', 'agent-hello'))
+        def agent_extra_policy(d): d.append({'apiVersion': 'networking.k8s.io/v1', 'kind': 'NetworkPolicy', 'metadata': {'name': 'open', 'namespace': 'agent-hello'},
+                                             'spec': {'podSelector': {}, 'egress': [{}], 'policyTypes': ['Egress']}})
         def no_deny(d): d.remove(self.find(d, 'NetworkPolicy', 'default-deny', 'apps'))
         def tag(d): self.find(d, 'Deployment', 'app')['spec']['template']['spec']['containers'][0]['image'] = 'nginx:latest'
         def privileged(d): self.find(d, 'Deployment', 'gateway')['spec']['template']['spec']['containers'][0]['securityContext']['privileged'] = True
@@ -294,7 +300,7 @@ class Manifest(unittest.TestCase):
         def pss(d): self.find(d, 'Namespace', 'ops')['metadata']['labels']['pod-security.kubernetes.io/enforce'] = 'baseline'
         def app_egress(d): d.append({'kind': 'FQDNNetworkPolicy', 'metadata': {'name': 'x', 'namespace': 'apps'}, 'spec': {}})
         for change in (lb, nodeport, no_deny, tag, privileged, root, wi_app, binding, cluster_role, secrets_read, wide_patch,
-                       ingress, token, pss, app_egress):
+                       ingress, token, pss, app_egress, agent_internet, agent_rbac, agent_quota, agent_extra_policy):
             with self.subTest(change.__name__), self.assertRaises(render.Rejected):
                 render.validate(self.mutated(change), self.refs)
 
@@ -334,7 +340,15 @@ class SecretSeparation(unittest.TestCase):
         proposal = {'request_id': 'r', 'target': 't', 'action': 'restart', 'args_digest': 'a', 'evidence_digest': 'e'}
         self.assertEqual(approval.Verifier(ops['approver_public_key']).consume(signer.sign(proposal), proposal)['approver'], 'owner')
         self.assertNotIn(boot['master_key'], json.dumps(app) + json.dumps(ops))
-        self.assertTrue(all(d['metadata']['namespace'] in ('platform', 'apps', 'ops') for d in docs.values()))
+        self.assertTrue(all(d['metadata']['namespace'] in ('platform', 'apps', 'ops', 'agent-hello') for d in docs.values()))
+        # an onboarded agent holds only its own gateway key and its own redactor key
+        hello = json.loads(decode(docs[('agent-hello', 'agent')], 'agent.json'))
+        clients = json.loads(decode(docs[('platform', 'redactor')], 'clients.json'))
+        keys = {k['alias']: k for k in boot['virtual_keys']}
+        self.assertEqual(hello, {'gateway_key': keys['agent-hello']['key'], 'redactor_key': clients['agent-hello']})
+        self.assertEqual((keys['agent-hello']['max_budget'], keys['app-infrastructure']['max_budget']), (0.5, 2.5))
+        self.assertNotIn(boot['master_key'], json.dumps(hello))
+        self.assertEqual(app['client_keys']['financial'], keys['app-financial']['key'])
 
 
 class FrontDoorApprovals(unittest.TestCase):

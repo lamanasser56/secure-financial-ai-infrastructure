@@ -1,6 +1,8 @@
 # Agent platform (Phase E, ADR-008). Offline targets need no cloud; cloud targets run on the owner's laptop.
 #   make test              offline: unit tests, provider drift, manifest invariants, terraform validate
 #   make test-policies     offline: RBAC / ValidatingAdmissionPolicy / Pod Security against a real local kube-apiserver
+#   make onboard A=<agent> validate platform/agents/<agent>/agent.yaml and generate what the agent inherits
+#   make hello NAME=<name>  call the onboarded hello agent once (one model request)
 #   make provider P=gemini render a provider profile (only active, owner-approved profiles render)
 #   make plan | apply      Terraform for platform/clouds/gke (plan = cloud read, apply = cloud write)
 #   make up | down         scale 0->1 + deploy + bootstrap  |  Postgres snapshot + scale to 0
@@ -22,11 +24,12 @@ ENVTEST_SHA512 := 130369c16f076e724d089189afaede960316f5f5dea6cf57be7a4fc6f09c77
 PY := PYTHONPATH=platform/core/src:platform/core/tests:. $(PYTHON) -B
 LIFECYCLE := PYTHONPATH=platform/core/src:. $(PYTHON) -B platform/clouds/gke/lifecycle.py
 
-.PHONY: test test-policies provider plan apply up down port-forward fault attack inventory secrets
+.PHONY: test test-policies onboard hello provider plan apply up down port-forward fault attack inventory secrets
 
 test:
 	PATH="$(TOOLS):$$PATH" $(PY) -m unittest discover -s platform/core/tests -p 'test_*.py'
 	$(PY) -m agent_platform.providers check gemini
+	$(PY) -m agent_platform.onboarding check
 	$(TERRAFORM) -chdir=platform/clouds/gke/terraform/root init -backend=false -input=false -lockfile=readonly >/dev/null
 	$(TERRAFORM) -chdir=platform/clouds/gke/terraform/root validate -no-color
 	$(TERRAFORM) fmt -check -recursive platform/clouds/gke/terraform
@@ -40,6 +43,9 @@ $(ENVTEST_DIR)/kube-apiserver:
 	echo "$(ENVTEST_SHA512)  $(ENVTEST_DIR)/envtest.tgz" | sha512sum -c -
 	tar -xzf $(ENVTEST_DIR)/envtest.tgz -C $(ENVTEST_DIR) --strip-components=2
 	rm $(ENVTEST_DIR)/envtest.tgz
+
+onboard:
+	$(PY) -m agent_platform.onboarding render $(A)
 
 provider:
 	$(PY) -m agent_platform.providers render $(P)
@@ -58,6 +64,9 @@ down:
 
 port-forward:
 	$(LIFECYCLE) port-forward
+
+hello:
+	$(LIFECYCLE) hello $(NAME)
 
 fault:
 	$(LIFECYCLE) fault $(F)
