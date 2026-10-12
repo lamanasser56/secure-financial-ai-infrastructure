@@ -93,6 +93,18 @@ class FinanceDatabase(unittest.TestCase):
                 db.execute("SELECT set_config('finance.user_id', %s, true)", (lama['id'],))
                 db.execute(statement)
 
+    def test_web_reads_one_users_hash_only_through_the_lookup_function(self):
+        lama, sara = USERS
+        with self.as_role('finance_web') as db, self.assertRaises(psycopg.Error):
+            db.execute('SELECT password_hash FROM finance.users')  # no table access
+        with self.as_role('finance_web') as db:
+            rows = db.execute('SELECT id::text, password_hash FROM finance.login_lookup(%s)', ('lama',)).fetchall()
+            self.assertEqual(rows, [(lama['id'], HASH)])
+            self.assertEqual(db.execute('SELECT count(*) FROM finance.login_lookup(%s)', ("' OR '1'='1",)).fetchone()[0], 0)
+            self.assertEqual(db.execute("SELECT count(*) FROM finance.login_lookup('%')").fetchone()[0], 0)  # exact match only
+        with self.as_role('finance_agent') as db, self.assertRaises(psycopg.Error):
+            db.execute('SELECT * FROM finance.login_lookup(%s)', ('lama',))  # the agent role cannot call it
+
     def test_web_cannot_change_or_delete(self):
         lama, _ = USERS
         for statement in ('DELETE FROM finance.expenses', 'UPDATE finance.expenses SET amount_minor = 1'):

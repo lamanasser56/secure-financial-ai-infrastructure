@@ -96,8 +96,9 @@ def finance(config, connect=None):
         agent_writes = db.execute("SELECT has_table_privilege('finance_agent', 'finance.expenses', 'INSERT,UPDATE,DELETE')").fetchone()[0]
         agent_users = db.execute("SELECT has_table_privilege('finance_agent', 'finance.users', 'SELECT')").fetchone()[0]
         web_changes = db.execute("SELECT has_table_privilege('finance_web', 'finance.expenses', 'UPDATE,DELETE')").fetchone()[0]
+        web_users = db.execute("SELECT has_table_privilege('finance_web', 'finance.users', 'SELECT')").fetchone()[0]
         if (rls != (True, True) or [r[1:] for r in roles] != [(False, False), (False, False)]
-                or agent_writes or agent_users or web_changes):
+                or agent_writes or agent_users or web_changes or web_users):
             raise SystemExit('bootstrap:finance_rls_contract_violated')
     log(step='finance', rls_forced=True, users=len(secrets['users']), agent_read_only=True)
 

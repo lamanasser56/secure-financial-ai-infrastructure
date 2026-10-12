@@ -33,8 +33,15 @@ CREATE POLICY own_rows_insert ON finance.expenses FOR INSERT
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 REVOKE ALL ON SCHEMA finance FROM PUBLIC;
 GRANT USAGE ON SCHEMA finance TO finance_web, finance_agent;
--- Web API: sign-in lookup, then the signed-in user's own rows (insert without choosing user_id: it comes from the setting).
-GRANT SELECT ON finance.users TO finance_web;
+-- Sign-in lookup: the web role cannot read the users table; it can only ask for ONE user's row by exact username.
+-- SECURITY DEFINER (owned by the database owner) with a fixed search_path; returns at most one row.
+CREATE FUNCTION finance.login_lookup(requested text)
+  RETURNS TABLE (id uuid, display_name text, password_hash text)
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, finance
+  AS $$ SELECT u.id, u.display_name, u.password_hash FROM finance.users u WHERE u.username = requested LIMIT 1 $$;
+REVOKE ALL ON FUNCTION finance.login_lookup(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION finance.login_lookup(text) TO finance_web;
+-- Web API: the signed-in user's own rows (insert without choosing user_id: it comes from the setting).
 GRANT SELECT ON finance.expenses TO finance_web;
 GRANT INSERT (spent_on, merchant, category, amount_minor, note) ON finance.expenses TO finance_web;
 -- Agent tools: read the signed-in user's own expenses only; no access to users or password hashes; no writes.

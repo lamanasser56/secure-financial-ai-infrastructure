@@ -83,8 +83,7 @@ class Store:
         if type(username) is not str or not re.fullmatch(r'[a-z][a-z0-9_]{2,19}', username):
             return None
         with self._connect(self._web) as db:
-            found = db.execute('SELECT id::text, display_name, password_hash FROM finance.users WHERE username = %s',
-                               (username,)).fetchone()
+            found = db.execute('SELECT id::text, display_name, password_hash FROM finance.login_lookup(%s)', (username,)).fetchone()
         return None if found is None else {'id': found[0], 'display_name': found[1], 'password_hash': found[2]}
 
     def add_expense(self, user_id, entry):
