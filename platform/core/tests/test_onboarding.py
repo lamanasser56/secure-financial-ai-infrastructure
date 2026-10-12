@@ -119,6 +119,7 @@ class Inheritance(unittest.TestCase):
     def test_hardened_pod_without_api_token(self):
         pod = self.docs[('Deployment', 'agent')]['spec']['template']['spec']
         self.assertIs(pod['automountServiceAccountToken'], False)
+        self.assertEqual(pod['securityContext']['fsGroup'], 65532)  # live 2026-10-12: without it the 0400 key file was unreadable
         self.assertIs(self.docs[('ServiceAccount', 'agent')]['automountServiceAccountToken'], False)
         container = pod['containers'][0]
         self.assertEqual(container['securityContext']['capabilities'], {'drop': ['ALL']})

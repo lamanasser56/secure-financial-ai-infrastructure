@@ -187,6 +187,7 @@ def render_agent(m):
                   'template': {'metadata': {'labels': labels},
                                'spec': {'serviceAccountName': 'agent', 'automountServiceAccountToken': False,
                                         'securityContext': {'runAsNonRoot': True, 'runAsUser': 65532, 'runAsGroup': 65532,
+                                                            'fsGroup': 65532,  # the 0400 key file is readable by the agent
                                                             'seccompProfile': {'type': 'RuntimeDefault'}},
                                         'containers': [{
                                             'name': 'agent', 'image': 'agent-platform/' + r['image'], 'command': r['command'],

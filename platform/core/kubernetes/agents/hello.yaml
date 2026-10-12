@@ -115,6 +115,7 @@ spec:
               name: keys
               readOnly: true
       securityContext:
+        fsGroup: 65532
         runAsGroup: 65532
         runAsNonRoot: true
         runAsUser: 65532
