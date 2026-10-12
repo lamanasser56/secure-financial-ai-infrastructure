@@ -248,8 +248,11 @@ class Web(unittest.TestCase):
         from finance_agent import server
         bootstrap.SQL = REPO / 'platform/core/database'
         info = psycopg.conninfo.conninfo_to_dict(dsn)
-        cls.users = [{'id': LAMA, 'username': 'lama', 'display_name': 'Lama', 'password_hash': hash_password('lama-password-1')},
-                     {'id': SARA, 'username': 'sara', 'display_name': 'Sara', 'password_hash': hash_password('sara-password-1')}]
+        # unique usernames: CI shares one Postgres between test files, and seeding is idempotent (ON CONFLICT DO NOTHING)
+        suffix = uuid.uuid4().hex[:6]
+        cls.names = {'lama': 'lama_' + suffix, 'sara': 'sara_' + suffix}
+        cls.users = [{'id': LAMA, 'username': cls.names['lama'], 'display_name': 'Lama', 'password_hash': hash_password('lama-password-1')},
+                     {'id': SARA, 'username': cls.names['sara'], 'display_name': 'Sara', 'password_hash': hash_password('sara-password-1')}]
         secrets = {'web_password': uuid.uuid4().hex, 'agent_password': uuid.uuid4().hex, 'users': cls.users}
         bootstrap.finance({'finance': secrets}, connect=lambda db: psycopg.connect(**dict(info, dbname=db), autocommit=True))
         role_dsn = lambda role, pw: psycopg.conninfo.make_conninfo(**dict(info, dbname='finance', user=role, password=pw))
@@ -287,7 +290,7 @@ class Web(unittest.TestCase):
         return response.status, value, response.getheader('Set-Cookie'), response.getheader('Content-Security-Policy')
 
     def sign_in(self, username, password):
-        status, value, cookie, _ = self.call('POST', '/api/login', {'username': username, 'password': password})
+        status, value, cookie, _ = self.call('POST', '/api/login', {'username': self.names.get(username, username), 'password': password})
         self.assertEqual(status, 200)
         self.assertIn('HttpOnly', cookie)
         self.assertIn('SameSite=Strict', cookie)
@@ -317,7 +320,7 @@ class Web(unittest.TestCase):
         self.assertNotIn('Sara secret', sent)
 
     def test_rejections_wrong_password_csrf_origin_host_and_no_session(self):
-        self.assertEqual(self.call('POST', '/api/login', {'username': 'lama', 'password': 'wrong'})[0], 401)
+        self.assertEqual(self.call('POST', '/api/login', {'username': self.names['lama'], 'password': 'wrong'})[0], 401)
         self.assertEqual(self.call('POST', '/api/login', {'username': 'nobody', 'password': 'x'})[0], 401)
         lama = self.sign_in('lama', 'lama-password-1')
         entry = {'spent_on': '2026-10-05', 'merchant': 'x', 'category': 'food', 'amount': '1.00'}
