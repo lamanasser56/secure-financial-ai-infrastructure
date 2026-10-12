@@ -23,6 +23,7 @@ COPY --from=builder /out/usr/local /usr/local
 COPY --from=builder /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/
 COPY --from=builder /lib/x86_64-linux-gnu/libstdc++.so.6 /lib/x86_64-linux-gnu/
 COPY --from=builder /lib/x86_64-linux-gnu/libffi.so.8 /lib/x86_64-linux-gnu/
+COPY --from=builder /lib/x86_64-linux-gnu/libsqlite3.so.0 /lib/x86_64-linux-gnu/
 ENV LD_LIBRARY_PATH=/usr/local/lib \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONNOUSERSITE=1 \
