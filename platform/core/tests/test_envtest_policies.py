@@ -184,7 +184,15 @@ class LivePolicies(unittest.TestCase):
         hard = json.loads(self.kubectl('-n', 'agent-hello', 'get', 'resourcequota', 'bounds', '-o', 'json').stdout)['spec']['hard']
         self.assertEqual((hard['services.loadbalancers'], hard['services.nodeports']), ('0', '0'))
         restart = {'spec': {'template': {'metadata': {'annotations': {'kubectl.kubernetes.io/restartedAt': '2026-10-12T00:00:00Z'}}}}}
-        self.assertDenied(self.ops_patch('agent-hello', 'agent', restart), 'forbidden')  # not a registered ops target
+        self.assertDenied(self.ops_patch('agent-hello', 'agent', restart), 'forbidden')  # watched read-only, never changed
+        for ns in ('agent-hello', 'agent-financial'):  # the ops agent can watch onboarded agents' health
+            self.assertAllowed(self.kubectl('-n', ns, 'get', 'pods', as_ops=True, check=False))
+            self.assertAllowed(self.kubectl('-n', ns, 'get', 'deployment', 'agent', as_ops=True, check=False))
+            for args in (('get', 'secrets'), ('delete', 'pod', 'agent-x'), ('scale', 'deployment', 'agent', '--replicas', '0'),
+                         ('get', 'deployment', 'other')):
+                result = self.kubectl('-n', ns, *args, as_ops=True, check=False)
+                with self.subTest(ns=ns, args=args):
+                    self.assertIn('forbidden', result.stderr.lower())
         as_agent = ['--as', 'system:serviceaccount:agent-hello:agent', '--as-group', 'system:serviceaccounts']
         for args in (('-n', 'agent-hello', 'get', 'pods'), ('-n', 'platform', 'get', 'secrets'), ('-n', 'agent-hello', 'get', 'secret', 'agent')):
             result = self.kubectl(*args, *as_agent, check=False)

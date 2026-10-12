@@ -58,10 +58,16 @@ class Agent:
             if previous is not None and previous['evidence_digest'] == finding['evidence_digest'] and 'explanation' in previous:
                 finding['explanation'] = previous['explanation']
             self.findings[key] = finding
+            if self.targets[key].observe_only:  # read-only monitoring: no proposal, no explanation, no change
+                finding['suggested_actions'], finding['automated_fix'] = [], False
+                finding['owner_action'] = None if finding['finding'] == 'HEALTHY' else 'NOTIFY_AGENT_TEAM'
+                finding['observe_only'] = True
             if previous is None or previous['evidence_digest'] != finding['evidence_digest']:
                 self.record('observed', key, pods=len(pods), available=finding['available_replicas'], desired=finding['desired_replicas'])
                 self.record('diagnosed', key, finding=finding['finding'], evidence_digest=finding['evidence_digest'])
-                if finding['finding'] == 'HEALTHY':
+                if self.targets[key].observe_only:
+                    pass
+                elif finding['finding'] == 'HEALTHY':
                     self._explanations = {k: v for k, v in self._explanations.items() if k[0] != key}
                 elif not finding['suggested_actions']:
                     # No automated fix (the fix needs a Pod spec change): diagnose, explain and recommend an owner action.
@@ -76,7 +82,7 @@ class Agent:
         return results
 
     def propose(self, key, action, arguments, finding):
-        if key not in self.targets or action not in ACTIONS:
+        if key not in self.targets or action not in ACTIONS or self.targets[key].observe_only:
             self.record('denied', key, code='NOT_REGISTERED_OR_NOT_ALLOWLISTED', action=action)
             raise approval.ApprovalDenied('NOT_REGISTERED_OR_NOT_ALLOWLISTED')
         proposal = {'request_id': str(uuid.uuid4()), 'target': key, 'action': action, 'arguments': arguments,

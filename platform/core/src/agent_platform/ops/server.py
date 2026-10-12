@@ -88,7 +88,7 @@ def scanner(agent, stop):
         stop.wait(SCAN_SECONDS)
 
 
-def build(config_dir=Path('/secrets/ops'), registry_dir=Path('/registry')):
+def build(config_dir=Path('/secrets/ops'), registry_dir=Path('/registry'), observe_dir=Path('/observe')):
     config = json.loads((config_dir / 'ops.json').read_text(), object_pairs_hook=unique)
     if set(config) != {'api_key', 'approver_public_key', 'gateway_key', 'redactor_key'}:
         raise SystemExit('ops:config_rejected')
@@ -98,7 +98,8 @@ def build(config_dir=Path('/secrets/ops'), registry_dir=Path('/registry')):
         from agent_platform.redaction import RedactorClient
         explainer = Explainer('http://gateway.platform.svc.cluster.local:4000', config['gateway_key'],
                               RedactorClient('http://redactor.platform.svc.cluster.local:4003', config['redactor_key']))
-    agent = Agent(Client(), registry.load(registry_dir), Verifier(config['approver_public_key']), explainer=explainer)
+    targets = dict(registry.load(registry_dir), **registry.load_observe(observe_dir))  # remediation + read-only targets
+    agent = Agent(Client(), targets, Verifier(config['approver_public_key']), explainer=explainer)
     return agent, config['api_key']
 
 

@@ -211,6 +211,30 @@ class AgentFlow(unittest.TestCase):
                 self.agent.propose(key, action, {}, finding)
 
 
+class ObserveOnly(unittest.TestCase):
+    """Onboarded agents are watched read-only: health on the board, never a proposal, an explanation or a change."""
+
+    def test_failing_agent_is_reported_but_never_proposed_or_explained(self):
+        from agent_platform.ops.registry import parse_observe
+        calls = []
+        targets = parse_observe({'agent-hello.agent.observe': 'read-only'})
+        client = FakeClient(deployment(available=0), pods=[pod(ready=False)])
+        agent = Agent(client, targets, approval.Verifier(approval.generate_keypair()[1]),
+                      explainer=lambda f: calls.append(f) or {'untrusted_text': 'x', 'source': 'model_via_gateway'})
+        agent.scan()
+        finding = agent.snapshot()['findings']['agent-hello.agent']
+        self.assertEqual((finding['finding'], finding['owner_action'], finding['observe_only']), ('READINESS_FAILING', 'NOTIFY_AGENT_TEAM', True))
+        self.assertEqual((agent.snapshot()['pending'], calls, client.patches), ([], [], []))
+        with self.assertRaises(approval.ApprovalDenied):
+            agent.propose('agent-hello.agent', 'restart', {}, finding)
+
+    def test_observe_keys_are_closed(self):
+        from agent_platform.ops.registry import parse_observe
+        for data in ({'apps.app.observe': 'read-only'}, {'agent-hello.agent.observe': 'restart'}, {'agent-hello.agent.min': '0'}):
+            with self.subTest(data), self.assertRaises(ValueError):
+                parse_observe(data)
+
+
 class Registry(unittest.TestCase):
     def test_only_complete_bounded_targets(self):
         for data in ({'apps.x.min': '0', 'apps.x.max': '1'},  # incomplete

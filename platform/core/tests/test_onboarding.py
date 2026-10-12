@@ -86,6 +86,22 @@ class Rejections(unittest.TestCase):
             with self.subTest(reason):
                 self.rejected(lambda m: change(m['runtime']), reason)
 
+    def test_remediation_rights_are_not_granted(self):
+        self.rejected(lambda m: m.update(operations='restart'), 'only observe')
+        self.rejected(lambda m: m.update(operations={'remediation': 'restart'}), 'only observe')
+        manifest = hello()
+        manifest['operations'] = 'observe'
+        onboarding.validate(manifest, 'hello', others=others())
+
+    def test_ops_agent_gets_read_only_observe_rights(self):
+        docs = onboarding.render_ops_observe(onboarding.load_all())
+        roles = [d for d in docs if d['kind'] == 'Role']
+        self.assertEqual(sorted(r['metadata']['namespace'] for r in roles), ['agent-financial', 'agent-hello'])
+        for role in roles:
+            self.assertTrue(all(set(rule['verbs']) <= {'get', 'list'} for rule in role['rules']))
+            self.assertNotIn('secrets', json.dumps(role))
+        self.assertEqual(docs[0]['data'], {'agent-financial.agent.observe': 'read-only', 'agent-hello.agent.observe': 'read-only'})
+
     def test_names_and_placement(self):
         for name in ('platform', 'ops', 'kube-system', 'gateway', 'A', 'x'):
             with self.subTest(name), self.assertRaises(Rejected):

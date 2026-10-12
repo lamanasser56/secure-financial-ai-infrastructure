@@ -4,4 +4,5 @@ kind: Kustomization
 resources:
   - financial.yaml
   - hello.yaml
+  - ops-observe.yaml
   - platform-access.yaml

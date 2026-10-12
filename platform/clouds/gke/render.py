@@ -101,8 +101,11 @@ def validate(docs, refs):
         policies = {p['metadata']['name']: p['spec'] for p in by_kind['NetworkPolicy'] if p['metadata']['namespace'] == name}
         require(set(policies) == {'default-deny', 'allow-dns', 'agent'}, 'agent network policies: ' + name)
         require(policies['agent']['egress'] == agents[name] and 'ingress' not in policies['agent'], 'agent egress: ' + name)
-        require(not [r for r in by_kind.get('Role', []) + by_kind.get('RoleBinding', []) if r['metadata']['namespace'] == name],
-                'no RBAC in agent namespaces: ' + name)
+        rbac = [r for r in by_kind.get('Role', []) + by_kind.get('RoleBinding', []) if r['metadata']['namespace'] == name]
+        require(sorted((r['kind'], r['metadata']['name']) for r in rbac) == [('Role', 'ops-agent-observe'), ('RoleBinding', 'ops-agent-observe')],
+                'agent namespaces hold only the ops agent read-only observe RBAC: ' + name)
+        role = next(r for r in rbac if r['kind'] == 'Role')
+        require(all(set(rule['verbs']) <= {'get', 'list'} for rule in role['rules']), 'observe RBAC is read-only: ' + name)
     for name, ns in namespaces.items():
         require(ns['metadata']['labels'].get('pod-security.kubernetes.io/enforce') == 'restricted', 'PSS restricted: ' + name)
         deny = [p for p in by_kind['NetworkPolicy'] if p['metadata']['namespace'] == name and p['metadata']['name'] == 'default-deny']

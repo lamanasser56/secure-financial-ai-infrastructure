@@ -234,7 +234,8 @@ class ClusterOperations:
         operation = request.get('operation')
         snapshot = self._call('GET', '/v1/snapshot') if operation not in ('security', 'execute') else None
         if operation == 'overview':
-            return {'targets': [{'target_id': k, 'mutable': True, 'kind': 'deployment'} for k in sorted(snapshot['findings'])],
+            return {'targets': [{'target_id': k, 'mutable': not v.get('observe_only', False), 'kind': 'deployment'}
+                                for k, v in sorted(snapshot['findings'].items())],
                     'actions': list(ACTIONS), 'budgets': self.budgets(), 'recent': snapshot['timeline'][-20:],
                     'timeline': snapshot['timeline'], 'pending': snapshot['pending'], 'denials': snapshot['denials'],
                     'identity_authority': 'platform_fixture_owner', 'financial_ui': '/', 'model_boundary': 'gateway_via_redactor'}
