@@ -1,0 +1,21 @@
+# Allowlist build context for platform/agents/financial/Dockerfile (the Financial Agent's own image).
+**
+!requirements-agent-composition.txt
+!requirements-financial-agent.txt
+!runtime/
+!runtime/**
+!contracts/
+!contracts/**
+!platform/
+!platform/core/
+!platform/core/src/
+!platform/core/src/agent_platform/
+!platform/core/src/agent_platform/__init__.py
+!platform/core/src/agent_platform/audit.py
+!platform/core/src/agent_platform/redaction.py
+!platform/agents/
+!platform/agents/financial/
+!platform/agents/financial/finance_agent/
+!platform/agents/financial/finance_agent/**
+**/__pycache__
+**/*.pyc
