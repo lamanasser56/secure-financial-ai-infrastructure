@@ -2,7 +2,8 @@
 
 The front door (apps namespace) holds the approver private key and signs only after the owner approves a
 specific proposal in the UI. The ops agent holds only the public key, so it cannot approve itself. A token is
-bound to request ID, target, action, arguments digest and evidence digest; it is valid for at most 5 minutes,
+bound to request ID, target, action, arguments digest, evidence digest and the exact Deployment object (UID and
+resourceVersion) the proposal was made for; it is valid for at most 5 minutes,
 must be issued after the agent process started (no replay across restarts), and is accepted once.
 """
 import base64
@@ -16,7 +17,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 from cryptography.hazmat.primitives import serialization
 
 MAX_TTL = 300
-FIELDS = ('request_id', 'target', 'action', 'args_digest', 'evidence_digest', 'issued_at', 'expires_at', 'approver')
+BOUND = ('request_id', 'target', 'action', 'args_digest', 'evidence_digest', 'uid', 'resource_version')
+FIELDS = BOUND + ('issued_at', 'expires_at', 'approver')
 
 
 class ApprovalDenied(Exception):
@@ -52,8 +54,7 @@ class Signer:
 
     def sign(self, proposal, ttl=MAX_TTL):
         now = int(self._clock())
-        claims = {'request_id': proposal['request_id'], 'target': proposal['target'], 'action': proposal['action'],
-                  'args_digest': proposal['args_digest'], 'evidence_digest': proposal['evidence_digest'],
+        claims = {**{field: proposal[field] for field in BOUND},
                   'issued_at': now, 'expires_at': now + min(int(ttl), MAX_TTL), 'approver': self._approver}
         return b64(canonical(claims)) + '.' + b64(self._key.sign(canonical(claims)))
 
@@ -81,8 +82,8 @@ class Verifier:
         now = int(self._clock())
         if not (self._started <= claims['issued_at'] <= now < claims['expires_at']) or claims['expires_at'] - claims['issued_at'] > MAX_TTL:
             raise ApprovalDenied('EXPIRED_OR_STALE')
-        for field in ('request_id', 'target', 'action', 'args_digest', 'evidence_digest'):
-            if claims[field] != proposal[field]:
+        for field in BOUND:
+            if claims[field] != proposal.get(field):
                 raise ApprovalDenied('BINDING_MISMATCH:' + field)
         with self._lock:
             if claims['request_id'] in self._used:

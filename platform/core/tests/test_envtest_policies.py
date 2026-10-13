@@ -108,6 +108,19 @@ class LivePolicies(unittest.TestCase):
         self.assertAllowed(self.ops_patch('apps', 'fault-demo', {'spec': {'replicas': 3}}))
         self.assertAllowed(self.ops_patch('apps', 'fault-demo', {'spec': {'replicas': 1}}))
 
+    def test_ops_agent_patch_precondition_is_enforced_by_the_api_server(self):
+        """RT-01: the agent's patch carries the approved resourceVersion; a stale one is a 409 and changes nothing."""
+        get = lambda: json.loads(self.kubectl('-n', 'apps', 'get', 'deployment', 'fault-demo', '-o', 'json').stdout)
+        approved = get()['metadata']['resourceVersion']
+        restart = {'spec': {'template': {'metadata': {'annotations': {'kubectl.kubernetes.io/restartedAt': '2026-10-13T00:00:00Z'}}}}}
+        self.assertAllowed(self.ops_patch('apps', 'fault-demo', dict(restart, metadata={'resourceVersion': approved})))
+        before = get()
+        stale = self.ops_patch('apps', 'fault-demo', {'spec': {'replicas': 2}, 'metadata': {'resourceVersion': approved}})
+        self.assertDenied(stale, 'the object has been modified')  # 409 Conflict: the version moved after approval
+        after = get()
+        self.assertEqual((after['spec']['replicas'], after['metadata']['resourceVersion']),
+                         (before['spec']['replicas'], before['metadata']['resourceVersion']))
+
     def container(self, **change):
         current = json.loads(self.kubectl('-n', 'apps', 'get', 'deployment', 'fault-demo', '-o', 'json').stdout)
         container = current['spec']['template']['spec']['containers'][0]

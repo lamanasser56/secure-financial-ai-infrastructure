@@ -337,7 +337,8 @@ class SecretSeparation(unittest.TestCase):
         self.assertEqual(round(sum(k['max_budget'] for k in boot['virtual_keys']), 2), 10.0)
         self.assertNotIn('correct horse battery', json.dumps(app))
         signer = approval.Signer(app['approver_private_key'])
-        proposal = {'request_id': 'r', 'target': 't', 'action': 'restart', 'args_digest': 'a', 'evidence_digest': 'e'}
+        proposal = {'request_id': 'r', 'target': 't', 'action': 'restart', 'args_digest': 'a', 'evidence_digest': 'e',
+                    'uid': 'u', 'resource_version': '1'}
         self.assertEqual(approval.Verifier(ops['approver_public_key']).consume(signer.sign(proposal), proposal)['approver'], 'owner')
         self.assertNotIn(boot['master_key'], json.dumps(app) + json.dumps(ops))
         self.assertTrue(all(d['metadata']['namespace'] in ('platform', 'apps', 'ops', 'agent-hello', 'agent-financial') for d in docs.values()))
@@ -357,7 +358,7 @@ class FrontDoorApprovals(unittest.TestCase):
         secret = next(d for d in platform_secrets.generate('correct horse battery', hasher=lambda pw: {u: '$argon2id$fake' for u in pw}) if d['metadata']['name'] == 'app')
         self.config = json.loads(__import__('base64').b64decode(secret['data']['app.json']))
         self.proposal = {'request_id': 'r1', 'target': 'apps.fault-demo', 'action': 'restart', 'args_digest': 'a' * 64,
-                         'evidence_digest': 'e' * 64}
+                         'evidence_digest': 'e' * 64, 'uid': 'uid-1', 'resource_version': '100'}
         self.calls = []
 
         def opener(request, timeout=None):
