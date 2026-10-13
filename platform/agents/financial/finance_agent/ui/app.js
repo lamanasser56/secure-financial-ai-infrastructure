@@ -237,12 +237,18 @@ async function load() {
   if (!r.ok) { $('status').textContent = err(r.value.error); return; }
   expenses = r.value.expenses; renderExpenses();
 }
+// On the Arabic page an amount reads "830.49 ر.س" like the rest of the UI, whatever order the model used (display only;
+// the answer was already checked against the records on the server).
+function currency(text) {
+  if (UI.lang !== 'ar') return text;
+  return text.replace(/(?:SAR|ر\.?\s?س\.?|ريال)\s*(\d+(?:[.,]\d+)?)/g, '$1 ر.س').replace(/(\d+(?:[.,]\d+)?)\s*SAR\b/g, '$1 ر.س');
+}
 function renderAnswer() {
   if (!last) return;
   const v = last, answered = v.status === 'answered';
   $('answer').hidden = false;
   $('answer-text').hidden = !answered;
-  $('answer-text').textContent = answered ? UI.latin(v.answer) : '';
+  $('answer-text').textContent = answered ? currency(UI.latin(v.answer)) : '';
   $('refusal').hidden = answered;
   $('refusal-text').textContent = answered ? '' : (t('r_' + v.reason) !== 'r_' + v.reason ? t('r_' + v.reason) : t('r_default'));
   const how = v.how_we_know;

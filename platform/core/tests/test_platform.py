@@ -134,6 +134,8 @@ class Explanation(unittest.TestCase):
         reply = json.dumps({'en': 'The Pod keeps restarting.', 'ar': 'الـ Pod يُعاد تشغيله باستمرار.'}, ensure_ascii=False)
         result, sent = self.explain({'finish_reason': 'stop', 'message': {'content': reply}})
         self.assertEqual(len(sent), 1)  # still one model request per incident
+        self.assertEqual(sent[0]['response_format'], {'type': 'json_object'})
+        self.assertEqual(sent[0]['timeout'], 20)  # this call only; the provider profile keeps 8 s
         self.assertEqual((result['untrusted_text'], result['untrusted_text_ar']), ('The Pod keeps restarting.', 'الـ Pod يُعاد تشغيله باستمرار.'))
         for bad in (json.dumps({'ar': 'فقط'}), json.dumps(['x']), json.dumps({'en': ' '})):
             with self.subTest(bad=bad):

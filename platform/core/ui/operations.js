@@ -34,7 +34,7 @@ Object.assign(UI.dict.en, {
   own_DEPLOY_ATTESTED_IMAGE: 'Owner action required — no automated fix: deploy an image with a valid attestation.',
   own_NOTIFY_AGENT_TEAM: "Owner action required — the agent only watches this service: tell the agent's team.",
   a_restart: 'Restart the service', a_scale: 'Add one instance (within its limit)',
-  st_observed: 'Detected', st_diagnosed: 'Diagnosed', st_proposed: 'Proposed', st_approved: 'Approved', st_executed: 'Executed', st_verified: 'Verified',
+  st_observed: 'Detected', st_diagnosed: 'Diagnosed', st_proposed: 'Proposed', st_approved: 'Approved', st_executed: 'Executed', st_verified: 'Verified', st_awaiting: 'Awaiting your approval',
   ev_observed: 'problem detected', ev_diagnosed: 'diagnosis: ', ev_proposed: 'proposed: ', ev_approved: 'approved by the owner', ev_executed: 'executed once: ',
   ev_verified: 'verified: healthy again', ev_failed: 'failed: ', ev_denied: 'denied: ', healthy_since: 'healthy since ',
   out_VERIFIED: 'Verified: the service is healthy again ({a} of {d} ready).', out_NOT_VERIFIED: 'Executed, but the service did not become healthy in time. Nothing was retried.',
@@ -88,7 +88,7 @@ Object.assign(UI.dict.ar, {
   own_DEPLOY_ATTESTED_IMAGE: 'مطلوب إجراء من المالك — لا يوجد إصلاح آلي: انشر صورة تحمل اعتماداً صالحاً.',
   own_NOTIFY_AGENT_TEAM: 'مطلوب إجراء من المالك — الوكيل يراقب هذه الخدمة فقط: أبلغ فريق الوكيل.',
   a_restart: 'إعادة تشغيل الخدمة', a_scale: 'إضافة نسخة واحدة (ضمن الحد)',
-  st_observed: 'رُصدت', st_diagnosed: 'شُخّصت', st_proposed: 'اقتُرح إجراء', st_approved: 'وُوفق عليه', st_executed: 'نُفّذ', st_verified: 'تُحقّق منه',
+  st_observed: 'رُصدت', st_diagnosed: 'شُخّصت', st_proposed: 'اقتُرح إجراء', st_approved: 'وُوفق عليه', st_executed: 'نُفّذ', st_verified: 'تُحقّق منه', st_awaiting: 'بانتظار موافقتك',
   ev_observed: 'رُصدت مشكلة', ev_diagnosed: 'التشخيص: ', ev_proposed: 'اقتراح: ', ev_approved: 'وافق المالك', ev_executed: 'نُفّذ مرة واحدة: ',
   ev_verified: 'تحقق: عادت سليمة', ev_failed: 'فشل: ', ev_denied: 'رُفض: ', healthy_since: 'سليمة منذ ',
   out_VERIFIED: 'تم التحقق: عادت الخدمة سليمة ({a} من {d} جاهزة).', out_NOT_VERIFIED: 'نُفّذ الإجراء لكن الخدمة لم تعد سليمة في الوقت المحدد. لم تُكرَّر أي محاولة.',
@@ -186,7 +186,8 @@ function renderIncident() {
   const next = STAGES.find(s => !done.has(s));
   node('tracker').hidden = !ep.length && !pending;
   node('tracker').replaceChildren(...STAGES.map(s => el('li', {class: done.has(s) ? 'done' : (s === next ? (stopped ? 'stop' : 'now') : '')},
-    el('span', {'aria-hidden': 'true'}, done.has(s) ? '✓' : (s === next ? '●' : '○')), t('st_' + s))));
+    el('span', {'aria-hidden': 'true'}, done.has(s) ? '✓' : (s === next ? '●' : '○')),
+    t(s === 'approved' && next === 'approved' && !stopped ? 'st_awaiting' : 'st_' + s))));
   const owner = b.owner_action && t('own_' + b.owner_action);
   node('owner-action').hidden = !owner || b.finding === 'HEALTHY';
   node('owner-text').textContent = owner || '';
@@ -222,15 +223,19 @@ function line(e) {
   return name + ': ' + t('ev_' + e.stage) + reason(e.code);
 }
 function renderTimeline() {
-  const rows = [], healthy = {};
+  const rows = [], healthy = {}, open = {};  // open[target]: the finding of the episode in progress
   (overview.timeline || []).forEach(e => {
     const isHealthy = (e.stage === 'diagnosed' && e.finding === 'HEALTHY') || (e.stage === 'observed' && e.available >= e.desired);
-    if (isHealthy) { if (!healthy[e.target]) { healthy[e.target] = e; rows.push({e, healthy: true}); } return; }
+    if (isHealthy) { open[e.target] = null; if (!healthy[e.target]) { healthy[e.target] = e; rows.push({e, healthy: true}); } return; }
     if (e.stage === 'denied' && e.code === 'SUPERSEDED') return;
-    const prev = rows.length && rows[rows.length - 1].e;  // a re-proposal of the same action after expiry: one line
-    if (e.stage === 'proposed' && prev && prev.stage === 'proposed' && prev.target === e.target && prev.action === e.action) { rows[rows.length - 1] = {e}; return; }
     healthy[e.target] = null;
-    rows.push({e});
+    // One episode = one sequence: a re-observation of the same problem (new evidence, same finding) adds no lines,
+    // and a re-proposal of the same action in the episode replaces its line (latest time).
+    if (e.stage === 'observed' && open[e.target]) return;
+    if (e.stage === 'diagnosed') { if (open[e.target] === e.finding) return; open[e.target] = e.finding; }
+    const same = rows.findIndex(r => r.e.stage === 'proposed' && r.e.target === e.target && r.e.action === e.action && r.episode === open[e.target]);
+    if (e.stage === 'proposed' && same >= 0) { rows.splice(same, 1); }
+    rows.push({e, episode: open[e.target]});
   });
   const shown = rows.slice(-25).reverse();
   node('timeline').replaceChildren(...shown.map(({e, healthy: h}) => el('li', {}, el('time', {}, when(e.at)),
