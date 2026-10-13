@@ -205,7 +205,7 @@ class Limits:
         with self._lock:
             turns = [t for t in self._turns.get(user_id, []) if now - t < 3600]
             day, used = self._tokens.get(user_id, (int(now // 86400), 0))
-            return {'questions_this_hour': TURNS_PER_HOUR - len(turns),
+            return {'questions_this_hour': TURNS_PER_HOUR - len(turns), 'questions_per_hour': TURNS_PER_HOUR,
                     'tokens_today': TOKENS_PER_DAY - (used if day == int(now // 86400) else 0)}
 
 
