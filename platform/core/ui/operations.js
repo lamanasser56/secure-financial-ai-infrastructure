@@ -190,9 +190,9 @@ function renderIncident() {
   const owner = b.owner_action && t('own_' + b.owner_action);
   node('owner-action').hidden = !owner || b.finding === 'HEALTHY';
   node('owner-text').textContent = owner || '';
-  const ai = explanations[b.target_id];
+  const ai = explanations[b.target_id];  // the Arabic text when the page is Arabic and the model gave one
   node('ai-box').hidden = ai === undefined;
-  node('ai-text').textContent = ai || t('ai_none');
+  node('ai-text').textContent = ai ? ((UI.lang === 'ar' && ai.ar) || ai.en) : t('ai_none');
   node('explain').hidden = b.finding === 'HEALTHY' || b.observe_only;
   node('proposal').hidden = !pending && !approval;
   if (pending) {
@@ -289,8 +289,9 @@ node('explain').onclick = async () => {
   setBusy(true);
   try {
     const r = await call('explain', {target_id: selected});
-    const texts = r.ok ? (r.value.explanations || []).map(x => x && x.untrusted_text).filter(Boolean) : [];
-    explanations[selected] = texts.length ? UI.latin(texts[texts.length - 1]) : '';
+    const items = r.ok ? (r.value.explanations || []).filter(x => x && x.untrusted_text) : [];
+    const last = items[items.length - 1];
+    explanations[selected] = last ? {en: last.untrusted_text, ar: last.untrusted_text_ar ? UI.latin(last.untrusted_text_ar) : null} : null;
     renderIncident();
   } finally { setBusy(false); }
 };

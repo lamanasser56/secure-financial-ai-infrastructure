@@ -70,7 +70,7 @@ CLAIM_STEMS = (
     'tax', 'vat', 'loan', 'installment', 'bill',
     'فاتور', 'فواتير', 'ايصال', 'استرداد', 'مسترد', 'مدفوع', 'دفعة', 'معلق', 'موافق', 'الموافقة', 'مسجل', 'تسجيل',
     'رصيد', 'تحويل', 'راتب', 'ميزاني', 'ضريب', 'قسط', 'قرض')
-CATEGORY_WORDS = {'bills': ('bill', 'فاتور', 'فواتير')}
+CATEGORY_WORDS = {'bills': ('bill', 'فاتور', 'فواتير'), 'subscriptions': ('subscription',)}
 ARABIC_MARKS = re.compile('[\u064B-\u0652\u0640]')  # harakat and tatweel
 
 

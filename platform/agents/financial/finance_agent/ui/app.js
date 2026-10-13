@@ -104,7 +104,7 @@ const UI = (() => {
 // Financial Agent page. The browser never chooses the user: every call uses the signed session cookie.
 (() => {
 const {t, el, ltr, fmt} = UI;
-const CATEGORIES = ['food', 'transport', 'shopping', 'bills', 'health', 'travel', 'other'];
+const CATEGORIES = ['food', 'transport', 'shopping', 'bills', 'subscriptions', 'health', 'travel', 'other'];
 Object.assign(UI.dict.en, {
   title_financial: 'Financial Agent · Secure AI Agent Platform',
   brand: 'Secure AI Agent Platform', nav_financial: 'Financial Agent', nav_ops: 'Security & Operations', nav_about: 'About',
@@ -124,7 +124,7 @@ Object.assign(UI.dict.en, {
   masked: 'Before the AI model saw your question, we masked: {c}. No personal values were sent.', nothing: 'Nothing personal needed masking; no personal values were sent.',
   add: 'Add an expense', date: 'Date', merchant: 'Merchant', category: 'Category', amount: 'Amount (SAR)', amount_h: 'Amount', note: 'Note', save: 'Add',
   list: 'My expenses', month: 'Month', empty: 'No expenses in this month yet.', total: 'Total for {m}: {v} in {n} expense(s).', saved: 'Expense added.',
-  food: 'Food', transport: 'Transport', shopping: 'Shopping', bills: 'Bills', health: 'Health', travel: 'Travel', other: 'Other',
+  food: 'Food', transport: 'Transport', shopping: 'Shopping', bills: 'Bills', subscriptions: 'Subscriptions', health: 'Health', travel: 'Travel', other: 'Other',
   monthly_total: 'Expense totals', spending_by_category: 'Spending by category', find_transactions: 'Individual expenses',
   EMAIL_ADDRESS: 'email address', PHONE_NUMBER: 'phone number', PERSON_NAME: 'person name', CREDIT_CARD_NUMBER: 'card number',
   IBAN_CODE: 'bank account (IBAN)', STREET_ADDRESS: 'street address', LOCATION: 'location', DATE_OF_BIRTH: 'date of birth',
@@ -164,7 +164,7 @@ Object.assign(UI.dict.ar, {
   masked: 'قبل أن يرى النموذج سؤالك أخفينا: {c}. لم تُرسَل أي قيمة شخصية.', nothing: 'لم يكن هناك ما يلزم إخفاؤه، ولم تُرسَل أي قيمة شخصية.',
   add: 'إضافة مصروف', date: 'التاريخ', merchant: 'الجهة', category: 'الفئة', amount: 'المبلغ (ر.س)', amount_h: 'المبلغ', note: 'ملاحظة', save: 'إضافة',
   list: 'مصروفاتي', month: 'الشهر', empty: 'لا توجد مصروفات في هذا الشهر بعد.', total: 'إجمالي {m}: {v} في {n} مصروف.', saved: 'أُضيف المصروف.',
-  food: 'طعام', transport: 'مواصلات', shopping: 'تسوّق', bills: 'فواتير', health: 'صحة', travel: 'سفر', other: 'أخرى',
+  food: 'طعام', transport: 'مواصلات', shopping: 'تسوّق', bills: 'فواتير', subscriptions: 'اشتراكات', health: 'صحة', travel: 'سفر', other: 'أخرى',
   monthly_total: 'إجمالي المصروفات', spending_by_category: 'الإنفاق حسب الفئة', find_transactions: 'المصروفات بالتفصيل',
   EMAIL_ADDRESS: 'البريد الإلكتروني', PHONE_NUMBER: 'رقم الهاتف', PERSON_NAME: 'اسم شخص', CREDIT_CARD_NUMBER: 'رقم بطاقة',
   IBAN_CODE: 'حساب بنكي (IBAN)', STREET_ADDRESS: 'عنوان', LOCATION: 'موقع', DATE_OF_BIRTH: 'تاريخ الميلاد',
@@ -256,7 +256,9 @@ function renderAnswer() {
     : [t('nothing')]));
   $('raw').textContent = JSON.stringify(v, null, 2);
 }
-function localized() { categories(); examples(); strip(); renderExpenses(); renderAnswer(); }
+function spentLabel() { const v = $('spent_on').value; $('spent-label').textContent = /^\d{4}-\d{2}-\d{2}$/.test(v) ? fmt.day(v) : ''; }
+function localized() { categories(); examples(); strip(); renderExpenses(); renderAnswer(); spentLabel(); }
+$('spent_on').addEventListener('input', spentLabel);
 
 $('login').onclick = async () => {
   const r = await api('POST', '/api/login', {username: $('username').value.trim(), password: $('password').value});
@@ -299,7 +301,7 @@ for (const [tab, panel] of [['tab-ask', 'panel-ask'], ['tab-exp', 'panel-exp']])
 UI.onLang(localized);
 (async () => {
   const now = new Date();
-  $('month').value = now.toISOString().slice(0, 7); $('spent_on').value = now.toISOString().slice(0, 10);
+  $('month').value = now.toISOString().slice(0, 7); $('spent_on').value = now.toISOString().slice(0, 10); spentLabel();
   const r = await api('GET', '/api/me');
   if (r.ok) signedIn(r.value);
   UI.start([
