@@ -39,11 +39,13 @@ jobs:
           RUN_EVENT: ${{ github.event.workflow_run.event }}
           RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
           RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
         run: |
           set -Eeuo pipefail
           [[ "$GITHUB_REF" == refs/heads/main ]]
           if [[ "$EVENT" == workflow_run ]]; then
-            [[ "$RUN_CONCLUSION" == success && "$RUN_EVENT" == push && "$RUN_BRANCH" == main ]]
+            # push only: a fork's pull request (even from a branch named main) runs CI as pull_request, never push.
+            [[ "$RUN_CONCLUSION" == success && "$RUN_EVENT" == push && "$RUN_BRANCH" == main && "$RUN_REPO" == "$GITHUB_REPOSITORY" ]]
             sha="$RUN_SHA"
           else
             sha="$GITHUB_SHA"
