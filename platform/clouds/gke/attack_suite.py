@@ -344,8 +344,21 @@ def case_session_epoch_restart(app, lama):
                                                        'new_sign_in_after_restart': again}
 
 
+def settled_spend(alias='agent-financial', interval=15, attempts=8):
+    """The key's spend once LiteLLM's batched spend writes have landed (two equal reads in a row). Run 3 read it right
+    after the previous case and saw that case's spend arrive during this one."""
+    last = (key_spend() or {}).get(alias)
+    for _ in range(attempts):
+        time.sleep(interval)
+        now = (key_spend() or {}).get(alias)
+        if now == last:
+            return now
+        last = now
+    return last
+
+
 def case_redaction_down(app, lama):
-    before = (key_spend() or {}).get('agent-financial')
+    before = settled_spend()
     k('-n', 'platform', 'scale', 'deployment/redactor', '--replicas=0', check=True)
     # Wait until no redactor Pod exists: a terminating Pod still serves (Kubernetes routes to terminating endpoints when
     # no other exists, and the redactor runs as PID 1 without a SIGTERM handler, so it serves until the 30 s SIGKILL).
@@ -357,12 +370,13 @@ def case_redaction_down(app, lama):
     finally:
         k('-n', 'platform', 'scale', 'deployment/redactor', '--replicas=1', check=True)
         k('-n', 'platform', 'rollout', 'status', 'deployment/redactor', '--timeout=180s')
-    time.sleep(5)
-    after = (key_spend() or {}).get('agent-financial')
+    turn = last_turn_audit()  # the agent's own record of the turn: model calls and tokens
+    after = settled_spend()
     ok = (not pods_left and reply.get('status') == 'blocked' and reply.get('reason') == 'redaction_unavailable'
-          and before is not None and before == after)
+          and turn.get('model_calls') == 0 and before is not None and before == after)
     return ok, {'redactor_pods_when_asked': len(pods_left), 'wait_exit_code': gone.returncode, 'status': reply.get('status'),
-                'reason': reply.get('reason'), 'agent_financial_spend_before': before, 'agent_financial_spend_after': after}
+                'reason': reply.get('reason'), 'audit_model_calls': turn.get('model_calls'),
+                'agent_financial_spend_before': before, 'agent_financial_spend_after': after}
 
 
 # --- platform cases -------------------------------------------------------------------------------------------------

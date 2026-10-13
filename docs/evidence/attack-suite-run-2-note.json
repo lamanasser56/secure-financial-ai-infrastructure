@@ -19,7 +19,7 @@
    ]
   }
  },
- "record": "Attack suite run 2: note on the one FAIL (the original runner output in attack-suite.json is unchanged)",
+ "record": "Attack suite run 2: note on the one FAIL (the original runner output is kept unchanged in attack-suite-run-2.json; attack-suite.json now holds run 3)",
  "run_2_result": "14/15",
  "what_the_runner_saw": {
   "reached_model_via_tool": false,
