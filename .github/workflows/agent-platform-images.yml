@@ -28,8 +28,10 @@ jobs:
     timeout-minutes: 5
     permissions:
       actions: read
+      contents: read
     outputs:
       sha: ${{ steps.sha.outputs.sha }}
+      build: ${{ steps.sha.outputs.build }}
     steps:
       - id: sha
         env:
@@ -54,9 +56,29 @@ jobs:
           ok=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$sha&event=push&branch=main&status=success&per_page=1" --jq '.total_count')
           [[ "$ok" =~ ^[1-9][0-9]*$ ]] || { echo "no successful CI run on push to main for $sha"; exit 1; }
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          # Skip (no build, no signing) when everything since the previous CI-validated push to main is docs/ or the
+          # image pin file. Unknown base, a manual dispatch, a truncated file list or any other path: build.
+          build=true
+          if [[ "$EVENT" == workflow_run ]]; then
+            base=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?event=push&branch=main&status=success&per_page=10" \
+                     --jq "[.workflow_runs[] | select(.head_sha != \"$sha\")][0].head_sha // empty")
+            if [[ "$base" =~ ^[0-9a-f]{40}$ ]]; then
+              gh api "repos/$GITHUB_REPOSITORY/compare/$base...$sha" --jq '.status, .total_commits, (.files | length), .files[].filename' > "$RUNNER_TEMP/compare.txt"
+              status=$(sed -n 1p "$RUNNER_TEMP/compare.txt"); count=$(sed -n 3p "$RUNNER_TEMP/compare.txt")
+              tail -n +4 "$RUNNER_TEMP/compare.txt" > "$RUNNER_TEMP/files.txt"
+              if [[ "$status" == ahead && "$count" =~ ^[0-9]+$ && "$count" -gt 0 && "$count" -lt 300 ]] \
+                 && ! grep -qvE '^(docs/.+|platform/clouds/gke/images\.json)$' "$RUNNER_TEMP/files.txt"; then
+                build=false
+              fi
+              echo "base=$base status=$status files=$count build=$build"
+              cat "$RUNNER_TEMP/files.txt"
+            fi
+          fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
 
   image:
     needs: ci-gate
+    if: needs.ci-gate.outputs.build == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
