@@ -128,15 +128,16 @@ class Handler(BaseHTTPRequestHandler):
     def login(self, body):
         from finance_agent.auth import verify_password
         username, password = body.get('username'), body.get('password')
-        client = self.client_address[0]
-        if type(username) is not str or type(password) is not str or not 0 < len(password) <= 128:
+        client = self.client_address[0]  # the TCP peer; X-Forwarded-For is never trusted
+        if (type(username) is not str or type(password) is not str or not 0 < len(username) <= 64
+                or not 0 < len(password) <= 128):
             return self.send(400, {'error': 'username_and_password_required'})
-        if self.server.throttle.blocked('user:' + username, 'client:' + client):
+        if self.server.throttle.blocked(username, client):
             audit.emit('finance_login_throttled', 'agent-financial')
             return self.send(429, {'error': 'too_many_attempts'})
         account = self.server.store.user(username)
         if not verify_password(account and account['password_hash'], password):
-            self.server.throttle.failed('user:' + username, 'client:' + client)
+            self.server.throttle.failed(username, client)
             audit.emit('finance_login_failed', 'agent-financial')
             return self.send(401, {'error': 'wrong_username_or_password'})
         cookie, payload = self.server.sessions.issue(account['id'], account['display_name'])

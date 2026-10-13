@@ -2,9 +2,12 @@
 
 - Passwords are verified with argon2id. An unknown user is checked against a dummy hash, so the response time does
   not reveal which usernames exist.
-- Failed sign-ins are throttled per username and per client (5 failures in 15 minutes).
+- Failed sign-ins are throttled per username (5 failures in 15 minutes lock that username only) with a per-client
+  backstop (20 failures in 15 minutes). The client is the TCP peer address; X-Forwarded-For is never read.
 - The session cookie is `payload.signature`, where the HMAC-SHA256 key exists only in the agent's Secret. It carries
-  the user id, the display name, an expiry (1 hour), a CSRF token and a session id; sign-out revokes the session id.
+  the user id, the display name, an expiry (1 hour), a CSRF token, a session id and the process's session epoch;
+  sign-out revokes the session id. The epoch is new at every start, so a restart (which forgets revocations) also
+  invalidates every cookie issued before it.
   The browser never chooses the user: every database call takes the user id from a verified session only.
 """
 import base64
@@ -21,7 +24,8 @@ from argon2.exceptions import Argon2Error, InvalidHashError
 HASHER = PasswordHasher()  # argon2id, library defaults (memory-hard)
 DUMMY_HASH = HASHER.hash(secrets.token_urlsafe(16))
 SESSION_SECONDS = 3600
-MAX_FAILURES, FAILURE_WINDOW = 5, 900
+MAX_FAILURES, MAX_CLIENT_FAILURES, FAILURE_WINDOW = 5, 20, 900
+MAX_TRACKED = 10_000  # throttle keys kept in memory; stale ones are pruned first
 
 
 def hash_password(password):
@@ -49,11 +53,12 @@ class Sessions:
         if len(key) < 32:
             raise ValueError('session key too short')
         self._key, self._clock = key, clock
+        self._epoch = secrets.token_urlsafe(12)  # rotated at every start: older cookies stop working
         self._revoked, self._lock = {}, threading.Lock()
 
     def issue(self, user_id, display_name):
         payload = {'u': user_id, 'n': display_name, 'exp': int(self._clock()) + SESSION_SECONDS,
-                   'c': secrets.token_urlsafe(24), 'j': secrets.token_urlsafe(12)}
+                   'c': secrets.token_urlsafe(24), 'j': secrets.token_urlsafe(12), 'e': self._epoch}
         body = _b64(json.dumps(payload, separators=(',', ':')).encode())
         return body + '.' + _b64(hmac.new(self._key, body.encode(), hashlib.sha256).digest()), payload
 
@@ -65,6 +70,8 @@ class Sessions:
                 return None
             payload = json.loads(_unb64(body))
         except (ValueError, AttributeError):
+            return None
+        if type(payload) is not dict or not hmac.compare_digest(str(payload.get('e', '')), self._epoch):
             return None
         now = self._clock()
         with self._lock:
@@ -79,19 +86,36 @@ class Sessions:
 
 
 class LoginThrottle:
+    """Per-username lockout plus a per-client backstop.
+
+    One username's failures never lock out another username, so a shared address (port-forward makes every client
+    127.0.0.1) cannot be used to lock out everyone with 5 tries; the client backstop is 4x higher.
+    """
+
     def __init__(self, *, clock=time.time):
         self._failures, self._clock, self._lock = {}, clock, threading.Lock()
 
     def _recent(self, key):
         now = self._clock()
-        self._failures[key] = [t for t in self._failures.get(key, []) if now - t < FAILURE_WINDOW]
-        return self._failures[key]
+        recent = [t for t in self._failures.get(key, []) if now - t < FAILURE_WINDOW]
+        if recent:
+            self._failures[key] = recent
+        else:
+            self._failures.pop(key, None)
+        return recent
 
-    def blocked(self, *keys):
+    def blocked(self, username, client):
         with self._lock:
-            return any(len(self._recent(k)) >= MAX_FAILURES for k in keys)
+            return (len(self._recent(('user', username))) >= MAX_FAILURES
+                    or len(self._recent(('client', client))) >= MAX_CLIENT_FAILURES)
 
-    def failed(self, *keys):
+    def failed(self, username, client):
         with self._lock:
-            for key in keys:
-                self._recent(key).append(self._clock())
+            if len(self._failures) > MAX_TRACKED - 2:  # bounded memory: prune stale keys, then the oldest
+                for key in list(self._failures):
+                    self._recent(key)
+                while len(self._failures) > MAX_TRACKED - 2:  # room for this failure's two keys
+                    del self._failures[min(self._failures, key=lambda k: self._failures[k][-1])]
+            now = self._clock()
+            for key in (('user', username), ('client', client)):
+                self._failures[key] = self._recent(key) + [now]
