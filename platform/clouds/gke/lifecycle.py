@@ -158,8 +158,13 @@ def up():
     import yaml
     docs = [d for d in yaml.safe_load_all(rendered) if d]
     addon = [d for d in docs if d['kind'] == 'NetworkLogging']  # owned by GKE's addon manager (EnsureExists): client-side apply
+    # `make fault` patches fault-demo as the owner (env, image); those faults are temporary, so the declared manifest wins
+    # for that one Deployment. Every other object keeps server-side apply's conflict detection.
+    is_fault_demo = lambda d: d['kind'] == 'Deployment' and d['metadata'].get('namespace') == 'apps' and d['metadata']['name'] == 'fault-demo'
     kubectl('apply', '--server-side', '--field-manager=agent-platform', '-f', '-',
-            input=yaml.safe_dump_all([d for d in docs if d['kind'] != 'NetworkLogging']))
+            input=yaml.safe_dump_all([d for d in docs if d['kind'] != 'NetworkLogging' and not is_fault_demo(d)]))
+    kubectl('apply', '--server-side', '--field-manager=agent-platform', '--force-conflicts', '-f', '-',
+            input=yaml.safe_dump_all([d for d in docs if is_fault_demo(d)]))
     kubectl('apply', '-f', '-', input=yaml.safe_dump_all(addon))
     missing = [ns + '/' + name for ns, name in (('platform', 'postgres'), ('platform', 'gateway'), ('platform', 'redactor'),
                                                  ('platform', 'bootstrap'), ('apps', 'app'), ('ops', 'ops-agent'))
