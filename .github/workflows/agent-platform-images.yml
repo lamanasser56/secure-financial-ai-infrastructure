@@ -1,15 +1,19 @@
 # Agent platform images (Phase E, ADR-008): app and ops, plus onboarded agents' own images (agent-financial).
-# build -> Trivy (HIGH/CRITICAL, fail-closed) -> CycloneDX SBOM -> push by digest -> keyless cosign (this job's OIDC
-# identity, no device login, no stored key) -> cosign verify (exact workflow identity) -> Binary Authorization
-# attestation with the Cloud KMS attestor key (GKE admission cannot enforce keyless signatures natively).
+# Runs only after the CI workflow ("Validate infrastructure portfolio") succeeded on a push to main, and builds that
+# exact commit (SC-001). build -> Trivy (HIGH/CRITICAL, fail-closed) -> CycloneDX SBOM -> push by digest -> full-
+# severity Trivy of the pushed digest + CISA KEV gate for every severity, with feed freshness (SC-002) -> keyless
+# cosign (this job's OIDC identity, no device login, no stored key) -> cosign verify (exact workflow identity) ->
+# Binary Authorization attestation with the Cloud KMS attestor key (GKE admission cannot enforce keyless signatures
+# natively). An unsigned, unattested digest left in the registry by a blocked run is never admitted.
 # Credentials: Workload Identity Federation provider agent-platform-ci (repository + ref + workflow bound).
 name: agent-platform-images
 
 on:
   workflow_dispatch: {}
-  push:
+  workflow_run:
+    workflows: ['Validate infrastructure portfolio']
+    types: [completed]
     branches: [main]
-    paths: ['platform/core/**', 'platform/agents/**', 'runtime/**', 'contracts/**', 'demo/**', 'requirements-litellm-candidate.txt', 'requirements-agent-composition.txt', 'requirements-financial-agent.txt', '.github/workflows/agent-platform-images.yml']
 
 permissions: {}
 
@@ -18,7 +22,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  ci-gate:
+    # The commit to build must have a successful CI run on a push to main (also for a manual dispatch).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    steps:
+      - id: sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
+          RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main ]]
+          if [[ "$EVENT" == workflow_run ]]; then
+            [[ "$RUN_CONCLUSION" == success && "$RUN_EVENT" == push && "$RUN_BRANCH" == main ]]
+            sha="$RUN_SHA"
+          else
+            sha="$GITHUB_SHA"
+          fi
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          ok=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$sha&event=push&branch=main&status=success&per_page=1" --jq '.total_count')
+          [[ "$ok" =~ ^[1-9][0-9]*$ ]] || { echo "no successful CI run on push to main for $sha"; exit 1; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
   image:
+    needs: ci-gate
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
@@ -34,9 +70,11 @@ jobs:
     env:
       REGISTRY: us-east1-docker.pkg.dev
       REPOSITORY: sdp-evaluation-images
+      SHA: ${{ needs.ci-gate.outputs.sha }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
+          ref: ${{ needs.ci-gate.outputs.sha }}
           persist-credentials: false
           fetch-depth: 1
       - name: Pinned qualification tools (Trivy 0.72.0, Syft 1.44.0, cosign 2.6.2; sha256-verified)
@@ -52,14 +90,14 @@ jobs:
       - name: Build (no credentials yet)
         run: |
           set -Eeuo pipefail
-          [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_RUN_ATTEMPT" == 1 ]]
+          [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_RUN_ATTEMPT" == 1 && "$(git rev-parse HEAD)" == "$SHA" ]]
           docker buildx build --platform linux/amd64 --target "${{ matrix.target }}" \
             --file "${{ matrix.dockerfile }}" --provenance=false --sbom=false \
-            --tag "local/${{ matrix.image }}:${GITHUB_SHA}" --load .
+            --tag "local/${{ matrix.image }}:${SHA}" --load .
       - name: Trivy (HIGH,CRITICAL; fail-closed) and SBOM
         run: |
           set -Eeuo pipefail
-          image="local/${{ matrix.image }}:${GITHUB_SHA}"
+          image="local/${{ matrix.image }}:${SHA}"
           "$RUNNER_TEMP/tools/trivy" image --severity HIGH,CRITICAL --exit-code 1 --ignore-unfixed=false \
             --format json --output "$RUNNER_TEMP/trivy.json" "$image"
           "$RUNNER_TEMP/tools/syft" "$image" -o "cyclonedx-json=$RUNNER_TEMP/sbom.cdx.json"
@@ -81,13 +119,21 @@ jobs:
           set -Eeuo pipefail
           [[ "$PROJECT_ID" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]]
           name="${{ matrix.image }}"
-          remote="$REGISTRY/$PROJECT_ID/$REPOSITORY/$name:sha-$GITHUB_SHA"
+          remote="$REGISTRY/$PROJECT_ID/$REPOSITORY/$name:sha-$SHA"
           printf '%s' "$ACCESS_TOKEN" | docker login "https://$REGISTRY" -u oauth2accesstoken --password-stdin >/dev/null
-          docker tag "local/$name:$GITHUB_SHA" "$remote"
+          docker tag "local/$name:$SHA" "$remote"
           docker push "$remote" > "$RUNNER_TEMP/push.log"
           digest=$(docker buildx imagetools inspect "$remote" --format '{{json .Manifest}}' | python3 -c "import json,sys; print(json.load(sys.stdin)['digest'])")
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           ref="$REGISTRY/$PROJECT_ID/$REPOSITORY/$name@$digest"
+          # SC-002: every severity, KEV checked before any severity filter, fresh feed; blocks before signing.
+          "$RUNNER_TEMP/tools/trivy" image --exit-code 0 --ignore-unfixed=false --format json \
+            --output "$RUNNER_TEMP/trivy-full.json" "$ref"
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 --max-time 60 \
+            --output "$RUNNER_TEMP/kev.json" \
+            https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+          python3 scripts/kev-release-gate.py "$RUNNER_TEMP/trivy-full.json" "$ref" "$RUNNER_TEMP/kev.json" \
+            policy/empty-exceptions.json | tee "$RUNNER_TEMP/release-gate.txt"
           "$RUNNER_TEMP/tools/cosign" sign --yes "$ref"
           "$RUNNER_TEMP/tools/cosign" verify "$ref" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
@@ -95,11 +141,12 @@ jobs:
           gcloud beta container binauthz attestations sign-and-create --project "$PROJECT_ID" --artifact-url "$ref" \
             --attestor "projects/$PROJECT_ID/attestors/agent-platform-ci" \
             --keyversion "projects/$PROJECT_ID/locations/us-east1/keyRings/agent-platform/cryptoKeys/binauthz-attestor/cryptoKeyVersions/1"
-          python3 - "$ref" "$RUNNER_TEMP/trivy.json" > "$RUNNER_TEMP/receipt.json" <<'PY'
+          python3 - "$ref" "$RUNNER_TEMP/trivy.json" "$SHA" "$RUNNER_TEMP/release-gate.txt" > "$RUNNER_TEMP/receipt.json" <<'PY'
           import hashlib, json, sys
           trivy = json.load(open(sys.argv[2]))
           findings = sum(len(r.get('Vulnerabilities') or []) for r in trivy.get('Results', []))
-          print(json.dumps({'image': sys.argv[1], 'trivy_high_critical': findings, 'cosign': 'keyless_verified',
+          print(json.dumps({'image': sys.argv[1], 'source_sha': sys.argv[3], 'trivy_high_critical': findings,
+                            'release_gate': open(sys.argv[4]).read().strip(), 'cosign': 'keyless_verified',
                             'binauthz': 'attested_kms', 'sbom': 'cyclonedx'}, sort_keys=True))
           PY
           docker logout "https://$REGISTRY" >/dev/null
@@ -110,4 +157,6 @@ jobs:
             ${{ runner.temp }}/receipt.json
             ${{ runner.temp }}/sbom.cdx.json
             ${{ runner.temp }}/trivy.json
+            ${{ runner.temp }}/trivy-full.json
+            ${{ runner.temp }}/release-gate.txt
           retention-days: 30

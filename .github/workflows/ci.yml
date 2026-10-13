@@ -73,6 +73,17 @@ jobs:
           python -m pip install --require-hashes -r requirements-financial-agent.txt
           PYTHONPATH=platform/core/src:platform/core/tests:. python -B -m unittest discover -s platform/core/tests -p 'test_finance_db.py'
           PYTHONPATH=platform/core/src:platform/agents/financial:. python -B -m unittest discover -s platform/agents/financial/tests -p 'test_*.py'
+
+  gitleaks:
+    # Its own job so branch protection can require it: the whole history, pinned and checksum-verified gitleaks.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out source (full history)
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - name: Install Gitleaks
         env:
           GITLEAKS_VERSION: '8.30.1'
