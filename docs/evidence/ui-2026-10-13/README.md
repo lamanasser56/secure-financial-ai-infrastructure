@@ -1,8 +1,10 @@
 # UI redesign: live screenshots (13 October 2026)
 
-Taken on the live platform (images from commit `5f86a4c`, pinned in `cbc94dd`) through the private port-forwards,
-with headless Chromium at 1280 px. The fault on fault-demo was injected with `make fault F=wedge` so the board
-shows a real incident; no approval was given. All data is synthetic.
+Taken on the live platform through the private port-forwards, with headless Chromium at 1280 px. Clean demo run on
+13–14 October 2026: images from commit `3d83e3e` (pinned in `ae4eea8`); the demo user's expenses were replaced with
+`make seed-demo` (September 2026: 8 expenses, 1001.89 SAR; October 2026: 9 expenses, 830.49 SAR, including one
+prompt-injection merchant). One fault (`make fault F=wedge`) shows a real incident; no approval was given. The agent
+answered "830.49 SAR" for October in English and Arabic and "1001.89 SAR" for September. All data is synthetic.
 
 ## About — guided tour, step 1
 
