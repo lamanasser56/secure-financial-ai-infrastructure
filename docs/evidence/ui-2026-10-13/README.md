@@ -1,7 +1,7 @@
 # UI redesign: live screenshots (13 October 2026)
 
 Taken on the live platform through the private port-forwards, with headless Chromium at 1280 px. Clean demo run on
-13–14 October 2026: images from commit `3d83e3e` (pinned in `ae4eea8`); the demo user's expenses were replaced with
+13–14 October 2026: images from commit `01376fe` (pinned in `58ff6f4`; awaiting-approval stage, one sequence per incident, Arabic amounts, Arabic explanation); the demo user's expenses were replaced with
 `make seed-demo` (September 2026: 8 expenses, 1001.89 SAR; October 2026: 9 expenses, 830.49 SAR, including one
 prompt-injection merchant). One fault (`make fault F=wedge`) shows a real incident; no approval was given. The agent
 answered "830.49 SAR" for October in English and Arabic and "1001.89 SAR" for September. All data is synthetic.
