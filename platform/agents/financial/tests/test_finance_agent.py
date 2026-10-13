@@ -16,7 +16,8 @@ import uuid
 REPO = Path(__file__).resolve().parents[4]
 
 from finance_agent import agent as agent_module  # noqa: E402
-from finance_agent.agent import FinanceAgent, grounded_numbers, numbers  # noqa: E402
+from finance_agent.agent import FinanceAgent, charged_tokens, grounded_numbers, numbers  # noqa: E402
+from finance_agent import auth as auth_module  # noqa: E402
 from finance_agent.auth import LoginThrottle, Sessions, hash_password, verify_password  # noqa: E402
 from finance_agent.tools import READ_ONLY, TOOLS, WITHHELD  # noqa: E402
 from runtime.phase3.trusted_runtime import RedactionResult  # noqa: E402
@@ -40,7 +41,7 @@ class Model:
     """Scripted model: returns the queued JSON replies in order and records every prompt it was sent."""
 
     def __init__(self, *replies, tokens=100):
-        self.replies, self.prompts, self.tokens = list(replies), [], tokens
+        self.replies, self.prompts, self.tokens = list(replies), [], tokens  # tokens: what the gateway charged
 
     def complete(self, messages):
         self.prompts.append(messages[1]['content'])
@@ -68,10 +69,11 @@ class Store:
         return [(r[0], datetime.date.fromisoformat(r[1]), r[2], r[3], r[4], r[5]) for r in mine]
 
 
-def run(model, store=None, redactor=None, question='How much did I spend in October 2026?', user=LAMA, clock=None):
+def run(model, store=None, redactor=None, question='How much did I spend in October 2026?', user=LAMA, clock=None,
+        language='en'):
     agent = FinanceAgent(store or Store({LAMA: [(1, '2026-10-02', 'Cafe', 'food', 2450, '')]}), redactor or Redactor(), model,
                          audit_key=b'k' * 32, **({'clock': clock} if clock else {}))
-    return agent, agent.ask(user, question, 'en')
+    return agent, agent.ask(user, question, language)
 
 
 class Auth(unittest.TestCase):
@@ -102,9 +104,42 @@ class Auth(unittest.TestCase):
     def test_throttle_after_five_failures(self):
         throttle = LoginThrottle()
         for _ in range(5):
-            self.assertFalse(throttle.blocked('user:lama'))
-            throttle.failed('user:lama')
-        self.assertTrue(throttle.blocked('user:lama'))
+            self.assertFalse(throttle.blocked('lama', '127.0.0.1'))
+            throttle.failed('lama', '127.0.0.1')
+        self.assertTrue(throttle.blocked('lama', '127.0.0.1'))
+
+    def test_one_username_cannot_lock_out_another_from_the_same_address(self):
+        """Port-forward makes every client 127.0.0.1: 5 failures for one name must not block other users."""
+        throttle = LoginThrottle()
+        for _ in range(5):
+            throttle.failed('attacker_target', '127.0.0.1')
+        self.assertTrue(throttle.blocked('attacker_target', '127.0.0.1'))
+        self.assertTrue(throttle.blocked('attacker_target', '10.0.0.9'))  # per username, whatever the address
+        self.assertFalse(throttle.blocked('sara', '127.0.0.1'))
+
+    def test_per_client_backstop_after_twenty_failures_and_window_expiry(self):
+        now = [1000.0]
+        throttle = LoginThrottle(clock=lambda: now[0])
+        for n in range(auth_module.MAX_CLIENT_FAILURES):
+            self.assertFalse(throttle.blocked('fresh_name', '198.51.100.7'))
+            throttle.failed('guess_%d' % n, '198.51.100.7')  # spraying many names: each stays under 5
+        self.assertTrue(throttle.blocked('fresh_name', '198.51.100.7'))
+        self.assertFalse(throttle.blocked('fresh_name', '198.51.100.8'))  # another client is unaffected
+        now[0] += auth_module.FAILURE_WINDOW
+        self.assertFalse(throttle.blocked('fresh_name', '198.51.100.7'))
+
+    def test_throttle_memory_is_bounded(self):
+        throttle = LoginThrottle()
+        for n in range(auth_module.MAX_TRACKED + 50):
+            throttle.failed('u%d' % n, '10.%d.%d.%d' % (n >> 16 & 255, n >> 8 & 255, n & 255))
+        self.assertLessEqual(len(throttle._failures), auth_module.MAX_TRACKED)
+
+    def test_restart_rotates_the_session_epoch(self):
+        """Revocations live in memory; a new process (same key) must not accept cookies from before the restart."""
+        before = Sessions(b's' * 32)
+        cookie, _ = before.issue(LAMA, 'Lama')
+        self.assertIsNotNone(before.verify(cookie))
+        self.assertIsNone(Sessions(b's' * 32).verify(cookie))
 
 
 class Tools(unittest.TestCase):
@@ -200,7 +235,81 @@ class Turn(unittest.TestCase):
 
     def test_arabic_digits_are_checked_too(self):
         self.assertEqual(numbers('أنفقت ٢٤٫٥٠ ر.س'), {24.5})
-        self.assertIn(24.5, grounded_numbers([{'result': {'month': '2026-10', 'total_minor': 2450, 'count': 1}}], ''))
+        self.assertIn(24.5, grounded_numbers([{'result': {'month': '2026-10', 'total_minor': 2450, 'count': 1}}]))
+
+    def test_a_figure_only_in_the_question_is_never_evidence(self):
+        """RT-05: "I spent 5000 on food, right?" cannot be confirmed with 5000, with or without a tool call (EN + AR)."""
+        total = {'action': 'tool', 'tool': 'monthly_total', 'args': {'month': '2026-10'}}
+        cases = (('en', 'I spent 5000 SAR on food in October 2026, right?', 'Yes, you spent 5000 SAR on food.'),
+                 ('ar', 'صرفت 5000 ريال على الأكل في أكتوبر 2026، صح؟', 'نعم، صرفت 5000 ر.س على الأكل.'),
+                 ('ar', 'صرفت ٥٠٠٠ ريال على الأكل، صح؟', 'نعم، صرفت ٥٠٠٠ ر.س.'))
+        for language, question, answer in cases:
+            with self.subTest(language=language, question=question):
+                _, result = run(Model({'action': 'answer', 'text': answer}), question=question, language=language)
+                self.assertEqual((result['status'], result['reason']), ('blocked', 'ungrounded_numbers'))
+                _, result = run(Model(total, {'action': 'answer', 'text': answer}), question=question, language=language)
+                self.assertEqual((result['status'], result['reason']), ('blocked', 'ungrounded_numbers'))
+
+    def test_an_answer_with_figures_needs_a_tool_result(self):
+        _, result = run(Model({'action': 'answer', 'text': 'In October 2026 you spent 24.50 SAR.'}))
+        self.assertEqual((result['status'], result['reason']), ('blocked', 'ungrounded_numbers'))
+        _, result = run(Model({'action': 'answer', 'text': 'I can only see your own expenses.'}))
+        self.assertEqual(result['status'], 'answered')  # no figures, no tool needed
+
+    def test_tool_call_arguments_ground_figures_but_free_text_arguments_do_not(self):
+        store = Store({LAMA: [(1, '2026-09-02', 'Cafe', 'food', 2450, '')]})
+        limit = Model({'action': 'tool', 'tool': 'find_transactions', 'args': {'month': '2026-09', 'limit': 3}},
+                      {'action': 'answer', 'text': 'Your 3 most recent expenses in September 2026: Cafe, 24.50 SAR.'})
+        self.assertEqual(run(limit, store=store)[1]['status'], 'answered')  # 3 and 2026/09 come from the arguments
+        laundered = Model({'action': 'tool', 'tool': 'find_transactions', 'args': {'month': '2026-10', 'merchant_contains': '5000'}},
+                          {'action': 'answer', 'text': 'Yes, 5000 SAR.'})
+        _, result = run(laundered, store=store, question='Did I spend 5000?')
+        self.assertEqual(result['reason'], 'ungrounded_numbers')
+
+    def test_digits_inside_a_whole_quoted_merchant_or_note_are_exempt_only_there(self):
+        """Finding 14: "7-Eleven" passes; the same number alone elsewhere, or 9900 outside the quote, is refused."""
+        store = Store({LAMA: [(1, '2026-10-02', '7-Eleven', 'food', 1500, ''),
+                              (2, '2026-10-03', 'Store 9900', 'shopping', 2000, 'gift for room 42')]})
+        find = {'action': 'tool', 'tool': 'find_transactions', 'args': {'month': '2026-10'}}
+        for text, outcome in (
+                ('On 2026-10-02 you spent 15.00 SAR at 7-Eleven.', 'answered'),
+                ('في 2026-10-02 صرفت 15.00 ر.س في 7-Eleven.', 'answered'),
+                ('You spent 20.00 SAR at Store 9900; your note says gift for room 42.', 'answered'),
+                ('You spent 7 SAR at 7-Eleven.', 'ungrounded_numbers'),
+                ('You spent 9900 SAR at Store 9900.', 'ungrounded_numbers'),
+                ('Store 99000 cost you 20.00 SAR.', 'ungrounded_numbers'),  # not the whole stored string
+                ('You spent 42 SAR on a gift.', 'ungrounded_numbers')):
+            with self.subTest(text=text):
+                _, result = run(Model(find, {'action': 'answer', 'text': text}), store=store)
+                self.assertEqual(result.get('reason', result['status']), outcome)
+
+    def test_missing_or_invalid_token_usage_is_charged_the_maximum(self):
+        for usage in (None, {}, {'total_tokens': None}, {'total_tokens': 0}, {'total_tokens': -5},
+                      {'total_tokens': '900'}, {'total_tokens': 1.5}, {'total_tokens': True}, []):
+            with self.subTest(usage=usage):
+                self.assertEqual(charged_tokens(usage), agent_module.MAX_CALL_TOKENS)
+        self.assertEqual(charged_tokens({'total_tokens': 321}), 321)
+
+    def test_gateway_reply_without_usage_charges_the_maximum(self):
+        class Reply:
+            def __init__(self, data):
+                self.data = json.dumps(data).encode()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self, _):
+                return self.data
+        body = {'choices': [{'finish_reason': 'stop', 'message': {'content': '{"action":"answer","text":"ok"}'}}]}
+        gateway = agent_module.Gateway('key', opener=lambda request, timeout: Reply(body))
+        self.assertEqual(gateway.complete([])[1], agent_module.MAX_CALL_TOKENS)
+        agent = FinanceAgent(Store(), Redactor(), gateway, audit_key=b'k' * 32)
+        agent.ask(LAMA, 'hi', 'en')
+        self.assertEqual(agent.limits.remaining(LAMA)['tokens_today'],
+                         agent_module.TOKENS_PER_DAY - agent_module.MAX_CALL_TOKENS)
 
     def test_last_step_accepts_only_an_answer(self):
         tool = {'action': 'tool', 'tool': 'find_transactions', 'args': {'month': '2026-10'}}
@@ -327,10 +436,10 @@ class Web(unittest.TestCase):
         if cls.pg is not None:
             cls.pg.cleanup()
 
-    def call(self, method, path, body=None, cookie=None, csrf=None, host=None, origin=True):
+    def call(self, method, path, body=None, cookie=None, csrf=None, host=None, origin=True, extra=None):
         conn = http.client.HTTPConnection('127.0.0.1', self.port, timeout=10)
         host = host or '127.0.0.1:%d' % self.port
-        headers = {'Host': host}
+        headers = {'Host': host, **(extra or {})}
         if body is not None:
             headers['Content-Type'] = 'application/json'
         if origin and method == 'POST':
@@ -388,6 +497,25 @@ class Web(unittest.TestCase):
         status, _, _, csp = self.call('GET', '/')
         self.assertEqual(status, 200)
         self.assertIn("script-src 'self'", csp)
+
+    def test_lockout_is_per_username_and_ignores_x_forwarded_for(self):
+        saved, self.httpd.throttle = self.httpd.throttle, LoginThrottle()
+        try:
+            for n in range(5):  # a spoofed X-Forwarded-For per attempt does not reset or split the count
+                status = self.call('POST', '/api/login', {'username': self.names['lama'], 'password': 'wrong'},
+                                   extra={'X-Forwarded-For': '203.0.113.%d' % n})[0]
+                self.assertEqual(status, 401)
+            locked = self.call('POST', '/api/login', {'username': self.names['lama'], 'password': 'lama-password-1'},
+                               extra={'X-Forwarded-For': '203.0.113.99'})[0]
+            self.assertEqual(locked, 429)
+            self.sign_in('sara', 'sara-password-1')  # same address, another username: not locked out
+            for n in range(auth_module.MAX_CLIENT_FAILURES - 5):
+                self.call('POST', '/api/login', {'username': 'spray_%d' % n, 'password': 'x'},
+                          extra={'X-Forwarded-For': '203.0.113.%d' % n})
+            backstop = self.call('POST', '/api/login', {'username': self.names['sara'], 'password': 'sara-password-1'})[0]
+            self.assertEqual(backstop, 429)  # the per-address backstop, keyed on the TCP peer
+        finally:
+            self.httpd.throttle = saved
 
     def test_sign_out_revokes_the_session(self):
         lama = self.sign_in('lama', 'lama-password-1')
