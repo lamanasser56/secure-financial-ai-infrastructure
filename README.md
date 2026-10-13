@@ -47,6 +47,8 @@ Application-owned identity and tenant adapters
 
 ## Repository layout
 
+The [repository map](docs/REPO-MAP.md) sorts every path into the current product (the Secure AI Agent Platform), the shared code it runs on, and the earlier phases kept as history.
+
 | Path | Purpose |
 | --- | --- |
 | `runtime/phase3/` | Trusted AI path and HTTP adapters |
