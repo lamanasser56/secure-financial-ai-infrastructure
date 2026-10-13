@@ -66,6 +66,10 @@ def database(config):
 
 
 FINANCE_ROLES = ('finance_web', 'finance_agent')
+FINANCE_CATEGORIES = ('food', 'transport', 'shopping', 'bills', 'subscriptions', 'health', 'travel', 'other')
+CATEGORY_CONSTRAINT = ('ALTER TABLE finance.expenses DROP CONSTRAINT IF EXISTS expenses_category_check, '
+                       'ADD CONSTRAINT expenses_category_check CHECK (category IN ('
+                       + ', '.join(f"'{c}'" for c in FINANCE_CATEGORIES) + '))')
 # Owner of the SECURITY DEFINER sign-in lookup: cannot log in, reads finance.users only (idempotent; also for existing DBs).
 LOOKUP_OWNERSHIP = (
     'GRANT USAGE ON SCHEMA finance TO finance_owner',
@@ -98,6 +102,9 @@ def finance(config, connect=None):
         if not db.execute("SELECT to_regclass('finance.expenses')").fetchone()[0]:
             db.execute((SQL / 'finance.sql').read_text())
             log(step='finance_schema', created=True)
+        # Category list (keep equal to finance_agent.store.CATEGORIES): re-applied so an existing database gains new
+        # categories. A CHECK constraint only; no role, grant or RLS change.
+        db.execute(CATEGORY_CONSTRAINT)
         for statement in LOOKUP_OWNERSHIP:
             db.execute(statement)
         for user in secrets['users']:

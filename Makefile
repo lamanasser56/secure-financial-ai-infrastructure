@@ -11,6 +11,7 @@
 #   make port-forward      the only way in: http://127.0.0.1:8080/
 #   make fault F=wedge|oom|crashloop|badimage   scripted fault on apps/fault-demo (owner identity)
 #   make attack            live attack suite -> docs/evidence/attack-suite.json
+#   make seed-demo         replace the demo user's expenses with the synthetic Sep/Oct 2026 seed (owner identity)
 #   make inventory         read-only list of everything billable in the project
 SHELL := /bin/bash
 .ONESHELL:
@@ -25,7 +26,7 @@ ENVTEST_SHA512 := 130369c16f076e724d089189afaede960316f5f5dea6cf57be7a4fc6f09c77
 PY := PYTHONPATH=platform/core/src:platform/core/tests:. $(PYTHON) -B
 LIFECYCLE := PYTHONPATH=platform/core/src:. $(PYTHON) -B platform/clouds/gke/lifecycle.py
 
-.PHONY: test test-policies onboard hello agent-forward provider plan apply up down port-forward fault attack inventory secrets
+.PHONY: test test-policies onboard hello agent-forward provider plan apply up down port-forward fault attack inventory secrets seed-demo
 
 test:
 	PATH="$(TOOLS):$$PATH" $(PY) -m unittest discover -s platform/core/tests -p 'test_*.py'
@@ -80,6 +81,9 @@ attack:
 
 inventory:
 	$(LIFECYCLE) inventory
+
+seed-demo:
+	$(LIFECYCLE) seed-demo
 
 secrets:
 	$(LIFECYCLE) secrets

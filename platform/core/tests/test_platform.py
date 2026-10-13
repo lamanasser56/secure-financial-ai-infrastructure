@@ -127,14 +127,24 @@ class Explanation(unittest.TestCase):
 
     def test_complete_answer_is_shown(self):
         result, sent = self.explain({'finish_reason': 'stop', 'message': {'content': 'Pod restarts.'}})
-        self.assertEqual(result, {'untrusted_text': 'Pod restarts.', 'source': 'model_via_gateway'})
+        self.assertEqual(result, {'untrusted_text': 'Pod restarts.', 'untrusted_text_ar': None, 'source': 'model_via_gateway'})
         self.assertEqual(sent[0]['max_tokens'], providers.MAX_TOKENS)
+
+    def test_one_call_returns_english_and_arabic(self):
+        reply = json.dumps({'en': 'The Pod keeps restarting.', 'ar': 'الـ Pod يُعاد تشغيله باستمرار.'}, ensure_ascii=False)
+        result, sent = self.explain({'finish_reason': 'stop', 'message': {'content': reply}})
+        self.assertEqual(len(sent), 1)  # still one model request per incident
+        self.assertEqual(sent[0]['response_format'], {'type': 'json_object'})
+        self.assertEqual((result['untrusted_text'], result['untrusted_text_ar']), ('The Pod keeps restarting.', 'الـ Pod يُعاد تشغيله باستمرار.'))
+        for bad in (json.dumps({'ar': 'فقط'}), json.dumps(['x']), json.dumps({'en': ' '})):
+            with self.subTest(bad=bad):
+                self.assertEqual(self.explain({'finish_reason': 'stop', 'message': {'content': bad}})[0]['source'], 'unavailable')
 
     def test_truncated_or_empty_answer_is_unavailable(self):
         for choice in ({'finish_reason': 'length', 'message': {'content': 'Pod rest'}},
                        {'finish_reason': 'stop', 'message': {'content': None}},
                        {'finish_reason': 'stop', 'message': {'content': ' '}}):
-            self.assertEqual(self.explain(choice)[0], {'untrusted_text': None, 'source': 'unavailable'})
+            self.assertEqual(self.explain(choice)[0], {'untrusted_text': None, 'untrusted_text_ar': None, 'source': 'unavailable'})
 
 
 class FaultDemoWedge(unittest.TestCase):

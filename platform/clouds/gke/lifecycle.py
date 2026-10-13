@@ -328,13 +328,44 @@ def inventory():
     print(json.dumps(result, indent=1, sort_keys=True))
 
 
+DEMO_SEED = REPO / 'platform/core/database/finance-demo-seed.json'
+
+
+def seed_sql(seed, category_constraint):
+    """One transaction: bring the category list up to date (the same statement the bootstrap runs on a fresh database;
+    the schema Job is not re-run by `make up`), then replace the demo user's expenses with the seed rows (synthetic).
+    Other users, roles, grants and RLS are untouched; it runs as the database owner inside the Postgres Pod."""
+    q = lambda v: "'" + str(v).replace("'", "''") + "'"
+    user = '(SELECT id FROM finance.users WHERE username = ' + q(seed['username']) + ')'
+    rows = ',\n'.join('(' + ', '.join((user, q(e['spent_on']) + '::date', q(e['merchant']), q(e['category']),
+                                         str(int(round(float(e['amount']) * 100))), q(e['note']))) + ')' for e in seed['expenses'])
+    return ('\\set ON_ERROR_STOP on\nBEGIN;\n'
+            + category_constraint + ';\n'
+            'SELECT 1/count(*) FROM finance.users WHERE username = ' + q(seed['username']) + ';\n'  # unknown user: stop
+            'DELETE FROM finance.expenses WHERE user_id = ' + user + ';\n'
+            'INSERT INTO finance.expenses(user_id, spent_on, merchant, category, amount_minor, note) VALUES\n' + rows + ';\n'
+            'COMMIT;\n'
+            "SELECT to_char(spent_on, 'YYYY-MM') AS month, count(*) AS expenses, to_char(sum(amount_minor) / 100.0, 'FM999990.00') AS total_sar "
+            'FROM finance.expenses WHERE user_id = ' + user + ' GROUP BY 1 ORDER BY 1;\n')
+
+
+def seed_demo():
+    kubeconfig()
+    seed = json.loads(DEMO_SEED.read_text())
+    sys.path.insert(0, str(REPO / 'platform/core/src'))
+    from agent_platform.programs.bootstrap import CATEGORY_CONSTRAINT
+    out = kubectl('-n', 'platform', 'exec', '-i', 'postgres-0', '--', 'psql', '-U', 'postgres', '-d', 'finance', '-X', '-q', '-A', '-F', ' | ',
+                  input=seed_sql(seed, CATEGORY_CONSTRAINT), capture=True)
+    print(out.stdout.strip())
+
+
 def main(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['plan', 'apply', 'kubeconfig', 'attest', 'up', 'down', 'fault', 'port-forward', 'inventory', 'secrets', 'hello', 'agent-forward'])
+    parser.add_argument('command', choices=['plan', 'apply', 'kubeconfig', 'attest', 'up', 'down', 'fault', 'port-forward', 'inventory', 'secrets', 'hello', 'agent-forward', 'seed-demo'])
     parser.add_argument('args', nargs='*')
     a = parser.parse_args(argv)
     {'plan': plan, 'apply': apply, 'kubeconfig': lambda: print(kubeconfig()), 'up': up, 'down': down,
-     'port-forward': port_forward, 'inventory': inventory, 'secrets': secrets}.get(a.command, lambda: None)()
+     'port-forward': port_forward, 'inventory': inventory, 'secrets': secrets, 'seed-demo': seed_demo}.get(a.command, lambda: None)()
     if a.command == 'fault':
         fault((a.args or [''])[0])
     if a.command == 'attest':
