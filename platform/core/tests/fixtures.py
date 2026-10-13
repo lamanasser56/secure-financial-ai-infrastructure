@@ -22,7 +22,7 @@ def template(image=GOOD, env='none', memory='64Mi'):
 
 
 def deployment(revision=2, tmpl=None, replicas=1, available=1, generation=2, observed=2):
-    return {'metadata': {'name': 'fault-demo', 'namespace': 'apps', 'uid': 'uid-1', 'generation': generation,
+    return {'metadata': {'name': 'fault-demo', 'namespace': 'apps', 'uid': 'uid-1', 'resourceVersion': '100', 'generation': generation,
                          'annotations': {'deployment.kubernetes.io/revision': str(revision)}},
             'spec': {'replicas': replicas, 'selector': {'matchLabels': {'app.kubernetes.io/name': 'fault-demo'}},
                      'template': tmpl or template(env='crashloop')},
@@ -61,6 +61,11 @@ class FakeClient:
         self.patches.append((namespace, name, patch))
         if self.patch_error:
             raise KubeError(*self.patch_error)
+        meta, current = patch.get('metadata') or {}, self.deployment['metadata']
+        for field in ('uid', 'resourceVersion'):  # API server preconditions on a merge patch
+            if field in meta and meta[field] != current.get(field):
+                raise KubeError(409, 'Conflict')
         if self.after_patch:
             self.deployment = self.after_patch(self.deployment, patch)
+        self.deployment['metadata']['resourceVersion'] = str(int(self.deployment['metadata'].get('resourceVersion', '0')) + 1)
         return self.deployment

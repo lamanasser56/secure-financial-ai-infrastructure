@@ -64,9 +64,10 @@ def diagnose(deployment, pods, events, replicasets=()):
               'all_findings': sorted(set(findings)), 'evidence': evidence[:10], 'suggested_actions': list(SUGGESTED[primary]),
               'observed_generation': status.get('observedGeneration'), 'desired_replicas': desired,
               'available_replicas': int(status.get('availableReplicas', 0)),
-              'revision': (deployment['metadata'].get('annotations') or {}).get('deployment.kubernetes.io/revision')}
+              'revision': (deployment['metadata'].get('annotations') or {}).get('deployment.kubernetes.io/revision'),
+              'uid': deployment['metadata'].get('uid'), 'resource_version': deployment['metadata'].get('resourceVersion')}
     result['automated_fix'] = bool(SUGGESTED[primary])
     result['owner_action'] = OWNER_ACTION.get(primary)
     result['evidence_digest'] = hashlib.sha256(json.dumps(
-        {k: result[k] for k in ('deployment', 'namespace', 'finding', 'evidence', 'revision')}, sort_keys=True).encode()).hexdigest()
+        {k: result[k] for k in ('deployment', 'namespace', 'uid', 'finding', 'evidence', 'revision')}, sort_keys=True).encode()).hexdigest()
     return result

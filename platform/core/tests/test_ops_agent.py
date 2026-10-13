@@ -2,7 +2,9 @@
 import copy
 import unittest
 
+from agent_platform.k8s import KubeError
 from agent_platform.ops import actions, approval, diagnose
+from agent_platform.ops import agent as agent_module
 from agent_platform.ops.agent import Agent
 from agent_platform.ops.registry import ACTIONS
 from agent_platform.ops.registry import parse
@@ -88,7 +90,8 @@ class Approvals(unittest.TestCase):
         self.signer = approval.Signer(self.private, clock=self.clock)
         self.verifier = approval.Verifier(self.public, clock=self.clock)
         self.proposal = {'request_id': 'r1', 'target': 'apps.fault-demo', 'action': 'restart',
-                         'args_digest': approval.args_digest({}), 'evidence_digest': 'e' * 64}
+                         'args_digest': approval.args_digest({}), 'evidence_digest': 'e' * 64,
+                         'uid': 'uid-1', 'resource_version': '100'}
 
     def test_valid_once(self):
         token = self.signer.sign(self.proposal)
@@ -98,7 +101,7 @@ class Approvals(unittest.TestCase):
 
     def test_binding_expiry_signature_and_restart(self):
         token = self.signer.sign(self.proposal)
-        for field in ('target', 'action', 'args_digest', 'evidence_digest'):
+        for field in ('target', 'action', 'args_digest', 'evidence_digest', 'uid', 'resource_version'):
             with self.assertRaisesRegex(approval.ApprovalDenied, 'BINDING_MISMATCH:' + field):
                 self.verifier.consume(token, dict(self.proposal, **{field: 'other'}))
         self.clock.t += 301
@@ -172,8 +175,75 @@ class AgentFlow(unittest.TestCase):
         self.client.pods = [pod(waiting='ImagePullBackOff')]
         self.agent.scan()
         result = self.agent.execute(proposal['request_id'], self.signer.sign(proposal))
-        self.assertEqual(result['code'], 'EVIDENCE_CHANGED')
+        self.assertEqual(result['code'], 'UNKNOWN_OR_USED_REQUEST')  # the rescan already marked it stale
+        self.assertEqual(self.agent.proposals[proposal['request_id']]['state'], 'stale')
         self.assertEqual(self.client.patches, [])
+
+    def test_approval_binds_uid_and_resource_version_and_the_patch_carries_the_version(self):
+        proposal = self.restart()
+        self.assertEqual((proposal['uid'], proposal['resource_version']), ('uid-1', '100'))
+        self.agent.execute(proposal['request_id'], self.signer.sign(proposal))
+        self.assertEqual(self.client.patches[0][2]['metadata'], {'resourceVersion': '100'})
+
+    def assertConsumedStale(self, proposal, code):
+        token = self.signer.sign(proposal)
+        self.assertEqual(self.agent.execute(proposal['request_id'], token), {'result': 'DENIED', 'code': code})
+        self.assertEqual(self.agent.proposals[proposal['request_id']]['state'], 'stale')
+        again = self.agent.execute(proposal['request_id'], token)  # the request stays consumed
+        self.assertEqual(again['code'], 'UNKNOWN_OR_USED_REQUEST')
+
+    def test_fresh_get_is_used_not_the_cached_scan(self):
+        """RT-01: the evidence changes after the last scan (no rescan): execution re-diagnoses and refuses."""
+        proposal = self.restart()
+        self.client.pods = [pod(waiting='ImagePullBackOff')]
+        self.assertConsumedStale(proposal, 'EVIDENCE_CHANGED')
+        self.assertEqual(self.client.patches, [])
+
+    def test_same_name_replacement_is_refused(self):
+        proposal = self.restart()
+        self.client.deployment['metadata']['uid'] = 'uid-2'  # deleted and re-created under the same name
+        self.assertConsumedStale(proposal, 'TARGET_REPLACED')
+        self.assertEqual(self.client.patches, [])
+
+    def test_object_change_with_the_same_evidence_is_refused(self):
+        proposal = self.restart()
+        self.client.deployment['metadata']['resourceVersion'] = '101'
+        self.assertConsumedStale(proposal, 'OBJECT_CHANGED')
+        self.assertEqual(self.client.patches, [])
+        self.agent.scan()  # same evidence, new object version: a fresh proposal bound to it
+        fresh = self.agent.snapshot()['pending']
+        self.assertEqual([p['resource_version'] for p in fresh], ['101'])
+        self.assertEqual(self.agent.execute(fresh[0]['request_id'], self.signer.sign(fresh[0]))['result'], 'VERIFIED')
+
+    def test_race_between_fresh_get_and_patch_is_a_409_and_nothing_changes(self):
+        proposal = self.restart()
+        client, original = self.client, self.client.get
+        def get_then_race(kind, namespace, name):
+            current = original(kind, namespace, name)
+            client.deployment['metadata']['resourceVersion'] = '102'  # someone writes right after our GET
+            return current
+        client.get = get_then_race
+        self.assertConsumedStale(proposal, 'CONFLICT_OBJECT_CHANGED')
+        self.assertEqual(len(client.patches), 1)  # attempted once, rejected by the precondition
+        self.assertNotIn('kubectl.kubernetes.io/restartedAt', str(client.deployment['spec']['template']))
+        self.assertEqual(self.agent.snapshot()['denials'][-2]['code'], 'CONFLICT_OBJECT_CHANGED')
+
+    def test_pending_proposals_expire_with_the_approval_lifetime(self):
+        proposal = self.restart()
+        token = self.signer.sign(proposal)
+        self.clock.t += agent_module.PROPOSAL_TTL
+        self.assertEqual(self.agent.snapshot()['pending'], [])
+        self.assertEqual(self.agent.execute(proposal['request_id'], token)['code'], 'UNKNOWN_OR_USED_REQUEST')
+        self.assertEqual(self.client.patches, [])
+        self.agent.scan()  # still failing with the same evidence: proposed again, approvable again
+        self.assertEqual(len(self.agent.snapshot()['pending']), 1)
+
+    def test_proposal_history_is_bounded(self):
+        for restarts in range(agent_module.MAX_PROPOSALS + 50):
+            self.client.pods = [pod(waiting='CrashLoopBackOff', restarts=restarts)]
+            self.agent.scan()
+        self.assertLessEqual(len(self.agent.proposals), agent_module.MAX_PROPOSALS)
+        self.assertEqual(len(self.agent.snapshot()['pending']), 1)
 
     def test_one_explanation_per_episode(self):
         calls = []
@@ -181,7 +251,10 @@ class AgentFlow(unittest.TestCase):
         for restarts in (5, 6, 7):  # each crash changes the evidence digest and creates new proposals
             self.client.pods = [pod(waiting='CrashLoopBackOff', restarts=restarts)]
             self.agent.scan()
-        self.assertEqual(len(self.agent.snapshot()['pending']), 3)  # a restart proposal for each evidence change
+        pending = self.agent.snapshot()['pending']
+        self.assertEqual(len(pending), 1)  # each evidence change supersedes the older restart proposal
+        self.assertEqual(pending[0]['evidence_digest'], self.agent.findings['apps.fault-demo']['evidence_digest'])
+        self.assertEqual(sorted(p['state'] for p in self.agent.proposals.values()), ['proposed', 'stale', 'stale'])
         self.assertEqual(calls, ['CRASH_LOOP'])  # but one model request for the episode
         self.client.pods = [pod()]
         self.client.deployment['status']['availableReplicas'] = 1
