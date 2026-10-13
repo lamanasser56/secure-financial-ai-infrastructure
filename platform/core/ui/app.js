@@ -1,6 +1,7 @@
 'use strict';
 // Shared page core for the front door (About and Security & Operations): language, formatting, guided tour.
 // textContent only, never HTML strings; CSP script-src 'self'. Arabic uses Western digits 0-9 and the Gregorian calendar.
+const UI_PARAMS = () => new URLSearchParams(window.location.hash.slice(1));
 const UI = (() => {
   const dict = {en: {}, ar: {}};
   const listeners = [];
@@ -37,7 +38,7 @@ const UI = (() => {
     document.title = t('title_' + document.body.dataset.page);
     document.querySelectorAll('nav.links a, a.cta').forEach(a => {  // keep the language when moving between pages
       if (!a.dataset.base) a.dataset.base = a.getAttribute('href');
-      a.setAttribute('href', a.dataset.base + '?lang=' + lang);
+      a.setAttribute('href', a.dataset.base + '#lang=' + lang);
     });
     listeners.forEach(fn => fn(lang));
   }
@@ -91,7 +92,7 @@ const UI = (() => {
     document.querySelectorAll('[data-lang]').forEach(b => { b.onclick = () => setLang(b.dataset.lang); });
     const open = document.getElementById('tour');
     if (open) open.onclick = () => tour(steps, key);
-    const params = new URLSearchParams(window.location.search);
+    const params = UI_PARAMS();  // the fragment: the front door serves exact paths only, so no query string
     setLang(params.get('lang') || store.get('lang') || ((navigator.language || '').startsWith('ar') ? 'ar' : 'en'));
     if (params.get('tour') === 'off') store.set(key, '1');
     if (!store.get(key)) window.setTimeout(() => tour(steps, key), 400);

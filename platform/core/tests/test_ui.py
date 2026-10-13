@@ -80,10 +80,13 @@ class UiAssets(unittest.TestCase):
         self.assertIn('const latin = s =>', core)  # model text with Arabic-Indic digits is shown with 0-9
         self.assertIn("lang === 'ar' ? 'rtl' : 'ltr'", core)
         self.assertIn("el('bdi', {dir: 'ltr'}", core)  # technical IDs isolated left-to-right
+        for script in (FRONT / 'app.js', FRONT / 'operations.js', FIN / 'app.js'):  # web.py serves exact paths only
+            self.assertNotIn('location.search', script.read_text())
+            self.assertNotIn("'?lang=", script.read_text())
 
     def test_financial_page_shares_the_core_and_the_design(self):
         front, fin = (FRONT / 'app.js').read_text(), (FIN / 'app.js').read_text()
-        core = front[front.index('const UI = (() => {'):front.index('\n})();\n') + 6]
+        core = front[front.index('const UI_PARAMS'):front.index('\n})();\n') + 6]
         self.assertIn(core, fin)
         self.assertEqual((FRONT / 'style.css').read_bytes(), (FIN / 'style.css').read_bytes())
 
