@@ -334,7 +334,7 @@ UI.start([
   const response = await fetch('/api/bootstrap', {credentials: 'same-origin'});
   csrf = (await response.json()).csrf;
   await refresh();
-  if (new URLSearchParams(window.location.search).get('tab') === 'security') node('tab-sec').onclick();
+  if (UI_PARAMS().get('tab') === 'security') node('tab-sec').onclick();
   window.setInterval(() => { if (!document.hidden && !approval) refresh(); }, 20000);
 })().catch(() => { node('status').textContent = t('r_default'); });
 })();

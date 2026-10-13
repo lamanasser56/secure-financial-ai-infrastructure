@@ -2,6 +2,7 @@
 // Financial Agent page. The shared core below is a verbatim copy of platform/core/ui/app.js (a test keeps them equal).
 // Shared page core for the front door (About and Security & Operations): language, formatting, guided tour.
 // textContent only, never HTML strings; CSP script-src 'self'. Arabic uses Western digits 0-9 and the Gregorian calendar.
+const UI_PARAMS = () => new URLSearchParams(window.location.hash.slice(1));
 const UI = (() => {
   const dict = {en: {}, ar: {}};
   const listeners = [];
@@ -38,7 +39,7 @@ const UI = (() => {
     document.title = t('title_' + document.body.dataset.page);
     document.querySelectorAll('nav.links a, a.cta').forEach(a => {  // keep the language when moving between pages
       if (!a.dataset.base) a.dataset.base = a.getAttribute('href');
-      a.setAttribute('href', a.dataset.base + '?lang=' + lang);
+      a.setAttribute('href', a.dataset.base + '#lang=' + lang);
     });
     listeners.forEach(fn => fn(lang));
   }
@@ -92,7 +93,7 @@ const UI = (() => {
     document.querySelectorAll('[data-lang]').forEach(b => { b.onclick = () => setLang(b.dataset.lang); });
     const open = document.getElementById('tour');
     if (open) open.onclick = () => tour(steps, key);
-    const params = new URLSearchParams(window.location.search);
+    const params = UI_PARAMS();  // the fragment: the front door serves exact paths only, so no query string
     setLang(params.get('lang') || store.get('lang') || ((navigator.language || '').startsWith('ar') ? 'ar' : 'en'));
     if (params.get('tour') === 'off') store.set(key, '1');
     if (!store.get(key)) window.setTimeout(() => tour(steps, key), 400);
@@ -306,7 +307,7 @@ UI.onLang(localized);
     {sel: '#fin-intro', title: 'tour_f1_t', body: 'tour_f1_b'}, {sel: '#strip', title: 'tour_f2_t', body: 'tour_f2_b'},
     {sel: '#ask-card', title: 'tour_f3_t', body: 'tour_f3_b'}, {sel: '#answer', title: 'tour_f4_t', body: 'tour_f4_b'},
     {sel: '#tab-exp', title: 'tour_f5_t', body: 'tour_f5_b'}]);
-  const tab = new URLSearchParams(window.location.search).get('tab');
+  const tab = UI_PARAMS().get('tab');
   if (tab === 'expenses') $('tab-exp').onclick();
 })();
 })();
