@@ -1,8 +1,15 @@
-# UI redesign proposal (parked)
+# UI redesign proposal
 
-**Status: parked, not approved, not implemented.** By owner decision (2026-10-12), the UI redesign comes last,
-after the features, the security review and the cleanup, so the final version is designed and recorded once. This
-file holds the written proposal until then. All security behavior stays unchanged.
+**Status: implemented on 13 October 2026, on owner approval.** The pages live in `platform/core/ui/` (About,
+Security & Operations) and `platform/agents/financial/finance_agent/ui/` (Financial Agent). To open them, see
+`docs/HOW-TO-VIEW.md`. The implementation differs from the text below in three ways:
+
+- The Financial Agent is the onboarded agent with its own app on port 8081. The retired front-door Financial Agent
+  is no longer shown, so About is the front door's start page.
+- The two flows on About are numbered HTML step lists instead of SVG, so they read correctly in both directions.
+- The `frontend-design` plugin was not available, so the work follows this proposal directly.
+
+All security behavior stays unchanged.
 
 ## Goal
 

@@ -60,7 +60,7 @@ image build.
 
 ## Where to start
 
-1. `README.md` and this map.
+1. `README.md`, this map, and `docs/HOW-TO-VIEW.md` to open the pages.
 2. `docs/agent-onboarding-contract.md`: what an onboarded agent inherits.
 3. `platform/agents/hello/agent.yaml`, then `platform/agents/financial/`.
 4. `platform/core/src/agent_platform/ops/`: the Security & Operations Agent.

@@ -3,7 +3,7 @@
 GET  /                  the page (static, CSP: self only)
 POST /api/login         {"username","password"} -> signed session cookie (HttpOnly, SameSite=Strict) + CSRF token
 POST /api/logout
-GET  /api/me            who is signed in, limits
+GET  /api/me            who is signed in, session expiry, limits
 GET  /api/expenses?month=YYYY-MM          the signed-in user's own expenses
 POST /api/expenses      {"spent_on","merchant","category","amount","note"?}
 POST /api/ask           {"question","language"} -> answer, how we know, privacy check, limits
@@ -85,7 +85,8 @@ class Handler(BaseHTTPRequestHandler):
         if user is None:
             return self.send(401, {'error': 'sign_in_required'})
         if path.path == '/api/me':
-            return self.send(200, {'name': user['n'], 'csrf': user['c'], 'limits': self.server.agent.limits.remaining(user['u'])})
+            return self.send(200, {'name': user['n'], 'csrf': user['c'], 'expires_at': user['exp'],
+                                   'limits': self.server.agent.limits.remaining(user['u'])})
         if path.path == '/api/expenses':
             month = (parse_qs(path.query).get('month') or [''])[0]
             try:
@@ -142,7 +143,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(401, {'error': 'wrong_username_or_password'})
         cookie, payload = self.server.sessions.issue(account['id'], account['display_name'])
         audit.emit('finance_login', 'agent-financial', user_ref=self.server.agent._user_ref(account['id']))
-        return self.send(200, {'name': payload['n'], 'csrf': payload['c']},
+        return self.send(200, {'name': payload['n'], 'csrf': payload['c'], 'expires_at': payload['exp'],
+                               'limits': self.server.agent.limits.remaining(account['id'])},
                          cookie=COOKIE + '=' + cookie + '; HttpOnly; SameSite=Strict; Path=/; Max-Age=3600')
 
 

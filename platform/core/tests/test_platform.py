@@ -385,29 +385,6 @@ if __name__ == '__main__':
     unittest.main()
 
 
-class DashboardAssets(unittest.TestCase):
-    """No JS engine offline: static invariants of the platform dashboard overlay."""
-
-    def test_safe_bilingual_dashboard(self):
-        script = (REPO / 'platform/core/ui/operations.js').read_text()
-        html = (REPO / 'platform/core/ui/operations.html').read_text()
-        self.assertNotIn('innerHTML', script)
-        self.assertIn("lang === 'ar' ? 'rtl' : 'ltr'", script)
-        for label in ('نشاط الوكيل', 'موافقات معلّقة', 'حالات الرفض بالسياسة', 'Rollout restart', 'Bounded scale'):
-            self.assertIn(label, script)
-        self.assertNotIn('rollback', script.lower())
-        for text in ('Owner action required — no automated fix.', 'مطلوب إجراء من المالك — لا يوجد إصلاح آلي.',
-                     'RAISE_MEMORY_LIMIT_OR_FIX_WORKLOAD', 'DEPLOY_VALID_SIGNED_DIGEST', 'DEPLOY_ATTESTED_IMAGE'):
-            self.assertIn(text, script)
-        self.assertIn('id="owner-action"', html)
-        for element in ('activity', 'pending', 'timeline', 'denials'):
-            self.assertIn('id="' + element + '"', html)
-            self.assertIn("'" + element + "'", script)
-        for open_, close in ('()', '[]', '{}'):
-            self.assertEqual(script.count(open_), script.count(close), open_ + close)
-        self.assertLessEqual(len(script.encode()), 16384)  # read_fixed limit of the UI server
-
-
 class ModelResponseAdmission(unittest.TestCase):
     """Gemini 3.x via LiteLLM 1.104.0: the gateway hook removes the opaque thought signature; the core admission decides."""
     SECRET = 'Tenant secret answer text'

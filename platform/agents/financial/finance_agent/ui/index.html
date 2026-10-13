@@ -7,46 +7,92 @@
 <link rel="stylesheet" href="/style.css">
 <script src="/app.js" defer></script>
 </head>
-<body>
-<header><h1 data-t="title">Financial Agent</h1><button id="lang" type="button">العربية</button><button id="logout" type="button" data-t="logout" hidden>Sign out</button></header>
-<p data-t="intro" class="intro">Add your expenses, then ask about them in your own words. The agent reads only your own records, hides personal data before anything reaches the AI model, and shows how it knows.</p>
-<section id="signin">
-  <h2 data-t="signin">Sign in</h2>
-  <label><span data-t="username">Username</span> <input id="username" autocomplete="username"></label>
-  <label><span data-t="password">Password</span> <input id="password" type="password" autocomplete="current-password"></label>
-  <button id="login" type="button" data-t="login">Sign in</button>
-</section>
-<main id="app" hidden>
-  <p id="who"></p>
-  <section>
-    <h2 data-t="add">Add an expense</h2>
-    <label><span data-t="date">Date</span> <input id="spent_on" type="date"></label>
-    <label><span data-t="merchant">Merchant</span> <input id="merchant" maxlength="60"></label>
-    <label><span data-t="category">Category</span> <select id="category"></select></label>
-    <label><span data-t="amount">Amount (SAR)</span> <input id="amount" inputmode="decimal" placeholder="24.50"></label>
-    <label><span data-t="note">Note</span> <input id="note" maxlength="200"></label>
-    <button id="save" type="button" data-t="save">Add</button>
+<body data-page="financial">
+<header class="topbar"><div class="inner">
+  <a class="brand" href="http://127.0.0.1:8080/"><span class="mark" aria-hidden="true">AI</span><span data-t="brand">Secure AI Agent Platform</span></a>
+  <nav class="links" aria-label="Pages">
+    <a href="/" aria-current="page" data-t="nav_financial">Financial Agent</a>
+    <a href="http://127.0.0.1:8080/operations.html" data-t="nav_ops">Security &amp; Operations</a>
+    <a href="http://127.0.0.1:8080/" data-t="nav_about">About</a>
+  </nav>
+  <div class="tools">
+    <div class="seg" role="group" aria-label="Language"><button type="button" data-lang="en" aria-pressed="true">EN</button><button type="button" data-lang="ar" aria-pressed="false">ع</button></div>
+    <button type="button" class="icon-btn" id="tour" data-t-aria="tour_open" aria-label="Show the guided tour">?</button>
+    <button type="button" class="ghost" id="logout" data-t="logout" hidden>Sign out</button>
+  </div>
+</div></header>
+<main>
+  <section class="intro" id="fin-intro">
+    <h1 data-t="fin_title">Financial Agent</h1>
+    <p data-t="fin_intro">Ask about your expenses in your own words. The agent answers only from your own records, hides personal data before anything reaches the AI model, and shows how it knows.</p>
   </section>
-  <section>
-    <h2 data-t="list">My expenses</h2>
-    <label><span data-t="month">Month</span> <input id="month" type="month"></label>
-    <button id="load" type="button" data-t="show">Show</button>
-    <table><thead><tr><th data-t="date">Date</th><th data-t="merchant">Merchant</th><th data-t="category">Category</th><th data-t="amount">Amount (SAR)</th><th data-t="note">Note</th></tr></thead><tbody id="rows"></tbody></table>
-    <p id="empty" data-t="empty" hidden>No expenses in this month yet.</p>
-  </section>
-  <section>
-    <h2 data-t="ask">Ask the agent</h2>
-    <textarea id="question" maxlength="500" rows="3"></textarea>
-    <p class="hint"><span id="count">0</span>/500</p>
-    <button id="send" type="button" data-t="send">Ask</button>
-    <div id="answer" hidden>
-      <p id="answer-text" class="answer"></p>
-      <h3 data-t="how">How we know</h3><p id="how"></p>
-      <h3 data-t="privacy">Privacy check</h3><p id="privacy"></p>
+
+  <section class="card" id="signin">
+    <h2 data-t="signin">Sign in</h2>
+    <p class="muted" data-t="signin_intro">Each person sees only their own expenses. Five wrong passwords lock that name for 15 minutes.</p>
+    <div class="form">
+      <label class="field"><span data-t="username">Username</span><input id="username" autocomplete="username"></label>
+      <label class="field"><span data-t="password">Password</span><input id="password" type="password" autocomplete="current-password"></label>
+      <button id="login" type="button" class="primary" data-t="login">Sign in</button>
     </div>
-    <p id="limits" class="hint"></p>
   </section>
+
+  <div id="app" hidden>
+    <div class="strip" id="strip">
+      <span class="live"><span class="dot" aria-hidden="true"></span><span data-t="live">Live</span></span>
+      <span data-t="synthetic">synthetic data</span>
+      <span id="who"></span>
+      <span id="left"></span>
+      <span id="expiry" class="muted"></span>
+    </div>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="tab-ask" aria-selected="true" aria-controls="panel-ask" data-t="tab_ask">Ask the agent</button>
+      <button type="button" role="tab" id="tab-exp" aria-selected="false" aria-controls="panel-exp" data-t="tab_exp">My expenses</button>
+    </div>
+
+    <section id="panel-ask" role="tabpanel" aria-labelledby="tab-ask">
+      <p class="tab-intro" data-t="ask_intro">Ask a question about your expenses. Every figure in the answer is checked against your own records before you see it.</p>
+      <section class="card" id="ask-card">
+        <label class="field"><span data-t="question">Your question</span><textarea id="question" maxlength="500" rows="3" data-t-ph="example"></textarea></label>
+        <div class="row"><span class="muted small"><span id="count">0</span>/500</span><span class="spacer"></span><button id="send" type="button" class="primary" data-t="send">Ask</button></div>
+        <div class="examples" id="examples" aria-label="Examples"></div>
+      </section>
+      <section class="card" id="answer" hidden>
+        <h2 data-t="answer">Answer</h2>
+        <p id="answer-text" class="answer"></p>
+        <div id="refusal" class="notice warn" hidden><strong aria-hidden="true">!</strong><p id="refusal-text"></p></div>
+        <div class="facts">
+          <div class="fact" id="how-box"><h3><span data-t="how">How we know</span></h3><ul id="how"></ul></div>
+          <div class="fact" id="privacy-box"><h3><span data-t="privacy">Privacy check</span></h3><p id="privacy"></p></div>
+        </div>
+        <details class="tech"><summary data-t="tech">Technical details</summary><pre id="raw"></pre></details>
+      </section>
+    </section>
+
+    <section id="panel-exp" role="tabpanel" aria-labelledby="tab-exp" hidden>
+      <p class="tab-intro" data-t="exp_intro">Add an expense or browse a month. Only you can see these records; the agent reads them through read-only tools.</p>
+      <section class="card" id="add-card">
+        <h2 data-t="add">Add an expense</h2>
+        <div class="form">
+          <label class="field"><span data-t="date">Date</span><input id="spent_on" type="date"></label>
+          <label class="field"><span data-t="merchant">Merchant</span><input id="merchant" maxlength="60"></label>
+          <label class="field"><span data-t="category">Category</span><select id="category"></select></label>
+          <label class="field"><span data-t="amount">Amount (SAR)</span><input id="amount" inputmode="decimal" placeholder="24.50"></label>
+          <label class="field"><span data-t="note">Note</span><input id="note" maxlength="200"></label>
+          <button id="save" type="button" class="primary" data-t="save">Add</button>
+        </div>
+      </section>
+      <section class="card" id="list-card">
+        <div class="row"><h2 data-t="list">My expenses</h2><span class="spacer"></span>
+          <label class="field"><span data-t="month">Month</span><input id="month" type="month"></label></div>
+        <p id="month-label" class="muted"></p>
+        <table><thead><tr><th data-t="date">Date</th><th data-t="merchant">Merchant</th><th data-t="category">Category</th><th data-t="amount_h">Amount</th><th data-t="note">Note</th></tr></thead><tbody id="rows"></tbody></table>
+        <p id="empty" class="empty" data-t="empty" hidden>No expenses in this month yet.</p>
+        <p id="total" class="muted"></p>
+      </section>
+    </section>
+  </div>
+  <p id="status" class="status-line" role="status" aria-live="polite"></p>
 </main>
-<p id="status" role="status" aria-live="polite"></p>
 </body>
 </html>
