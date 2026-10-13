@@ -227,6 +227,8 @@ function renderTimeline() {
     const isHealthy = (e.stage === 'diagnosed' && e.finding === 'HEALTHY') || (e.stage === 'observed' && e.available >= e.desired);
     if (isHealthy) { if (!healthy[e.target]) { healthy[e.target] = e; rows.push({e, healthy: true}); } return; }
     if (e.stage === 'denied' && e.code === 'SUPERSEDED') return;
+    const prev = rows.length && rows[rows.length - 1].e;  // a re-proposal of the same action after expiry: one line
+    if (e.stage === 'proposed' && prev && prev.stage === 'proposed' && prev.target === e.target && prev.action === e.action) { rows[rows.length - 1] = {e}; return; }
     healthy[e.target] = null;
     rows.push({e});
   });
@@ -261,6 +263,7 @@ async function refresh() {
 }
 const CHECKS = [['chk_netpol', 'NO_NETWORK_POLICY'], ['chk_root', 'RUNS_AS_ROOT', 'PRIVILEGED'], ['chk_rbac', 'UNEXPECTED_ROLE_BINDING'], ['chk_admission', 'IMAGE_REJECTED']];
 const VERIFIED = ['chk_signed', 'chk_scan', 'chk_public', 'chk_egress', 'chk_spec', 'chk_redact'];
+const CASES = {chk_signed: 'unsigned_image_rejected', chk_public: 'no_public_exposure', chk_egress: 'egress_containment', chk_spec: 'ops_stale_approval_refused', chk_redact: 'financial_redaction_down_no_model_call'};
 function renderSecurity() {
   const items = CHECKS.map(([key, ...codes]) => {
     const bad = security ? (security.findings || []).filter(f => codes.includes(f.finding)) : null;
@@ -268,7 +271,7 @@ function renderSecurity() {
     return el('li', {}, security ? chip(ok ? 'ok' : 'bad', ok ? '✓' : '✕', t(ok ? 'pass' : 'fail')) : chip('', '…', t('live_check')),
       el('div', {}, el('strong', {}, t(key)), el('div', {class: 'how'}, t('live_check') + ' · ' + t(key + '_h'))));
   }).concat(VERIFIED.map(key => el('li', {}, chip('ok', '✓', t('pass')),
-    el('div', {}, el('strong', {}, t(key)), el('div', {class: 'how'}, t('verified') + ' · ' + t(key + '_h'))))));
+    el('div', {}, el('strong', {}, t(key)), el('div', {class: 'how'}, t('verified') + ' · ' + t(key + '_h'), CASES[key] ? [' ', ltr(CASES[key])] : null)))));
   node('checklist').replaceChildren(...items);
 }
 async function runSecurity() {
