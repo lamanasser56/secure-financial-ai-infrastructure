@@ -1,0 +1,28 @@
+{
+ "date": "2026-10-13",
+ "record": "Main branch protection applied and verified; signing gated on CI; KEV gate live; pre-Phase-E worker VM stopped",
+ "main_protection": {
+  "applied_by": "owner-approved gh api POST of the ruleset in docs/security/main-branch-protection.md",
+  "ruleset": {"name": "protect-main", "enforcement": "active", "bypass_actors": []},
+  "rules_endpoint_for_main": ["deletion", "non_fast_forward", "pull_request (0 approvals, rebase merge)",
+                              "required_status_checks (strict): checks, agents, gitleaks, google-sdp-offline-evaluation, qualification"],
+  "direct_push_to_main": "rejected: push declined due to repository rule violations (5 of 5 required status checks are expected)",
+  "verified_at": "2026-10-13T14:02Z"
+ },
+ "signing_after_ci": {
+  "merge": "PR #51 -> 3e78993",
+  "ci_run_on_main": {"id": 38409033203, "jobs": {"checks": "success", "agents": "success", "gitleaks": "success", "google-sdp-offline-evaluation": "success"}},
+  "image_run": {"id": 38409397882, "trigger": "workflow_run after CI success on push to main", "ci-gate": "success",
+                "built_sha": "3e78993"},
+  "kev_release_gate": "PASS for agent-platform-app, agent-platform-ops, agent-financial: no KEV-listed finding at any severity (CISA catalog 2026.10.08); 0 unreviewed HIGH/CRITICAL"
+ },
+ "worker_vm": {
+  "name": "secure-infra-worker",
+  "dependency_check": "no reference from platform code, manifests, Makefile, CI workflows or evidence; only historical documents",
+  "action": "stopped (owner decision); not deleted",
+  "status_after": "TERMINATED",
+  "stopped_at": "2026-10-13T14:04:50Z",
+  "boot_disk": {"status": "READY", "size_gb": 40, "kept": true},
+  "deletion": "at teardown (docs/agent-platform/teardown-plan.md)"
+ }
+}

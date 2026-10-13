@@ -25,8 +25,9 @@ image build.
 | `docs/agent-platform/` | Platform docs: claims matrix, model requalification, teardown plan. |
 | `docs/agent-onboarding-contract.md`, `docs/agent-developer-guide.md` | How a team onboards an agent with one manifest. |
 | `docs/evidence/` | Live evidence: requalification, onboarding, Financial Agent, attack-suite runs. |
-| `.github/workflows/agent-platform-images.yml` | Build → Trivy → SBOM → push by digest → cosign → KMS attestation. |
-| `.github/workflows/ci.yml`, `supply-chain.yml` | The merge checks: `checks`, `agents`, `google-sdp-offline-evaluation`, `qualification`. |
+| `docs/security/main-branch-protection.md`, `security-review-2026-10-13.md`, `known-limitations.md` | The `main` ruleset (applied), the security review and the accepted limitations. |
+| `.github/workflows/agent-platform-images.yml` | Runs only after CI passes on `main`: build → Trivy → SBOM → push by digest → KEV gate → cosign → KMS attestation. |
+| `.github/workflows/ci.yml`, `supply-chain.yml` | The required checks: `checks`, `agents`, `gitleaks`, `google-sdp-offline-evaluation`, `qualification`. |
 
 ## Shared code the product runs on
 
@@ -38,7 +39,7 @@ image build.
 | `contracts/` | JSON Schema / OpenAPI contracts copied into the images. |
 | `demo/` | UI assets and synthetic fixtures copied into the app image. |
 | `docker/agent-composition/`, `docker/agent-database/`, `docker/google-sdp-context/` | Build definitions of the reused, qualified gateway, database and redactor images (pinned in `images.json`). |
-| `scripts/` | Repository checks (`check.sh`, `validate.py`, `check-references.py`, `lint-repository.sh`), lock checks and the vulnerability policy evaluator. |
+| `scripts/` | Repository checks (`check.sh`, `validate.py`, `check-references.py`, `lint-repository.sh`), lock checks, the vulnerability policy evaluator and the KEV release gate. |
 | `policy/` | The empty exception register used by the vulnerability policy. |
 | `requirements-*.in` / `.txt` | Hash-locked dependency sets; each image installs only its own set. |
 | `tests/` | Runtime, governance and supply-chain tests (`tests/agents`, `tests/phase3`–`phase5`). |

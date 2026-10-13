@@ -26,5 +26,7 @@ be torn down at the end of the portfolio period. Each item gives the risk and wh
 ## Worker VM (outside the platform)
 
 `secure-infra-worker` is a VM from before Phase E. Nothing in the current platform, its manifests, Makefile, CI or
-evidence depends on it; only historical documents mention it. The teardown plan removes it, and the owner decides
-whether to stop it earlier.
+evidence depends on it; only historical documents mention it. On the owner's decision it was **stopped on 13 October
+2026** (status `TERMINATED`, boot disk kept). It is deleted at teardown
+(`docs/evidence/governance-and-worker-2026-10-13.json`). The default network's SSH firewall rule remains until
+teardown, but no running instance is behind it.
