@@ -15,6 +15,9 @@ passwords are written once to the owner's private state (financial-users.json, m
 
 `--onboard` (run by `make up`, no passphrase): adds the keys of newly onboarded agents and applies the manifests'
 budgets to the existing keys, without rotating anything that exists. Values are never printed.
+
+`--retire-agent NAME` (owner, once per retired agent, after its manifest is removed): drops that agent's entries from
+Secrets platform/bootstrap and platform/redactor. Nothing else changes; running it again changes nothing.
 """
 import argparse
 import base64
@@ -192,6 +195,32 @@ def onboard(kubectl, *, users_file=None, hasher=argon2_hashes):
     return changed
 
 
+def retire(kubectl, name):
+    """Remove one retired agent's entries from Secrets platform/bootstrap (gateway virtual key) and platform/redactor
+    (client key). Nothing else is rotated or removed; idempotent; only alias names are printed, never values."""
+    if not onboarding.NAME.fullmatch(name) or name in onboarding.RESERVED:
+        raise SystemExit('secrets:retire_name_rejected')
+    if name in onboarding.names():
+        raise SystemExit('secrets:agent_still_declared (remove its manifest first)')
+    alias = 'agent-' + name
+    bootstrap = read_secret(kubectl, 'platform', 'bootstrap', 'bootstrap.json')
+    clients = read_secret(kubectl, 'platform', 'redactor', 'clients.json')
+    if bootstrap is None or clients is None:
+        raise SystemExit('secrets:platform_secrets_missing')
+    keys = [k for k in bootstrap['virtual_keys'] if k['alias'] != alias]
+    removed = {'bootstrap_virtual_key': len(keys) != len(bootstrap['virtual_keys']), 'redactor_client_key': alias in clients}
+    if any(removed.values()):
+        bootstrap['virtual_keys'] = keys
+        clients.pop(alias, None)
+        manifest = {'apiVersion': 'v1', 'kind': 'List',
+                    'items': [secret('platform', 'bootstrap', {'bootstrap.json': json.dumps(bootstrap)}),
+                              secret('platform', 'redactor', {'clients.json': json.dumps(clients)})]}
+        subprocess.run([kubectl, 'apply', '-f', '-'], input=json.dumps(manifest), text=True, check=True, capture_output=True)
+    print(json.dumps({'result': 'RETIRED' if any(removed.values()) else 'UNCHANGED', 'alias': alias, 'removed': removed,
+                      'values_printed': False}))
+    return removed
+
+
 def existing(kubectl):
     found = []
     for namespace, name in NAMES:
@@ -207,10 +236,14 @@ def main(argv):
     parser.add_argument('--kubectl', default='kubectl')
     parser.add_argument('--rotate', action='store_true', help='replace existing Secrets (invalidates sessions and keys)')
     parser.add_argument('--onboard', action='store_true', help='add keys for onboarded agents (no rotation, no passphrase)')
+    parser.add_argument('--retire-agent', metavar='NAME', help="remove a retired agent's gateway and redactor key entries")
     parser.add_argument('--users-file', type=Path, help="owner-only file for the Financial Agent users' passwords (0600)")
     args = parser.parse_args(argv)
     if args.onboard:
         onboard(args.kubectl, users_file=args.users_file)
+        return
+    if args.retire_agent:
+        retire(args.kubectl, args.retire_agent)
         return
     present = existing(args.kubectl)
     if present and not args.rotate:
