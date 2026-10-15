@@ -46,8 +46,9 @@ make onboard A=my-agent
 
 The command does one of two things:
 
-- **It refuses the manifest** and gives the reason, for example `tool is not read-only: …` or `model budget: the
-  platform total would exceed $10.00/month`. Nothing is generated.
+- **It refuses the manifest** and prints one line for every rule it breaks, for example `tool is not read-only: …`
+  or `model budget: the platform total would exceed $10.00/month`. Nothing is generated. `make onboard-check
+  F=docs/examples/rejected-agent/agent.yaml` shows this for any manifest file without touching the repository.
 - **It accepts the manifest.** It lists what your agent inherits and writes the generated files to
   `platform/core/kubernetes/agents/` (do not edit them; `make test` fails if they drift from the manifests).
 

@@ -19,6 +19,7 @@ image build.
 | `platform/core/ui/` | The operations dashboard overlay (bilingual). |
 | `platform/core/tests/` | Platform tests: manifest invariants, ops agent, approvals, onboarding, and policies against a real kube-apiserver (envtest). |
 | `platform/agents/financial/` | **Financial Agent** (tenant #1): its own image, web app, read-only tools, grounding, sign-in. |
+| `platform/agents/platform-guide/` | **Platform Guide** (tenant #2, Node.js): answers questions about the platform from a docs index bundled at build time; no data, one read-only `docs_search` tool. |
 | `platform/clouds/gke/` | GKE: Terraform module, `render.py`, `images.json` (signed digests), `lifecycle.py` (`make up` / `down` / `fault` / `inventory`), `attack_suite.py`, `requalify.py`. |
 | `Makefile` | Entry points: `make test`, `make test-policies`, `make up`, `make attack`, `make down`, `make inventory`. |
 | `docs/agent-platform/` | Platform docs: claims matrix, model requalification, teardown plan. |
