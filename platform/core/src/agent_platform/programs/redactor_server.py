@@ -22,6 +22,7 @@ APP_ROOT = Path('/app')
 sys.path.insert(0, str(APP_ROOT))
 POLICY_HASH = 'c1b782c6fd051243dec4173f903cb33607893010c7d38a6b35bc1372ddb2d4db'
 WINDOW_SECONDS, WINDOW_OPERATIONS, DAILY_OPERATIONS = 3600, 174, 1740
+IDLE_SECONDS = 120  # rebuild the provider client after this long without a call (idle channels go stale in ~10 min)
 MAX_TEXT_BYTES, MAX_BODY_BYTES = 4096, 16384
 
 
@@ -40,13 +41,21 @@ def audit(event, **fields):
 
 
 class Budget:
-    """Hourly window of SDK operations with a daily ceiling; a fresh adapter per window (construction is free)."""
+    """Hourly window of SDK operations with a daily ceiling.
 
-    def __init__(self, factory, clock=time.time):
-        self._factory, self._clock, self._lock = factory, clock, threading.Lock()
-        self._window_start = self._day_start = clock()
+    The adapter owns one gRPC channel to the Sensitive Data Protection endpoint. A channel left idle for several
+    minutes is dropped silently by the network path; the next call then waits for its full 3 s deadline and fails
+    closed. Construction is free (no request is sent), so the adapter is rebuilt after IDLE_SECONDS without a call.
+    The window's attempt budget object is shared by every adapter of the window, so a rebuild never renews it.
+    """
+
+    def __init__(self, factory, new_window, clock=time.time, idle_seconds=IDLE_SECONDS):
+        self._factory, self._new_window, self._clock = factory, new_window, clock
+        self._idle_seconds, self._lock = idle_seconds, threading.Lock()
+        self._window_start = self._day_start = self._last_used = clock()
         self._day_used = 0
-        self.redactor = factory()
+        self._window = new_window()
+        self.redactor = factory(self._window)
 
     def current(self):
         with self._lock:
@@ -55,7 +64,12 @@ class Budget:
                 self._day_start, self._day_used = now, 0
             if now - self._window_start >= WINDOW_SECONDS:
                 self._day_used += sum(self.redactor.operation_counts.values())
-                self._window_start, self.redactor = now, self._factory()
+                self._window_start, self._window = now, self._new_window()
+                self.redactor = self._factory(self._window)
+            elif now - self._last_used >= self._idle_seconds:
+                self._day_used += sum(self.redactor.operation_counts.values())
+                self.redactor = self._factory(self._window)  # fresh channel, same attempt budget
+            self._last_used = now
             if self._day_used + sum(self.redactor.operation_counts.values()) + 2 > DAILY_OPERATIONS:
                 raise RuntimeError('daily budget')
             return self.redactor
@@ -131,7 +145,8 @@ def main():
     server = ThreadingHTTPServer(('0.0.0.0', 4003), Handler)
     server.daemon_threads = True
     server.keys = keys
-    server.budget = Budget(lambda: GoogleSDPContextRedactor(project, budget=ContentAttemptBudget(WINDOW_OPERATIONS)))
+    server.budget = Budget(lambda budget: GoogleSDPContextRedactor(project, budget=budget),
+                           lambda: ContentAttemptBudget(WINDOW_OPERATIONS))
     audit('redactor_started', policy_sha256=POLICY_HASH)
     server.serve_forever()
 
