@@ -15,7 +15,7 @@ Merging the hello removal changes the repository only. `make up` applies manifes
 
 ## Proposed one-time steps, in this order (each is a cluster write; run only after approval)
 
-1. **Before `make up`:** remove the two Secret entries. This needs a small reviewed addition to `platform_secrets.py` (`--retire-agent NAME`: drop the alias from `bootstrap.virtual_keys` and `redactor.clients`, rewrite those two Secrets, rotate nothing else, print only alias names). Not implemented yet.
+1. **Before `make up`:** remove the two Secret entries with `python3 -B -m agent_platform.platform_secrets --kubectl <kubectl> --retire-agent hello` (PYTHONPATH `platform/core/src:.`, kubeconfig of the live cluster). It drops the alias from `bootstrap.virtual_keys` and the redactor clients, rewrites only those two Secrets, rotates nothing else, prints alias names only, and a second run changes nothing. It refuses a name that still has a manifest.
 2. `kubectl delete namespace agent-hello` (removes the pod, its Secret and its policies).
 3. `kubectl -n platform delete networkpolicy agent-hello-to-gateway agent-hello-to-redactor`.
 4. `make up` (the redactor restarts because its client keys changed).
