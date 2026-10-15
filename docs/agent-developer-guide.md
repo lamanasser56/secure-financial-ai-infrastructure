@@ -7,17 +7,18 @@ The rules behind each step are in the [agent onboarding contract](agent-onboardi
 
 ## 1. Write the manifest
 
-Create `platform/agents/<your-agent>/agent.yaml`. The name is 3–22 lowercase letters, digits or hyphens. The smallest
-working example is [`platform/agents/hello/agent.yaml`](../platform/agents/hello/agent.yaml):
+Create `platform/agents/<your-agent>/agent.yaml`. The name is 3–22 lowercase letters, digits or hyphens. The working
+example is [`platform/agents/financial/agent.yaml`](../platform/agents/financial/agent.yaml). The smallest shape the
+platform accepts (no tools, no data) looks like this:
 
 ```yaml
-agent: hello
-team: platform-examples
-description: The smallest possible agent. It greets a user through the platform's model path.
-placement: namespace          # your agent gets its own namespace: agent-hello
+agent: my-agent
+team: my-team
+description: What the agent does, in one sentence.
+placement: namespace          # your agent gets its own namespace: agent-my-agent
 runtime:
-  image: app                  # an agent image that CI built, scanned, signed and pinned
-  command: [/usr/local/bin/python3.12, -m, agent_platform.programs.hello_agent]
+  image: my-agent             # an agent image that CI built, scanned, signed and pinned (images.json)
+  command: [/usr/local/bin/python3.12, -m, my_agent.server]
   port: 8080
   replicas: 1
   resources: {cpu: 50m, memory: 96Mi}
@@ -40,7 +41,7 @@ These are the only fields. Anything else is refused, including:
 ## 2. Run `make onboard`
 
 ```bash
-make onboard A=hello
+make onboard A=my-agent
 ```
 
 The command does one of two things:
@@ -69,8 +70,8 @@ The command does one of two things:
 ## 4. Your agent's code
 
 Your program reads `/secrets/agent/agent.json`, listens on its port, and answers `GET /healthz`. For model calls it
-must follow the pattern in
-[`hello_agent.py`](../platform/core/src/agent_platform/programs/hello_agent.py):
+must follow the pattern in the Financial Agent
+([`agent.py`](../platform/agents/financial/finance_agent/agent.py)):
 
 1. Redact the user's text with the redactor client (`RedactorClient` + `DeterministicEmailRedactor`). On failure,
    stop: no model request.
@@ -81,8 +82,8 @@ must follow the pattern in
 
 - **Today: port-forward only.** An onboarded agent has no public endpoint and no route through the front door. Its
   only way in is an IAM-gated `kubectl port-forward` from the owner's laptop to its ClusterIP Service, for example
-  `make hello`, which forwards `127.0.0.1:18080` to `agent-hello` and sends one request. Its default-deny ingress
-  admits no other pod in the cluster.
+  `make agent-forward A=<agent>`, which forwards the agent's port to `127.0.0.1`. Its default-deny ingress admits no
+  other pod in the cluster.
 - **Future work: front-door routing.** The front door (`apps/app`) would authenticate the user, apply the per-user
   rate limit and budget, and forward the request to the agent's Service. That needs an explicit ingress rule from the
   front door to the agent's namespace (a network change, reviewed as a diff). The Financial Agent rewrite is the first
@@ -92,7 +93,7 @@ must follow the pattern in
 
 ```bash
 make up
-make hello NAME=Lama            # one greeting = one model request on the hello agent's own key
+make agent-forward A=my-agent   # then open http://127.0.0.1:<port>/
 make down
 ```
 
@@ -112,7 +113,7 @@ make down
 ## Known limitations
 
 - **Person names are not redacted.** The redaction entity set has no person-name category.
-- **Agent images:** the hello agent runs the platform's signed `app` image; the Financial Agent shows the pattern for
-  your own image (a Dockerfile, one line in the CI image matrix, a pin in `platform/clouds/gke/images.json`).
+- **Agent images:** the Financial Agent shows the pattern for your own image (a Dockerfile, one line in the CI image
+  matrix, a pin in `platform/clouds/gke/images.json`).
 - **Retired front-door agent:** the earlier, qualified Financial Agent in the front door is retired from the product
   (gateway budget 0, not composed). Its code and requalification evidence stay as the qualified reference.

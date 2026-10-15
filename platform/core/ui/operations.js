@@ -50,8 +50,7 @@ Object.assign(UI.dict.en, {
   r_APPROVAL_DENIED: 'Wrong passphrase, or this proposal is no longer pending.', r_NO_AGENT_PROPOSAL: 'There is no current proposal for this service.',
   r_ROLLOUT_COMPLETE_AND_HEALTHY: 'healthy again', r_default: 'Refused by policy.',
   n_gateway: 'AI gateway', t_gateway: 'LiteLLM', n_redactor: 'Privacy masking', t_redactor: 'Google SDP', n_app: 'Front door', t_app: 'platform app',
-  n_fault: 'Demo workload', t_fault: 'fault-demo', n_financial: 'Financial Agent', t_financial: 'tenant #1', n_hello: 'hello agent', t_hello: 'onboarding example',
-  tour_o1_t: 'What this agent does', tour_o1_b: 'It watches services, explains problems and proposes a fix. It never acts without your approval.',
+  n_fault: 'Demo workload', t_fault: 'fault-demo', n_financial: 'Financial Agent', t_financial: 'tenant #1',  tour_o1_t: 'What this agent does', tour_o1_b: 'It watches services, explains problems and proposes a fix. It never acts without your approval.',
   tour_o2_t: 'Service status', tour_o2_b: 'One card per service, with a colour, an icon and words. Select a card to open its incident.',
   tour_o3_t: 'The incident', tour_o3_b: 'What happened in plain words, the steps so far, an optional AI explanation, and the proposed action with your approval.',
   tour_o4_t: 'Approvals and denials', tour_o4_b: 'Pending approvals wait here. Anything the policy refused is listed with its reason.',
@@ -104,8 +103,7 @@ Object.assign(UI.dict.ar, {
   r_APPROVAL_DENIED: 'عبارة المرور خاطئة، أو لم يعد هذا الاقتراح معلّقاً.', r_NO_AGENT_PROPOSAL: 'لا يوجد اقتراح حالي لهذه الخدمة.',
   r_ROLLOUT_COMPLETE_AND_HEALTHY: 'عادت سليمة', r_default: 'رفضته السياسة.',
   n_gateway: 'بوابة الذكاء الاصطناعي', t_gateway: 'LiteLLM', n_redactor: 'إخفاء البيانات', t_redactor: 'Google SDP', n_app: 'الواجهة', t_app: 'تطبيق المنصة',
-  n_fault: 'حمل تجريبي', t_fault: 'fault-demo', n_financial: 'الوكيل المالي', t_financial: 'المستأجر رقم 1', n_hello: 'وكيل hello', t_hello: 'مثال الانضمام',
-  tour_o1_t: 'ماذا يفعل هذا الوكيل', tour_o1_b: 'يراقب الخدمات، ويشرح المشكلات، ويقترح إصلاحاً. لا يتصرف أبداً دون موافقتك.',
+  n_fault: 'حمل تجريبي', t_fault: 'fault-demo', n_financial: 'الوكيل المالي', t_financial: 'المستأجر رقم 1',  tour_o1_t: 'ماذا يفعل هذا الوكيل', tour_o1_b: 'يراقب الخدمات، ويشرح المشكلات، ويقترح إصلاحاً. لا يتصرف أبداً دون موافقتك.',
   tour_o2_t: 'حالة الخدمات', tour_o2_b: 'بطاقة لكل خدمة، بلون وأيقونة وكلمات. اختر بطاقة لفتح حادثتها.',
   tour_o3_t: 'الحادثة', tour_o3_b: 'ما حدث بكلمات بسيطة، والمراحل حتى الآن، وشرح اختياري من الذكاء الاصطناعي، والإجراء المقترح مع موافقتك.',
   tour_o4_t: 'الموافقات والرفض', tour_o4_b: 'الموافقات المعلّقة تنتظر هنا، وكل ما رفضته السياسة يظهر مع سببه.',
@@ -114,7 +112,7 @@ Object.assign(UI.dict.ar, {
 
 const node = id => document.getElementById(id);
 const NAMES = {'platform.gateway': 'gateway', 'platform.redactor': 'redactor', 'apps.app': 'app', 'apps.fault-demo': 'fault',
-               'agent-financial.agent': 'financial', 'agent-hello.agent': 'hello'};
+               'agent-financial.agent': 'financial'};
 const STATE = {HEALTHY: ['s_ok', 'ok', '✓', 'w_ok'], READINESS_FAILING: ['s_degraded', 'warn', '!', 'w_degraded'],
   CRASH_LOOP: ['s_crash', 'bad', '✕', 'w_crash'], OOM_KILLED: ['s_oom', 'bad', '✕', 'w_oom'], IMAGE_PULL: ['s_pull', 'bad', '✕', 'w_pull'],
   ADMISSION_DENIED: ['s_admission', 'bad', '✕', 'w_admission'], PENDING: ['s_pending', 'warn', '…', 'w_pending']};

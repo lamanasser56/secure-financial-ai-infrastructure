@@ -9,7 +9,6 @@
   down           snapshot the Postgres disk, then scale the pool to 0                               [cloud write]
   fault F        wedge | oom | crashloop | badimage on apps/fault-demo (owner identity, not the agent) [cloud write]
   port-forward   kubectl port-forward deploy/app 8080:8080 (the only way in)
-  hello NAME     one greeting through the onboarded hello agent (one model request on its own key)
   agent-forward A  port-forward an onboarded agent's port to 127.0.0.1 (e.g. A=financial -> http://127.0.0.1:8081/)
   inventory      read-only: everything billable that exists in the project                          [cloud read]
 Terraform uses the user-ADC guard (no static token, no metadata dependency). No command prints secrets.
@@ -23,8 +22,6 @@ import shutil
 import subprocess
 import sys
 import time
-import urllib.error
-import urllib.request
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
@@ -217,33 +214,6 @@ def agent_forward(name):
                             '--address', '127.0.0.1', 'deployment/agent', port + ':' + port])
 
 
-def hello(name):
-    """One greeting through the onboarded hello agent (one model request on its own $0.50 key)."""
-    kubeconfig()
-    forward = subprocess.Popen([str(KUBECTL), '--kubeconfig', str(STATE / 'kubeconfig'), '-n', 'agent-hello', 'port-forward',
-                                '--address', '127.0.0.1', 'deployment/agent', '18080:8080'],
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-    try:
-        for attempt in range(30):
-            time.sleep(1)
-            try:
-                opener.open('http://127.0.0.1:18080/healthz', timeout=5)
-                break
-            except OSError:
-                if attempt == 29:
-                    raise SystemExit('hello:agent_unreachable')
-        request = urllib.request.Request('http://127.0.0.1:18080/hello', data=json.dumps({'name': name}).encode(), method='POST',
-                                         headers={'Content-Type': 'application/json'})
-        try:
-            with opener.open(request, timeout=30) as response:
-                print(response.read().decode())
-        except urllib.error.HTTPError as error:
-            print(json.dumps({'http_status': error.code, **json.loads(error.read() or b'{}')}))
-    finally:
-        forward.terminate()
-
-
 def secrets():
     kubeconfig()
     os.execve(sys.executable, [sys.executable, '-B', '-m', 'agent_platform.platform_secrets', '--kubectl', str(KUBECTL)],
@@ -361,7 +331,7 @@ def seed_demo():
 
 def main(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['plan', 'apply', 'kubeconfig', 'attest', 'up', 'down', 'fault', 'port-forward', 'inventory', 'secrets', 'hello', 'agent-forward', 'seed-demo'])
+    parser.add_argument('command', choices=['plan', 'apply', 'kubeconfig', 'attest', 'up', 'down', 'fault', 'port-forward', 'inventory', 'secrets', 'agent-forward', 'seed-demo'])
     parser.add_argument('args', nargs='*')
     a = parser.parse_args(argv)
     {'plan': plan, 'apply': apply, 'kubeconfig': lambda: print(kubeconfig()), 'up': up, 'down': down,
@@ -372,8 +342,6 @@ def main(argv):
         attest(a.args)
     if a.command == 'agent-forward':
         agent_forward((a.args or [''])[0])
-    if a.command == 'hello':
-        hello(' '.join(a.args) or 'Lama')
 
 
 if __name__ == '__main__':

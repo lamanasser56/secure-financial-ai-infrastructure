@@ -1,6 +1,5 @@
 """Agent onboarding: what a team may declare, what the platform refuses, and what every agent inherits."""
 import copy
-import io
 import json
 import sys
 import unittest
@@ -12,26 +11,40 @@ from agent_platform.onboarding import Rejected
 FAKE_HASH = lambda passwords: {u: '$argon2id$v=19$fake' for u in passwords}
 
 
-def hello():
-    return copy.deepcopy(onboarding.load_all_unchecked()['hello'])
+def template():
+    """The Financial Agent's manifest with a small budget: the base for every rejection case."""
+    manifest = copy.deepcopy(onboarding.load_all_unchecked()['financial'])
+    manifest['model']['budget_usd_month'] = 0.5
+    return manifest
 
 
-def others(name='hello'):
-    return [m for n, m in onboarding.load_all_unchecked().items() if n != name]
+def nodata():
+    """An agent that declares no tools and no data (the smallest shape the platform accepts)."""
+    manifest = template()
+    manifest.update(agent='sample', tools=[], data='none')
+    manifest['runtime'].update(image='app', port=8080)
+    return manifest
+
+
+def others(name='financial'):
+    peer = template()  # a second agent at the maximum budget, so the shared $10 ceiling can be exercised
+    peer.update(agent='peer')
+    peer['model']['budget_usd_month'] = 5.0
+    return [m for n, m in onboarding.load_all_unchecked().items() if n != name] + [peer]
 
 
 class Rejections(unittest.TestCase):
     """Every way a manifest could ask for more than the platform allows is refused, with a reason."""
 
-    def rejected(self, change, reason, name='hello', manifest=None):
-        manifest = manifest or hello()
+    def rejected(self, change, reason, name='financial', manifest=None):
+        manifest = manifest or template()
         change(manifest)
         with self.assertRaisesRegex(Rejected, reason):
             onboarding.validate(manifest, name, others=others(name))
 
     def test_valid_manifests_are_accepted(self):
         manifests = onboarding.load_all()
-        self.assertEqual(sorted(manifests), ['financial', 'hello'])
+        self.assertEqual(sorted(manifests), ['financial'])
 
     def test_no_extra_powers_can_be_requested(self):
         for field, value in (('egress', ['0.0.0.0/0']), ('privileged', True), ('hostPath', '/'), ('serviceType', 'LoadBalancer'),
@@ -49,7 +62,7 @@ class Rejections(unittest.TestCase):
         self.rejected(lambda m: m['model'].update(budget_usd_month=0.0), 'budget_usd_month')
         self.rejected(lambda m: m['model'].update(budget_usd_month=-1.0), 'budget_usd_month')
         self.rejected(lambda m: m['model'].update(budget_usd_month=1), 'budget_usd_month')  # must be dollars, e.g. 1.0
-        self.rejected(lambda m: m['model'].update(budget_usd_month=1.0), 'platform total would exceed')  # 10.50 > 10.00
+        self.rejected(lambda m: m['model'].update(budget_usd_month=1.0), 'platform total would exceed')  # 4.5 + 5.0 + 1.0 > 10.0
 
     def test_redaction_cannot_be_turned_off(self):
         for value in ('optional', 'none', False):
@@ -89,18 +102,18 @@ class Rejections(unittest.TestCase):
     def test_remediation_rights_are_not_granted(self):
         self.rejected(lambda m: m.update(operations='restart'), 'only observe')
         self.rejected(lambda m: m.update(operations={'remediation': 'restart'}), 'only observe')
-        manifest = hello()
+        manifest = template()
         manifest['operations'] = 'observe'
-        onboarding.validate(manifest, 'hello', others=others())
+        onboarding.validate(manifest, 'financial', others=others())
 
     def test_ops_agent_gets_read_only_observe_rights(self):
         docs = onboarding.render_ops_observe(onboarding.load_all())
         roles = [d for d in docs if d['kind'] == 'Role']
-        self.assertEqual(sorted(r['metadata']['namespace'] for r in roles), ['agent-financial', 'agent-hello'])
+        self.assertEqual(sorted(r['metadata']['namespace'] for r in roles), ['agent-financial'])
         for role in roles:
             self.assertTrue(all(set(rule['verbs']) <= {'get', 'list'} for rule in role['rules']))
             self.assertNotIn('secrets', json.dumps(role))
-        self.assertEqual(docs[0]['data'], {'agent-financial.agent.observe': 'read-only', 'agent-hello.agent.observe': 'read-only'})
+        self.assertEqual(docs[0]['data'], {'agent-financial.agent.observe': 'read-only'})
 
     def test_names_and_placement(self):
         for name in ('platform', 'ops', 'kube-system', 'gateway', 'A', 'x'):
@@ -115,10 +128,10 @@ class Inheritance(unittest.TestCase):
     """What the platform generates for an onboarded agent (the team never writes these)."""
 
     def setUp(self):
-        self.docs = {(d['kind'], d['metadata']['name']): d for d in onboarding.render_agent(hello())}
+        self.docs = {(d['kind'], d['metadata']['name']): d for d in onboarding.render_agent(nodata())}
 
     def test_isolated_namespace_with_no_exposure(self):
-        ns = self.docs[('Namespace', 'agent-hello')]
+        ns = self.docs[('Namespace', 'agent-sample')]
         self.assertEqual(ns['metadata']['labels']['pod-security.kubernetes.io/enforce'], 'restricted')
         hard = self.docs[('ResourceQuota', 'bounds')]['spec']['hard']
         self.assertEqual((hard['services.loadbalancers'], hard['services.nodeports']), ('0', '0'))
@@ -131,13 +144,11 @@ class Inheritance(unittest.TestCase):
         self.assertEqual(targets, {('gateway', 4000), ('redactor', 4003)})
         access = onboarding.render_platform_access(onboarding.load_all())
         self.assertEqual(sorted(p['metadata']['name'] for p in access),
-                         ['agent-financial-to-gateway', 'agent-financial-to-postgres', 'agent-financial-to-redactor',
-                          'agent-hello-to-gateway', 'agent-hello-to-redactor'])  # Postgres only for the agent that declares data
+                         ['agent-financial-to-gateway', 'agent-financial-to-postgres', 'agent-financial-to-redactor'])
 
     def test_database_path_only_when_declared(self):
-        manifests = onboarding.load_all()
-        ports = lambda name: sorted(e['ports'][0]['port'] for e in onboarding.egress(manifests[name]))
-        self.assertEqual((ports('hello'), ports('financial')), ([4000, 4003], [4000, 4003, 5432]))
+        ports = lambda manifest: sorted(e['ports'][0]['port'] for e in onboarding.egress(manifest))
+        self.assertEqual((ports(nodata()), ports(onboarding.load_all()['financial'])), ([4000, 4003], [4000, 4003, 5432]))
 
     def test_hardened_pod_without_api_token(self):
         pod = self.docs[('Deployment', 'agent')]['spec']['template']['spec']
@@ -152,8 +163,8 @@ class Inheritance(unittest.TestCase):
     def test_budgets_sum_to_the_platform_total(self):
         limits = onboarding.budgets(onboarding.load_all())
         self.assertEqual(limits, {'app-infrastructure': 2.5, 'ops-explain': 2.0, 'app-financial': 0.0,  # retired, refused at the gateway
-                                  'agent-financial': 5.0, 'agent-hello': 0.5})
-        self.assertEqual(round(sum(limits.values()), 2), 10.0)
+                                  'agent-financial': 5.0})
+        self.assertLessEqual(round(sum(limits.values()), 2), 10.0)
 
 
 class FinancialTenantOne(unittest.TestCase):
@@ -185,60 +196,6 @@ class FinancialTenantOne(unittest.TestCase):
         for password in passwords.values():  # plaintext passwords never enter the cluster
             self.assertNotIn(password, json.dumps([d['data'] for d in docs.values()]))
             self.assertNotIn(password, json.dumps(boot))
-        hello_keys = decode(docs[('agent-hello', 'agent')], 'agent.json')
-        self.assertEqual(set(hello_keys), {'gateway_key', 'redactor_key'})  # no data declared: no database access
-
-
-class HelloAgent(unittest.TestCase):
-    """The hello agent fails closed: no model request without a redaction first; incomplete replies are refused."""
-
-    class Redactor:
-        def __init__(self, fail=False):
-            self.fail, self.seen = fail, []
-
-        def redact(self, value):
-            from runtime.phase3.trusted_runtime import ControlFailure, RedactionResult
-            if self.fail:
-                raise ControlFailure('presidio_anonymizer', 'unavailable')
-            self.seen.append(value)
-            masked = value.replace('lama@example.com', '[EMAIL_ADDRESS]')
-            return RedactionResult(masked, ('EMAIL_ADDRESS',) if masked != value else ())
-
-    def agent(self, redactor, finish='stop', content='Hello there!'):
-        from agent_platform.programs import hello_agent
-        sent = []
-
-        class Response(io.BytesIO):
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *a):
-                return False
-
-        def opener(request, timeout):
-            sent.append(json.loads(request.data))
-            return Response(json.dumps({'choices': [{'finish_reason': finish, 'message': {'content': content}}]}).encode())
-        return hello_agent.Agent({'gateway_key': 'sk-x', 'redactor_key': 'k' * 64}, redactor=redactor, opener=opener), sent
-
-    def test_name_is_redacted_before_the_model(self):
-        agent, sent = self.agent(self.Redactor())
-        status, body = agent.hello('lama@example.com')
-        self.assertEqual((status, body['masked']), (200, ['EMAIL_ADDRESS']))
-        self.assertNotIn('lama@example.com', json.dumps(sent))
-        self.assertEqual(sent[0]['model'], 'secure-financial-chat')
-
-    def test_redaction_failure_sends_nothing(self):
-        agent, sent = self.agent(self.Redactor(fail=True))
-        self.assertEqual(agent.hello('Lama')[0], 503)
-        self.assertEqual(sent, [])
-
-    def test_incomplete_reply_and_bad_input_are_refused(self):
-        agent, _ = self.agent(self.Redactor(), finish='length')
-        self.assertEqual(agent.hello('Lama')[0], 503)
-        agent, sent = self.agent(self.Redactor())
-        for name in ('', ' ', 'x' * 61, 5):
-            self.assertEqual(agent.hello(name)[0], 400)
-        self.assertEqual(sent, [])
 
 
 if __name__ == '__main__':
