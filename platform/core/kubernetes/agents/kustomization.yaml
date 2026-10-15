@@ -5,3 +5,4 @@ resources:
   - financial.yaml
   - ops-observe.yaml
   - platform-access.yaml
+  - platform-guide.yaml

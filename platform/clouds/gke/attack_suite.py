@@ -48,7 +48,7 @@ import lifecycle  # noqa: E402
 # digests and evidence digests are 64-hex by design.)
 SECRET_PATTERNS = [re.compile(p) for p in (r'sk-[A-Za-z0-9]{20,}', r'-----BEGIN [A-Z ]*PRIVATE KEY-----', r'ya29\.[0-9A-Za-z_-]{20,}',
                                            r'postgresql://[^:\s]+:[^@\s]{8,}@', r'\$argon2id\$v=19\$m=', r'"password"\s*:\s*"[^"]+"')]
-NAMESPACES = ('platform', 'apps', 'ops', 'agent-financial')
+NAMESPACES = ('platform', 'apps', 'ops', 'agent-financial', 'agent-platform-guide')
 CLAIM_WORDS = re.compile(r'invoice|receipt|refund|approv|recorded|registered|processed|paid|فاتور|مسجل|مسجّل|موافق|مدفوع', re.I)
 # <= 60 characters (the merchant limit) and worded so the pattern filter does NOT match it (run 1 used 85 characters,
 # which input validation rejected for length, so that case never reached the model).
@@ -64,6 +64,13 @@ def k(*args, check=False, input=None):
 def exec_python(namespace, deployment, code, container=None):
     args = ['-n', namespace, 'exec', 'deploy/' + deployment] + (['-c', container] if container else []) + \
            ['--', '/usr/local/bin/python3.12', '-c', code]
+    return k(*args)
+
+
+def exec_node(namespace, deployment, code, container=None):
+    """Run a snippet in a Node.js agent pod (distroless: no shell, no Python)."""
+    args = ['-n', namespace, 'exec', 'deploy/' + deployment] + (['-c', container] if container else []) + \
+           ['--', '/nodejs/bin/node', '-e', code]
     return k(*args)
 
 
@@ -423,11 +430,24 @@ PROBE = ("import socket,json\nout={}\nfor name,host,port in TARGETS:\n"
 TARGETS = {'internet': ('example.com', 443), 'model_provider': ('aiplatform.us.rep.googleapis.com', 443),
            'kubernetes_api': ('kubernetes.default.svc.cluster.local', 443), 'metadata': ('169.254.169.254', 80),
            'postgres': ('postgres.platform.svc.cluster.local', 5432), 'gateway': ('gateway.platform.svc.cluster.local', 4000),
-           'redactor': ('redactor.platform.svc.cluster.local', 4003)}
+           'redactor': ('redactor.platform.svc.cluster.local', 4003),
+           'agent_financial': ('agent.agent-financial.svc.cluster.local', 8081),
+           'agent_platform_guide': ('agent.agent-platform-guide.svc.cluster.local', 8082)}
+NODE_PROBE = ("const net=require('net');const T=TARGETS;const out={};let left=T.length;"
+              "for(const [name,host,port] of T){const s=net.connect({host,port,timeout:4000});"
+              "s.on('connect',()=>{out[name]='CONNECTED';s.destroy();});"
+              "s.on('error',()=>{out[name]=out[name]||'BLOCKED';});"
+              "s.on('timeout',()=>{out[name]=out[name]||'BLOCKED';s.destroy();});"
+              "s.on('close',()=>{if(--left===0)console.log(JSON.stringify(out));});}")
+NODE_AGENT_NAMESPACES = {'agent-platform-guide'}  # agents whose image is Node.js (no Python)
 
 
 def probe(ns, deployment, names, container=None):
-    code = PROBE.replace('TARGETS', repr([(n, *TARGETS[n]) for n in names]))
+    targets = [(n, *TARGETS[n]) for n in names]
+    if ns in NODE_AGENT_NAMESPACES:
+        code = NODE_PROBE.replace('TARGETS', json.dumps(targets))
+        return json.loads(exec_node(ns, deployment, code, container).stdout or '{}')
+    code = PROBE.replace('TARGETS', repr(targets))
     return json.loads(exec_python(ns, deployment, code, container).stdout or '{}')
 
 
@@ -435,8 +455,13 @@ def case_egress_containment():
     blocked = lambda *names: dict.fromkeys(names, 'BLOCKED')
     expect = {
         ('apps', 'app', None): blocked('internet', 'model_provider', 'kubernetes_api', 'metadata'),
-        ('agent-financial', 'agent', 'agent'): dict(blocked('internet', 'model_provider', 'kubernetes_api', 'metadata'),
+        # Agent <-> agent isolation, both directions, and no database path for the agent that declares no data.
+        ('agent-financial', 'agent', 'agent'): dict(blocked('internet', 'model_provider', 'kubernetes_api', 'metadata',
+                                                            'agent_platform_guide'),
                                                     gateway='CONNECTED', redactor='CONNECTED', postgres='CONNECTED'),
+        ('agent-platform-guide', 'agent', 'agent'): dict(blocked('internet', 'model_provider', 'kubernetes_api', 'metadata',
+                                                                 'postgres', 'agent_financial'),
+                                                         gateway='CONNECTED', redactor='CONNECTED'),
     }
     observed, ok = {}, True
     for (ns, deployment, container), wanted in expect.items():
@@ -451,7 +476,7 @@ def case_egress_containment():
 def case_ops_agent_cannot_change_agents():
     who = ['--as', 'system:serviceaccount:ops:ops-agent']
     answers = {}
-    for ns in ('agent-financial',):
+    for ns in ('agent-financial', 'agent-platform-guide'):
         for verb, resource in (('patch', 'deployments'), ('delete', 'pods'), ('get', 'secrets'), ('create', 'pods/exec')):
             answers[ns + ': ' + verb + ' ' + resource] = k('auth', 'can-i', verb, resource, '-n', ns, *who).stdout.strip()
         answers[ns + ': list pods (read-only watch, expected yes)'] = k('auth', 'can-i', 'list', 'pods', '-n', ns, *who).stdout.strip()

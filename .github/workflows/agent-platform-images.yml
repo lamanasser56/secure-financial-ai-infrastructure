@@ -1,4 +1,4 @@
-# Agent platform images (Phase E, ADR-008): app and ops, plus onboarded agents' own images (agent-financial).
+# Agent platform images (Phase E, ADR-008): app and ops, plus onboarded agents' own images (agent-financial, platform-guide).
 # Runs only after the CI workflow ("Validate infrastructure portfolio") succeeded on a push to main, and builds that
 # exact commit (SC-001). build -> Trivy (HIGH/CRITICAL, fail-closed) -> CycloneDX SBOM -> push by digest -> full-
 # severity Trivy of the pushed digest + CISA KEV gate for every severity, with feed freshness (SC-002) -> keyless
@@ -88,6 +88,7 @@ jobs:
           - {image: agent-platform-app, target: app, dockerfile: platform/core/images/Dockerfile}
           - {image: agent-platform-ops, target: ops, dockerfile: platform/core/images/Dockerfile}
           - {image: agent-financial, target: runtime, dockerfile: platform/agents/financial/Dockerfile}
+          - {image: platform-guide, target: runtime, dockerfile: platform/agents/platform-guide/Dockerfile}
     permissions:
       contents: read
       id-token: write

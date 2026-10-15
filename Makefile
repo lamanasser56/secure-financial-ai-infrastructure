@@ -2,6 +2,7 @@
 #   make test              offline: unit tests, provider drift, manifest invariants, terraform validate
 #   make test-policies     offline: RBAC / ValidatingAdmissionPolicy / Pod Security against a real local kube-apiserver
 #   make onboard A=<agent> validate platform/agents/<agent>/agent.yaml and generate what the agent inherits
+#   make onboard-check F=<manifest>  show every rule a manifest file breaks, one line each (renders nothing)
 #   make agent-forward A=financial  port-forward an onboarded agent (Financial Agent: http://127.0.0.1:8081/)
 #   make provider P=gemini render a provider profile (only active, owner-approved profiles render)
 #   make plan | apply      Terraform for platform/clouds/gke (plan = cloud read, apply = cloud write)
@@ -25,7 +26,7 @@ ENVTEST_SHA512 := 130369c16f076e724d089189afaede960316f5f5dea6cf57be7a4fc6f09c77
 PY := PYTHONPATH=platform/core/src:platform/core/tests:. $(PYTHON) -B
 LIFECYCLE := PYTHONPATH=platform/core/src:. $(PYTHON) -B platform/clouds/gke/lifecycle.py
 
-.PHONY: test test-policies onboard agent-forward provider plan apply up down port-forward fault attack inventory secrets seed-demo
+.PHONY: test test-policies onboard onboard-check agent-forward provider plan apply up down port-forward fault attack inventory secrets seed-demo
 
 test:
 	PATH="$(TOOLS):$$PATH" $(PY) -m unittest discover -s platform/core/tests -p 'test_*.py'
@@ -47,6 +48,9 @@ $(ENVTEST_DIR)/kube-apiserver:
 
 onboard:
 	$(PY) -m agent_platform.onboarding render $(A)
+
+onboard-check:
+	$(PY) -m agent_platform.onboarding check-file $(F)
 
 provider:
 	$(PY) -m agent_platform.providers render $(P)

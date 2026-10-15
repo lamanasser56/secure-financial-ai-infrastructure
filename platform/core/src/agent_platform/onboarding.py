@@ -47,8 +47,14 @@ class Rejected(ValueError):
     pass
 
 
+_COLLECT = None  # set by problems(): require() then records every violated rule instead of stopping at the first
+
+
 def require(condition, reason):
     if not condition:
+        if _COLLECT is not None:
+            _COLLECT.append(reason)
+            return
         raise Rejected(reason)
 
 
@@ -58,6 +64,24 @@ def closed(value, allowed, where, required=None):
     require(not unknown, where + ': not allowed: ' + ', '.join(unknown))
     missing = sorted(set(required if required is not None else allowed) - set(value))
     require(not missing, where + ': missing: ' + ', '.join(missing))
+
+
+def problems(manifest, name, *, others=None):
+    """Every rule the manifest violates, one line each, in the order the rules are checked. `validate` stops at the first.
+    A manifest too malformed to read further ends the list at the line that explains why."""
+    global _COLLECT
+    found = []
+    _COLLECT = found
+    try:
+        validate(manifest, name, others=others)
+    except Rejected as rejected:
+        found.append(str(rejected))
+    except (KeyError, TypeError, AttributeError, ValueError):
+        if not found:
+            found.append('manifest: malformed (cannot be read as an agent manifest)')
+    finally:
+        _COLLECT = None
+    return list(dict.fromkeys(found))
 
 
 def quantity(value, unit, maximum, where):
@@ -299,15 +323,55 @@ def summary(manifest):
             'tools': [t['id'] for t in manifest['tools']], 'inherits': inherited}
 
 
+def rejection_text(source, reasons):
+    lines = ['REJECTED: ' + source + ' breaks %d rule%s' % (len(reasons), '' if len(reasons) == 1 else 's')]
+    lines += ['  %d. %s' % (i, reason) for i, reason in enumerate(reasons, 1)]
+    lines.append('Nothing was generated.')
+    return '\n'.join(lines)
+
+
+def check_file(path, *, as_json=False):
+    """Validate one manifest file against the platform rules without rendering anything."""
+    try:
+        manifest = yaml.safe_load(Path(path).read_text())
+    except (OSError, yaml.YAMLError):
+        manifest = None
+    name = manifest.get('agent') if isinstance(manifest, dict) and isinstance(manifest.get('agent'), str) else ''
+    others = [m for n, m in load_all_unchecked().items() if n != name]
+    found = problems(manifest, name, others=others)
+    if not (NAME.fullmatch(name) and name not in RESERVED):
+        found.insert(0, 'agent name: lowercase, 3-22 characters, not reserved')
+    if as_json:
+        print(json.dumps({'result': 'REJECTED' if found else 'ACCEPTED', 'reasons': found}))
+    else:
+        print(rejection_text(str(path), found) if found else 'ACCEPTED: ' + str(path) + ' (nothing generated)')
+    return 2 if found else 0
+
+
 def main(argv):
-    if len(argv) not in (1, 2) or argv[0] not in ('render', 'check') or (argv[0] == 'render' and len(argv) != 2):
-        raise SystemExit('usage: onboarding render <agent> | onboarding check')
+    as_json = '--json' in argv
+    argv = [a for a in argv if a != '--json']
+    usage = 'usage: onboarding render <agent> [--json] | onboarding check | onboarding check-file <manifest> [--json]'
+    if not argv or argv[0] not in ('render', 'check', 'check-file') or (argv[0] != 'check' and len(argv) != 2) or (
+            argv[0] == 'check' and len(argv) != 1):
+        raise SystemExit(usage)
+    if argv[0] == 'check-file':
+        raise SystemExit(check_file(argv[1], as_json=as_json))
     try:
         if argv[0] == 'render':
-            load(argv[1], others=[m for n, m in load_all_unchecked().items() if n != argv[1]])
+            found = problems(yaml.safe_load((AGENTS / argv[1] / 'agent.yaml').read_text()) if (AGENTS / argv[1] / 'agent.yaml').is_file() else None,
+                             argv[1], others=[m for n, m in load_all_unchecked().items() if n != argv[1]])
+            if not (NAME.fullmatch(argv[1] or '') and argv[1] not in RESERVED):
+                found.insert(0, 'agent name: lowercase, 3-22 characters, not reserved')
+            elif not (AGENTS / argv[1] / 'agent.yaml').is_file():
+                found = ['no manifest: platform/agents/' + argv[1] + '/agent.yaml']
+            if found:
+                print(json.dumps({'result': 'REJECTED', 'reasons': found}) if as_json
+                      else rejection_text('platform/agents/' + argv[1] + '/agent.yaml', found))
+                raise SystemExit(2)
         manifests, text = outputs()
     except Rejected as rejected:
-        print(json.dumps({'result': 'REJECTED', 'reason': str(rejected)}))
+        print(json.dumps({'result': 'REJECTED', 'reasons': [str(rejected)]}) if as_json else rejection_text('the agent manifests', [str(rejected)]))
         raise SystemExit(2)
     if argv[0] == 'check':
         drift = [str(p.relative_to(REPO)) for p, t in text.items() if not p.exists() or p.read_text() != t]

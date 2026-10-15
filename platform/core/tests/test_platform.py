@@ -284,7 +284,7 @@ class Manifest(unittest.TestCase):
 
     def test_rendered_manifest_holds_every_invariant(self):
         summary = render.validate(self.docs, self.refs)
-        self.assertEqual(summary['kinds']['Namespace'], 4)  # platform, apps, ops + onboarded agent-financial
+        self.assertEqual(summary['kinds']['Namespace'], 5)  # platform, apps, ops + onboarded agent-financial, agent-platform-guide
         self.assertNotIn('Ingress', summary['kinds'])
 
     def test_each_violation_is_rejected(self):
@@ -345,14 +345,14 @@ class SecretSeparation(unittest.TestCase):
         boot = json.loads(decode(docs[('platform', 'bootstrap')], 'bootstrap.json'))
         self.assertIn('PRIVATE KEY', app['approver_private_key'])
         self.assertNotIn('PRIVATE KEY', json.dumps(ops))  # the agent can verify but never sign approvals
-        self.assertEqual(round(sum(k['max_budget'] for k in boot['virtual_keys']), 2), 9.5)  # never above the $10 ceiling
+        self.assertEqual(round(sum(k['max_budget'] for k in boot['virtual_keys']), 2), 10.0)  # at the $10 ceiling, never above
         self.assertNotIn('correct horse battery', json.dumps(app))
         signer = approval.Signer(app['approver_private_key'])
         proposal = {'request_id': 'r', 'target': 't', 'action': 'restart', 'args_digest': 'a', 'evidence_digest': 'e',
                     'uid': 'u', 'resource_version': '1'}
         self.assertEqual(approval.Verifier(ops['approver_public_key']).consume(signer.sign(proposal), proposal)['approver'], 'owner')
         self.assertNotIn(boot['master_key'], json.dumps(app) + json.dumps(ops))
-        self.assertTrue(all(d['metadata']['namespace'] in ('platform', 'apps', 'ops', 'agent-financial') for d in docs.values()))
+        self.assertTrue(all(d['metadata']['namespace'] in ('platform', 'apps', 'ops', 'agent-financial', 'agent-platform-guide') for d in docs.values()))
         # an onboarded agent holds its own gateway key and its own redactor key (and never the master key)
         financial = json.loads(decode(docs[('agent-financial', 'agent')], 'agent.json'))
         clients = json.loads(decode(docs[('platform', 'redactor')], 'clients.json'))

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Platform Guide</title>
+<link rel="stylesheet" href="/style.css">
+<script defer src="/app.js"></script>
+</head>
+<body>
+<main>
+  <h1>Platform Guide</h1>
+  <p>Ask how the platform works. Answers come only from the platform documentation, and every answer lists its sources.</p>
+  <form id="ask">
+    <label for="q">Question</label>
+    <textarea id="q" maxlength="500" rows="3" required></textarea>
+    <label for="lang">Language</label>
+    <select id="lang"><option value="en">English</option><option value="ar">العربية</option></select>
+    <button type="submit">Ask</button>
+  </form>
+  <section id="out" hidden>
+    <h2>Answer</h2>
+    <p id="answer"></p>
+    <h2>Sources</h2>
+    <ul id="sources"></ul>
+    <h2>What the platform did</h2>
+    <pre id="trace"></pre>
+  </section>
+</main>
+</body>
+</html>
