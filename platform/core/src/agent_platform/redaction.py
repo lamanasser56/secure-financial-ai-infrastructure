@@ -10,6 +10,7 @@ import time
 import urllib.error
 import urllib.request
 
+from agent_platform import request_context
 from runtime.agents.composition import BoundaryBudget
 from runtime.phase3.trusted_runtime import ControlFailure, RedactionResult, SUPPORTED_ENTITIES
 
@@ -65,9 +66,11 @@ class RedactorClient:
         except ControlFailure:  # budget exhausted: a runtime redaction stage, so the trace says unavailable
             raise ControlFailure('presidio_anonymizer', 'unavailable') from None
         try:
+            headers = {'Authorization': 'Bearer ' + self._key, 'Content-Type': 'application/json'}
+            if request_context.current():  # the redactor's audit line carries the same request ID
+                headers[request_context.HEADER] = request_context.current()
             request = urllib.request.Request(self._url, data=json.dumps({'text': value}).encode(), method='POST',
-                                             headers={'Authorization': 'Bearer ' + self._key,
-                                                      'Content-Type': 'application/json'})
+                                             headers=headers)
             with self._open(request, timeout=self._timeout) as response:
                 if response.status != 200:
                     raise ValueError('status')

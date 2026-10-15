@@ -15,9 +15,10 @@
   question nor user-typed text (merchant, note) grounds a claim; quoting such a field verbatim is allowed.
 - Per user: 20 questions per hour and 40,000 model tokens per day; a reply with missing or invalid token usage is
   charged the most one call can use. History is kept on the server (last 3 turns, redacted, treated as data).
-- Per-turn audit: metadata only (no question, no answer, no amounts).
+- Per-turn audit and trace: metadata only (no question, no answer, no amounts). The trace is built once per turn,
+  written to the audit log and returned to the caller as the same object (see `FinanceAgent._trace`).
 """
-from collections import deque
+from collections import Counter, deque
 import hashlib
 import hmac
 import json
@@ -26,8 +27,8 @@ import threading
 import time
 import urllib.request
 
-from agent_platform import audit
-from finance_agent.tools import TOOLS, ToolRejected
+from agent_platform import audit, request_context
+from finance_agent.tools import TOOLS, WITHHELD, ToolRejected
 
 MAX_MODEL_CALLS = 4
 MAX_QUESTION = 500
@@ -54,6 +55,7 @@ RULES = ' '.join((
     'you can only see the expenses the user entered.',
 ))
 ARABIC_DIGITS = str.maketrans('٠١٢٣٤٥٦٧٨٩٫٬', '0123456789.,')
+MODEL_NAME = re.compile(r'[A-Za-z0-9._/:-]{1,80}')
 NUMBER = re.compile(r'(?<![\w.])\d+(?:,\d{3})*(?:\.\d+)?')
 
 
@@ -154,20 +156,47 @@ class Gateway:
         self._open = opener or urllib.request.build_opener(urllib.request.ProxyHandler({})).open
 
     def complete(self, messages):
+        """(content, charged tokens, {'model', 'cost_usd'}). The request ID bound to this context travels as the
+        X-Request-ID header and as LiteLLM request metadata, so the gateway's audit line carries it."""
         body = {'model': ALIAS, 'messages': messages, 'temperature': 0, 'max_tokens': MAX_REPLY_TOKENS, 'stream': False,
                 'response_format': {'type': 'json_object'}}
-        request = urllib.request.Request(GATEWAY, data=json.dumps(body).encode(), method='POST',
-                                         headers={'Authorization': 'Bearer ' + self._key, 'Content-Type': 'application/json'})
+        headers = {'Authorization': 'Bearer ' + self._key, 'Content-Type': 'application/json'}
+        request_id = request_context.current()
+        if request_id:
+            headers[request_context.HEADER] = request_id
+            body['metadata'] = {'request_id': request_id, 'agent': 'financial'}
+        request = urllib.request.Request(GATEWAY, data=json.dumps(body).encode(), method='POST', headers=headers)
         try:
             with self._open(request, timeout=self._timeout) as response:
                 data = json.loads(response.read(1 << 20))
+                cost = response_cost(getattr(response, 'headers', None))
         except Exception:
             raise Blocked('model_unavailable') from None
         choice = (data.get('choices') or [{}])[0]
         content = (choice.get('message') or {}).get('content')
         if choice.get('finish_reason') != 'stop' or type(content) is not str or not content.strip():
             raise Blocked('model_reply_incomplete')
-        return content, charged_tokens(data.get('usage'))
+        resolved = data.get('model')
+        return content, charged_tokens(data.get('usage')), {
+            'model': resolved if type(resolved) is str and MODEL_NAME.fullmatch(resolved) else None, 'cost_usd': cost}
+
+
+def response_cost(headers):
+    """LiteLLM's per-call cost from the `x-litellm-response-cost` response header, or None when it is absent/invalid."""
+    try:
+        value = float(headers.get('x-litellm-response-cost')) if headers is not None else None
+    except (TypeError, ValueError):
+        return None
+    return round(value, 6) if value is not None and 0 <= value < 1000 and value == value else None
+
+
+def rows_returned(tool, result):
+    """Result rows the tool handed back to the agent (an aggregate total is one row)."""
+    if tool == 'find_transactions':
+        return len(result['transactions'])
+    if tool == 'spending_by_category':
+        return len(result['categories'])
+    return 1
 
 
 def charged_tokens(usage):
@@ -225,26 +254,70 @@ class FinanceAgent:
         return hmac.new(self._audit_key, user_id.encode(), hashlib.sha256).hexdigest()[:16]
 
     def ask(self, user_id, question, language):
-        turn = {'model_calls': 0, 'tokens': 0, 'tools': [], 'masked': set()}
-        try:
-            if type(question) is not str or not 0 < len(question.strip()) <= MAX_QUESTION:
-                raise Blocked('question_length')
-            if language not in ('en', 'ar'):
-                raise Blocked('language')
-            self.limits.check(user_id)
-            answer, observations = self._run(user_id, question.strip(), language, turn)
-            result = {'status': 'answered', 'answer': answer,
-                      'how_we_know': {'tools': turn['tools'], 'months': sorted({o['result']['month'] for o in observations}),
-                                      'source': 'your own expenses (read-only)'}}
-        except Blocked as blocked:
-            result = {'status': 'refused' if blocked.reason in ('rate_limited', 'token_budget_exhausted', 'question_length', 'language')
-                      else 'blocked', 'reason': blocked.reason}
+        request_id = request_context.new()  # the entry point of the request: redactor and gateway receive the same ID
+        turn = {'model_calls': 0, 'tokens': 0, 'tools': [], 'masked': set(), 'tool_calls': [], 'redaction': Counter(),
+                'redactor_calls': 0, 'costs': [], 'resolved': None, 'withheld': 0}
+        with request_context.bind(request_id):
+            try:
+                if type(question) is not str or not 0 < len(question.strip()) <= MAX_QUESTION:
+                    raise Blocked('question_length')
+                if language not in ('en', 'ar'):
+                    raise Blocked('language')
+                self.limits.check(user_id)
+                answer, observations = self._run(user_id, question.strip(), language, turn)
+                result = {'status': 'answered', 'answer': answer,
+                          'how_we_know': {'tools': turn['tools'], 'months': sorted({o['result']['month'] for o in observations}),
+                                          'source': 'your own expenses (read-only)'}}
+            except Blocked as blocked:
+                result = {'status': 'refused' if blocked.reason in ('rate_limited', 'token_budget_exhausted', 'question_length', 'language')
+                          else 'blocked', 'reason': blocked.reason}
         result['privacy'] = {'masked_before_model': sorted(turn['masked'])}
         result['limits'] = self.limits.remaining(user_id)
-        audit.emit('finance_turn', 'agent-financial', user_ref=self._user_ref(user_id), outcome=result['status'],
-                   reason=result.get('reason'), model_calls=turn['model_calls'], tools=turn['tools'], tokens=turn['tokens'],
-                   masked=sorted(turn['masked']))
+        trace = self._trace(request_id, user_id, result, turn)
+        result['request_id'], result['trace'] = request_id, trace  # the same object that is audited
+        audit.emit('finance_turn', 'agent-financial', **trace)
         return result
+
+    def _trace(self, request_id, user_id, result, turn):
+        """The per-request record of what the platform did. Bounded fields only: ids, counts, closed codes, numbers.
+        It is built once; the audit line and the API response carry this same dict."""
+        user_ref = self._user_ref(user_id)
+        reason = result.get('reason')
+        costs = turn['costs']
+        if not turn['model_calls']:
+            cost, cost_source = 0.0, 'no_model_call'
+        elif len(costs) == turn['model_calls'] and all(c is not None for c in costs):
+            cost, cost_source = round(sum(costs), 6), 'litellm_response_header'
+        else:
+            cost, cost_source = None, 'unavailable'  # LiteLLM did not report a cost for every call
+        if result['status'] == 'answered':
+            grounding = 'grounded'
+        elif reason in ('ungrounded_numbers', 'ungrounded_claim'):
+            grounding = 'ungrounded_claim_blocked'
+        else:
+            grounding = 'refused'
+        return {
+            'request_id': request_id, 'user_ref': user_ref, 'outcome': result['status'], 'reason': reason,
+            'model_calls': turn['model_calls'], 'tokens': turn['tokens'], 'tools': turn['tools'],
+            'masked': sorted(turn['masked']),
+            'model': {'alias': ALIAS, 'resolved': turn['resolved']}, 'cost_usd': cost, 'cost_source': cost_source,
+            'tool_calls': turn['tool_calls'],
+            # Honest scope statement: what the data path was, not a claim that RLS refused anything. Unregistered tools and
+            # bad arguments are rejected by the tool design in code before any query runs.
+            'data_access': ({'statement': 'tools_ran_as_read_only_role_under_force_rls_scoped_to_user_ref',
+                             'role': 'finance_agent', 'scoped_to': user_ref} if turn['tool_calls'] else None),
+            'grounding_result': grounding,
+            'redaction': {'calls': turn['redactor_calls'], 'categories': dict(sorted(turn['redaction'].items())),
+                          'counted': 'redactor_calls_in_which_the_category_was_found'},
+            'injection_result': ({'result': 'instruction_like_text_withheld', 'withheld_fields': turn['withheld']}
+                                 if turn['withheld'] else None),
+        }
+
+    def _redact(self, text, turn):
+        redacted = self._redactor.redact(text)
+        turn['redactor_calls'] += 1
+        turn['redaction'].update(set(redacted.categories))
+        return redacted
 
     def _run(self, user_id, question, language, turn):
         with self._lock:
@@ -256,14 +329,18 @@ class FinanceAgent:
                       'tools': {} if final_only else {name: spec[1] for name, spec in TOOLS.items()},
                       'observations': observations}
             try:
-                redacted = self._redactor.redact(json.dumps(prompt, ensure_ascii=False))
+                redacted = self._redact(json.dumps(prompt, ensure_ascii=False), turn)
             except Exception:
                 raise Blocked('redaction_unavailable') from None  # nothing reaches the model
             turn['masked'] |= set(redacted.categories)
             if len(redacted.text.encode()) > MAX_PROMPT_BYTES:
                 raise Blocked('prompt_too_large')
             turn['model_calls'] += 1
-            content, tokens = self._gateway.complete([{'role': 'system', 'content': RULES}, {'role': 'user', 'content': redacted.text}])
+            completion = self._gateway.complete([{'role': 'system', 'content': RULES}, {'role': 'user', 'content': redacted.text}])
+            content, tokens = completion[0], completion[1]
+            extra = completion[2] if len(completion) > 2 else {}
+            turn['costs'].append(extra.get('cost_usd'))
+            turn['resolved'] = extra.get('model') or turn['resolved']
             turn['tokens'] += tokens
             self.limits.spend(user_id, tokens)
             step = self._step(content, final_only)
@@ -274,12 +351,12 @@ class FinanceAgent:
                 if ungrounded_claims(text, observations):
                     raise Blocked('ungrounded_claim')
                 try:
-                    shown = self._redactor.redact(text).text  # the answer is redacted again before display
+                    shown = self._redact(text, turn).text  # the answer is redacted again before display
                 except Exception:
                     raise Blocked('redaction_unavailable') from None
                 with self._lock:
                     kept = self._history.setdefault(user_id, deque(maxlen=3))
-                    kept.append({'question': self._safe(question)[:200], 'answer': shown[:300]})
+                    kept.append({'question': self._safe(question, turn)[:200], 'answer': shown[:300]})
                 return shown, observations
             name, args = step['tool'], step['args']
             if any(o['tool'] == name and o['args'] == args for o in observations):
@@ -292,11 +369,13 @@ class FinanceAgent:
                 raise Blocked('tool_unavailable') from None
             observations.append({'tool': name, 'args': args, 'result': result})
             turn['tools'].append(name)
+            turn['tool_calls'].append({'tool_id': name, 'rows_returned': rows_returned(name, result)})
+            turn['withheld'] += sum(1 for t in result.get('transactions', []) for f in ('merchant', 'note') if t.get(f) == WITHHELD)
         raise Blocked('step_limit')  # unreachable: the last call accepts only an answer
 
-    def _safe(self, question):
+    def _safe(self, question, turn):
         try:
-            return self._redactor.redact(question).text
+            return self._redact(question, turn).text
         except Exception:
             return ''
 

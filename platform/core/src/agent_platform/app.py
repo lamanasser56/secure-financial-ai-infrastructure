@@ -18,7 +18,7 @@ import time
 import urllib.request
 import uuid
 
-from agent_platform import audit
+from agent_platform import audit, request_context
 from agent_platform.identity_fixture import mint
 from agent_platform.ops.approval import Signer
 from agent_platform.redaction import RedactorClient, WindowedBoundaryBudget
@@ -136,6 +136,10 @@ def instructed(post):
         if system.get('role') != 'system':
             raise ValueError('platform instruction: first message is not the system message')
         payload = dict(payload, messages=[dict(system, content=system['content'] + ' ' + PLATFORM_INSTRUCTION), *rest])
+        request_id = request_context.current()
+        if request_id:  # the gateway's audit line carries the same ID (header and LiteLLM request metadata)
+            headers = dict(headers or {}, **{request_context.HEADER: request_id})
+            payload = dict(payload, metadata={'request_id': request_id})
         return post(url, payload, timeout, headers)
     return send
 
@@ -199,10 +203,29 @@ class AuditSink:
         if not isinstance(event, dict):
             import dataclasses
             event = dataclasses.asdict(event) if dataclasses.is_dataclass(event) else dict(vars(event))
-        audit.emit('agent_' + self.kind, 'app', **{k: event[k] for k in self.SAFE if k in event})
+        audit.emit('agent_' + self.kind, 'app', request_id=request_context.current(),
+                   **{k: event[k] for k in self.SAFE if k in event})
 
     def close(self):
         pass
+
+
+class RequestIdConversations:
+    """Entry point of an app conversation: one request ID per turn, bound for the redactor, the gateway and the audit
+    lines of the agent core, and returned to the browser with the answer. Everything else is delegated unchanged."""
+
+    def __init__(self, inner):
+        self._inner = inner
+
+    def turn(self, token, request):
+        request_id = request_context.new()
+        with request_context.bind(request_id):
+            result = self._inner.turn(token, request)
+        audit.emit('app_request', 'app', request_id=request_id)
+        return dict(result, request_id=request_id) if isinstance(result, dict) else result
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
 
 
 class ClusterOperations:
@@ -321,6 +344,7 @@ def main():
                 except Exception as error:
                     audit.emit('app_session_refresh_failed', 'app', reason=type(error).__name__)
         threading.Thread(target=refresh, daemon=True).start()
+        server.conversations = RequestIdConversations(server.conversations)
         audit.emit('app_started', 'app', user=user, session_expires=expires)
         server.serve_forever()
 

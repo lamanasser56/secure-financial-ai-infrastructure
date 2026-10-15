@@ -385,7 +385,9 @@ class Turn(unittest.TestCase):
         self.assertEqual(len(turns), 2)
         self.assertNotIn('question', json.dumps(turns))
         self.assertNotIn(LAMA, json.dumps(turns))  # a keyed reference, never the user id
-        self.assertEqual(set(turns[0]), {'user_ref', 'outcome', 'reason', 'model_calls', 'tools', 'tokens', 'masked'})
+        self.assertEqual(set(turns[0]), {'request_id', 'user_ref', 'outcome', 'reason', 'model_calls', 'tools', 'tokens', 'masked',
+                                         'model', 'cost_usd', 'cost_source', 'tool_calls', 'data_access', 'grounding_result',
+                                         'redaction', 'injection_result'})
 
 
 try:

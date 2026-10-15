@@ -25,6 +25,7 @@ WINDOW_SECONDS, WINDOW_OPERATIONS, DAILY_OPERATIONS = 3600, 174, 1740
 IDLE_SECONDS = 120  # rebuild the provider client after this long without a call (idle channels go stale in ~10 min)
 RETIRE_SECONDS = 30  # a replaced client is closed after this delay: longer than the adapter's 8 s overall deadline
 MAX_TEXT_BYTES, MAX_BODY_BYTES = 4096, 16384
+REQUEST_ID = re.compile(r'[0-9a-f]{32}')  # the caller's X-Request-ID; any other value is dropped
 
 
 def unique(pairs):
@@ -124,8 +125,13 @@ class Handler(BaseHTTPRequestHandler):
                 return name
         return None
 
+    def request_id(self):
+        value = self.headers.get('X-Request-ID', '')
+        return value if REQUEST_ID.fullmatch(value) else None
+
     def do_POST(self):
         caller = self.client()
+        rid = self.request_id()
         if (self.path != '/redact' or caller is None or self.headers.get('Transfer-Encoding') is not None
                 or self.headers.get('Content-Type') != 'application/json'):
             audit('redaction_rejected', reason='admission')
@@ -141,10 +147,10 @@ class Handler(BaseHTTPRequestHandler):
                     or not 0 < len(value['text'].encode('utf-8')) <= MAX_TEXT_BYTES):
                 raise ValueError('shape')
             result = self.server.budget.current().redact(value['text'])
-            audit('redaction', caller=caller, categories=sorted(set(result.categories)))
+            audit('redaction', caller=caller, categories=sorted(set(result.categories)), request_id=rid)
             self.reply(200, {'text': result.text, 'categories': sorted(set(result.categories))})
         except Exception as error:  # provider/budget/input failure: fail closed, no content in logs
-            audit('redaction_failed', caller=caller, reason=type(error).__name__,
+            audit('redaction_failed', caller=caller, reason=type(error).__name__, request_id=rid,
                   diagnostic=getattr(error, 'diagnostic', None))  # finite constants only (adapter contract)
             self.reply(503, {'code': 'REDACTION_UNAVAILABLE'})
 
