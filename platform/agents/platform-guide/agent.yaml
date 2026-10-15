@@ -1,0 +1,19 @@
+# Agent manifest for the Platform Guide: tenant #2 of the platform (docs/agent-developer-guide.md).
+# Node.js, no data and no database: it answers questions about the platform from a documentation index that is bundled
+# into its image at build time. Its one tool is read-only and runs inside the process.
+agent: platform-guide
+team: platform
+description: Answers questions about the platform from its own documentation; one read-only docs_search tool, no data.
+placement: namespace          # its own namespace: agent-platform-guide
+runtime:
+  image: platform-guide       # its own image, built/scanned/signed/attested by CI (platform/agents/platform-guide/Dockerfile)
+  command: [/nodejs/bin/node, src/server.js]
+  port: 8082
+  replicas: 1
+  resources: {cpu: 100m, memory: 128Mi}
+model:
+  budget_usd_month: 0.5       # its own gateway key; the platform total stays at or below $10/month
+redaction: required
+tools:                        # bound to src/agent.js by a test
+  - {id: docs_search, access: read, description: "Search the bundled platform documentation and return the best matching excerpts."}
+data: none

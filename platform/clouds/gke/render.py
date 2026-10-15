@@ -26,7 +26,7 @@ def onboarded():
     from agent_platform import onboarding
     manifests = onboarding.load_all()
     return {'agent-' + n: onboarding.egress(manifests[n]) for n in onboarding.namespace_agents(manifests)}
-IMAGE_NAMES = ('gateway', 'database', 'redactor', 'app', 'ops-agent', 'agent-financial')
+IMAGE_NAMES = ('gateway', 'database', 'redactor', 'app', 'ops-agent', 'agent-financial', 'platform-guide')
 WORKLOAD_IDENTITY = {('platform', 'gateway'), ('platform', 'redactor')}
 FORBIDDEN_KINDS = {'Ingress', 'Gateway', 'HTTPRoute', 'ClusterRole', 'ClusterRoleBinding', 'PodSecurityPolicy',
                    'MutatingWebhookConfiguration', 'ValidatingWebhookConfiguration'}

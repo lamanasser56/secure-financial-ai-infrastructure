@@ -27,10 +27,10 @@ def nodata():
 
 
 def others(name='financial'):
-    peer = template()  # a second agent at the maximum budget, so the shared $10 ceiling can be exercised
+    peer = template()  # another agent at the maximum budget, so the shared $10 ceiling can be exercised
     peer.update(agent='peer')
     peer['model']['budget_usd_month'] = 5.0
-    return [m for n, m in onboarding.load_all_unchecked().items() if n != name] + [peer]
+    return [peer]
 
 
 class Rejections(unittest.TestCase):
@@ -44,7 +44,7 @@ class Rejections(unittest.TestCase):
 
     def test_valid_manifests_are_accepted(self):
         manifests = onboarding.load_all()
-        self.assertEqual(sorted(manifests), ['financial'])
+        self.assertEqual(sorted(manifests), ['financial', 'platform-guide'])
 
     def test_no_extra_powers_can_be_requested(self):
         for field, value in (('egress', ['0.0.0.0/0']), ('privileged', True), ('hostPath', '/'), ('serviceType', 'LoadBalancer'),
@@ -109,11 +109,12 @@ class Rejections(unittest.TestCase):
     def test_ops_agent_gets_read_only_observe_rights(self):
         docs = onboarding.render_ops_observe(onboarding.load_all())
         roles = [d for d in docs if d['kind'] == 'Role']
-        self.assertEqual(sorted(r['metadata']['namespace'] for r in roles), ['agent-financial'])
+        self.assertEqual(sorted(r['metadata']['namespace'] for r in roles), ['agent-financial', 'agent-platform-guide'])
         for role in roles:
             self.assertTrue(all(set(rule['verbs']) <= {'get', 'list'} for rule in role['rules']))
             self.assertNotIn('secrets', json.dumps(role))
-        self.assertEqual(docs[0]['data'], {'agent-financial.agent.observe': 'read-only'})
+        self.assertEqual(docs[0]['data'], {'agent-financial.agent.observe': 'read-only',
+                                           'agent-platform-guide.agent.observe': 'read-only'})
 
     def test_names_and_placement(self):
         for name in ('platform', 'ops', 'kube-system', 'gateway', 'A', 'x'):
@@ -144,7 +145,8 @@ class Inheritance(unittest.TestCase):
         self.assertEqual(targets, {('gateway', 4000), ('redactor', 4003)})
         access = onboarding.render_platform_access(onboarding.load_all())
         self.assertEqual(sorted(p['metadata']['name'] for p in access),
-                         ['agent-financial-to-gateway', 'agent-financial-to-postgres', 'agent-financial-to-redactor'])
+                         ['agent-financial-to-gateway', 'agent-financial-to-postgres', 'agent-financial-to-redactor',
+                          'agent-platform-guide-to-gateway', 'agent-platform-guide-to-redactor'])  # no Postgres path for the guide
 
     def test_database_path_only_when_declared(self):
         ports = lambda manifest: sorted(e['ports'][0]['port'] for e in onboarding.egress(manifest))
@@ -163,8 +165,90 @@ class Inheritance(unittest.TestCase):
     def test_budgets_sum_to_the_platform_total(self):
         limits = onboarding.budgets(onboarding.load_all())
         self.assertEqual(limits, {'app-infrastructure': 2.5, 'ops-explain': 2.0, 'app-financial': 0.0,  # retired, refused at the gateway
-                                  'agent-financial': 5.0})
+                                  'agent-financial': 5.0, 'agent-platform-guide': 0.5})
         self.assertLessEqual(round(sum(limits.values()), 2), 10.0)
+
+
+class ReadableRejections(unittest.TestCase):
+    """A rejected manifest shows every broken rule, one line each, and generates nothing."""
+
+    SAMPLE = onboarding.REPO / 'docs/examples/rejected-agent/agent.yaml'
+
+    def test_problems_lists_each_violated_rule(self):
+        manifest = template()
+        manifest.update(egress=['0.0.0.0/0'], hostPath='/')
+        manifest['model']['budget_usd_month'] = 500.0
+        manifest['tools'] = [{'id': 'delete_expenses', 'access': 'write', 'description': 'Deletes.'}]
+        found = onboarding.problems(manifest, 'financial', others=others())
+        text = '\n'.join(found)
+        for expected in ('not allowed: egress, hostPath', 'budget_usd_month', 'not read-only: delete_expenses', 'looks like a write'):
+            self.assertIn(expected, text)
+        self.assertGreaterEqual(len(found), 4)
+
+    def test_a_valid_manifest_has_no_problems_and_validate_still_stops_at_the_first(self):
+        self.assertEqual(onboarding.problems(template(), 'financial', others=others()), [])
+        manifest = template()
+        manifest['redaction'], manifest['placement'] = 'optional', 'front-door'
+        with self.assertRaises(Rejected):
+            onboarding.validate(manifest, 'financial', others=others())
+        self.assertEqual(len(onboarding.problems(manifest, 'financial', others=others())), 2)
+
+    def test_unreadable_manifest_gives_one_line_not_a_traceback(self):
+        for broken in (None, [], 'text', {'agent': 5}):
+            found = onboarding.problems(broken, 'x-agent')
+            self.assertTrue(found and all(isinstance(line, str) for line in found), broken)
+
+    def test_the_demo_sample_is_rejected_for_the_advertised_reasons(self):
+        import contextlib
+        import io
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = onboarding.check_file(self.SAMPLE)
+        text = out.getvalue()
+        self.assertEqual(code, 2)
+        self.assertIn('manifest: not allowed: egress', text)
+        self.assertIn('at most 5.00', text)
+        self.assertIn('tool is not read-only: delete_expenses', text)
+        self.assertTrue(text.rstrip().endswith('Nothing was generated.'))
+        self.assertFalse((onboarding.AGENTS / 'spend-bot').exists())  # the sample is never under platform/agents/
+
+    def test_the_real_manifests_pass_the_collector(self):
+        for name, manifest in onboarding.load_all_unchecked().items():
+            self.assertEqual(onboarding.problems(manifest, name, others=[m for n, m in onboarding.load_all_unchecked().items() if n != name]), [])
+
+
+class AgentIsolation(unittest.TestCase):
+    """Financial <-> Platform Guide: no path in either direction, and no database path for the guide (static manifests;
+    the live attack suite proves the data plane)."""
+
+    def setUp(self):
+        self.manifests = onboarding.load_all()
+        self.rendered = {n: onboarding.render_agent(m) for n, m in self.manifests.items()}
+
+    def test_no_egress_rule_names_another_agent_namespace(self):
+        for name, docs in self.rendered.items():
+            others = {'agent-' + n for n in self.manifests if n != name}
+            for doc in docs:
+                if doc['kind'] == 'NetworkPolicy':
+                    self.assertFalse(others & set(json.dumps(doc['spec']).split('"')), (name, doc['metadata']['name']))
+
+    def test_every_egress_target_is_the_platform_namespace_or_dns(self):
+        for name, docs in self.rendered.items():
+            policy = next(d for d in docs if d['kind'] == 'NetworkPolicy' and d['metadata']['name'] == 'agent')
+            for rule in policy['spec']['egress']:
+                for peer in rule['to']:
+                    self.assertEqual(peer['namespaceSelector']['matchLabels']['kubernetes.io/metadata.name'], 'platform')
+
+    def test_the_guide_has_no_database_path_and_the_financial_agent_does(self):
+        ports = lambda name: sorted(e['ports'][0]['port'] for e in onboarding.egress(self.manifests[name]))
+        self.assertEqual((ports('platform-guide'), ports('financial')), ([4000, 4003], [4000, 4003, 5432]))
+        names = [d['metadata']['name'] for d in onboarding.render_platform_access(self.manifests)]
+        self.assertNotIn('agent-platform-guide-to-postgres', names)
+
+    def test_guide_manifest_declares_no_data_and_one_read_only_tool(self):
+        guide = self.manifests['platform-guide']
+        self.assertEqual(guide['data'], 'none')
+        self.assertEqual([(t['id'], t['access']) for t in guide['tools']], [('docs_search', 'read')])
 
 
 class FinancialTenantOne(unittest.TestCase):
