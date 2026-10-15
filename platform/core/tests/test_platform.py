@@ -391,6 +391,60 @@ class FrontDoorApprovals(unittest.TestCase):
         with self.assertRaises(OperationsBlocked):
             self.ops.handle({'operation': 'execute', 'request_id': 'r1', 'approval_id': granted['approval_id']})
 
+    def refusal(self, request, ops=None):
+        """Run one request that must be refused; return (user-facing code, audit line, raw audit text)."""
+        import contextlib
+        import io
+        from runtime.agents.operations import OperationsBlocked
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), self.assertRaises(OperationsBlocked) as raised:
+            (ops or self.ops).handle(request)
+        lines = [json.loads(line) for line in out.getvalue().splitlines() if 'ops_approval_refused' in line]
+        self.assertEqual(len(lines), 1)
+        return raised.exception.code, lines[0], out.getvalue()
+
+    def test_refused_approval_records_the_precise_reason_and_the_user_message_stays_generic(self):
+        wrong = {'operation': 'approve', 'operator_secret': 'wrong passphrase'}
+        right = {'operation': 'approve', 'operator_secret': 'correct horse battery'}
+        cases = (
+            (dict(wrong, request_id='r1'), 'passphrase_mismatch', True),    # proposal is pending, passphrase is wrong
+            (dict(wrong, request_id='gone'), 'passphrase_mismatch', False),  # both wrong: the passphrase is reported
+            (dict(right, request_id='gone'), 'not_pending', False),         # newer proposal, expired or executed
+        )
+        for request, reason, pending in cases:
+            with self.subTest(reason=reason, pending=pending, request_id=request['request_id']):
+                code, line, raw = self.refusal(request)
+                self.assertEqual(code, 'APPROVAL_DENIED')  # the same safe message for every cause
+                self.assertEqual((line['reason'], line['stage'], line['proposal_pending']), (reason, 'approve', pending))
+                self.assertEqual(line['request_id'], request['request_id'])
+                for secret in ('wrong passphrase', 'correct horse battery'):
+                    self.assertNotIn(secret, raw)  # the submitted passphrase is never logged, whole or in part
+
+    def test_refused_execution_records_which_check_failed(self):
+        granted = self.ops.handle({'operation': 'approve', 'request_id': 'r1', 'operator_secret': 'correct horse battery'})
+        base = {'operation': 'execute'}
+        for request, reason in ((dict(base, request_id='r1', approval_id='unknown'), 'approval_unknown_or_used'),
+                                (dict(base, request_id='other', approval_id=granted['approval_id']), 'request_mismatch')):
+            with self.subTest(reason=reason):
+                code, line, _ = self.refusal(request)
+                self.assertEqual((code, line['reason'], line['stage']), ('APPROVAL_DENIED', reason, 'execute'))
+
+    def test_expired_approval_is_recorded_as_expired(self):
+        from agent_platform import app
+        now = [1000.0]
+        ops = app.ClusterOperations(self.config, opener=lambda request, timeout=None: Response(
+            {'findings': {}, 'timeline': [], 'pending': [self.proposal], 'denials': []}), clock=lambda: now[0])
+        granted = ops.handle({'operation': 'approve', 'request_id': 'r1', 'operator_secret': 'correct horse battery'})
+        now[0] += 301
+        code, line, _ = self.refusal({'operation': 'execute', 'request_id': 'r1', 'approval_id': granted['approval_id']}, ops)
+        self.assertEqual((code, line['reason']), ('APPROVAL_DENIED', 'approval_expired'))
+
+    def test_client_supplied_request_id_is_not_logged_verbatim(self):
+        _, line, raw = self.refusal({'operation': 'approve', 'request_id': 'x' * 200 + ' <script>',
+                                     'operator_secret': 'wrong passphrase'})
+        self.assertIsNone(line['request_id'])
+        self.assertNotIn('<script>', raw)
+
 
 if __name__ == '__main__':
     unittest.main()
