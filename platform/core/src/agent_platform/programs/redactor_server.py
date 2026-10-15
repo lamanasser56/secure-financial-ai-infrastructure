@@ -23,6 +23,7 @@ sys.path.insert(0, str(APP_ROOT))
 POLICY_HASH = 'c1b782c6fd051243dec4173f903cb33607893010c7d38a6b35bc1372ddb2d4db'
 WINDOW_SECONDS, WINDOW_OPERATIONS, DAILY_OPERATIONS = 3600, 174, 1740
 IDLE_SECONDS = 120  # rebuild the provider client after this long without a call (idle channels go stale in ~10 min)
+RETIRE_SECONDS = 30  # a replaced client is closed after this delay: longer than the adapter's 8 s overall deadline
 MAX_TEXT_BYTES, MAX_BODY_BYTES = 4096, 16384
 
 
@@ -49,13 +50,30 @@ class Budget:
     The window's attempt budget object is shared by every adapter of the window, so a rebuild never renews it.
     """
 
-    def __init__(self, factory, new_window, clock=time.time, idle_seconds=IDLE_SECONDS):
+    def __init__(self, factory, new_window, clock=time.time, idle_seconds=IDLE_SECONDS, retire_seconds=RETIRE_SECONDS):
         self._factory, self._new_window, self._clock = factory, new_window, clock
-        self._idle_seconds, self._lock = idle_seconds, threading.Lock()
+        self._idle_seconds, self._retire_seconds, self._lock = idle_seconds, retire_seconds, threading.Lock()
         self._window_start = self._day_start = self._last_used = clock()
         self._day_used = 0
         self._window = new_window()
         self.redactor = factory(self._window)
+
+    def _replace(self):
+        old, self.redactor = self.redactor, self._factory(self._window)
+        timer = threading.Timer(self._retire_seconds, self._release, (old,))
+        timer.daemon = True  # best effort: never blocks shutdown
+        timer.start()
+
+    @staticmethod
+    def _release(redactor):
+        """Close the replaced adapter's gRPC channel so rebuilds do not accumulate sockets (errors are ignored)."""
+        try:
+            transport = getattr(getattr(redactor, '_client', None), 'transport', None)
+            close = getattr(transport, 'close', None)
+            if callable(close):
+                close()
+        except Exception:
+            pass
 
     def current(self):
         with self._lock:
@@ -65,10 +83,10 @@ class Budget:
             if now - self._window_start >= WINDOW_SECONDS:
                 self._day_used += sum(self.redactor.operation_counts.values())
                 self._window_start, self._window = now, self._new_window()
-                self.redactor = self._factory(self._window)
+                self._replace()
             elif now - self._last_used >= self._idle_seconds:
                 self._day_used += sum(self.redactor.operation_counts.values())
-                self.redactor = self._factory(self._window)  # fresh channel, same attempt budget
+                self._replace()  # fresh channel, same attempt budget
             self._last_used = now
             if self._day_used + sum(self.redactor.operation_counts.values()) + 2 > DAILY_OPERATIONS:
                 raise RuntimeError('daily budget')

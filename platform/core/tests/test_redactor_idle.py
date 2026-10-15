@@ -1,4 +1,5 @@
 """Redactor: a provider channel left idle goes stale; the service rebuilds the client and still fails closed."""
+import threading
 import unittest
 
 from agent_platform.programs import redactor_server
@@ -15,12 +16,26 @@ class Clock:
         return self.now
 
 
+class FakeClient:
+    """Stands in for DlpServiceClient: `transport.close()` releases the gRPC channel."""
+
+    def __init__(self, fail=False):
+        self.closed, self.fail = threading.Event(), fail
+        self.transport = self
+
+    def close(self):
+        self.closed.set()
+        if self.fail:
+            raise RuntimeError('channel already gone')
+
+
 class FakeProvider:
     """One adapter == one channel. A call on a channel idle for STALE_AFTER seconds waits out the deadline and fails."""
 
     def __init__(self, clock, window_budget):
         self.clock, self.window_budget = clock, window_budget
         self.last_rpc = clock()
+        self._client = FakeClient()
         self.operation_counts = {'inspect_attempted': 0, 'deidentify_attempted': 0}
 
     def redact(self, text):
@@ -33,13 +48,13 @@ class FakeProvider:
         return text
 
 
-def make(clock, **options):
+def make(clock, retire_seconds=0, **options):
     built = []
 
     def factory(window):
         built.append(FakeProvider(clock, window))
         return built[-1]
-    return Budget(factory, lambda: {'used': 0}, clock=clock, **options), built
+    return Budget(factory, lambda: {'used': 0}, clock=clock, retire_seconds=retire_seconds, **options), built
 
 
 class StaleChannel(unittest.TestCase):
@@ -85,6 +100,42 @@ class StaleChannel(unittest.TestCase):
         self.assertGreater(len(built), 800)
         with self.assertRaisesRegex(RuntimeError, 'daily budget'):
             budget.current()
+
+    def test_replaced_client_is_closed_and_the_current_one_is_not(self):
+        clock = Clock()
+        budget, built = make(clock)
+        budget.current().redact('first')
+        clock.now += 11 * 60
+        budget.current().redact('after idle')
+        self.assertTrue(built[0]._client.closed.wait(2))
+        self.assertFalse(built[1]._client.closed.is_set())
+
+    def test_window_roll_also_closes_the_old_client(self):
+        clock = Clock()
+        budget, built = make(clock)
+        budget.current().redact('first')
+        clock.now += redactor_server.WINDOW_SECONDS
+        budget.current().redact('next window')
+        self.assertTrue(built[0]._client.closed.wait(2))
+        self.assertIsNot(built[0].window_budget, built[1].window_budget)
+
+    def test_close_waits_so_an_in_flight_call_is_not_cut_off(self):
+        clock = Clock()
+        budget, built = make(clock, retire_seconds=3600)
+        budget.current().redact('first')
+        clock.now += 11 * 60
+        budget.current().redact('after idle')
+        self.assertFalse(built[0]._client.closed.wait(0.2))
+        self.assertGreater(redactor_server.RETIRE_SECONDS, 8)  # longer than the adapter's overall deadline
+
+    def test_a_failing_close_is_ignored(self):
+        clock = Clock()
+        budget, built = make(clock)
+        budget.current()
+        built[0]._client.fail = True
+        clock.now += 11 * 60
+        self.assertEqual(budget.current().redact('still works'), 'still works')
+        self.assertTrue(built[0]._client.closed.wait(2))
 
     def test_failure_is_still_raised_not_swallowed(self):
         clock = Clock()
