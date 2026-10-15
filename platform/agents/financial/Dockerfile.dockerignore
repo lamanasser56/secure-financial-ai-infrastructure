@@ -13,6 +13,7 @@
 !platform/core/src/agent_platform/__init__.py
 !platform/core/src/agent_platform/audit.py
 !platform/core/src/agent_platform/redaction.py
+!platform/core/src/agent_platform/request_context.py
 !platform/agents/
 !platform/agents/financial/
 !platform/agents/financial/finance_agent/
