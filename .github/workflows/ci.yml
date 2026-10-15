@@ -73,6 +73,8 @@ jobs:
           python -m pip install --require-hashes -r requirements-financial-agent.txt
           PYTHONPATH=platform/core/src:platform/core/tests:. python -B -m unittest discover -s platform/core/tests -p 'test_finance_db.py'
           PYTHONPATH=platform/core/src:platform/agents/financial:. python -B -m unittest discover -s platform/agents/financial/tests -p 'test_*.py'
+      - name: Platform Guide tests (Node.js built-in test runner, no dependencies)
+        run: node --test platform/agents/platform-guide/test/*.test.js
 
   gitleaks:
     # Its own job so branch protection can require it: the whole history, pinned and checksum-verified gitleaks.

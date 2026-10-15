@@ -1,0 +1,14 @@
+{
+  "name": "platform-guide",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Platform Guide: answers questions about the platform from a docs index bundled at build time (one read-only tool, docs_search).",
+  "main": "src/server.js",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "build-index": "node tools/build-index.js ../../../docs docs-index.json"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}
