@@ -62,7 +62,7 @@ image build.
 
 User chat (Financial Agent):
 
-```
+```text
 browser ──► agent-financial (sign-in, own-rows tools, grounding)
               │  every question: text ──► redactor (platform/core/src/agent_platform/programs/redactor_server.py)
               │                              └─► Sensitive Data Protection over Private Service Connect (fail-closed)
