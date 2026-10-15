@@ -284,17 +284,17 @@ class Manifest(unittest.TestCase):
 
     def test_rendered_manifest_holds_every_invariant(self):
         summary = render.validate(self.docs, self.refs)
-        self.assertEqual(summary['kinds']['Namespace'], 5)  # platform, apps, ops + onboarded agent-financial, agent-hello
+        self.assertEqual(summary['kinds']['Namespace'], 4)  # platform, apps, ops + onboarded agent-financial
         self.assertNotIn('Ingress', summary['kinds'])
 
     def test_each_violation_is_rejected(self):
         def lb(d): self.find(d, 'Service', 'gateway')['spec']['type'] = 'LoadBalancer'
         def nodeport(d): self.find(d, 'Service', 'fault-demo')['spec']['type'] = 'NodePort'
-        def agent_internet(d): self.find(d, 'NetworkPolicy', 'agent', 'agent-hello')['spec']['egress'].append({'to': [{'ipBlock': {'cidr': '0.0.0.0/0'}}]})
-        def agent_rbac(d): d.append({'apiVersion': 'rbac.authorization.k8s.io/v1', 'kind': 'Role', 'metadata': {'name': 'x', 'namespace': 'agent-hello'},
+        def agent_internet(d): self.find(d, 'NetworkPolicy', 'agent', 'agent-financial')['spec']['egress'].append({'to': [{'ipBlock': {'cidr': '0.0.0.0/0'}}]})
+        def agent_rbac(d): d.append({'apiVersion': 'rbac.authorization.k8s.io/v1', 'kind': 'Role', 'metadata': {'name': 'x', 'namespace': 'agent-financial'},
                                      'rules': [{'apiGroups': [''], 'resources': ['pods'], 'verbs': ['get']}]})
-        def agent_quota(d): d.remove(self.find(d, 'ResourceQuota', 'bounds', 'agent-hello'))
-        def agent_extra_policy(d): d.append({'apiVersion': 'networking.k8s.io/v1', 'kind': 'NetworkPolicy', 'metadata': {'name': 'open', 'namespace': 'agent-hello'},
+        def agent_quota(d): d.remove(self.find(d, 'ResourceQuota', 'bounds', 'agent-financial'))
+        def agent_extra_policy(d): d.append({'apiVersion': 'networking.k8s.io/v1', 'kind': 'NetworkPolicy', 'metadata': {'name': 'open', 'namespace': 'agent-financial'},
                                              'spec': {'podSelector': {}, 'egress': [{}], 'policyTypes': ['Egress']}})
         def no_deny(d): d.remove(self.find(d, 'NetworkPolicy', 'default-deny', 'apps'))
         def tag(d): self.find(d, 'Deployment', 'app')['spec']['template']['spec']['containers'][0]['image'] = 'nginx:latest'
@@ -345,21 +345,22 @@ class SecretSeparation(unittest.TestCase):
         boot = json.loads(decode(docs[('platform', 'bootstrap')], 'bootstrap.json'))
         self.assertIn('PRIVATE KEY', app['approver_private_key'])
         self.assertNotIn('PRIVATE KEY', json.dumps(ops))  # the agent can verify but never sign approvals
-        self.assertEqual(round(sum(k['max_budget'] for k in boot['virtual_keys']), 2), 10.0)
+        self.assertEqual(round(sum(k['max_budget'] for k in boot['virtual_keys']), 2), 9.5)  # never above the $10 ceiling
         self.assertNotIn('correct horse battery', json.dumps(app))
         signer = approval.Signer(app['approver_private_key'])
         proposal = {'request_id': 'r', 'target': 't', 'action': 'restart', 'args_digest': 'a', 'evidence_digest': 'e',
                     'uid': 'u', 'resource_version': '1'}
         self.assertEqual(approval.Verifier(ops['approver_public_key']).consume(signer.sign(proposal), proposal)['approver'], 'owner')
         self.assertNotIn(boot['master_key'], json.dumps(app) + json.dumps(ops))
-        self.assertTrue(all(d['metadata']['namespace'] in ('platform', 'apps', 'ops', 'agent-hello', 'agent-financial') for d in docs.values()))
-        # an onboarded agent holds only its own gateway key and its own redactor key
-        hello = json.loads(decode(docs[('agent-hello', 'agent')], 'agent.json'))
+        self.assertTrue(all(d['metadata']['namespace'] in ('platform', 'apps', 'ops', 'agent-financial') for d in docs.values()))
+        # an onboarded agent holds its own gateway key and its own redactor key (and never the master key)
+        financial = json.loads(decode(docs[('agent-financial', 'agent')], 'agent.json'))
         clients = json.loads(decode(docs[('platform', 'redactor')], 'clients.json'))
         keys = {k['alias']: k for k in boot['virtual_keys']}
-        self.assertEqual(hello, {'gateway_key': keys['agent-hello']['key'], 'redactor_key': clients['agent-hello']})
-        self.assertEqual((keys['agent-hello']['max_budget'], keys['app-infrastructure']['max_budget']), (0.5, 2.5))
-        self.assertNotIn(boot['master_key'], json.dumps(hello))
+        self.assertEqual((financial['gateway_key'], financial['redactor_key']),
+                         (keys['agent-financial']['key'], clients['agent-financial']))
+        self.assertEqual((keys['agent-financial']['max_budget'], keys['app-infrastructure']['max_budget']), (5.0, 2.5))
+        self.assertNotIn(boot['master_key'], json.dumps(financial))
         self.assertEqual(app['client_keys']['financial'], keys['app-financial']['key'])
 
 

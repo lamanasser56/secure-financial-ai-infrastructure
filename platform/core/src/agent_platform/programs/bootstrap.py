@@ -146,8 +146,8 @@ def keys(config, wait_seconds=300):
             if time.time() >= deadline:
                 raise SystemExit('bootstrap:gateway_not_ready')
             time.sleep(5)
-    if round(sum(k['max_budget'] for k in config['virtual_keys']), 2) != 10.0:
-        raise SystemExit('bootstrap:budget_total_must_be_10')
+    if round(sum(k['max_budget'] for k in config['virtual_keys']), 2) > 10.0:  # a ceiling: unallocated budget is allowed
+        raise SystemExit('bootstrap:budget_total_exceeds_10')
     for item in config['virtual_keys']:
         try:
             info = _gateway('/key/info?key=' + item['key'], None, config['master_key'], method='GET')

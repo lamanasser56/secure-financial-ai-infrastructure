@@ -19,7 +19,6 @@ image build.
 | `platform/core/ui/` | The operations dashboard overlay (bilingual). |
 | `platform/core/tests/` | Platform tests: manifest invariants, ops agent, approvals, onboarding, and policies against a real kube-apiserver (envtest). |
 | `platform/agents/financial/` | **Financial Agent** (tenant #1): its own image, web app, read-only tools, grounding, sign-in. |
-| `platform/agents/hello/` | **hello agent**: the smallest onboarded example (one manifest). |
 | `platform/clouds/gke/` | GKE: Terraform module, `render.py`, `images.json` (signed digests), `lifecycle.py` (`make up` / `down` / `fault` / `inventory`), `attack_suite.py`, `requalify.py`. |
 | `Makefile` | Entry points: `make test`, `make test-policies`, `make up`, `make attack`, `make down`, `make inventory`. |
 | `docs/agent-platform/` | Platform docs: claims matrix, model requalification, teardown plan. |
@@ -99,6 +98,6 @@ an audit line.
 
 1. `README.md`, this map, and `docs/HOW-TO-VIEW.md` to open the pages.
 2. `docs/agent-onboarding-contract.md`: what an onboarded agent inherits.
-3. `platform/agents/hello/agent.yaml`, then `platform/agents/financial/`.
+3. `platform/agents/financial/agent.yaml`, then the rest of `platform/agents/financial/`.
 4. `platform/core/src/agent_platform/ops/`: the Security & Operations Agent.
 5. `docs/evidence/`: what was tested live, and when.
