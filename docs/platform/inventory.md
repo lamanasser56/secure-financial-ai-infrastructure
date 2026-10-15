@@ -63,7 +63,8 @@ No request ID or trace ID is shared between events.
 | `model_response_shape` (app) | `shape` |
 | `ops_observed`, `ops_diagnosed`, `ops_proposed`, `ops_denied`, … (ops-agent) | `target`, `finding`, `evidence_digest`, `action`, `request_id`, desired/available counts |
 | `ops_approval_signed` (app) | `request_id`, `target`, `action` |
-| `ops_approval_refused` (app) | `request_id` only (**no reason**; fixed in the item 5 PR) |
+| `ops_approval_refused` (app) | `request_id` only on `main` (**no reason**); PR #83 adds `stage`, `reason`, `proposal_pending` |
+| `ops_approved`, `ops_executed`, `ops_denied` (ops-agent) | `target`, `request_id`, `approver` or `code` |
 | `app_started`, `app_session_refreshed`, `app_session_refresh_failed`, `ops_agent_started`, `ops_scan_error` | session and lifecycle fields |
 
 Missing for a per-request "what the platform did" trace:
@@ -77,7 +78,7 @@ Missing for a per-request "what the platform did" trace:
 | RLS outcome | Not recorded; RLS is enforced in Postgres and never reported. |
 | Grounding check result | Not in the audit event. |
 | Model, token cost | `tokens` per turn only; no model name, no cost. The LiteLLM spend log is a separate store. |
-| Approval events | Proposed / signed / refused are recorded; refusal reason, approver and execution result are not (the `execute` outcome is not emitted by the app). |
+| Approval events | Proposed, approved, executed and denied (`ops_approved`, `ops_executed`, `ops_denied` with a code) are recorded by the ops agent; signed/refused by the app. The refusal reason was missing (added in PR #83); a approver identity beyond the fixed `owner` is not modelled. |
 
 ## 1e. Agent manifest `platform/agents/<name>/agent.yaml`
 
