@@ -230,6 +230,13 @@ class ClusterOperations:
         from runtime.agents.operations import OperationsBlocked
         return OperationsBlocked(code)
 
+    def _refused(self, stage, reason, request, **fields):
+        """Audit one refused approval step. `reason` is a closed constant; the submitted passphrase is never an input."""
+        request_id = request.get('request_id')
+        if not (isinstance(request_id, str) and re.fullmatch(r'[A-Za-z0-9._-]{1,64}', request_id)):
+            request_id = None  # client-supplied text is not logged
+        audit.emit('ops_approval_refused', 'app', request_id=request_id, stage=stage, reason=reason, **fields)
+
     def handle(self, request):
         operation = request.get('operation')
         snapshot = self._call('GET', '/v1/snapshot') if operation not in ('security', 'execute') else None
@@ -266,8 +273,11 @@ class ClusterOperations:
             expected = self._config['operator_secret_scrypt']
             digest = hashlib.scrypt(secret.encode(), salt=bytes.fromhex(expected['salt']), n=2 ** 14, r=8, p=1).hex()
             proposal = next((p for p in snapshot['pending'] if p['request_id'] == request.get('request_id')), None)
-            if not hmac.compare_digest(digest, expected['hash']) or proposal is None:
-                audit.emit('ops_approval_refused', 'app', request_id=request.get('request_id'))
+            passphrase_ok = hmac.compare_digest(digest, expected['hash'])  # both checks always run: no timing difference
+            if not passphrase_ok or proposal is None:
+                # The browser gets the same generic refusal either way; the audit line records which check failed.
+                self._refused('approve', 'passphrase_mismatch' if not passphrase_ok else 'not_pending', request,
+                              proposal_pending=proposal is not None)
                 raise self._blocked('APPROVAL_DENIED')
             approval_id = str(uuid.uuid4())
             token = self._signer.sign(proposal)
@@ -280,6 +290,8 @@ class ClusterOperations:
             with self._lock:
                 saved = self._approvals.pop(request.get('approval_id'), None)
             if saved is None or saved[0] != request.get('request_id') or self._clock() >= saved[2]:
+                self._refused('execute', 'approval_unknown_or_used' if saved is None
+                              else 'request_mismatch' if saved[0] != request.get('request_id') else 'approval_expired', request)
                 raise self._blocked('APPROVAL_DENIED')
             return self._call('POST', '/v1/execute', {'request_id': saved[0], 'approval': saved[1]})
         if operation == 'security':
