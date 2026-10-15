@@ -6,10 +6,11 @@ agent must never do. An agent that does not meet the contract is not deployed.
 
 **Status:** this contract describes the platform as designed. A control counts as live-tested only when the
 [claims matrix](agent-platform/claims-matrix.md) says so. Onboarding is implemented by `make onboard`; see the
-[developer guide](agent-developer-guide.md). Two agents are declared today:
+[developer guide](agent-developer-guide.md). Three agents are declared today:
 
 - the **Security & Operations Agent** (the flagship, a platform component);
-- the **Financial Agent**, tenant #1 (`platform/agents/financial/agent.yaml`, namespace `agent-financial`, its own image).
+- the **Financial Agent**, tenant #1 (`platform/agents/financial/agent.yaml`, namespace `agent-financial`, its own image);
+- the **Platform Guide**, tenant #2 (`platform/agents/platform-guide/agent.yaml`, namespace `agent-platform-guide`, Node.js, no data).
 
 ## 1. What every agent inherits
 
