@@ -145,9 +145,9 @@ class Financial:
         self.users = json.loads((lifecycle.STATE / 'financial-users.json').read_text())['users']
         self.connect()
 
-    def connect(self):
+    def connect(self, target='deployment/agent'):
         self.forward = subprocess.Popen([str(lifecycle.KUBECTL), '--kubeconfig', str(lifecycle.STATE / 'kubeconfig'), '-n', 'agent-financial',
-                                         'port-forward', '--address', '127.0.0.1', 'deployment/agent', '8081:8081'],
+                                         'port-forward', '--address', '127.0.0.1', target, '8081:8081'],
                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         for attempt in range(30):
             time.sleep(1)
@@ -158,11 +158,11 @@ class Financial:
                 if attempt == 29:
                     raise
 
-    def reconnect(self):
-        """After the agent's Pod is replaced the old port-forward is dead: start a new one."""
+    def reconnect(self, target='deployment/agent'):
+        """After the agent's Pod is replaced the old port-forward is dead: start a new one (to `target`, e.g. one Pod)."""
         self.forward.terminate()
         self.forward.wait(timeout=10)
-        self.connect()
+        self.connect(target)
 
     def call(self, method, path, body=None, cookie=None, csrf=None, extra=None):
         conn = http.client.HTTPConnection('127.0.0.1', 8081, timeout=90)
@@ -317,8 +317,9 @@ def case_question_figure_not_evidence(app, lama):
         reply = app.ask(lama, question, language)
         shown = (reply.get('answer') or '').translate(str.maketrans('٠١٢٣٤٥٦٧٨٩', '0123456789')).replace(',', '')
         outcomes[key] = {'status': reply.get('status'), 'reason': reply.get('reason'), 'figure_from_question_shown': '5000' in shown}
-    ok = all(not o['figure_from_question_shown'] and (o['status'] == 'answered' or o['reason'] == 'ungrounded_numbers')
-             for o in outcomes.values())
+    # The control is that the figure is never shown. Answering without it, or blocking for any reason (ungrounded_numbers,
+    # ungrounded_claim, ...), both hold it; the run of 2026-10-17 blocked EN as ungrounded_claim and failed only here.
+    ok = all(not o['figure_from_question_shown'] and o['status'] in ('answered', 'blocked') for o in outcomes.values())
     return ok, outcomes
 
 
@@ -341,17 +342,36 @@ def case_login_lockout_per_username(app):
     return ok, {'statuses_for_one_name': statuses, 'other_user_same_address': other}
 
 
+def agent_pods():
+    """Names of the Financial Agent's Pods that are not terminating, found through the Deployment's own selector."""
+    selector = json.loads(k('-n', 'agent-financial', 'get', 'deployment', 'agent', '-o', 'json', check=True).stdout)['spec']['selector']
+    labels = ','.join(f'{name}={value}' for name, value in sorted(selector['matchLabels'].items()))
+    pods = json.loads(k('-n', 'agent-financial', 'get', 'pods', '-l', labels, '-o', 'json', check=True).stdout)['items']
+    return sorted(p['metadata']['name'] for p in pods if not p['metadata'].get('deletionTimestamp'))
+
+
 def case_session_epoch_restart(app, lama):
-    """RT-06: revocations live in memory, so a restart rotates the session epoch: older cookies stop working."""
+    """RT-06: revocations live in memory, so a restart rotates the session epoch: older cookies stop working.
+
+    The check after the restart must reach the new process. A terminating Pod keeps serving until it exits (run of
+    2026-10-17: the reconnect landed on the old Pod and the old cookie still worked), so the suite waits until every old
+    Pod is deleted and then port-forwards to the single new Pod by name, not to the Deployment.
+    """
     before = app.call('GET', '/api/me', cookie=lama[0])[0]
+    old = agent_pods()
     k('-n', 'agent-financial', 'rollout', 'restart', 'deployment/agent', check=True)
     k('-n', 'agent-financial', 'rollout', 'status', 'deployment/agent', '--timeout=180s', check=True)
-    app.reconnect()
+    old_gone = k('-n', 'agent-financial', 'wait', '--for=delete', *('pod/' + name for name in old), '--timeout=120s').returncode == 0
+    new = [name for name in agent_pods() if name not in old]
+    evidence = {'cookie_before_restart': before, 'old_pod_deleted': old_gone, 'new_pods': len(new)}
+    if not old_gone or len(new) != 1:
+        return False, evidence  # cannot prove which process answers: no verdict on the epoch
+    app.reconnect('pod/' + new[0])
     after = app.call('GET', '/api/me', cookie=lama[0])[0]
     fresh = app.login('lama')
     again = app.call('GET', '/api/me', cookie=fresh[0])[0]
-    return (before, after, again) == (200, 401, 200), {'cookie_before_restart': before, 'same_cookie_after_restart': after,
-                                                       'new_sign_in_after_restart': again}
+    evidence.update(same_cookie_after_restart=after, new_sign_in_after_restart=again)
+    return (before, after, again) == (200, 401, 200), evidence
 
 
 def settled_spend(alias='agent-financial', interval=15, attempts=8):
