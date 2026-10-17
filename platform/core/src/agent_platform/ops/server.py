@@ -2,7 +2,8 @@
 
 GET  /v1/health     liveness
 GET  /v1/snapshot   timeline, pending approvals, denials, current findings
-GET  /v1/posture    protective posture findings
+GET  /v1/posture    protective posture findings and the live NetworkPolicy shapes of the registered namespaces
+GET  /v1/activity   latest masked/blocked events from the redactor's audit lines (bounded, read-only)
 POST /v1/execute    {"request_id", "approval"}: verify the owner's one-use token, execute once, verify
 There is no endpoint to register targets, add actions or approve.
 """
@@ -59,6 +60,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(200, self.server.agent.snapshot())
         elif self.path == '/v1/posture':
             self.reply(200, self.server.agent.posture())
+        elif self.path == '/v1/activity':
+            self.reply(200, self.server.agent.activity())
         else:
             self.reply(404, {'code': 'NOT_FOUND'})
 

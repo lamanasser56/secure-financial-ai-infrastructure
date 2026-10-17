@@ -41,6 +41,10 @@ COPY --chown=65532:65532 demo/ /app/demo/
 # demo/ui stays byte-identical so earlier qualification records remain valid.
 COPY --chown=65532:65532 platform/core/ui/ /app/demo/ui/
 COPY --chown=65532:65532 evaluation/agent-composition/ /app/evaluation/agent-composition/
+# Console data API (/api/console/*): the rendered manifests and the agent manifests, read-only, next to the code.
+COPY --chown=65532:65532 platform/core/kubernetes/ /app/platform/kubernetes/
+COPY --chown=65532:65532 platform/agents/ /app/platform/agents/
+COPY --chown=65532:65532 platform/clouds/gke/kubernetes/ /app/platform/gke/
 ENTRYPOINT ["/usr/local/bin/python3.12", "-m", "agent_platform.app"]
 
 FROM runtime AS ops

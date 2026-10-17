@@ -13,6 +13,7 @@ image build.
 | Path | What it is |
 | --- | --- |
 | `platform/core/src/agent_platform/` | The platform: front door (`app.py`), onboarding (`onboarding.py`), redaction client, audit, Kubernetes client, Secrets generator, and the Security & Operations Agent (`ops/`). |
+| `platform/core/src/agent_platform/console.py` | Console data API (`/api/console/*`, read-only): topology, agents, onboarding guarantees, activity and Explain proofs. Design: `docs/console/design-spec.md`. |
 | `platform/core/kubernetes/` | Manifests: namespaces, default-deny NetworkPolicies, RBAC, the ops agent's admission policy (`policies/admission.yaml`), quotas, workloads. |
 | `platform/core/database/` | Platform SQL: the LiteLLM schema and the Financial Agent's `finance.sql` (row-level security, roles, sign-in lookup). |
 | `platform/core/images/Dockerfile` | The app and ops images (distroless runtime, hash-locked Python sets). |

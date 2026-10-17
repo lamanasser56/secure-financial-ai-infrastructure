@@ -18,7 +18,7 @@ import time
 import urllib.request
 import uuid
 
-from agent_platform import audit, request_context
+from agent_platform import audit, console, request_context
 from agent_platform.identity_fixture import mint
 from agent_platform.ops.approval import Signer
 from agent_platform.redaction import RedactorClient, WindowedBoundaryBudget
@@ -332,8 +332,9 @@ def main():
     connect = lambda: psycopg.connect(config['tenant_database_url'], connect_timeout=2)
     agents, expires = compose(config, user, connect)
     shared = dict(agents)
-    with DemoServer(('127.0.0.1', 8080), agents=shared, composition='platform_live',
-                    operations=ClusterOperations(config)) as server:
+    operations = ClusterOperations(config)
+    with DemoServer(('127.0.0.1', 8080), agents=shared, composition='platform_live', operations=operations) as server:
+        console.attach(server, lambda path: operations._call('GET', path))  # read-only console routes; GET only, ops key unchanged
         def refresh():
             while True:
                 time.sleep(REFRESH_SECONDS)

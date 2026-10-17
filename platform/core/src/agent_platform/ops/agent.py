@@ -16,7 +16,7 @@ import uuid
 
 from agent_platform import audit
 from agent_platform.k8s import KubeError
-from agent_platform.ops import actions, approval, diagnose, posture
+from agent_platform.ops import actions, activity, approval, diagnose, posture
 from agent_platform.ops.registry import ACTIONS
 
 STAGES = ('observed', 'diagnosed', 'proposed', 'approved', 'executed', 'verified', 'denied', 'failed')
@@ -62,6 +62,7 @@ class Agent:
                 self.record('failed', key, code='OBSERVE_' + str(error.status))
                 continue
             finding = diagnose.diagnose(deployment, pods, events)
+            finding['facts'] = dict(diagnose.live_facts(pods), observed_at=round(self.clock(), 3))  # not part of evidence_digest
             previous = self.findings.get(key)
             if previous is not None and previous['evidence_digest'] == finding['evidence_digest'] and 'explanation' in previous:
                 finding['explanation'] = previous['explanation']
@@ -221,3 +222,16 @@ class Agent:
             return {'timeline': list(self.timeline)[-50:], 'denials': list(self.denials)[-20:],
                     'pending': [p for p in self.proposals.values() if p['state'] == 'proposed'],
                     'findings': dict(self.findings)}
+
+    ACTIVITY_SECONDS = 10
+
+    def activity(self):
+        """Masking/blocked events from the redactor's audit lines, cached so a polling console cannot multiply log reads."""
+        with self._lock:
+            cached = getattr(self, '_activity', None)
+            if cached is not None and self.clock() - cached[0] < self.ACTIVITY_SECONDS:
+                return cached[1]
+        value = activity.recent(self.client)
+        with self._lock:
+            self._activity = (self.clock(), value)
+        return value
