@@ -65,6 +65,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int, default=8080)
     parser.add_argument('--scenario', default='ok', choices=('ok', 'failing', 'down'))
+    parser.add_argument('--live-attacks', help='a sanitized results file to serve as the live run (as if mounted from the ConfigMap)')
     args = parser.parse_args()
     server = DemoServer(('127.0.0.1', args.port), agents={}, composition='stub', operations=StubOperations(time.time))
 
@@ -74,6 +75,8 @@ def main():
             raise OSError('unreachable')
         return answers[path]
     console.attach(server, ops)
+    if args.live_attacks:
+        server.console.live_attacks = __import__('pathlib').Path(args.live_attacks)
     print('console stub (%s): http://127.0.0.1:%d/' % (args.scenario, args.port), flush=True)
     server.serve_forever()
 

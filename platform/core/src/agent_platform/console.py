@@ -80,11 +80,13 @@ def peer_names(rule):
 
 
 class Console:
-    def __init__(self, ops, *, directories=None, extras=None, clock=time.time, recent_audit=audit.recent):
+    def __init__(self, ops, *, directories=None, extras=None, clock=time.time, recent_audit=audit.recent,
+                 live_attacks=Path('/attack-results/attack-suite.json')):
         """`ops(path)` GETs the ops agent's read-only API and returns the decoded JSON (raises when it is unreachable)."""
         self._ops, self._clock, self._recent_audit = ops, clock, recent_audit
         self.kube, self.agent_dir, self.gke = directories or locate()
         self.ui_dir, self.evidence_dir, self.examples_dir = extras or locate_extras()
+        self.live_attacks = Path(live_attacks)  # the mounted ConfigMap apps/attack-results (optional)
         self._cache = {}
         self._manifests = self._load_manifests()
         self._opscfg = self._load_ops()
@@ -418,23 +420,25 @@ class Console:
     ATTACK_CASE = re.compile(r'[a-z][a-z0-9_]{2,80}')
 
     def attacks(self):
-        """Latest attack-suite results from the committed results file: case, result, time only. Not a live run."""
-        path = self.evidence_dir / 'attack-suite.json'
-        try:
-            data = json.loads(path.read_text())
-            rows = [{'case': r['case'], 'result': r['result'], 'at': r['at']} for r in data['results']
-                    if r['case'] != 'financial_setup']  # setup is a precondition, not an attack
-            if not all(self.ATTACK_CASE.fullmatch(r['case']) and r['result'] in ('PASS', 'FAIL') and type(r['at']) is str
-                       and len(r['at']) <= 40 for r in rows) or type(data['completed_at']) is not str:
-                raise ValueError('shape')
-        except (OSError, ValueError, KeyError, TypeError):
-            return {'available': False, 'file': 'docs/evidence/attack-suite.json', 'results': []}
-        note = self._attack_note()
-        for r in rows:  # the latest run's note, attached only to the failed case it is about (its text, unchanged)
-            if note and r['case'] == note['case'] and r['result'] == 'FAIL':
-                r['note'] = {'conclusion': note['conclusion'], 'file': note['file']}
-        return {'available': True, 'file': 'docs/evidence/attack-suite.json', 'completed_at': data['completed_at'][:40],
-                'results': rows, 'stopped': sum(r['result'] == 'PASS' for r in rows), 'total': len(rows)}
+        """Attack-suite results, case / result / time only. A live run (ConfigMap apps/attack-results, written by `make attack`
+        and mounted read-only) is preferred; otherwise the recorded run committed in the repository. The source is stated."""
+        from agent_platform import attack_results
+        for source, path, file in (('live', self.live_attacks, 'ConfigMap apps/attack-results'),
+                                   ('recorded', self.evidence_dir / 'attack-suite.json', 'docs/evidence/attack-suite.json')):
+            try:
+                data = attack_results.sanitize(json.loads(path.read_text()))
+            except (OSError, ValueError):
+                continue
+            rows = [r for r in data['results'] if r['case'] != 'financial_setup']  # setup is a precondition, not an attack
+            if not rows:
+                continue
+            note = self._attack_note() if source == 'recorded' else None  # the owner's note is about the recorded run only
+            for r in rows:  # attached only to the failed case it is about (its text, unchanged)
+                if note and r['case'] == note['case'] and r['result'] == 'FAIL':
+                    r['note'] = {'conclusion': note['conclusion'], 'file': note['file']}
+            return {'available': True, 'source': source, 'file': file, 'completed_at': data['completed_at'],
+                    'results': rows, 'stopped': sum(r['result'] == 'PASS' for r in rows), 'total': len(rows)}
+        return {'available': False, 'source': None, 'file': 'docs/evidence/attack-suite.json', 'results': []}
 
     def _attack_note(self):
         """The owner's note on the latest run (docs/evidence/attack-suite-run-<n>-note.json with the highest n), or None."""
