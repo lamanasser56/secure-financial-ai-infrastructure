@@ -6,6 +6,7 @@ never parsed for instructions, only counted/attached as untrusted, redacted cont
 """
 import hashlib
 import json
+import re
 
 # Findings whose fix needs a Pod spec change (image, env, resources) get no proposal: that is an owner change,
 # outside the agent's authority (no rollback; see policies/admission.yaml).
@@ -71,3 +72,23 @@ def diagnose(deployment, pods, events, replicasets=()):
     result['evidence_digest'] = hashlib.sha256(json.dumps(
         {k: result[k] for k in ('deployment', 'namespace', 'uid', 'finding', 'evidence', 'revision')}, sort_keys=True).encode()).hexdigest()
     return result
+
+
+DIGEST = re.compile(r'sha256:[0-9a-f]{64}')
+
+
+def live_facts(pods):
+    """Console facts from the Pods already read for a scan: counts and running image digests only.
+
+    The registry path in a Pod's imageID (which contains the project) is dropped: only the digest is kept."""
+    ready, restarts, digests = 0, 0, set()
+    for pod in pods:
+        statuses = (pod.get('status') or {}).get('containerStatuses') or []
+        if (pod.get('status') or {}).get('phase') == 'Running' and statuses and all(s.get('ready') for s in statuses):
+            ready += 1
+        for status in statuses:
+            restarts += int(status.get('restartCount', 0))
+            found = DIGEST.search(str(status.get('imageID', '')))
+            if found:
+                digests.add(found.group(0))
+    return {'pods_total': len(pods), 'pods_ready': ready, 'restarts': restarts, 'image_digests': sorted(digests)}

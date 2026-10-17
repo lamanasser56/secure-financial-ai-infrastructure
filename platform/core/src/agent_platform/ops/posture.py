@@ -8,8 +8,26 @@ from agent_platform.k8s import KubeError
 OPS_AGENT = {'kind': 'ServiceAccount', 'name': 'ops-agent', 'namespace': 'ops'}
 
 
+def _peer(peer):
+    if 'ipBlock' in peer:
+        return 'ipBlock:' + str((peer['ipBlock'] or {}).get('cidr', '?'))
+    labels = lambda selector: ','.join(f'{k}={v}' for k, v in sorted(((selector or {}).get('matchLabels') or {}).items()))
+    return (labels(peer.get('namespaceSelector')) or '*') + '/' + (labels(peer.get('podSelector')) or '*')
+
+
+def summarize(policy):
+    """One NetworkPolicy reduced to its shape (names, selectors, ports); no annotations or other metadata."""
+    spec = policy['spec']
+    rule = lambda r, side: {'peers': [_peer(p) for p in r.get(side) or []],
+                            'ports': [f"{p.get('protocol', 'TCP')}/{p.get('port')}" for p in r.get('ports') or []]}
+    return {'name': policy['metadata']['name'], 'pods': (spec.get('podSelector') or {}).get('matchLabels') or 'all',
+            'types': sorted(spec.get('policyTypes') or []),
+            'ingress': [rule(r, 'from') for r in spec.get('ingress') or []],
+            'egress': [rule(r, 'to') for r in spec.get('egress') or []]}
+
+
 def check(client, namespaces):
-    findings = []
+    findings, network = [], {}
     for ns in namespaces:
         try:
             policies = client.list('networkpolicies', ns)
@@ -19,6 +37,7 @@ def check(client, namespaces):
         except KubeError as error:
             findings.append({'namespace': ns, 'finding': 'UNREADABLE', 'detail': str(error.status)})
             continue
+        network[ns] = [summarize(p) for p in policies]
         if not any(p['spec'].get('podSelector') == {} and set(p['spec'].get('policyTypes', [])) == {'Ingress', 'Egress'}
                    and not p['spec'].get('ingress') and not p['spec'].get('egress') for p in policies):
             findings.append({'namespace': ns, 'finding': 'NO_NETWORK_POLICY'})
@@ -40,4 +59,5 @@ def check(client, namespaces):
             if event.get('reason') == 'FailedCreate' and ('image policy' in message or 'binary authorization' in message):
                 findings.append({'namespace': ns, 'finding': 'IMAGE_REJECTED',
                                  'object': (event.get('involvedObject') or {}).get('name')})
-    return {'findings': findings, 'namespaces': list(namespaces), 'clean': not findings}
+    return {'findings': findings, 'namespaces': list(namespaces), 'clean': not findings, 'network': network,
+            'unreadable': sorted(f['namespace'] for f in findings if f['finding'] == 'UNREADABLE')}

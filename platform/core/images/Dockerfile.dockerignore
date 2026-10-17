@@ -17,5 +17,16 @@
 !platform/core/src/**
 !platform/core/ui/
 !platform/core/ui/**
+!platform/core/kubernetes/
+!platform/core/kubernetes/**
+!platform/agents/
+!platform/agents/*/
+!platform/agents/*/agent.yaml
+!platform/clouds/
+!platform/clouds/gke/
+!platform/clouds/gke/kubernetes/
+!platform/clouds/gke/kubernetes/gke.yaml
+!platform/clouds/gke/kubernetes/generated/
+!platform/clouds/gke/kubernetes/generated/**
 **/__pycache__
 **/*.pyc
