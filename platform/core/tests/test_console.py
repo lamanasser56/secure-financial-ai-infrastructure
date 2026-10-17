@@ -160,6 +160,27 @@ class Facts(unittest.TestCase):
         self.assertFalse(result['live_available'])
         self.assertTrue(all(a['live'] is None for a in result['agents']))
 
+    def health(self, answers, name='financial'):
+        return next(a for a in make(answers).agents()['agents'] if a['name'] == name)['health']
+
+    def test_live_health_is_running_not_ready_or_absent(self):
+        self.assertEqual(self.health(None)['state'], 'running')
+        notready = ops_answers()
+        notready['/v1/snapshot']['findings']['agent-financial.agent']['facts'].update(pods_ready=0)
+        self.assertEqual(self.health(notready)['state'], 'not_ready')
+        gone = ops_answers()
+        del gone['/v1/snapshot']['findings']['agent-financial.agent']
+        self.assertEqual(self.health(gone)['state'], 'absent')
+        empty = ops_answers()
+        empty['/v1/snapshot']['findings']['agent-financial.agent']['facts'].update(pods_ready=0, pods_total=0)
+        self.assertEqual(self.health(empty)['state'], 'absent')
+
+    def test_health_is_unknown_not_absent_when_the_source_cannot_say(self):
+        self.assertIsNone(self.health({}))
+        stale = ops_answers()
+        stale['/v1/snapshot']['findings']['agent-financial.agent']['facts']['observed_at'] = NOW - 3600
+        self.assertIsNone(self.health(stale))
+
     def test_stale_live_state_is_not_live(self):
         stale = ops_answers()
         for f in stale['/v1/snapshot']['findings'].values():
@@ -234,9 +255,10 @@ class Onboarding(unittest.TestCase):
         notready = ops_answers()
         notready['/v1/snapshot']['findings']['agent-financial.agent']['facts'].update(pods_ready=0)
         notready['/v1/snapshot']['findings']['agent-financial.agent']['finding'] = 'READINESS_FAILING'
-        image = next(g for g in make(notready).onboarding('financial')['guarantees'] if g['id'] == 'image')
-        self.assertEqual(image['state'], 'failing')
-        self.assertIn('pods not ready', image['detail'])
+        result = make(notready).onboarding('financial')
+        image = next(g for g in result['guarantees'] if g['id'] == 'image')
+        self.assertEqual(image['state'], 'declared')  # a not-ready pod says nothing about the signature
+        self.assertEqual(result['counts']['failing'], 0)
         # a check that could not run is never "failing"
         self.assertEqual(make({}).onboarding('financial')['counts']['failing'], 0)
 
