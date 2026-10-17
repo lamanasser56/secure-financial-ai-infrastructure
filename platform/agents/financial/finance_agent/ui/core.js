@@ -78,12 +78,44 @@
     }
     return out;
   }
-  function proofBox(proof) {
+  // Only the namespaces the clicked part is about (focus), when the proof is a per-namespace list.
+  function narrow(proof, focus) {
+    if (!focus || !focus.length) return proof;
+    const keep = obj => Object.fromEntries(Object.entries(obj).filter(([ns]) => focus.includes(ns)));
+    const out = {...proof};
+    if (proof.namespaces) {
+      out.namespaces = keep(proof.namespaces);
+      if (!Object.keys(out.namespaces).length) out.namespaces = 'none of ' + focus.join(', ') + ' could be read live just now';
+    }
+    if (proof.default_deny) out.default_deny = keep(proof.default_deny);
+    if (Array.isArray(proof.egress_to_addresses)) out.egress_to_addresses = proof.egress_to_addresses.filter(x => focus.includes(x.namespace));
+    if (Array.isArray(proof.unreadable)) out.unreadable = proof.unreadable.filter(ns => focus.includes(ns));
+    return out;
+  }
+  const SHORT = 6;
+  function proofBox(proof, focus) {
     if (proof === null || proof === undefined) return el('p', {class: 'muted'}, 'No live proof available');
-    const all = lines(proof, 0, []);
-    const shown = all.slice(0, 18);
-    if (all.length > shown.length) shown.push('… ' + (all.length - shown.length) + ' more lines');
-    return el('pre', {class: 'code'}, shown.join('\n'));
+    const all = lines(narrow(proof, focus), 0, []).slice(0, 80);
+    const box = el('pre', {class: 'code'}, all.slice(0, SHORT).join('\n'));
+    if (all.length <= SHORT) return box;
+    let open = false;
+    const toggle = el('button', {type: 'button', class: 'btn link', 'aria-expanded': 'false', onclick: () => {
+      open = !open;
+      box.textContent = (open ? all : all.slice(0, SHORT)).join('\n');
+      toggle.textContent = open ? 'Show less' : 'Show full proof (' + all.length + ' lines)';
+      toggle.setAttribute('aria-expanded', String(open));
+    }}, 'Show full proof (' + all.length + ' lines)');
+    return el('div', {}, box, toggle);
+  }
+  const REPO = 'https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/main/';
+  // A long id shown as first 4 … last 4, with a button that copies the full value.
+  function copyable(label, value) {
+    const short = value.length > 12 ? value.slice(0, 4) + '…' + value.slice(-4) : value;
+    const button = el('button', {type: 'button', class: 'btn link', 'aria-label': 'Copy the full ' + label, onclick: async () => {
+      try { await navigator.clipboard.writeText(value); button.textContent = 'Copied'; } catch (e) { button.textContent = 'Copy failed'; }
+      setTimeout(() => { button.textContent = 'Copy'; }, 1500);
+    }}, 'Copy');
+    return el('div', {class: 'sub-id mono muted'}, label + ' ', el('span', {title: value}, short), ' ', button);
   }
 
   // Explain drawer: closed by default; Esc, the close button or a click outside closes it; focus returns to the opener.
@@ -95,7 +127,7 @@
     if (opener && document.contains(opener)) opener.focus();
     opener = null;
   }
-  // spec: {eyebrow, live, title, sub, blocks: [{label, text | node, cls}], file}
+  // spec: {eyebrow, live, title, sub, copy: {label, value}, blocks: [{label, text | node, cls}], file}
   function explain(spec, from) {
     const drawer = $('explain');
     opener = from || document.activeElement;
@@ -103,9 +135,10 @@
       el('button', {class: 'btn link close', type: 'button', 'aria-label': 'Close', onclick: close}, 'Close ✕'),
       el('div', {class: 'eyebrow' + (spec.live ? ' live-proof' : '')}, spec.eyebrow),
       el('h2', {id: 'ex-title'}, spec.title),
-      spec.sub ? el('div', {class: 'mono muted'}, spec.sub) : null,
+      spec.sub ? el('div', {class: 'sub-id mono muted'}, spec.sub) : null,
+      spec.copy ? copyable(spec.copy.label, spec.copy.value) : null,
       ...spec.blocks.map(b => el('div', {class: 'block ' + (b.cls || '')}, el('div', {class: 'label'}, b.label), b.node || el('p', {}, b.text))),
-      spec.file ? el('div', {class: 'file'}, el('div', {class: 'label'}, 'File'), el('div', {class: 'mono'}, spec.file)) : null].filter(Boolean));
+      spec.file ? el('div', {class: 'file'}, el('a', {class: 'btn link', href: REPO + spec.file, target: '_blank', rel: 'noopener', title: spec.file}, 'View code →')) : null].filter(Boolean));
     drawer.classList.toggle('slide', !reduced());
     drawer.hidden = false; $('scrim').hidden = false;
     drawer.querySelector('.close').focus();
@@ -114,16 +147,18 @@
   document.addEventListener('click', e => { if (e.target.id === 'scrim') close(); });
 
   // The six platform topics: wording and proof both come from /api/console/explain (proof is live or null).
-  async function explainTopic(topic, from) {
+  async function explainTopic(topic, from, focus) {
     const r = await getJSON('/api/console/explain/' + encodeURIComponent(topic));
     if (!r.ok) {
       explain({eyebrow: 'EXPLAIN · NOT SEEN LIVE', title: topic, blocks: [{label: 'Proof', node: proofBox(null)}]}, from);
       return;
     }
     const d = r.data;
-    explain({eyebrow: d.proof ? 'EXPLAIN · VERIFIED LIVE' : 'EXPLAIN · NOT SEEN LIVE', live: !!d.proof, title: d.title,
+    // "Verified live" only if the part clicked has live proof of its own (a focused list with no readable namespace has none).
+    const seen = !!d.proof && typeof narrow(d.proof, focus).namespaces !== 'string';
+    explain({eyebrow: seen ? 'EXPLAIN · VERIFIED LIVE' : 'EXPLAIN · NOT SEEN LIVE', live: seen, title: d.title,
              blocks: [{label: 'In plain words', text: d.plain}, {label: 'How it works', text: d.how},
-                      {label: 'Proof' + (d.proof && d.proof.source ? ' · ' + d.proof.source : ''), node: proofBox(d.proof)},
+                      {label: 'Proof' + (d.proof && d.proof.source ? ' · ' + d.proof.source : ''), node: proofBox(d.proof, focus)},
                       {label: 'Without it', text: d.without, cls: 'without'}], file: d.file}, from);
   }
   const head = (title, sub, action) => el('div', {class: 'head'}, el('div', {}, el('h1', {}, title), sub ? el('p', {class: 'sub'}, sub) : null), action || null);

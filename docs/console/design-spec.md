@@ -107,10 +107,19 @@ Message: every agent has an identity, permissions and proof.
   `VERIFIED` stamp (`--allowed`, rotated about −8°, text `CHECKED LIVE`, `n / 8 GUARANTEES`) sits top right. Along
   the bottom, a two-line machine string in Plex Mono (the "MRZ"), decorative, built from the agent's name and the
   guarantee initials.
+- The Security & Operations Agent has a passport too. It is a platform tenant (namespace `ops`), not onboarded from an
+  `agent.yaml`: its facts come from its own manifests (Deployment, registry, NetworkPolicies, the `ops-explain` key) and
+  its seven guarantees replace "Read-only tools" and "Ops monitoring" with "Approval-gated actions". It does not observe
+  its own pod, so it never shows a running digest. It is not listed on Onboard.
+- Field values stay on one line (no wrapping); an ellipsis with the full value as a tooltip is the last resort. The stamp
+  sits beside the machine lines so it never covers a field.
 - Below the card, two columns: `ALLOWED` (`--allowed` heading, ✓ rows: the agent's tools in plain words) and
   `RESTRICTED` (`--denied` heading, ✕ rows: `No internet access`, `Cannot reach other agents`,
   `Personal data hidden from the model`, plus `Sees only the signed-in user's rows` when the agent has own-rows data).
 - Buttons: `SEE THE EVIDENCE` (outlined) and `TRY THIS AGENT →` (`--allowed` fill, dark text).
+- List rows are plain text. Only an item checked live carries a small green `LIVE` tag (`FAILING` when a live check
+  contradicts it); one legend line follows: `LIVE = checked in the cluster now; others are declared in the manifest`.
+  Every restriction uses the same `--denied` ×.
 - The stamp comes from `counts` in `onboarding/<agent>`. `VERIFIED` (with `CHECKED LIVE` and `n / 8 GUARANTEES`, `n` =
   `verified`) shows when `failing` is 0 and `verified` is at least 1. `FAILING` in `--denied` shows when `failing` is
   above 0. With no live data (`verified` is 0) it reads `DECLARED` in `--declared`, with no `CHECKED LIVE`.
@@ -186,6 +195,10 @@ spec does not design it.
   from the right (360–420 px, `--panel` over a dimmed page), opened by any `why?`, `See the evidence` or chip click, and
   closed with Esc, the close button, or a click outside. Focus moves into it and returns to the opener on close.
   Content is exactly the `explain/<topic>` shape: eyebrow, title, `plain`, `how`, `proof`, `without`, `file`.
+  - PROOF shows only the namespaces of the part that was clicked, wrapped (never clipped), at most six lines, with a
+    `Show full proof` toggle. If none of those namespaces could be read live, it says so and the eyebrow reads `NOT SEEN LIVE`.
+  - A long id is shown as first 4 … last 4 with a `Copy` button for the full value.
+  - The file is a `View code →` link to the file on GitHub, with the full path as its title.
 - **Chips.** Uppercase Barlow 700, 11–12 px, 2 px radius: `VERIFIED` (`--allowed`), `DECLARED` (`--declared`),
   `BLOCKED` (`--denied` fill), `LIVE` (`--allowed` text on `--panel`).
 - **Rings.** 22–26 px circle outlines holding ✓ (`--allowed` or `--declared`), ! (`--denied`) or a number.

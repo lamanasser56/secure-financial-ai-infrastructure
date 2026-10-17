@@ -143,7 +143,7 @@ class Facts(unittest.TestCase):
     def test_agents_carry_manifest_facts_and_live_state(self):
         result = make().agents()
         by = {a['name']: a for a in result['agents']}
-        self.assertEqual(sorted(by), ['financial', 'platform-guide'])
+        self.assertEqual(sorted(by), ['financial', 'ops-agent', 'platform-guide'])
         fin = by['financial']
         self.assertEqual((fin['namespace'], fin['team'], fin['runtime'], fin['budget_usd_month']),
                          ('agent-financial', 'finance-demo', 'python 3.12', 5.0))
@@ -185,7 +185,7 @@ class Facts(unittest.TestCase):
         stale = ops_answers()
         for f in stale['/v1/snapshot']['findings'].values():
             f['facts']['observed_at'] = NOW - 3600
-        self.assertTrue(all(a['live'] is None for a in make(stale).agents()['agents']))
+        self.assertTrue(all(a['live'] is None for a in make(stale).agents()['agents'] if a['kind'] == 'agent'))
 
     def test_topology_from_manifests(self):
         topology = make().topology()
@@ -202,6 +202,70 @@ class Facts(unittest.TestCase):
         hosts = {n.get('host') for n in topology['nodes']}
         self.assertTrue(all(h is None or h.endswith('.googleapis.com') for h in hosts))
         self.assertEqual(topology['live'], False)
+
+
+class OpsTenant(unittest.TestCase):
+    """The Security & Operations Agent from its real config (ops namespace), with honest guarantees."""
+
+    def ops(self, answers=None):
+        return next(a for a in make(answers).agents()['agents'] if a['name'] == 'ops-agent')
+
+    def test_facts_come_from_its_real_config(self):
+        o = self.ops()
+        self.assertEqual((o['kind'], o['display'], o['namespace'], o['runtime'], o['port'], o['budget_usd_month']),
+                         ('platform', 'Security & Ops', 'ops', 'python 3.12', 8090, 2.0))
+        self.assertEqual({t['target'] for t in o['targets']}, {'platform.gateway', 'platform.redactor', 'apps.app', 'apps.fault-demo'})
+        self.assertEqual([t['id'] for t in o['tools']], ['observe', 'restart', 'scale'])
+        self.assertEqual([t['access'] for t in o['tools']], ['read', 'approval', 'approval'])
+        self.assertIn('platform/gateway:4000', o['reaches'])
+        self.assertIn('kubernetes API (private control-plane range)', o['reaches'])
+        self.assertEqual(o['health']['state'], 'running')
+        self.assertEqual(o['live']['image_digests'], [])  # it does not observe its own pod: no digest is claimed
+
+    def test_unreachable_ops_agent_is_unknown_not_absent(self):
+        o = self.ops({})
+        self.assertIsNone(o['live'])
+        self.assertIsNone(o['health'])
+
+    def test_guarantees_are_honest(self):
+        result = make().onboarding('ops-agent')
+        states = {g['id']: g['state'] for g in result['guarantees']}
+        self.assertEqual([g['id'] for g in result['guarantees']], list(console.OPS_GUARANTEES))
+        self.assertEqual(states, {'namespace': 'verified', 'network': 'declared', 'model_key': 'declared', 'budget': 'declared',
+                                  'redaction': 'declared', 'approval': 'declared', 'image': 'declared'})
+        self.assertEqual((result['counts'], result['total']), ({'verified': 1, 'declared': 6, 'failing': 0}, 7))
+        answers = ops_answers()
+        answers['/v1/activity']['events'].append({'kind': 'masked', 'at': NOW - 5, 'source': 'redactor', 'caller': 'ops', 'categories': ['EMAIL_ADDRESS']})
+        self.assertEqual(next(g for g in make(answers).onboarding('ops-agent')['guarantees'] if g['id'] == 'redaction')['state'], 'verified')
+        self.assertEqual(make({}).onboarding('ops-agent')['counts'], {'verified': 0, 'declared': 7, 'failing': 0})
+
+    def test_topology_places_it_and_denies_what_its_policies_deny(self):
+        t = make().topology()
+        self.assertIn('ops-agent', {n['id'] for n in t['nodes']})
+        edges = {(e['from'], e['to']) for e in t['edges']}
+        self.assertTrue({('ops-agent', 'gateway'), ('ops-agent', 'redactor')} <= edges)
+        denied = {(d['from'], d['to']) for d in t['denied']}
+        for pair in (('agent-financial', 'ops-agent'), ('ops-agent', 'agent-financial'), ('ops-agent', 'internet')):
+            self.assertIn(pair, denied)
+
+
+class AttackNotes(unittest.TestCase):
+    def test_the_latest_note_is_attached_verbatim_to_its_failed_case(self):
+        data = make().attacks()
+        noted = [r for r in data['results'] if 'note' in r]
+        self.assertEqual([r['case'] for r in noted], ['financial_redaction_down_no_model_call'])
+        evidence = json.loads((REPO / 'docs/evidence/attack-suite-run-3-note.json').read_text())
+        self.assertEqual(noted[0]['note'], {'conclusion': evidence['conclusion'], 'file': 'docs/evidence/attack-suite-run-3-note.json'})
+        self.assertEqual(noted[0]['result'], 'FAIL')  # not relabelled
+
+    def test_without_a_note_file_nothing_is_attached(self):
+        import shutil
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            shutil.copy(REPO / 'docs/evidence/attack-suite.json', tmp)
+            c = make()
+            c.evidence_dir = Path(tmp)
+            self.assertFalse([r for r in c.attacks()['results'] if 'note' in r])
 
 
 class Onboarding(unittest.TestCase):
@@ -452,7 +516,9 @@ class UiRoutes(Http):
         self.assertTrue(data['available'])
         self.assertEqual(data['stopped'], sum(r['result'] == 'PASS' for r in data['results']))
         self.assertEqual(data['total'], len(data['results']))
-        self.assertTrue(all(set(r) == {'case', 'result', 'at'} for r in data['results']))
+        self.assertTrue(all(set(r) - {'note'} == {'case', 'result', 'at'} for r in data['results']))
+        noted = [r for r in data['results'] if 'note' in r]
+        self.assertTrue(all(r['result'] == 'FAIL' for r in noted))  # a note is attached only to the failed case it is about
         self.assertNotIn('financial_setup', {r['case'] for r in data['results']})  # a precondition, not an attack
         self.assertIsNone(LEAKS.search(body.decode()))
 
@@ -504,11 +570,11 @@ class Packaging(unittest.TestCase):
             self.assertIn('COPY --chown=65532:65532 ' + copy, app)
         ops = dockerfile.split('FROM runtime AS ops')[1]
         self.assertNotIn('platform/core/kubernetes', ops)  # the ops image does not carry the console data
-        for copy in ('platform/core/ui/ /app/platform/ui/', 'docs/evidence/attack-suite.json /app/platform/evidence/attack-suite.json',
+        for copy in ('platform/core/ui/ /app/platform/ui/', 'docs/evidence/attack-suite*.json /app/platform/evidence/',
                      'docs/examples/rejected-agent/agent.yaml /app/platform/examples/rejected-agent/agent.yaml'):
             self.assertIn('COPY --chown=65532:65532 ' + copy, app)
         self.assertNotIn('/app/demo/ui', dockerfile)  # the qualified demo UI is no longer overlaid
-        for allowed in ('!docs/evidence/attack-suite.json', '!docs/examples/rejected-agent/agent.yaml', '!platform/core/ui/**'):
+        for allowed in ('!docs/evidence/attack-suite*.json', '!docs/examples/rejected-agent/agent.yaml', '!platform/core/ui/**'):
             self.assertIn(allowed, ignore)
         self.assertNotIn('!docs/**', ignore)
         for allowed in ('!platform/core/kubernetes/**', '!platform/agents/*/agent.yaml', '!platform/clouds/gke/kubernetes/gke.yaml'):

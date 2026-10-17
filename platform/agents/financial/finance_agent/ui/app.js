@@ -36,7 +36,7 @@
   // ---- What the platform did: each step exists only if the trace says it happened -------------------------------------------------
   function steps(trace) {
     const out = [];
-    const ex = (title, plain, how, proof, without) => from => Console.explain({eyebrow: 'EXPLAIN · FROM THIS REQUEST', live: true, title, sub: 'request ' + trace.request_id,
+    const ex = (title, plain, how, proof, without) => from => Console.explain({eyebrow: 'EXPLAIN · FROM THIS REQUEST', live: true, title, copy: {label: 'request', value: trace.request_id},
       blocks: [{label: 'In plain words', text: plain}, {label: 'How it works', text: how}, {label: 'Proof · this request\'s trace', node: el('pre', {class: 'code'}, proof.join('\n'))},
                {label: 'Without it', text: without, cls: 'without'}], file: 'platform/agents/financial/finance_agent/agent.py'}, from);
     out.push({mark: '✓', kind: 'allowed', text: 'Checked who you are', open: ex('Checked who you are', 'The platform knew who was asking before it touched any data.',
@@ -86,7 +86,7 @@
         if (Console.reduced()) list.append(li); else setTimeout(() => list.append(li), i * 160);  // fills row by row, as the controls ran
       });
       foot.replaceChildren(el('span', {}, elapsed.toFixed(1) + ' s · ' + (trace.cost_usd === null ? 'cost unavailable' : '$' + trace.cost_usd.toFixed(4))),
-        el('button', {type: 'button', class: 'btn link', onclick: e => Console.explain({eyebrow: 'EXPLAIN · FROM THIS REQUEST', live: true, title: 'Audit record', sub: 'request ' + trace.request_id,
+        el('button', {type: 'button', class: 'btn link', onclick: e => Console.explain({eyebrow: 'EXPLAIN · FROM THIS REQUEST', live: true, title: 'Audit record', copy: {label: 'request', value: trace.request_id},
           blocks: [{label: 'In plain words', text: 'One line per request is written to the audit log. It holds ids, counts and codes, never your question or the answer.'},
                    {label: 'How it works', text: 'This is the same object that was audited and returned to you.'},
                    {label: 'Proof · this request\'s trace', node: el('pre', {class: 'code'}, [

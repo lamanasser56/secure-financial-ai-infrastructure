@@ -36,15 +36,30 @@
       body.replaceChildren(Console.empty('No attack results yet.', 'Run make attack to produce ' + d.file + '. The run button comes in a later phase.'));
       return;
     }
+    const REPO = 'https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/main/';
     const rows = d.results.map((x, i) => {
       const [name, by] = CASES[x.case] || [x.case, null], stopped = x.result === 'PASS';
+      // The owner's note on this run, shown as written in the evidence file (only attached by the API to the failed case it is about).
+      const note = x.note ? el('div', {class: 'note'}, el('b', {}, 'Owner\'s note on this run: '), x.note.conclusion, ' ',
+        el('a', {href: REPO + x.note.file, target: '_blank', rel: 'noopener', title: x.note.file}, 'Evidence →')) : null;
       return el('div', {class: 'atk'}, el('span', {class: 'ring plain', 'aria-hidden': 'true'}, String(i + 1)),
         el('div', {}, el('b', {}, name), el('span', {class: 'by'}, (stopped ? (by ? 'stopped by ' + by : 'stopped') : 'not stopped in this run') + ' · ',
           el('time', {datetime: x.at}, new Date(x.at).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'})))),
-        el('span', {class: stopped ? 'chip denied' : 'chip bad'}, stopped ? 'Blocked' : 'Not stopped'));
+        el('span', {class: stopped ? 'chip denied' : 'chip bad'}, stopped ? 'Blocked' : 'Not stopped'), note);
     });
+    const FIRST = 6;
+    const list = el('section', {class: 'panel', 'aria-label': 'Attacks'}, rows.slice(0, FIRST));
+    if (rows.length > FIRST) {
+      const more = el('div', {class: 'more'}, el('button', {type: 'button', class: 'btn link', 'aria-expanded': 'false', onclick: e => {
+        const open = e.currentTarget.getAttribute('aria-expanded') !== 'true';
+        list.replaceChildren(...(open ? rows : rows.slice(0, FIRST)), more);
+        e.currentTarget.setAttribute('aria-expanded', String(open));
+        e.currentTarget.textContent = open ? 'Show the first ' + FIRST : 'Show all ' + rows.length;
+      }}, 'Show all ' + rows.length));
+      list.append(more);
+    }
     const all = d.stopped === d.total;
-    body.replaceChildren(el('div', {class: 'two wide'}, el('section', {class: 'panel', 'aria-label': 'Attacks'}, rows),
+    body.replaceChildren(el('div', {class: 'two wide'}, list,
       el('section', {class: 'panel result', 'aria-label': 'Result'}, el('div', {class: 'big' + (all ? '' : ' bad')}, d.stopped + '/' + d.total), el('h2', {}, 'attacks stopped'),
         el('p', {class: 'muted'}, 'Latest run: ' + new Date(d.completed_at).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'}) + '. Results file, not a live run. Closed outcomes only.'),
         el('p', {}, el('button', {type: 'button', class: 'btn link', onclick: e => Console.explain({eyebrow: 'EXPLAIN · RESULTS FILE', title: 'Where these results come from',

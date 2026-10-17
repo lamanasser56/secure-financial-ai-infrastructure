@@ -430,6 +430,17 @@ class FrontDoorApprovals(unittest.TestCase):
                 code, line, _ = self.refusal(request)
                 self.assertEqual((code, line['reason'], line['stage']), ('APPROVAL_DENIED', reason, 'execute'))
 
+    def test_overview_board_carries_the_ops_agents_explanation_as_display_text_only(self):
+        from agent_platform import app
+        finding = {'finding': 'CRASH_LOOP', 'desired_replicas': 1, 'available_replicas': 0, 'evidence': [],
+                   'explanation': {'untrusted_text': 'The workload exits on start.', 'untrusted_text_ar': None, 'source': 'model_via_gateway'}}
+        ops = app.ClusterOperations(self.config, opener=lambda request, timeout=None: Response(
+            {'findings': {'apps.fault-demo': finding, 'platform.gateway': dict(finding, finding='HEALTHY', explanation=None)},
+             'timeline': [], 'pending': [], 'denials': []}))
+        board = {b['target_id']: b for b in ops.handle({'operation': 'overview'})['board']}
+        self.assertEqual(board['apps.fault-demo']['explanation'], 'The workload exits on start.')
+        self.assertIsNone(board['platform.gateway']['explanation'])
+
     def test_expired_approval_is_recorded_as_expired(self):
         from agent_platform import app
         now = [1000.0]

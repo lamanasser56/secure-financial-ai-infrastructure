@@ -55,7 +55,9 @@ class Assets(unittest.TestCase):
             if path.is_file():
                 text = path.read_text()
                 for url in re.findall(r'https?://[^\s\'")<>]+', text):
-                    self.assertRegex(url, r'^http://(127\.0\.0\.1[:/]|www\.w3\.org/2000/svg)', f'{path.name}: {url}')
+                    # links only (never fetched; the CSP allows no other origin): this repository's files on GitHub
+                    self.assertRegex(url, r'^(http://(127\.0\.0\.1[:/]|www\.w3\.org/2000/svg)|https://github\.com/lamanasser56/secure-financial-ai-infrastructure/blob/main/$)',
+                                     f'{path.name}: {url}')
         for page in PAGES:
             self.assertNotRegex(page.read_text(), r'(src|href)="https?://')
 
@@ -130,6 +132,64 @@ class Scripts(unittest.TestCase):
             self.assertNotIn('transform', rule)
             self.assertNotIn('will-change', rule)
         self.assertIn('Console.reduced()', animate + agents)
+
+    def test_lists_are_plain_text_with_live_tags_and_one_legend(self):
+        agents, css = (FRONT / 'agents.js').read_text(), (FRONT / 'style.css').read_text()
+        self.assertIn("state === 'verified' ? el('span', {class: 'tag-live'}, 'LIVE')", agents)
+        self.assertIn("'= checked in the cluster now; others are declared in the manifest'", agents)
+        self.assertNotIn("chip declared", agents)  # no per-row DECLARED chip
+        self.assertNotIn('italic', css)
+        self.assertNotRegex(css, r'\.decl\b')
+        self.assertIn(".no .mark { color: var(--denied); }", css)  # one colour for every restriction
+
+    def test_passport_values_stay_on_one_line(self):
+        css = (FRONT / 'style.css').read_text()
+        rule = re.search(r'\.field b \{[^}]*\}', css).group(0)
+        for prop in ('white-space: nowrap', 'text-overflow: ellipsis'):
+            self.assertIn(prop, rule)
+        self.assertIn("el('b', {title: value}, value)", (FRONT / 'agents.js').read_text())  # the full value on hover, if ever cut
+
+    def test_platform_tenant_is_shown_from_the_api_not_hard_coded(self):
+        agents, mapjs = (FRONT / 'agents.js').read_text(), (FRONT / 'map.js').read_text()
+        self.assertIn("agent.kind === 'platform'", agents)
+        self.assertIn("a.kind === 'platform' ? 'acts with approval'", mapjs)
+        self.assertNotIn('Security & Ops', agents + mapjs)  # the display name comes from the API
+        self.assertIn("filter(a => a.kind !== 'platform')", (FRONT / 'onboard.js').read_text())
+
+    def test_activity_uses_plain_words_for_categories(self):
+        mapjs = (FRONT / 'map.js').read_text()
+        self.assertIn("EMAIL_ADDRESS: 'an email address'", mapjs)
+        self.assertIn("CATEGORY[c] || 'personal data'", mapjs)
+        from runtime.phase3.trusted_runtime import SUPPORTED_ENTITIES
+        for code in SUPPORTED_ENTITIES:
+            self.assertIn(code + ':', mapjs)
+
+    def test_proof_is_focused_wrapped_short_and_expandable(self):
+        core, css = (FRONT / 'core.js').read_text(), (FRONT / 'style.css').read_text()
+        self.assertIn('const SHORT = 6;', core)
+        self.assertIn("'Show full proof ('", core)
+        self.assertIn('function narrow(proof, focus)', core)
+        self.assertIn('white-space: pre-wrap', re.search(r'\.drawer \.code \{[^}]*\}', css).group(0))
+        self.assertIn("explainTopic('network', from, focus)", (FRONT / 'map.js').read_text())
+
+    def test_drawer_shortens_ids_and_links_code(self):
+        core = (FRONT / 'core.js').read_text()
+        self.assertIn("value.slice(0, 4) + '…' + value.slice(-4)", core)
+        self.assertIn('navigator.clipboard.writeText(value)', core)
+        self.assertIn("title: spec.file}, 'View code →'", core)
+        self.assertIn("copy: {label: 'request', value: trace.request_id}", (FIN / 'app.js').read_text())
+
+    def test_break_it_shows_six_then_all_and_the_owner_note(self):
+        attacks = (FRONT / 'attacks.js').read_text()
+        self.assertIn('const FIRST = 6;', attacks)
+        self.assertIn("'Show all ' + rows.length", attacks)
+        self.assertIn('x.note.conclusion', attacks)  # the evidence text, as written
+
+    def test_ops_shows_the_explain_step(self):
+        ops = (FRONT / 'ops.js').read_text()
+        self.assertIn("'Explain'", ops)
+        self.assertIn("'No explanation yet.'", ops)
+        self.assertIn('b.explanation', ops)
 
     def test_mrz_is_built_from_real_values_only(self):
         agents = (FRONT / 'agents.js').read_text()

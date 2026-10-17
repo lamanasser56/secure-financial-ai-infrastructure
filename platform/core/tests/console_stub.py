@@ -30,7 +30,9 @@ class StubOperations:
         from runtime.agents.operations import OperationsBlocked
         if request.get('operation') == 'overview':
             n = self.now()
-            return {'board': [{'target_id': 'apps.fault-demo', 'finding': 'READINESS_FAILING', 'desired': 1, 'available': 0, 'observe_only': False},
+            # stub only: what an ops-agent explanation looks like on the board (real ones are model text, redacted, display only)
+            return {'board': [{'target_id': 'apps.fault-demo', 'finding': 'READINESS_FAILING', 'desired': 1, 'available': 0, 'observe_only': False,
+                               'explanation': '[stub] The pod is running but its readiness check keeps failing, so it receives no traffic. A restart is proposed.'},
                               {'target_id': 'platform.gateway', 'finding': 'HEALTHY', 'desired': 1, 'available': 1, 'observe_only': False},
                               {'target_id': 'agent-financial.agent', 'finding': 'HEALTHY', 'desired': 1, 'available': 1, 'observe_only': True}],
                     'timeline': [{'stage': 'observed', 'target': 'apps.fault-demo', 'at': n - 240}, {'stage': 'diagnosed', 'target': 'apps.fault-demo', 'finding': 'READINESS_FAILING', 'at': n - 238},
@@ -46,6 +48,8 @@ def scenario(name, now):
         finding['facts']['observed_at'] += shift
     for e in answers['/v1/snapshot']['timeline'] + answers['/v1/activity']['events']:
         e['at'] += shift
+    # The merged RBAC lets the ops agent list NetworkPolicies in agent namespaces too (Part D), so the stub reads them all.
+    answers['/v1/posture'] = t.posture.check(t.KubeStub(), ['apps', 'platform', 'agent-financial', 'agent-platform-guide'])
     if name == 'failing':
         weak = t.posture.check(t.KubeStub(), ['agent-financial', 'apps', 'platform'])
         weak['network']['agent-financial'] = [p for p in weak['network']['agent-financial'] if p['name'] != 'default-deny']
