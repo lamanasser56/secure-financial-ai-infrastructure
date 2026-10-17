@@ -1,0 +1,132 @@
+/* Console core: DOM helper, JSON fetch, and the Explain drawer. Shared byte-for-byte with the Financial Agent UI (a test enforces it).
+   Every node is built with el() (no HTML parsing), so no data is ever treated as markup. */
+(() => {
+  'use strict';
+  const SVG = new Set(['svg', 'g', 'path', 'rect', 'circle', 'text', 'line', 'defs', 'pattern', 'use', 'animateMotion', 'title', 'tspan']);
+  function el(tag, attrs, ...kids) {
+    const node = SVG.has(tag) ? document.createElementNS('http://www.w3.org/2000/svg', tag) : document.createElement(tag);
+    for (const [key, value] of Object.entries(attrs || {})) {
+      if (value === null || value === undefined || value === false) continue;
+      if (key === 'text') node.textContent = value;
+      else if (key.startsWith('on')) node.addEventListener(key.slice(2), value);
+      else node.setAttribute(key, value === true ? '' : String(value));
+    }
+    const add = kid => {
+      if (Array.isArray(kid)) kid.forEach(add);
+      else if (kid !== null && kid !== undefined && kid !== false) node.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+    };
+    kids.forEach(add);
+    return node;
+  }
+  const $ = id => document.getElementById(id);
+  const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // "Live" means data arrived in the last minute AND its live sources answered; "Not live" means the API answered but the ops
+  // agent did not (only declared values are shown); "Offline" means nothing answered.
+  let liveTimer = null, reachable = false, degraded = false;
+  function paintLive() {
+    const badge = $('live');
+    if (!badge) return;
+    const on = reachable && !degraded;
+    badge.classList.toggle('on', on);
+    badge.textContent = on ? 'Live' : reachable ? 'Not live' : 'Offline';
+  }
+  function setLive(ok) {
+    reachable = ok;
+    clearTimeout(liveTimer);
+    if (ok) liveTimer = setTimeout(() => setLive(false), 60000);
+    paintLive();
+  }
+  function setDegraded(value) { degraded = value; paintLive(); }
+  async function getJSON(path) {
+    try {
+      const response = await fetch(path, {credentials: 'same-origin', headers: {Accept: 'application/json'}});
+      const data = await response.json();
+      if (path.startsWith('/api/console/')) setLive(response.ok);
+      return {ok: response.ok, status: response.status, data};
+    } catch (e) {
+      if (path.startsWith('/api/console/')) setLive(false);
+      return {ok: false, status: 0, data: null};
+    }
+  }
+  const pad = n => String(n).padStart(2, '0');
+  const clock = seconds => { const d = new Date(seconds * 1000); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+  function ago(seconds) {
+    const s = Math.max(0, Math.round(Date.now() / 1000 - seconds));
+    return s < 90 ? s + ' s ago' : s < 5400 ? Math.round(s / 60) + ' min ago' : s < 129600 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' d ago';
+  }
+  const shortDigest = d => (typeof d === 'string' && /^sha256:[0-9a-f]{64}$/.test(d)) ? 'sha256:' + d.slice(7, 11) + '…' + d.slice(-4) : null;
+
+  // Proof text: a live value rendered as short readable lines (never a fixed string standing in for a value).
+  function lines(value, depth, out) {
+    const space = '  '.repeat(depth);
+    const scalar = v => v === null || ['string', 'number', 'boolean'].includes(typeof v);
+    const brief = item => {
+      if (scalar(item)) return String(item);
+      const counts = Object.entries(item).filter(([, v]) => Array.isArray(v)).map(([k, v]) => k + ':' + v.length);
+      const plain = Object.entries(item).filter(([k, v]) => k !== 'name' && scalar(v)).slice(0, 3).map(([k, v]) => k + '=' + v);
+      return [item.name, ...plain, ...counts].filter(Boolean).join(' ');
+    };
+    for (const [key, v] of Object.entries(value)) {
+      if (typeof v === 'number' && key.endsWith('_at')) out.push(space + key + ': ' + new Date(v * 1000).toLocaleTimeString() + ' (' + ago(v) + ')');
+      else if (scalar(v)) out.push(space + key + ': ' + (v === null ? '—' : v));
+      else if (Array.isArray(v)) {
+        if (!v.length) out.push(space + key + ': none');
+        else if (v.every(scalar)) out.push(space + key + ': ' + v.join(', '));
+        else { out.push(space + key + ':'); v.forEach(item => out.push(space + '  - ' + brief(item))); }
+      } else if (depth < 3) { out.push(space + key + ':'); lines(v, depth + 1, out); }
+    }
+    return out;
+  }
+  function proofBox(proof) {
+    if (proof === null || proof === undefined) return el('p', {class: 'muted'}, 'No live proof available');
+    const all = lines(proof, 0, []);
+    const shown = all.slice(0, 18);
+    if (all.length > shown.length) shown.push('… ' + (all.length - shown.length) + ' more lines');
+    return el('pre', {class: 'code'}, shown.join('\n'));
+  }
+
+  // Explain drawer: closed by default; Esc, the close button or a click outside closes it; focus returns to the opener.
+  let opener = null;
+  function close() {
+    const drawer = $('explain');
+    if (!drawer || drawer.hidden) return;
+    drawer.hidden = true; $('scrim').hidden = true;
+    if (opener && document.contains(opener)) opener.focus();
+    opener = null;
+  }
+  // spec: {eyebrow, live, title, sub, blocks: [{label, text | node, cls}], file}
+  function explain(spec, from) {
+    const drawer = $('explain');
+    opener = from || document.activeElement;
+    drawer.replaceChildren(...[
+      el('button', {class: 'btn link close', type: 'button', 'aria-label': 'Close', onclick: close}, 'Close ✕'),
+      el('div', {class: 'eyebrow' + (spec.live ? ' live-proof' : '')}, spec.eyebrow),
+      el('h2', {id: 'ex-title'}, spec.title),
+      spec.sub ? el('div', {class: 'mono muted'}, spec.sub) : null,
+      ...spec.blocks.map(b => el('div', {class: 'block ' + (b.cls || '')}, el('div', {class: 'label'}, b.label), b.node || el('p', {}, b.text))),
+      spec.file ? el('div', {class: 'file'}, el('div', {class: 'label'}, 'File'), el('div', {class: 'mono'}, spec.file)) : null].filter(Boolean));
+    drawer.classList.toggle('slide', !reduced());
+    drawer.hidden = false; $('scrim').hidden = false;
+    drawer.querySelector('.close').focus();
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  document.addEventListener('click', e => { if (e.target.id === 'scrim') close(); });
+
+  // The six platform topics: wording and proof both come from /api/console/explain (proof is live or null).
+  async function explainTopic(topic, from) {
+    const r = await getJSON('/api/console/explain/' + encodeURIComponent(topic));
+    if (!r.ok) {
+      explain({eyebrow: 'EXPLAIN · NOT SEEN LIVE', title: topic, blocks: [{label: 'Proof', node: proofBox(null)}]}, from);
+      return;
+    }
+    const d = r.data;
+    explain({eyebrow: d.proof ? 'EXPLAIN · VERIFIED LIVE' : 'EXPLAIN · NOT SEEN LIVE', live: !!d.proof, title: d.title,
+             blocks: [{label: 'In plain words', text: d.plain}, {label: 'How it works', text: d.how},
+                      {label: 'Proof' + (d.proof && d.proof.source ? ' · ' + d.proof.source : ''), node: proofBox(d.proof)},
+                      {label: 'Without it', text: d.without, cls: 'without'}], file: d.file}, from);
+  }
+  const head = (title, sub, action) => el('div', {class: 'head'}, el('div', {}, el('h1', {}, title), sub ? el('p', {class: 'sub'}, sub) : null), action || null);
+  const empty = (title, text) => el('div', {class: 'panel empty'}, el('strong', {}, title), text);
+  window.Console = {head, empty, el, $, reduced, setLive, setDegraded, getJSON, clock, ago, shortDigest, proofBox, explain, explainTopic, close, screens: {}};
+})();

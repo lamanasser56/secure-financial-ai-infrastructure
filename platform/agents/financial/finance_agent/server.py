@@ -23,9 +23,10 @@ from agent_platform import audit
 
 UI = Path(__file__).resolve().parent / 'ui'
 ASSETS = {'/': ('index.html', 'text/html; charset=utf-8'), '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
-          '/style.css': ('style.css', 'text/css; charset=utf-8')}
+          '/core.js': ('core.js', 'text/javascript; charset=utf-8'), '/style.css': ('style.css', 'text/css; charset=utf-8')}
+FONTS = {p.name for p in (UI / 'fonts').glob('*.woff2')}  # the design's own fonts, same origin, fixed names
 HEADERS = {
-    'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'none'; "
+    'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; img-src 'none'; "
                                "frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
     'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store',
     'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Resource-Policy': 'same-origin',
@@ -81,6 +82,8 @@ class Handler(BaseHTTPRequestHandler):
         if path.path in ASSETS:
             name, kind = ASSETS[path.path]
             return self.send(200, (UI / name).read_bytes(), kind)
+        if path.path.startswith('/fonts/') and path.path[7:] in FONTS:
+            return self.send(200, (UI / 'fonts' / path.path[7:]).read_bytes(), 'font/woff2')
         user = self.session()
         if user is None:
             return self.send(401, {'error': 'sign_in_required'})

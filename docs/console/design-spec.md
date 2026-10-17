@@ -60,11 +60,10 @@ next to the console assets, are served from the same origin, and are never loade
 
 - One column, centred, about 1000–1040 px wide at desktop; 16 px side gutters on small screens.
 - **Header** on every screen: the wordmark `AGENT-PLATFORM` (Barlow 800, tracked) and a green `● Live` badge on the left;
-  the tab row in the centre; a `Sample data` outlined badge on the right; a 1 px rule under all of it.
+  the tab row in the centre; a 1 px rule under all of it. There is no `Sample data` badge: the console shows no sample data.
 - **Tabs:** `MAP · AGENTS · ONBOARD · OPS · BREAK IT`. The current tab is `--ink` with a 2 px underline; the others are
   `--muted`. `BREAK IT` is always `--denied` (its underline too, when current).
-- `Live` means the screen's data came from the console API in the last minute. `Sample data` is shown whenever any
-  value on the screen is not from the live API (see [Honest states](#honest-states)); it is not decoration.
+- `Live` means the screen's data came from the console API in the last minute; otherwise the badge reads `Offline`.
 - The Ask screen is reached from an agent (Try this agent) and has no tab of its own; it shows `← <Agent>` above the
   headline, and the AGENTS tab stays current.
 
@@ -75,7 +74,8 @@ next to the console assets, are served from the same origin, and are never loade
 Message: each agent is isolated; the platform sits between it and everything else.
 
 - Headline right-aligned with a muted hint: `Click any part to see how it works.`
-- A diagram on the left (about 2/3), an Explain card on the right (about 1/3).
+- A diagram on the left (about 2/3). On the right: each agent with its health chip and `n verified · m declared`, the last
+  three activity events, and two buttons. The Explain drawer is closed until a part is clicked.
 - **Diagram.** A dashed outline `PRIVATE CLUSTER` holds the agents (left column, `--box` boxes with a name and one
   muted line, for example `python · own rows only`) and a hatched-header `PLATFORM` block (middle) with three stacked
   cells: Redactor (`hides personal data`), Model gateway (`one key, one budget`), Audit (`every request recorded`).
@@ -83,9 +83,9 @@ Message: each agent is isolated; the platform sits between it and everything els
 - **Lines.** Allowed paths are solid `--ink` lines with a `--allowed` dot at each end. Denied paths are dashed
   `--denied` with a small `✕ why?` tag (agent ↔ agent, agent → Internet). The platform-to-Google paths carry a
   `private link · why?` tag.
-- Every box, line and tag is clickable and opens its topic in the Explain card (below). The selected one is outlined
+- Every box, line and tag is clickable and opens its topic in the Explain drawer (below). The selected one is outlined
   `--allowed`.
-- **Explain card** (right): eyebrow `EXPLAIN · VERIFIED LIVE` in `--allowed` (or `EXPLAIN · NOT SEEN LIVE` in `--muted`
+- **Explain drawer** (right, on demand): eyebrow `EXPLAIN · VERIFIED LIVE` in `--allowed` (or `EXPLAIN · NOT SEEN LIVE` in `--muted`
   when `proof` is null); title (Barlow 700, 32 px) and a mono subtitle; then labelled blocks `IN PLAIN WORDS`,
   `HOW IT WORKS`, `PROOF · <SOURCE>` (a dark code box, Plex Mono), `WITHOUT IT` (an amber left-border block); a file
   path at the bottom in Plex Mono.
@@ -102,7 +102,8 @@ Message: every agent has an identity, permissions and proof.
 - **Passport card** (right): a rounded `--box` card with a top strip `AGENT PLATFORM` (left) and
   `AGENT PASSPORT · P<PLT<01` (right). Left: a framed icon tile with the image digest beneath it
   (`sha256:4b1e…09cd`, mono, first 4 and last 4 hex characters). Fields in a grid (label 10–11 px muted caps, value
-  Barlow 700 20 px): NAME (large), NAMESPACE, TEAM, RUNTIME, MODEL, BUDGET (`$5.00 / month`), VALID UNTIL. A round
+  Barlow 700 20 px): NAME (large), NAMESPACE, TEAM, RUNTIME, MODEL, BUDGET (`$5.00 / month`), DATA (`none`, or the database and `own rows`). The reference screens show VALID UNTIL here; no
+  live or manifest source for it exists, so DATA replaces it rather than showing a made-up date. A round
   `VERIFIED` stamp (`--allowed`, rotated about −8°, text `CHECKED LIVE`, `n / 8 GUARANTEES`) sits top right. Along
   the bottom, a two-line machine string in Plex Mono (the "MRZ"), decorative, built from the agent's name and the
   guarantee initials.
@@ -172,7 +173,7 @@ Message: five real attacks, every one fails.
   another agent's key · Leak data with redaction off.
 - **Right card:** the result as a huge `--allowed` numeral (`5/5`), `attacks stopped`, a muted line
   (`No real data is touched. The test pod is deleted at the end.`) and `See the logs →`.
-- The attack results come from the attack suite's evidence, not from the console API in this phase.
+- The results come from the committed attack-suite results file through `/api/console/attacks`. They are a past run, labelled as such; the run button arrives in a later phase.
 
 ### Ops
 
@@ -181,7 +182,7 @@ spec does not design it.
 
 ## Components
 
-- **Explain drawer.** The single place for detail. On the Map it is the right card; on every other screen it slides in
+- **Explain drawer.** The single place for detail. On every screen it slides in
   from the right (360–420 px, `--panel` over a dimmed page), opened by any `why?`, `See the evidence` or chip click, and
   closed with Esc, the close button, or a click outside. Focus moves into it and returns to the opener on close.
   Content is exactly the `explain/<topic>` shape: eyebrow, title, `plain`, `how`, `proof`, `without`, `file`.
@@ -203,8 +204,7 @@ The console never invents a live value.
   line, `No live proof is available right now.` No stand-in text is shown.
 - `live: null` on an agent renders the passport with a `DECLARED` stamp and `—` in place of pod and digest values.
 - Loading shows the frame and a single muted `Loading…`; an error shows one line and a retry action.
-- `Sample data` stays in the header whenever any part of the screen uses sample values (for example the Break it
-  results, or the Ask conversation before the first live turn).
+- There is no sample data. A value is real or the screen shows an empty state.
 
 ## Accessibility and motion
 
@@ -227,7 +227,9 @@ the same Host/Origin boundary as the rest of the front door. Defined in
 | `/api/console/agents` | Agents | per agent: manifest facts, a `live` block (pods ready, restarts, running image digest) or `null`, and `health` |
 | `/api/console/onboarding/<agent>` | Onboard, Agents | `guarantees` (8; `state` is `verified`, `declared` or `failing`, plus `basis` and `source`), `counts` (`{verified, declared, failing}`), `verified`, `total` |
 | `/api/console/activity?limit=3` | Header / Ops strip | latest `blocked`, `masked` and `approved` events from readable sources |
-| `/api/console/explain/<topic>` | Explain card and drawer | `{title, plain, how, proof, without, file}`; topics: `network`, `private-link`, `internet`, `redactor`, `gateway`, `audit` |
+| `/api/console/attacks` | Break it | the latest attack-suite results file (`case`, `result`, `at`; setup excluded) or `{available: false}` |
+| `/api/console/example` | Onboard | the rejected-agent example manifest (shipped file) and the command that checks it |
+| `/api/console/explain/<topic>` | Explain drawer | `{title, plain, how, proof, without, file}`; topics: `network`, `private-link`, `internet`, `redactor`, `gateway`, `audit` |
 
 Rules the UI relies on:
 
@@ -250,3 +252,15 @@ Rules the UI relies on:
 - Strings go through the same key-based dictionary as the existing UI so a second language can be added later. This spec
   is English only; the existing Arabic UI is not covered by it.
 - No external script, stylesheet, font or image. Icons and the passport emblem are inline SVG.
+
+## Running locally
+
+Both UIs run without a cluster against stub data (only the ops agent's answers and the model are canned; the real handlers,
+manifests, UI, sign-in and trace code run):
+
+```text
+PYTHONPATH=platform/core/src:platform/core/tests:. python platform/core/tests/console_stub.py --port 8080 --scenario ok|failing|down
+PYTHONPATH=platform/core/src:platform/agents/financial:platform/agents/financial/tests:. python platform/agents/financial/tests/ui_stub.py --port 8081
+```
+
+The second prints its demo sign-in. Use `127.0.0.1`, not `localhost`.

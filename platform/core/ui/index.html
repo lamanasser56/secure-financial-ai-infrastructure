@@ -1,78 +1,35 @@
 <!doctype html>
-<html lang="en" dir="ltr">
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Secure AI Agent Platform</title>
-<link rel="stylesheet" href="/style.css">
-<script defer src="/app.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent Platform</title>
+  <link rel="stylesheet" href="/style.css">
 </head>
-<body data-page="about">
-<header class="topbar"><div class="inner">
-  <a class="brand" href="/"><span class="mark" aria-hidden="true">AI</span><span data-t="brand">Secure AI Agent Platform</span></a>
-  <nav class="links" id="nav" aria-label="Pages">
-    <a id="nav-financial" href="http://127.0.0.1:8081/" data-t="nav_financial">Financial Agent</a>
-    <a href="/operations.html" data-t="nav_ops">Security &amp; Operations</a>
-    <a href="/" aria-current="page" data-t="nav_about">About</a>
-  </nav>
-  <div class="tools">
-    <div class="seg" role="group" aria-label="Language"><button type="button" data-lang="en" aria-pressed="true">EN</button><button type="button" data-lang="ar" aria-pressed="false">ع</button></div>
-    <button type="button" class="icon-btn" id="tour" data-t-aria="tour_open" aria-label="Show the guided tour">?</button>
+<body>
+  <a class="skip" href="#view">Skip to content</a>
+  <div class="frame">
+    <header class="bar">
+      <a class="brand" href="#/map">Agent-Platform</a>
+      <span id="live" class="live" role="status">Connecting…</span>
+      <nav class="tabs" aria-label="Screens">
+        <a href="#/map" data-tab="map">Map</a>
+        <a href="#/agents" data-tab="agents">Agents</a>
+        <a href="#/onboard" data-tab="onboard">Onboard</a>
+        <a href="#/ops" data-tab="ops">Ops</a>
+        <a href="#/break" data-tab="break" class="break">Break it</a>
+      </nav>
+    </header>
+    <main id="view" tabindex="-1"></main>
   </div>
-</div></header>
-<main>
-  <section class="intro" id="about-intro">
-    <h1 data-t="about_title">About the platform</h1>
-    <p data-t="about_intro">Any team can deploy its own AI agent here and inherit these protections without building them.</p>
-  </section>
-
-  <section class="card" id="agents">
-    <h2 data-t="agents_title">Agents running on the platform</h2>
-    <p class="muted" data-t="agents_intro">Each agent was onboarded with one manifest and runs in its own isolated namespace.</p>
-    <div class="grid three">
-      <article class="fact agent-card"><h3 data-t="a_fin">Financial Agent</h3><p data-t="a_fin_d">Answers questions about your own expenses, only from your records, in Arabic or English.</p><a class="cta" id="cta-financial" href="http://127.0.0.1:8081/" data-t="open">Open</a></article>
-      <article class="fact agent-card"><h3 data-t="a_ops">Security &amp; Operations Agent</h3><p data-t="a_ops_d">Watches the platform's services, explains problems and fixes them only after your approval.</p><a class="cta" href="/operations.html" data-t="open">Open</a></article>
-    </div>
-  </section>
-
-  <section class="card" id="answer-path">
-    <h2 data-t="flow1_title">How a question is answered</h2>
-    <p class="muted" data-t="flow1_intro">Every model call takes the same path. No step can be skipped.</p>
-    <ol class="flow">
-      <li><strong data-t="f1_1">You</strong><span data-t="f1_1d">ask in your own words</span></li>
-      <li class="key"><strong data-t="f1_2">Privacy masking</strong><span data-t="f1_2d">personal data is hidden first</span></li>
-      <li class="key"><strong data-t="f1_3">Gateway</strong><span data-t="f1_3d">budget per agent, no direct provider access</span></li>
-      <li><strong data-t="f1_4">AI model</strong><span data-t="f1_4d">sees masked text only</span></li>
-      <li class="key"><strong data-t="f1_5">Answer check</strong><span data-t="f1_5d">every figure must match your records</span></li>
-    </ol>
-  </section>
-
-  <section class="card" id="ops-loop">
-    <h2 data-t="flow2_title">How a problem is fixed</h2>
-    <p class="muted" data-t="flow2_intro">The operations agent proposes; only you approve. It can restart or resize a service, never change what it runs.</p>
-    <ol class="flow">
-      <li><strong data-t="f2_1">Observe</strong><span data-t="f2_1d">reads service state</span></li>
-      <li><strong data-t="f2_2">Diagnose</strong><span data-t="f2_2d">fixed rules, no AI</span></li>
-      <li><strong data-t="f2_3">Propose</strong><span data-t="f2_3d">restart or bounded resize</span></li>
-      <li class="key"><strong data-t="f2_4">Your approval</strong><span data-t="f2_4d">valid once, for 5 minutes</span></li>
-      <li><strong data-t="f2_5">Execute once</strong><span data-t="f2_5d">only if nothing changed</span></li>
-      <li><strong data-t="f2_6">Verify</strong><span data-t="f2_6d">healthy again, or reported</span></li>
-    </ol>
-  </section>
-
-  <section class="card" id="controls">
-    <h2 data-t="controls_title">What every agent inherits</h2>
-    <ul class="controls">
-      <li><span class="tick" aria-hidden="true">✓</span><span data-t="c1">An isolated network: nothing in or out unless allowed.</span></li>
-      <li><span class="tick" aria-hidden="true">✓</span><span data-t="c2">Its own AI key with a monthly budget; no direct provider access.</span></li>
-      <li><span class="tick" aria-hidden="true">✓</span><span data-t="c3">Automatic masking of personal data before every model call.</span></li>
-      <li><span class="tick" aria-hidden="true">✓</span><span data-t="c4">Read-only tools from a registry, checked by policy.</span></li>
-      <li><span class="tick" aria-hidden="true">✓</span><span data-t="c5">An audit trail without personal content.</span></li>
-      <li><span class="tick" aria-hidden="true">✓</span><span data-t="c6">Only signed and attested images can run.</span></li>
-      <li><span class="tick" aria-hidden="true">✓</span><span data-t="c7">The operations agent cannot change what a service runs.</span></li>
-    </ul>
-  </section>
-  <p class="muted small" data-t="about_foot">All data is synthetic. Pages are reached only through a private port-forward on this computer.</p>
-</main>
+  <div id="scrim" class="scrim" hidden></div>
+  <aside id="explain" class="drawer" role="dialog" aria-modal="false" aria-labelledby="ex-title" hidden></aside>
+  <script src="/core.js"></script>
+  <script src="/map.js"></script>
+  <script src="/agents.js"></script>
+  <script src="/onboard.js"></script>
+  <script src="/attacks.js"></script>
+  <script src="/ops.js"></script>
+  <script src="/app.js"></script>
 </body>
 </html>

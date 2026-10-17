@@ -5,6 +5,10 @@ GET /api/console/agents             manifest facts + live state (pods, restarts,
 GET /api/console/onboarding/<agent> the eight guarantees, each "verified" (seen live, with its source) or "declared"
 GET /api/console/activity?limit=3   latest blocked / masked / approved events
 GET /api/console/explain/<topic>    {title, plain, how, proof, without, file}; proof is live or null, never static text
+GET /api/console/attacks            the latest attack-suite results file (closed fields), or {available: false}
+GET /api/console/example            the rejected-agent example manifest (shipped file) and the command that checks it
+
+The same handler serves the console UI (platform/core/ui): fixed files only, same-origin, no CDN.
 
 Live facts come only from sources the front door already reads: the ops agent's read-only API (the bearer key the front
 door already holds) and this process's own audit stream. The front door gets no Kubernetes token, no gateway key and no
@@ -26,6 +30,8 @@ NAME = re.compile(r'[a-z][a-z0-9-]{1,20}[a-z0-9]')
 GUARANTEES = ('namespace', 'network', 'model_key', 'budget', 'redaction', 'tools', 'image', 'ops')
 FRESH_SECONDS = 120  # the ops agent scans every 15 s; a finding older than this is not "live"
 MAX_EVENTS = 20
+ASSET_TYPES = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+               '.woff2': 'font/woff2'}
 REDACTION_RECENT_SECONDS = 3600  # how recent a redactor event for the agent's own key must be to count as seen
 
 
@@ -37,6 +43,14 @@ def locate():
         return image / 'kubernetes', image / 'agents', image / 'gke'
     platform = HERE.parents[3]
     return platform / 'core/kubernetes', platform / 'agents', platform / 'clouds/gke/kubernetes'
+
+
+def locate_extras():
+    """(UI dir, evidence dir, examples dir): side by side under /app/platform in the image; under platform/core/ui and docs/ in the repository."""
+    image = HERE.parents[2]
+    if (image / 'agents').is_dir():
+        return image / 'ui', image / 'evidence', image / 'examples'
+    return HERE.parents[2] / 'ui', HERE.parents[4] / 'docs/evidence', HERE.parents[4] / 'docs/examples'
 
 
 def documents(path):
@@ -60,10 +74,11 @@ def peer_names(rule):
 
 
 class Console:
-    def __init__(self, ops, *, directories=None, clock=time.time, recent_audit=audit.recent):
+    def __init__(self, ops, *, directories=None, extras=None, clock=time.time, recent_audit=audit.recent):
         """`ops(path)` GETs the ops agent's read-only API and returns the decoded JSON (raises when it is unreachable)."""
         self._ops, self._clock, self._recent_audit = ops, clock, recent_audit
         self.kube, self.agent_dir, self.gke = directories or locate()
+        self.ui_dir, self.evidence_dir, self.examples_dir = extras or locate_extras()
         self._cache = {}
         self._manifests = self._load_manifests()
 
@@ -157,7 +172,7 @@ class Console:
         data = m['data']
         return {'id': name, 'name': name, 'namespace': 'agent-' + name, 'team': m['team'], 'description': m['description'],
                 'runtime': runtime, 'model': self._model(), 'budget_usd_month': m['model']['budget_usd_month'],
-                'replicas': m['runtime']['replicas'],
+                'replicas': m['runtime']['replicas'], 'port': m['runtime']['port'], 'redaction': m['redaction'],
                 'tools': [{'id': t['id'], 'access': t['access'], 'description': t['description']} for t in m['tools']],
                 'data': 'none' if data == 'none' else {'database': data['database'], 'user_entry': data['user_entry'],
                                                         'row_level_security': data['row_level_security']},
@@ -291,6 +306,33 @@ class Console:
         events.sort(key=lambda e: e['at'], reverse=True)
         return {'events': events[:limit], 'sources': sources}
 
+    # attacks, example ---------------------------------------------------------------------------------------
+    ATTACK_CASE = re.compile(r'[a-z][a-z0-9_]{2,80}')
+
+    def attacks(self):
+        """Latest attack-suite results from the committed results file: case, result, time only. Not a live run."""
+        path = self.evidence_dir / 'attack-suite.json'
+        try:
+            data = json.loads(path.read_text())
+            rows = [{'case': r['case'], 'result': r['result'], 'at': r['at']} for r in data['results']
+                    if r['case'] != 'financial_setup']  # setup is a precondition, not an attack
+            if not all(self.ATTACK_CASE.fullmatch(r['case']) and r['result'] in ('PASS', 'FAIL') and type(r['at']) is str
+                       and len(r['at']) <= 40 for r in rows) or type(data['completed_at']) is not str:
+                raise ValueError('shape')
+        except (OSError, ValueError, KeyError, TypeError):
+            return {'available': False, 'file': 'docs/evidence/attack-suite.json', 'results': []}
+        return {'available': True, 'file': 'docs/evidence/attack-suite.json', 'completed_at': data['completed_at'][:40],
+                'results': rows, 'stopped': sum(r['result'] == 'PASS' for r in rows), 'total': len(rows)}
+
+    def example(self):
+        path = self.examples_dir / 'rejected-agent/agent.yaml'
+        try:
+            text = path.read_text()
+        except OSError:
+            return {'available': False, 'file': 'docs/examples/rejected-agent/agent.yaml'}
+        return {'available': True, 'file': 'docs/examples/rejected-agent/agent.yaml', 'text': text,
+                'command': 'make onboard-check F=docs/examples/rejected-agent/agent.yaml'}
+
     # explain ------------------------------------------------------------------------------------------------
     def explain(self, topic):
         entry = EXPLAIN.get(topic)
@@ -393,13 +435,36 @@ EXPLAIN = {
 
 
 class Handler(web.Handler):
-    """The existing front-door handler plus the read-only console routes (same Host/Origin boundary, same headers)."""
+    """The existing front-door handler plus the console UI and the read-only console routes (same Host/Origin boundary)."""
+
+    def send_header(self, key, value):
+        if key == 'Content-Security-Policy':  # the console ships its own fonts (same origin); nothing else is widened
+            value = value.replace("style-src 'self';", "style-src 'self'; font-src 'self';")
+        super().send_header(key, value)
+
+    def asset(self, path):
+        """(bytes, content type) of one fixed UI file, or None. Only files that exist in the UI directory, by exact name."""
+        name = 'index.html' if path == '/' else path[1:]
+        kind = ASSET_TYPES.get(Path(name).suffix)
+        parts = name.split('/')
+        if kind is None or not (len(parts) == 1 or (len(parts) == 2 and parts[0] == 'fonts')) or not all(
+                re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,80}', p) for p in parts):
+            return None
+        file = self.server.console.ui_dir.joinpath(*parts)
+        return (file.read_bytes(), kind) if file.is_file() else None
 
     def do_GET(self):
         url = urlsplit(self.path)
-        if not url.path.startswith('/api/console/'):
+        if not (url.path.startswith('/api/console/') or url.path in web.ASSETS or self.asset(url.path)):
             return super().do_GET()
         if not self.boundary():
+            return
+        if not url.path.startswith('/api/console/'):
+            found = self.asset(url.path)  # the retired demo pages (web.ASSETS) are not served: only the console files are
+            if found is None:
+                self.respond(404, {'error': 'not_found'})
+            else:
+                self.respond(200, *found)
             return
         console, parts = self.server.console, url.path.split('/')[3:]
         try:
@@ -407,6 +472,10 @@ class Handler(web.Handler):
                 result = console.topology()
             elif parts == ['agents']:
                 result = console.agents()
+            elif parts == ['attacks']:
+                result = console.attacks()
+            elif parts == ['example']:
+                result = console.example()
             elif parts == ['activity']:
                 limit = parse_qs(url.query).get('limit', ['3'])
                 if len(limit) != 1 or not re.fullmatch(r'[0-9]{1,2}', limit[0]):
@@ -429,6 +498,6 @@ class Handler(web.Handler):
 
 
 def attach(server, ops):
-    """Serve the console routes from an existing DemoServer."""
+    """Serve the console UI and routes from an existing DemoServer."""
     server.console = Console(ops)
     server.RequestHandlerClass = Handler

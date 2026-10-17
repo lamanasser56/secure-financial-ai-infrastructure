@@ -17,7 +17,7 @@ image build.
 | `platform/core/kubernetes/` | Manifests: namespaces, default-deny NetworkPolicies, RBAC, the ops agent's admission policy (`policies/admission.yaml`), quotas, workloads. |
 | `platform/core/database/` | Platform SQL: the LiteLLM schema and the Financial Agent's `finance.sql` (row-level security, roles, sign-in lookup). |
 | `platform/core/images/Dockerfile` | The app and ops images (distroless runtime, hash-locked Python sets). |
-| `platform/core/ui/` | The operations dashboard overlay (bilingual). |
+| `platform/core/ui/` | The console UI (Map, Agents, Onboard, Ops, Break it), served by `console.py`; own OFL fonts, no CDN. The Financial Agent UI shares its `style.css`, `core.js` and fonts byte-for-byte. |
 | `platform/core/tests/` | Platform tests: manifest invariants, ops agent, approvals, onboarding, and policies against a real kube-apiserver (envtest). |
 | `platform/agents/financial/` | **Financial Agent** (tenant #1): its own image, web app, read-only tools, grounding, sign-in. |
 | `platform/agents/platform-guide/` | **Platform Guide** (tenant #2, Node.js): answers questions about the platform from a docs index bundled at build time; no data, one read-only `docs_search` tool. |
