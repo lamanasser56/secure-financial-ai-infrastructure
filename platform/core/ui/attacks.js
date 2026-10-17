@@ -24,6 +24,16 @@
     no_secrets_in_env_or_logs: ['Find a secret in env or logs', 'secret handling']
   };
 
+  // Every attack that was not stopped, in the result card: its evidence note in the evidence's own words, or "no note".
+  const REPO_URL = 'https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/main/';
+  function notStopped(results) {
+    const failed = results.filter(x => x.result !== 'PASS');
+    if (!failed.length) return null;
+    return el('div', {class: 'note'}, el('b', {}, failed.length + ' not stopped'), failed.map(x => el('p', {},
+      (CASES[x.case] || [x.case])[0] + ' — ', x.note ? [x.note.conclusion, ' ', el('a', {href: REPO_URL + x.note.file, target: '_blank', rel: 'noopener', title: x.note.file}, 'Evidence →')]
+        : 'no note in the evidence for this run.')));
+  }
+
   Console.screens.break = async (view, arg, alive) => {
     view.append(Console.head('Try to break it.', 'Real attacks from the attack suite. Every one should fail.'));
     const body = el('div', {}, el('p', {class: 'muted'}, 'Loading…'));
@@ -61,6 +71,7 @@
     const all = d.stopped === d.total;
     body.replaceChildren(el('div', {class: 'two wide'}, list,
       el('section', {class: 'panel result', 'aria-label': 'Result'}, el('div', {class: 'big' + (all ? '' : ' bad')}, d.stopped + '/' + d.total), el('h2', {}, 'attacks stopped'),
+        notStopped(d.results),
         el('p', {class: 'muted'}, 'Latest run: ' + new Date(d.completed_at).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'}) + '. Results file, not a live run. Closed outcomes only.'),
         el('p', {}, el('button', {type: 'button', class: 'btn link', onclick: e => Console.explain({eyebrow: 'EXPLAIN · RESULTS FILE', title: 'Where these results come from',
           blocks: [{label: 'In plain words', text: 'The attack suite ran against the cluster and wrote this file. The console shows it; it does not run anything.'},

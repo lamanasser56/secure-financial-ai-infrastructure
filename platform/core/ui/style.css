@@ -168,6 +168,7 @@ input::placeholder { color: var(--muted); }
 .atk { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--hair); }
 .atk:first-of-type { border-top: 0; } .atk b { font: 700 17px var(--head); display: block; } .atk .by { color: var(--muted); font-size: 12.5px; } .atk time { color: var(--muted); font: 400 11px var(--mono); }
 .atk .note { grid-column: 2 / -1; font-size: 13px; border-left: 3px solid var(--denied); padding-left: 10px; }
+.result .note { margin: 14px 0 6px; font-size: 13.5px; border-left: 3px solid var(--denied); padding-left: 12px; } .result .note p { margin: 4px 0 0; }
 .more { padding: 12px 16px; border-top: 1px solid var(--hair); }
 .tl li.explain { grid-template-columns: 92px minmax(0, 1fr); } .tl li.explain p { margin: 0; } .tl li.explain .chip { justify-self: start; align-self: start; }
 .big { font: 800 84px/1 var(--head); color: var(--allowed); } .big.bad { color: var(--denied); }
