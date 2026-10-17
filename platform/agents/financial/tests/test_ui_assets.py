@@ -38,7 +38,7 @@ class UiAssets(unittest.TestCase):
 
     def test_files_and_fonts_are_served_without_a_session(self):
         for path, kind in (('/', 'text/html'), ('/app.js', 'text/javascript'), ('/core.js', 'text/javascript'), ('/style.css', 'text/css'),
-                           ('/fonts/ibm-plex-sans-latin-400-normal.woff2', 'font/woff2')):
+                           ('/typeface/ibm-plex-sans-latin-400-normal.woff2', 'font/woff2')):
             status, body, response = self.get(path)
             self.assertEqual(status, 200, path)
             self.assertTrue(response.getheader('Content-Type').startswith(kind), path)
@@ -48,7 +48,7 @@ class UiAssets(unittest.TestCase):
             self.assertNotRegex(csp, r'unsafe-inline|https?:')
 
     def test_only_the_listed_fonts_by_exact_name(self):
-        for path in ('/fonts/nope.woff2', '/fonts/', '/fonts/../app.js', '/fonts/LICENSE-barlow.txt', '/fonts/%2e%2e/app.js', '/other.js'):
+        for path in ('/typeface/nope.woff2', '/typeface/', '/typeface/../app.js', '/typeface/LICENSE-barlow.txt', '/typeface/%2e%2e/app.js', '/other.js'):
             status = self.get(path)[0]
             self.assertIn(status, (401, 404), path)  # never a file: anything else needs a session first
             self.assertNotEqual(status, 200, path)

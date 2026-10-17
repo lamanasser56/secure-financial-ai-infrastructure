@@ -447,7 +447,7 @@ class Handler(web.Handler):
         name = 'index.html' if path == '/' else path[1:]
         kind = ASSET_TYPES.get(Path(name).suffix)
         parts = name.split('/')
-        if kind is None or not (len(parts) == 1 or (len(parts) == 2 and parts[0] == 'fonts')) or not all(
+        if kind is None or not (len(parts) == 1 or (len(parts) == 2 and parts[0] == 'typeface')) or not all(
                 re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,80}', p) for p in parts):
             return None
         file = self.server.console.ui_dir.joinpath(*parts)

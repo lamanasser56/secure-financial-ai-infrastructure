@@ -430,14 +430,14 @@ class UiRoutes(Http):
         self.assertNotIn('unsafe-inline', csp)
         self.assertNotRegex(csp, r'https?:')
         for path, kind in (('/style.css', 'text/css'), ('/core.js', 'text/javascript'), ('/map.js', 'text/javascript'),
-                           ('/fonts/ibm-plex-mono-latin-400-normal.woff2', 'font/woff2')):
+                           ('/typeface/ibm-plex-mono-latin-400-normal.woff2', 'font/woff2')):
             status, body, headers = self.raw(path)
             self.assertEqual(status, 200, path)
             self.assertTrue(headers['Content-Type'].startswith(kind), path)
 
     def test_only_existing_fixed_files_and_never_the_retired_demo_pages(self):
-        for path in ('/operations.html', '/operations.js', '/i18n.json', '/app.css', '/fonts/nope.woff2', '/fonts/', '/fonts/../app.js',
-                     '/fonts/LICENSE-barlow.txt', '/%2e%2e/etc/passwd', '/..%2fcore.js', '/fonts/a/b.woff2', '/.hidden.js', '/core.js/x'):
+        for path in ('/operations.html', '/operations.js', '/i18n.json', '/app.css', '/typeface/nope.woff2', '/typeface/', '/typeface/../app.js',
+                     '/typeface/LICENSE-barlow.txt', '/%2e%2e/etc/passwd', '/..%2fcore.js', '/typeface/a/b.woff2', '/.hidden.js', '/core.js/x'):
             with self.subTest(path=path):
                 self.assertEqual(self.raw(path)[0], 404)
 
