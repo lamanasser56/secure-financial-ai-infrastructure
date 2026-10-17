@@ -204,6 +204,10 @@ class Scripts(unittest.TestCase):
         self.assertIn('x.note.conclusion', attacks[attacks.index('function notStopped'):])
         self.assertIn("'no note in the evidence for this run.'", attacks)
 
+    def test_break_it_says_whether_it_is_a_live_or_a_recorded_run(self):
+        attacks = (FRONT / 'attacks.js').read_text()
+        self.assertIn("d.source === 'live' ? 'Live run ' : 'Recorded run '", attacks)
+
     def test_mrz_is_built_from_real_values_only(self):
         agents = (FRONT / 'agents.js').read_text()
         body = agents[agents.index('function mrz('):agents.index('const emblem')]

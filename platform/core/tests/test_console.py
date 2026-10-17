@@ -539,7 +539,8 @@ class FileBackedRoutes(unittest.TestCase):
         import tempfile
         with tempfile.TemporaryDirectory() as tmp:
             c = self.console_with(tmp, tmp)
-            self.assertEqual(c.attacks(), {'available': False, 'file': 'docs/evidence/attack-suite.json', 'results': []})
+            c.live_attacks = Path(tmp) / 'absent.json'
+            self.assertEqual(c.attacks(), {'available': False, 'source': None, 'file': 'docs/evidence/attack-suite.json', 'results': []})
             self.assertEqual(c.example(), {'available': False, 'file': 'docs/examples/rejected-agent/agent.yaml'})
             for bad in ('not json', '{}', json.dumps({'completed_at': 'x', 'results': [{'case': 'Bad Case!', 'result': 'PASS', 'at': 'x'}]}),
                         json.dumps({'completed_at': 'x', 'results': [{'case': 'ok_case', 'result': 'MAYBE', 'at': 'x'}]})):

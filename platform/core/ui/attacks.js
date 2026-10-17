@@ -72,9 +72,12 @@
     body.replaceChildren(el('div', {class: 'two wide'}, list,
       el('section', {class: 'panel result', 'aria-label': 'Result'}, el('div', {class: 'big' + (all ? '' : ' bad')}, d.stopped + '/' + d.total), el('h2', {}, 'attacks stopped'),
         notStopped(d.results),
-        el('p', {class: 'muted'}, 'Latest run: ' + new Date(d.completed_at).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'}) + '. Results file, not a live run. Closed outcomes only.'),
+        el('p', {class: 'muted'}, (d.source === 'live' ? 'Live run ' : 'Recorded run ') + new Date(d.completed_at).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'}) + '. ' +
+          (d.source === 'live' ? 'Written into the cluster by make attack.' : 'From the results file in the repository; no live run yet.') + ' Closed outcomes only.'),
         el('p', {}, el('button', {type: 'button', class: 'btn link', onclick: e => Console.explain({eyebrow: 'EXPLAIN · RESULTS FILE', title: 'Where these results come from',
-          blocks: [{label: 'In plain words', text: 'The attack suite ran against the cluster and wrote this file. The console shows it; it does not run anything.'},
-                   {label: 'How it works', text: 'make attack runs the suite from the owner laptop. Each case records PASS when the attack was stopped.'}], file: d.file}, e.currentTarget)}, 'See the results file →')))));
+          blocks: [{label: 'In plain words', text: d.source === 'live' ? 'The attack suite ran against the cluster and wrote these results into it. The console shows them; it does not run anything.'
+                     : 'The attack suite ran against the cluster earlier and these results were committed. The console shows them; it does not run anything.'},
+                   {label: 'How it works', text: 'make attack runs the suite from the owner laptop. Each case records PASS when the attack was stopped, and the case, result and time are written into ConfigMap apps/attack-results.'},
+                   {label: 'Source', text: d.file}], file: d.source === 'live' ? 'platform/core/src/agent_platform/attack_results.py' : 'docs/evidence/attack-suite.json'}, e.currentTarget)}, 'Where these results come from →')))));
   };
 })();

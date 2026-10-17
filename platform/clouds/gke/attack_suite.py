@@ -44,6 +44,9 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import lifecycle  # noqa: E402
 
+sys.path.insert(0, str(HERE.parents[1] / 'core/src'))
+from agent_platform import attack_results  # noqa: E402
+
 # Secret material that must never appear in a Pod's env literals or logs. (A bare 64-hex pattern is not used: image
 # digests and evidence digests are 64-hex by design.)
 SECRET_PATTERNS = [re.compile(p) for p in (r'sk-[A-Za-z0-9]{20,}', r'-----BEGIN [A-Z ]*PRIVATE KEY-----', r'ya29\.[0-9A-Za-z_-]{20,}',
@@ -575,6 +578,19 @@ def case_secret_scan():
     return not hits, {'pods_scanned': scanned, 'hits': hits}
 
 
+def publish(report):
+    """The sanitized results (case, PASS/FAIL, time only) into ConfigMap apps/attack-results, which the front door mounts
+    read-only, so the console shows this live run. A failure here never changes the suite's own result."""
+    try:
+        manifest = json.dumps(attack_results.configmap(report))
+    except ValueError as error:
+        print(json.dumps({'attack_results_configmap': 'NOT_WRITTEN', 'reason': str(error)}))
+        return
+    applied = k('apply', '-f', '-', input=manifest)
+    print(json.dumps({'attack_results_configmap': 'WRITTEN' if applied.returncode == 0 else 'NOT_WRITTEN',
+                      'namespace': attack_results.NAMESPACE, 'name': attack_results.CONFIGMAP}))
+
+
 def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('--out', required=True)
@@ -618,14 +634,16 @@ def main(argv):
     run('log_planted_instruction_stays_data', case_log_planted_injection)
     run('no_secrets_in_env_or_logs', case_secret_scan)
     spend_after = key_spend()
-    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(json.dumps({
+    report = {
         'suite': 'agent-platform-attacks', 'cluster': 'agent-platform',
         'completed_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
         'passed': sum(r['result'] == 'PASS' for r in results), 'total': len(results),
         'gateway_key_spend_usd': {'before': spend_before, 'after': spend_after},
         'note': 'Written by platform/clouds/gke/attack_suite.py; closed outcomes only (no passwords, no model text).',
-        'results': results}, indent=1, ensure_ascii=False, sort_keys=True) + '\n')
+        'results': results}
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+    Path(args.out).write_text(json.dumps(report, indent=1, ensure_ascii=False, sort_keys=True) + '\n')
+    publish(report)
     raise SystemExit(0 if all(r['result'] == 'PASS' for r in results) else 1)
 
 

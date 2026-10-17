@@ -182,7 +182,10 @@ Message: five real attacks, every one fails.
   another agent's key · Leak data with redaction off.
 - **Right card:** the result as a huge `--allowed` numeral (`5/5`), `attacks stopped`, a muted line
   (`No real data is touched. The test pod is deleted at the end.`) and `See the logs →`.
-- The results come from the committed attack-suite results file through `/api/console/attacks`. They are a past run, labelled as such; the run button arrives in a later phase.
+- The results come from `/api/console/attacks`: the live run that `make attack` wrote into ConfigMap `apps/attack-results`
+  (mounted read-only into the front door), or else the recorded run committed in the repository. The card says which:
+  `Live run <time>` or `Recorded run <time>`. Only case, result and time are kept (`agent_platform/attack_results.py`).
+  The run button arrives in a later phase.
 
 ### Ops
 
@@ -240,7 +243,7 @@ the same Host/Origin boundary as the rest of the front door. Defined in
 | `/api/console/agents` | Agents | per agent: manifest facts, a `live` block (pods ready, restarts, running image digest) or `null`, and `health` |
 | `/api/console/onboarding/<agent>` | Onboard, Agents | `guarantees` (8; `state` is `verified`, `declared` or `failing`, plus `basis` and `source`), `counts` (`{verified, declared, failing}`), `verified`, `total` |
 | `/api/console/activity?limit=3` | Header / Ops strip | latest `blocked`, `masked` and `approved` events from readable sources |
-| `/api/console/attacks` | Break it | the latest attack-suite results file (`case`, `result`, `at`; setup excluded) or `{available: false}` |
+| `/api/console/attacks` | Break it | the live run (ConfigMap) or the recorded run (`case`, `result`, `at`; setup excluded), with `source` `live` or `recorded`; or `{available: false}` |
 | `/api/console/example` | Onboard | the rejected-agent example manifest (shipped file) and the command that checks it |
 | `/api/console/explain/<topic>` | Explain drawer | `{title, plain, how, proof, without, file}`; topics: `network`, `private-link`, `internet`, `redactor`, `gateway`, `audit` |
 
