@@ -37,14 +37,16 @@ COPY --chown=65532:65532 platform/core/src/ /app/platform/src/
 
 FROM runtime AS app
 COPY --chown=65532:65532 demo/ /app/demo/
-# Platform dashboard v1 (agent timeline, pending approvals, policy denials) over the retained local UI files;
-# demo/ui stays byte-identical so earlier qualification records remain valid.
-COPY --chown=65532:65532 platform/core/ui/ /app/demo/ui/
+# demo/ stays byte-identical so earlier qualification records remain valid; the console UI is served from /app/platform/ui.
 COPY --chown=65532:65532 evaluation/agent-composition/ /app/evaluation/agent-composition/
 # Console data API (/api/console/*): the rendered manifests and the agent manifests, read-only, next to the code.
 COPY --chown=65532:65532 platform/core/kubernetes/ /app/platform/kubernetes/
 COPY --chown=65532:65532 platform/agents/ /app/platform/agents/
 COPY --chown=65532:65532 platform/clouds/gke/kubernetes/ /app/platform/gke/
+# Console UI (fixed files, own fonts) and the two committed files it shows: the latest attack-suite results and the rejected example.
+COPY --chown=65532:65532 platform/core/ui/ /app/platform/ui/
+COPY --chown=65532:65532 docs/evidence/attack-suite.json /app/platform/evidence/attack-suite.json
+COPY --chown=65532:65532 docs/examples/rejected-agent/agent.yaml /app/platform/examples/rejected-agent/agent.yaml
 ENTRYPOINT ["/usr/local/bin/python3.12", "-m", "agent_platform.app"]
 
 FROM runtime AS ops

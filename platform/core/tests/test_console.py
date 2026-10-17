@@ -409,6 +409,92 @@ class Http(unittest.TestCase):
         self.assertEqual(self.get('/api/bootstrap')[0], 200)
 
 
+class UiRoutes(Http):
+    """The console UI and the two file-backed routes, through the same handler (inherits the server setup of Http)."""
+
+    def raw(self, path, headers=None):
+        request = urllib.request.Request(self.server.origin + path, headers=headers or {})
+        try:
+            with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request, timeout=5) as response:
+                return response.status, response.read(), response.headers
+        except urllib.error.HTTPError as error:
+            return error.code, error.read(), error.headers
+
+    def test_ui_files_are_served_with_a_csp_that_allows_only_own_fonts(self):
+        status, body, headers = self.raw('/')
+        self.assertEqual((status, headers['Content-Type']), (200, 'text/html; charset=utf-8'))
+        self.assertIn(b'Agent-Platform', body)
+        csp = headers['Content-Security-Policy']
+        self.assertIn("font-src 'self'", csp)
+        self.assertIn("default-src 'none'", csp)
+        self.assertNotIn('unsafe-inline', csp)
+        self.assertNotRegex(csp, r'https?:')
+        for path, kind in (('/style.css', 'text/css'), ('/core.js', 'text/javascript'), ('/map.js', 'text/javascript'),
+                           ('/fonts/ibm-plex-mono-latin-400-normal.woff2', 'font/woff2')):
+            status, body, headers = self.raw(path)
+            self.assertEqual(status, 200, path)
+            self.assertTrue(headers['Content-Type'].startswith(kind), path)
+
+    def test_only_existing_fixed_files_and_never_the_retired_demo_pages(self):
+        for path in ('/operations.html', '/operations.js', '/i18n.json', '/app.css', '/fonts/nope.woff2', '/fonts/', '/fonts/../app.js',
+                     '/fonts/LICENSE-barlow.txt', '/%2e%2e/etc/passwd', '/..%2fcore.js', '/fonts/a/b.woff2', '/.hidden.js', '/core.js/x'):
+            with self.subTest(path=path):
+                self.assertEqual(self.raw(path)[0], 404)
+
+    def test_ui_files_obey_the_private_boundary(self):
+        self.assertEqual(self.raw('/', {'X-Forwarded-For': '1.2.3.4'})[0], 403)
+        self.assertEqual(self.raw('/core.js', {'Authorization': 'Bearer x'})[0], 403)
+
+    def test_attacks_lists_closed_fields_from_the_results_file(self):
+        status, body, _ = self.raw('/api/console/attacks')
+        data = json.loads(body)
+        self.assertEqual(status, 200)
+        self.assertTrue(data['available'])
+        self.assertEqual(data['stopped'], sum(r['result'] == 'PASS' for r in data['results']))
+        self.assertEqual(data['total'], len(data['results']))
+        self.assertTrue(all(set(r) == {'case', 'result', 'at'} for r in data['results']))
+        self.assertNotIn('financial_setup', {r['case'] for r in data['results']})  # a precondition, not an attack
+        self.assertIsNone(LEAKS.search(body.decode()))
+
+    def test_example_returns_the_shipped_manifest_and_its_command(self):
+        data = json.loads(self.raw('/api/console/example')[1])
+        self.assertTrue(data['available'])
+        self.assertIn('budget_usd_month: 500.0', data['text'])
+        self.assertEqual(data['command'], 'make onboard-check F=docs/examples/rejected-agent/agent.yaml')
+
+
+class FileBackedRoutes(unittest.TestCase):
+    def console_with(self, evidence, examples):
+        c = make()
+        c.evidence_dir, c.examples_dir = Path(evidence), Path(examples)
+        return c
+
+    def test_missing_or_malformed_results_file_is_an_honest_empty_state(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            c = self.console_with(tmp, tmp)
+            self.assertEqual(c.attacks(), {'available': False, 'file': 'docs/evidence/attack-suite.json', 'results': []})
+            self.assertEqual(c.example(), {'available': False, 'file': 'docs/examples/rejected-agent/agent.yaml'})
+            for bad in ('not json', '{}', json.dumps({'completed_at': 'x', 'results': [{'case': 'Bad Case!', 'result': 'PASS', 'at': 'x'}]}),
+                        json.dumps({'completed_at': 'x', 'results': [{'case': 'ok_case', 'result': 'MAYBE', 'at': 'x'}]})):
+                (Path(tmp) / 'attack-suite.json').write_text(bad)
+                self.assertFalse(c.attacks()['available'], bad)
+
+    def test_results_file_text_other_than_closed_fields_is_dropped(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / 'attack-suite.json').write_text(json.dumps({'completed_at': '2026-10-13T12:50:43+00:00', 'cluster': 'secret-name', 'results': [
+                {'case': 'ok_case', 'result': 'PASS', 'at': '2026-10-13T12:00:00+00:00', 'evidence': {'password': 'hunter2'}}]}))
+            data = self.console_with(tmp, tmp).attacks()
+            self.assertEqual(data['results'], [{'case': 'ok_case', 'result': 'PASS', 'at': '2026-10-13T12:00:00+00:00'}])
+            self.assertNotIn('hunter2', json.dumps(data))
+            self.assertNotIn('secret-name', json.dumps(data))
+
+    def test_agents_carry_the_port_and_redaction_the_ui_shows(self):
+        by = {a['name']: a for a in make().agents()['agents']}
+        self.assertEqual((by['financial']['port'], by['platform-guide']['port'], by['financial']['redaction']), (8081, 8082, 'required'))
+
+
 class Packaging(unittest.TestCase):
     def test_image_ships_what_the_console_reads(self):
         dockerfile = (REPO / 'platform/core/images/Dockerfile').read_text()
@@ -418,6 +504,13 @@ class Packaging(unittest.TestCase):
             self.assertIn('COPY --chown=65532:65532 ' + copy, app)
         ops = dockerfile.split('FROM runtime AS ops')[1]
         self.assertNotIn('platform/core/kubernetes', ops)  # the ops image does not carry the console data
+        for copy in ('platform/core/ui/ /app/platform/ui/', 'docs/evidence/attack-suite.json /app/platform/evidence/attack-suite.json',
+                     'docs/examples/rejected-agent/agent.yaml /app/platform/examples/rejected-agent/agent.yaml'):
+            self.assertIn('COPY --chown=65532:65532 ' + copy, app)
+        self.assertNotIn('/app/demo/ui', dockerfile)  # the qualified demo UI is no longer overlaid
+        for allowed in ('!docs/evidence/attack-suite.json', '!docs/examples/rejected-agent/agent.yaml', '!platform/core/ui/**'):
+            self.assertIn(allowed, ignore)
+        self.assertNotIn('!docs/**', ignore)
         for allowed in ('!platform/core/kubernetes/**', '!platform/agents/*/agent.yaml', '!platform/clouds/gke/kubernetes/gke.yaml'):
             self.assertIn(allowed, ignore)
         self.assertNotIn('!platform/agents/**', ignore)  # agent code and node_modules stay out of the app image
