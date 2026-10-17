@@ -15,6 +15,8 @@
 #   make inventory         read-only list of everything billable in the project
 #   make demo-check        read-only readiness before a live session: one PASS/FAIL line per check, no secret values
 #   make demo-reset        UP cluster only, asks first: reset fault-demo, restart the ops agent, re-seed, warm the redactor
+#   make passphrase-check  owner, in a terminal: does the typed approval passphrase match Secret apps/app? prints {"match": ...}
+#   make passphrase        owner, in a terminal: replace only the approval passphrase hash in apps/app (never --rotate)
 SHELL := /bin/bash
 .ONESHELL:
 .SHELLFLAGS := -Eeuo pipefail -c
@@ -28,7 +30,7 @@ ENVTEST_SHA512 := 130369c16f076e724d089189afaede960316f5f5dea6cf57be7a4fc6f09c77
 PY := PYTHONPATH=platform/core/src:platform/core/tests:. $(PYTHON) -B
 LIFECYCLE := PYTHONPATH=platform/core/src:. $(PYTHON) -B platform/clouds/gke/lifecycle.py
 
-.PHONY: test test-policies onboard onboard-check agent-forward provider plan apply up down port-forward fault attack inventory secrets seed-demo demo-check demo-reset
+.PHONY: test test-policies onboard onboard-check agent-forward provider plan apply up down port-forward fault attack inventory secrets seed-demo demo-check demo-reset passphrase-check passphrase
 
 test:
 	PATH="$(TOOLS):$$PATH" $(PY) -m unittest discover -s platform/core/tests -p 'test_*.py'
@@ -95,3 +97,9 @@ demo-reset:
 
 secrets:
 	$(LIFECYCLE) secrets
+
+passphrase-check:
+	@PATH="$(TOOLS):$$PATH" PYTHONPATH=platform/core/src:. $(PYTHON) -B platform/clouds/gke/passphrase.py check
+
+passphrase:
+	@PATH="$(TOOLS):$$PATH" PYTHONPATH=platform/core/src:. $(PYTHON) -B platform/clouds/gke/passphrase.py replace
