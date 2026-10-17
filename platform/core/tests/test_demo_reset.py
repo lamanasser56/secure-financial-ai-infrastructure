@@ -72,6 +72,14 @@ class DemoReset(unittest.TestCase):
         self.assertIn(repr(demo_reset.WARM_UP_TEXT), demo_reset.WARM_UP)
         self.assertNotIn('print(c', demo_reset.WARM_UP)  # the key is never printed
 
+    def test_a_refused_warm_up_is_reported_with_the_fallback_and_nothing_else_is_tried(self):
+        kube = Kube(fail='exec')
+        r, lines, seeded = reset(kube)
+        self.assertEqual(r.run(), 0)  # the reset itself completed
+        self.assertIn('FAILED redactor warm-up (kubectl exec was refused or failed; nothing was bypassed).', lines)
+        self.assertTrue(any('ask one non-personal question in the console' in l for l in lines))
+        self.assertEqual(sum('exec' in c[0] for c in kube.calls), 1)  # one attempt, no other route
+
     def test_a_failed_step_stops(self):
         kube = Kube(fail='rollout restart')
         r, lines, seeded = reset(kube)

@@ -9,6 +9,7 @@ owner types "yes":
   3. demo data: the Financial Agent's demo user gets the synthetic Sep/Oct 2026 seed again (`make seed-demo`)
   4. redactor warm-up: one redaction of a fixed sentence with no user data, from inside the front-door Pod with its own
      client key (the key is read inside the Pod and never leaves it), so the first live question does not wait on DLP
+     If that exec is refused, nothing else is tried: it says so and asks the owner to ask one non-personal question instead
   5. prints the port-forward commands for 8080 (console) and 8081 (Financial Agent)
 
 It never reads, writes or rotates a Secret, never touches the approval passphrase, and prints no secret value or project ID.
@@ -72,8 +73,12 @@ class Reset:
         self.seed()
         self.out('done   demo data: demo user re-seeded')
         rc, out = self.kubectl('-n', 'apps', 'exec', 'deployment/app', '-c', 'app', '--', '/usr/local/bin/python3.12', '-c', WARM_UP)
-        self.out('done   redactor warm-up (one call, no user data)' if rc == 0 and 'redactor warm-up: ok' in out
-                 else 'FAILED redactor warm-up: the first live question may be slow; run demo-reset again')
+        if rc == 0 and 'redactor warm-up: ok' in out:
+            self.out('done   redactor warm-up (one call, no user data)')
+        else:  # e.g. exec refused by a policy: never retried another way; the owner warms DLP through the product instead
+            self.out('FAILED redactor warm-up (kubectl exec was refused or failed; nothing was bypassed).')
+            self.out('       Instead: ask one non-personal question in the console before recording, for example')
+            self.out('       "How much did I spend in October 2026?" on http://127.0.0.1:8081/.')
         self.out('')
         self.out('Port-forwards (one terminal each):')
         for line in PORT_FORWARDS:
