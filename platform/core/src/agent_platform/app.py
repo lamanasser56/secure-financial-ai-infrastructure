@@ -270,7 +270,9 @@ class ClusterOperations:
                     'board': [{'target_id': k, 'finding': v['finding'], 'desired': v['desired_replicas'],
                                'available': v['available_replicas'], 'observe_only': v.get('observe_only', False),
                                'automated_fix': v.get('automated_fix', False), 'owner_action': v.get('owner_action'),
-                               'evidence': v.get('evidence', [])} for k, v in sorted(snapshot['findings'].items())],
+                               'evidence': v.get('evidence', []),
+                               # the ops agent's explanation: model text, redacted, untrusted and display-only (never an input)
+                               'explanation': (v.get('explanation') or {}).get('untrusted_text')} for k, v in sorted(snapshot['findings'].items())],
                     'actions': list(ACTIONS), 'budgets': self.budgets(), 'recent': snapshot['timeline'][-20:],
                     'timeline': snapshot['timeline'], 'pending': snapshot['pending'], 'denials': snapshot['denials'],
                     'identity_authority': 'platform_fixture_owner', 'financial_ui': '/', 'model_boundary': 'gateway_via_redactor'}

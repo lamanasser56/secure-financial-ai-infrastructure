@@ -1,7 +1,8 @@
 /* Agents: passports. The passport data page, the stamp and the ALLOWED / RESTRICTED lists are built from /api/console/{agents,onboarding,topology}. */
 (() => {
   'use strict';
-  const {el, $} = Console;
+  const {el} = Console;
+  // Why a declared item has no live check. Keyed by guarantee id; the platform tenant (the ops agent) has its own reasons where they differ.
   const WHY_NOT_LIVE = {
     namespace: 'No live scan of this agent was seen by the ops agent, so only the manifest says it has its own namespace.',
     network: 'The live NetworkPolicy list of this namespace was not readable right now, so only the rendered policy says default-deny is in place.',
@@ -11,16 +12,23 @@
     tools: "Tools are declared in the manifest. The platform cannot look inside the agent's code at runtime.",
     image: 'No ready pod was seen, so the signature cannot be inferred from a running pod.',
     ops: 'No recent scan of this agent was seen by the ops agent.',
+    approval: 'An approval is one-use and is checked by the admission policy at the moment of a change. There is no standing state to read live.',
     rows: 'Row-level security lives in the database. The console has no read-only way to check it live.'
   };
+  const WHY_PLATFORM = {
+    namespace: 'The ops agent did not answer, so only its manifest says it runs in the ops namespace.',
+    network: 'The ops agent does not list its own namespace, so only the rendered policy says default-deny is in place.',
+    image: 'The ops agent watches other workloads, not its own pod, so no running digest is read for it.'
+  };
+  const why = (agent, id) => (agent && agent.kind === 'platform' && WHY_PLATFORM[id]) || WHY_NOT_LIVE[id] || 'No live source exists for it.';
   const STATE = {verified: ['VERIFIED LIVE', 'allowed', '✓'], declared: ['DECLARED · NOT CHECKED LIVE', 'declared', '✓'], failing: ['FAILING', 'denied', '!']};
 
-  function explainGuarantee(g, from) {
+  function explainGuarantee(g, from, agent) {
     const [eyebrow] = STATE[g.state];
     const blocks = [{label: 'In plain words', text: g.title + ': ' + g.detail + '.'},
                     {label: 'How it is known', text: g.state === 'declared' ? 'From the manifest only (' + g.source + ').'
                       : 'Seen through ' + g.source + (g.basis === 'inference' ? '. This is an inference, not a direct observation.' : '.')}];
-    if (g.state === 'declared') blocks.push({label: 'Why it cannot be checked live', text: WHY_NOT_LIVE[g.id] || 'No live source exists for it.'});
+    if (g.state === 'declared') blocks.push({label: 'Why it cannot be checked live', text: why(agent, g.id)});
     else blocks.push({label: 'Proof · ' + g.source, node: el('pre', {class: 'code'}, g.detail)});
     Console.explain({eyebrow: 'EXPLAIN · ' + eyebrow, live: g.state === 'verified', title: g.title, sub: g.id, blocks}, from);
   }
@@ -29,7 +37,7 @@
   function explainStamp(agent, onb, from) {
     const c = onb.counts;
     const rows = onb.guarantees.map(g => el('div', {class: 'g'}, el('span', {class: 'ring ' + STATE[g.state][1]}, STATE[g.state][2]), el('div', {},
-      el('b', {}, g.title), el('div', {class: 'muted'}, g.state === 'declared' ? 'Declared. ' + (WHY_NOT_LIVE[g.id] || '') : g.detail))));
+      el('b', {}, g.title), el('div', {class: 'muted'}, g.state === 'declared' ? 'Declared. ' + why(agent, g.id) : g.detail))));
     Console.explain({eyebrow: 'EXPLAIN · ' + (c.failing ? 'FAILING' : c.verified ? 'VERIFIED LIVE' : 'DECLARED · NOT CHECKED LIVE'), live: c.verified > 0 && !c.failing,
       title: 'Passport check', sub: agent.namespace,
       blocks: [{label: 'In plain words', text: c.verified + ' of ' + onb.total + ' guarantees were seen live just now. ' + c.declared + ' come from the manifest only.' +
@@ -56,21 +64,24 @@
   const cover = () => el('svg', {class: 'cover', viewBox: '0 0 44 58', 'aria-hidden': 'true'}, el('rect', {x: 1, y: 1, width: 42, height: 56, rx: 4, fill: '#14406E', stroke: '#F2F7FF', 'stroke-opacity': 0.7}),
     el('path', {d: 'M22 12 L36 20 V34 L22 42 L8 34 V20 Z', fill: 'none', stroke: '#F2F7FF', 'stroke-width': 1.6}), el('circle', {cx: 22, cy: 27, r: 3, fill: '#7CF0C0'}), el('text', {x: 22, y: 50, 'text-anchor': 'middle', 'font-size': 6, 'font-family': 'Barlow Semi Condensed', fill: '#9DB6D6'}, 'PASSPORT'));
 
-  function listItem(kind, label, g, fallbackId, from) {
+  // One list row: plain text; a small LIVE tag only when its guarantee was verified in the cluster now; FAILING when a live check contradicts it.
+  function listItem(kind, label, g, fallbackId, agent) {
     const state = g ? g.state : 'declared';
-    const mark = state === 'failing' ? '!' : kind === 'ok' ? '✓' : '✕';
-    const open = e => g ? explainGuarantee(g, e.currentTarget) : Console.explain({eyebrow: 'EXPLAIN · DECLARED · NOT CHECKED LIVE', title: label, blocks: [{label: 'Why it cannot be checked live', text: WHY_NOT_LIVE[fallbackId]}]}, e.currentTarget);
-    return el('li', {class: state === 'declared' ? 'decl' : ''}, el('button', {type: 'button', onclick: open, 'aria-label': label + ' — ' + state}, el('span', {class: 'mark'}, mark), label,
-      state === 'declared' ? el('span', {class: 'chip declared', 'aria-hidden': 'true'}, 'declared') : null));
+    const open = e => g ? explainGuarantee(g, e.currentTarget, agent) : Console.explain({eyebrow: 'EXPLAIN · DECLARED · NOT CHECKED LIVE', title: label,
+      blocks: [{label: 'Why it cannot be checked live', text: why(agent, fallbackId)}]}, e.currentTarget);
+    return el('li', {}, el('button', {type: 'button', onclick: open, 'aria-label': label + ' — ' + state},
+      el('span', {class: 'mark', 'aria-hidden': 'true'}, kind === 'ok' ? '✓' : '✕'), label,
+      state === 'verified' ? el('span', {class: 'tag-live'}, 'LIVE') : state === 'failing' ? el('span', {class: 'tag-fail'}, 'FAILING') : null));
   }
 
-  function passport(agent, onb, topology, select) {
+  function passport(agent, onb, topology) {
     const g = id => onb && onb.guarantees.find(x => x.id === id);
-    const denied = (topology && topology.denied || []).filter(d => d.from === 'agent-' + agent.name);
+    const tenants = new Set((topology && topology.nodes || []).filter(n => n.kind === 'agent').map(n => n.id));
+    const denied = (topology && topology.denied || []).filter(d => d.from === agent.node);
     const digest = agent.live && agent.live.image_digests[0];
     const failing = onb ? onb.guarantees.filter(x => x.state === 'failing') : [];
     const data = agent.data === 'none' ? 'none' : agent.data.database + ' · own rows';
-    const field = (label, value) => el('div', {class: 'field'}, el('div', {class: 'label'}, label), el('b', {}, value));
+    const field = (label, value) => el('div', {class: 'field'}, el('div', {class: 'label'}, label), el('b', {title: value}, value));
     let stamp = null;
     if (onb) {
       const c = onb.counts, kind = c.failing ? 'failing' : c.verified ? '' : 'declared';
@@ -81,27 +92,32 @@
     }
     const [m1, m2] = mrz(agent, onb);
     const restricted = [];
-    if (denied.some(d => d.to === 'internet')) restricted.push(listItem('no', 'No internet access', g('network'), 'network'));
-    if (denied.some(d => d.to.startsWith('agent-'))) restricted.push(listItem('no', 'Cannot reach other agents', g('network'), 'network'));
-    if (g('redaction')) restricted.push(listItem('no', 'Personal data hidden from the model', g('redaction'), 'redaction'));
-    if (agent.data !== 'none' && agent.data.user_entry === 'own-rows') restricted.push(listItem('no', "Sees only the signed-in user's rows", null, 'rows'));
-    const card = el('article', {class: 'passport', 'aria-label': 'Passport of ' + Console.display(agent.name)},
+    if (denied.some(d => d.to === 'internet')) restricted.push(listItem('no', 'No internet access', g('network'), 'network', agent));
+    if (denied.some(d => tenants.has(d.to))) restricted.push(listItem('no', 'Cannot reach other agents', g('network'), 'network', agent));
+    if (g('redaction')) restricted.push(listItem('no', 'Personal data hidden from the model', g('redaction'), 'redaction', agent));
+    if (g('approval')) restricted.push(listItem('no', 'Changes nothing without the owner\'s approval', g('approval'), 'approval', agent));
+    if (agent.data !== 'none' && agent.data.user_entry === 'own-rows') restricted.push(listItem('no', "Sees only the signed-in user's rows", null, 'rows', agent));
+    const card = el('article', {class: 'passport', 'aria-label': 'Passport of ' + Console.title(agent)},
       el('div', {class: 'band'}, el('span', {}, 'AGENT PLATFORM'), el('span', {}, 'AGENT PASSPORT · P<PLT<01')),
-      stamp,
       el('div', {class: 'page'}, el('div', {}, el('div', {class: 'emblem'}, emblem(84)), el('div', {class: 'digest'},
-          Console.shortDigest(digest) || 'no running image seen', agent.live && agent.live.image_digests.length > 1 ? ' +' + (agent.live.image_digests.length - 1) : '')),
-        el('div', {}, el('div', {class: 'label'}, 'Name'), el('h2', {class: 'name'}, Console.display(agent.name), Console.healthChip(agent.health)),
+          Console.shortDigest(digest) || (agent.kind === 'platform' ? 'own pod not observed' : 'no running image seen'),
+          agent.live && agent.live.image_digests.length > 1 ? ' +' + (agent.live.image_digests.length - 1) : '')),
+        el('div', {}, el('div', {class: 'label'}, 'Name'), el('h2', {class: 'name'}, Console.title(agent), Console.healthChip(agent.health)),
           el('div', {class: 'fields'}, field('Namespace', agent.namespace), field('Team', agent.team), field('Runtime', agent.runtime || '—'),
             field('Model', agent.model || '—'), field('Budget', '$' + agent.budget_usd_month.toFixed(2) + ' / month'), field('Data', data)))),
-      el('div', {class: 'mrz', 'aria-hidden': 'true'}, el('div', {}, m1), el('div', {}, m2)));
+      el('div', {class: 'mrz', 'aria-hidden': 'true'}, el('div', {}, m1), el('div', {}, m2)),
+      stamp);
     const lists = el('div', {class: 'lists'},
-      el('div', {class: 'ok'}, el('h3', {}, 'ALLOWED'), el('ul', {}, agent.tools.length ? agent.tools.map(t => listItem('ok', t.description, g('tools'), 'tools')) : el('li', {class: 'muted'}, 'No tools.'))),
+      el('div', {class: 'ok'}, el('h3', {}, 'ALLOWED'), el('ul', {}, agent.tools.length ? agent.tools.map(t => listItem('ok', t.description, t.access === 'approval' ? g('approval') : g('tools'), 'tools', agent))
+        : el('li', {class: 'muted'}, 'No tools.'))),
       el('div', {class: 'no'}, el('h3', {}, 'RESTRICTED'), el('ul', {}, restricted.length ? restricted : el('li', {class: 'muted'}, 'No restrictions are shown without live or rendered data.'))));
+    const legend = el('p', {class: 'legend'}, el('span', {class: 'tag-live'}, 'LIVE'), '= checked in the cluster now; others are declared in the manifest');
     const note = failing.length ? el('div', {class: 'failnote', role: 'alert'}, 'Failing: ' + failing.map(x => x.title + ' — ' + x.detail).join('; ')) : null;
     const cta = el('div', {class: 'cta'}, el('button', {type: 'button', class: 'btn', onclick: e => onb && explainStamp(agent, onb, e.currentTarget), disabled: !onb}, 'See the evidence'),
-      el('a', {class: 'btn allowed', href: 'http://127.0.0.1:' + agent.port + '/', target: '_blank', rel: 'noopener'}, 'Try this agent →'),
-      el('span', {class: 'hint'}, 'Needs: make agent-forward A=' + agent.name));
-    return el('div', {}, card, note, lists, cta);
+      agent.kind === 'platform' ? el('a', {class: 'btn allowed', href: '#/ops'}, 'Open Ops →') : [
+        el('a', {class: 'btn allowed', href: 'http://127.0.0.1:' + agent.port + '/', target: '_blank', rel: 'noopener'}, 'Try this agent →'),
+        el('span', {class: 'hint'}, 'Needs: make agent-forward A=' + agent.name)]);
+    return el('div', {}, card, note, lists, legend, cta);
   }
 
   Console.screens.agents = (view, arg, alive) => {
@@ -122,7 +138,7 @@
         const agent = data.agents.find(a => a.name === selected);
         const rail = el('nav', {class: 'rail', 'aria-label': 'Agents'}, data.agents.map(a => el('button', {type: 'button', 'aria-current': a.name === selected ? 'true' : 'false',
           onclick: () => { selected = a.name; history.replaceState(null, '', '#/agents/' + encodeURIComponent(a.name)); show(true); }}, cover(),
-          el('span', {}, el('b', {}, Console.display(a.name)), el('span', {class: 'mono'}, a.namespace)))));
+          el('span', {}, el('b', {}, Console.title(a)), el('span', {class: 'mono'}, a.namespace)))));
         const page = passport(agent, data.onboarding[agent.name], data.topology);
         body.replaceChildren(el('div', {class: 'passports'}, rail, page));
         // The flip is a one-shot animation with no fill: when it ends the element has no transform at all (nothing left to blur the text).

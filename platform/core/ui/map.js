@@ -7,9 +7,9 @@
   const CELLS = {redactor: ['Redactor', 'hides personal data'], gateway: ['Model gateway', 'one key, one budget'], audit: ['Audit', 'every request recorded']};
 
   function agentExplain(agent, from) {
-    Console.explain({eyebrow: agent.live ? 'EXPLAIN · VERIFIED LIVE' : 'EXPLAIN · NOT SEEN LIVE', live: !!agent.live, title: Console.display(agent.name), sub: agent.namespace,
+    Console.explain({eyebrow: agent.live ? 'EXPLAIN · VERIFIED LIVE' : 'EXPLAIN · NOT SEEN LIVE', live: !!agent.live, title: Console.title(agent), sub: agent.namespace,
       blocks: [{label: 'In plain words', text: agent.description},
-               {label: 'How it works', text: 'Runs in its own namespace. It reaches only: ' + (agent.reaches.length ? agent.reaches.join(', ') : 'nothing') + '.'},
+               {label: 'How it works', text: 'Runs in its own namespace (' + agent.namespace + '). It reaches only: ' + (agent.reaches.length ? agent.reaches.join(', ') : 'nothing') + '.'},
                {label: 'Proof' + (agent.live ? ' · ' + agent.live.source : ''), node: Console.proofBox(agent.live)},
                {label: 'Without it', text: "One compromised agent could read another agent's data or borrow its key.", cls: 'without'}],
       file: agent.manifest_source}, from);
@@ -30,7 +30,7 @@
     const PX = 300, PW = 200, PY = TOP, HEAD = 30, CH = 62, PH = HEAD + CH * cells.length;
     const agentsH = agents.length * AH + (agents.length - 1) * GAP;
     const bottom = Math.max(PY + PH, TOP + agentsH) + 30;
-    const IY = bottom + 56, H = IY + 70;
+    const IY = bottom + 50, H = IY + 40;
     const busX = 262, midY = PY + PH / 2;
     const ayTop = i => TOP + i * (AH + GAP);
     const out = [el('defs', {}, el('pattern', {id: 'hatch', width: 8, height: 8, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)'},
@@ -39,13 +39,13 @@
     out.push(text(20, 24, 't-sub', 'PRIVATE CLUSTER'));
 
     // allowed paths: agent -> bus -> platform (one line per agent, a dot travels along it)
-    const openNetwork = from => Console.explainTopic('network', from);
+    const openNetwork = (focus) => from => Console.explainTopic('network', from, focus);
     if (agents.length && cells.length) {
       out.push(el('line', {x1: busX, y1: ayTop(0) + AH / 2, x2: busX, y2: Math.max(ayTop(agents.length - 1) + AH / 2, midY), class: 'edge'}));
       out.push(el('line', {x1: busX, y1: midY, x2: PX, y2: midY, class: 'edge'}));
       agents.forEach((a, i) => {
         const y = ayTop(i) + AH / 2, d = `M${AX + AW},${y} L${busX},${y} L${busX},${midY} L${PX},${midY}`;
-        out.push(part(Console.display(a.name) + ' network path', openNetwork,
+        out.push(part(Console.title(a) + ' network path', openNetwork([a.namespace]),
           el('path', {d: `M${AX + AW},${y} L${busX},${y}`, class: 'edge'}), el('circle', {cx: AX + AW, cy: y, r: 4, class: 'dot'}),
           moving(d), Console.reduced() ? el('circle', {cx: busX, cy: y, r: 4, class: 'dot'}) : null));
       });
@@ -54,17 +54,18 @@
     // agents
     agents.forEach((a, i) => {
       const y = ayTop(i);
-      out.push(part(Console.display(a.name), from => agentExplain(a, from),
-        el('rect', {x: AX, y, width: AW, height: AH, class: 'shape'}), text(AX + 14, y + 28, 't-name', Console.display(a.name)),
-        text(AX + 14, y + 48, 't-sub', (a.runtime || 'runtime unknown') + ' · ' + (a.data === 'none' ? 'no data' : 'own rows only'))));
+      const what = a.kind === 'platform' ? 'acts with approval' : a.data === 'none' ? 'no data' : 'own rows only';
+      out.push(part(Console.title(a), from => agentExplain(a, from),
+        el('rect', {x: AX, y, width: AW, height: AH, class: 'shape'}), text(AX + 14, y + 28, 't-name', Console.title(a)),
+        text(AX + 14, y + 48, 't-sub', (a.runtime || 'runtime unknown') + ' · ' + what)));
     });
     // denied: agent <-> agent (only pairs the topology says are denied)
     const denied = topology.denied || [];
     for (let i = 0; i + 1 < agents.length; i++) {
-      const a = 'agent-' + agents[i].name, b = 'agent-' + agents[i + 1].name;
+      const a = agents[i].node, b = agents[i + 1].node;
       if (!denied.some(d => (d.from === a && d.to === b) || (d.from === b && d.to === a))) continue;
       const y1 = ayTop(i) + AH, y2 = ayTop(i + 1), x = AX + AW / 2, my = (y1 + y2) / 2;
-      out.push(part('Agent to agent: denied', openNetwork, el('line', {x1: x, y1, x2: x, y2, class: 'edge deny'}),
+      out.push(part(Console.title(agents[i]) + ' to ' + Console.title(agents[i + 1]) + ': denied', openNetwork([agents[i].namespace, agents[i + 1].namespace]), el('line', {x1: x, y1, x2: x, y2, class: 'edge deny'}),
         el('rect', {x: x - 34, y: my - 11, width: 68, height: 22, class: 'tag deny'}), el('text', {x: x - 25, y: my + 4, class: 't-tag'}, '✕ why?'),
         el('text', {x: x + 44, y: my + 5, class: 'cross'}, '✕')));
     }
@@ -95,7 +96,7 @@
     }
     // internet: no route
     if (nodes.internet) {
-      const open = from => Console.explainTopic('internet', from), noRoute = denied.some(d => d.to === 'internet');
+      const open = from => Console.explainTopic('internet', from, agents.map(a => a.namespace)), noRoute = denied.some(d => d.to === 'internet');
       out.push(part('Internet: ' + (noRoute ? 'no way out' : 'see how it works'), open,
         el('path', {d: `M${busX},${bottom - 6} L${busX},${IY} L${EX},${IY}`, class: 'edge deny'}), el('rect', {x: EX, y: IY - 29, width: EW, height: EH, class: 'shape dash'}),
         text(EX + 14, IY - 3, 't-name', 'Internet'), text(EX + 14, IY + 15, 't-deny', noRoute ? 'no way out · why?' : 'why?'),
@@ -105,15 +106,24 @@
   }
 
   const kindChip = k => el('span', {class: 'chip ' + (k === 'blocked' ? 'denied' : 'allowed')}, k);
+  // Plain words for the redactor's category codes (runtime/phase3/trusted_runtime.py SUPPORTED_ENTITIES). Unknown codes: "personal data".
+  const CATEGORY = {EMAIL_ADDRESS: 'an email address', PHONE_NUMBER: 'a phone number', CREDIT_CARD: 'a card number', IBAN_CODE: 'a bank account number (IBAN)',
+                    SAUDI_BANK_ACCOUNT: 'a bank account number', SAUDI_NATIONAL_ID: 'a national ID number', SAUDI_RESIDENT_ID: 'a residence ID number',
+                    SAUDI_VAT_ID: 'a VAT number'};
+  const plainCategories = codes => {
+    const said = [...new Set((codes || []).map(c => CATEGORY[c] || 'personal data'))];
+    return said.length ? said.length > 1 ? said.slice(0, -1).join(', ') + ' and ' + said[said.length - 1] : said[0] : 'personal data';
+  };
+  Console.plainCategories = plainCategories;
   function eventText(e) {
-    if (e.kind === 'masked') return 'Hid ' + ((e.categories || []).join(', ') || 'personal data') + (e.caller ? ' · ' + e.caller : '');
+    if (e.kind === 'masked') return 'Hid ' + plainCategories(e.categories) + (e.caller ? ' · ' + e.caller : '');
     if (e.kind === 'approved') return 'Approved' + (e.action ? ' ' + e.action : '') + (e.target ? ' · ' + e.target : '');
     return (e.code || e.reason || 'refused').toLowerCase().replace(/_/g, ' ') + (e.target ? ' · ' + e.target : e.caller ? ' · ' + e.caller : '');
   }
 
   function side(data, activity) {
     const rows = data.agents.map(a => {
-      const link = el('a', {href: '#/agents/' + encodeURIComponent(a.name), class: 'who'}, el('b', {}, Console.display(a.name)),
+      const link = el('a', {href: '#/agents/' + encodeURIComponent(a.name), class: 'who'}, el('b', {}, Console.title(a)),
         el('span', {}, Console.countsText((data.onboarding[a.name] || {}).counts)));
       return el('div', {class: 'row'}, link, Console.healthChip(a.health));
     });
@@ -123,7 +133,7 @@
     return el('div', {class: 'side'},
       el('section', {class: 'panel', 'aria-label': 'Agents'}, el('div', {class: 'label'}, 'Agents'), rows.length ? rows : el('p', {class: 'muted'}, 'No agents onboarded.')),
       el('section', {class: 'panel', 'aria-label': 'Latest activity'}, el('div', {class: 'label'}, 'Latest activity'), events),
-      el('div', {class: 'btns'}, el('a', {class: 'btn inverse', href: '#/agents'}, 'Agent passports →'), el('a', {class: 'btn denied', href: '#/break'}, 'Try to break it →')));
+      el('div', {class: 'btns'}, el('a', {class: 'btn inverse', href: '#/agents'}, 'Passports →'), el('a', {class: 'btn denied', href: '#/break'}, 'Break it →')));
   }
 
   Console.screens.map = (view, arg, alive) => {

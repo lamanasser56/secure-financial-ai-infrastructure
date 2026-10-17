@@ -7,6 +7,7 @@
   // Run fn now and then every `ms` while this screen is open (paused while the tab is hidden).
   Console.every = (fn, ms) => { fn(); timers.push(setInterval(() => { if (!document.hidden) fn(); }, ms)); };
   Console.display = name => name.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+  Console.title = agent => agent.display || Console.display(agent.name);  // the API's display name (e.g. "Security & Ops")
   // Health chip from agents[].health: RUNNING / NOT READY / ABSENT; nothing at all when health is null (the source cannot say).
   Console.healthChip = health => {
     if (!health) return null;

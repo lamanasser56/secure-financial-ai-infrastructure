@@ -34,8 +34,10 @@
     view.append(body, el('div', {class: 'rejected'}, el('b', {}, 'REJECTED'),
       el('span', {}, 'A file asking for the internet, a write tool, or a $500 budget is refused. Nothing gets created.'), example));
     async function tick() {
-      const data = await Console.loadAgents();
+      const loaded = await Console.loadAgents();
       if (!alive()) return;
+      // Onboard is about agent.yaml: platform tenants (the ops agent) are not onboarded from a manifest.
+      const data = loaded && {...loaded, agents: loaded.agents.filter(a => a.kind !== 'platform')};
       const key = JSON.stringify(data) + selected;
       if (key === last) return;
       last = key;

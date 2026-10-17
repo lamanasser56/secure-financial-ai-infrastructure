@@ -48,14 +48,26 @@
     const refresh = async () => {
       const r = await call({operation: 'overview'});
       if (!alive()) return;
+      Console.setLive(r.ok);
       if (!r.ok) { body.replaceChildren(Console.empty('The ops agent cannot be reached.', 'Reason: ' + words(r.error))); last = ''; return; }
       const key = JSON.stringify(r.data);
       if (key === last) return;
       if (body.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;  // do not wipe a passphrase being typed
       last = key;
       const d = r.data;
-      const timeline = (d.timeline || []).slice(-20).reverse().map(e => el('li', {}, el('time', {}, Console.ago(e.at)),
-        el('span', {}, e.target + (e.code ? ' · ' + words(e.code) : e.finding ? ' · ' + words(e.finding) : e.action ? ' · ' + words(e.action) : '')), stageChip(e.stage)));
+      // The "Explain" step: the ops agent's own explanation of an open incident (model text, redacted, display only), placed right
+      // after the incident's latest diagnosis. It can never change the action. Without one, the step says so.
+      const incidents = Object.fromEntries((d.board || []).filter(b => b.finding !== 'HEALTHY').map(b => [b.target_id, b]));
+      const explainRow = b => el('li', {class: 'explain'}, el('span', {class: 'chip muted'}, 'Explain'), el('div', {},
+        b.explanation ? [el('p', {}, b.explanation), el('p', {class: 'hint'}, 'AI explanation — for information only; it cannot change the action.')]
+          : el('p', {class: 'muted'}, 'No explanation yet.')));
+      const shown = new Set(), timeline = [];
+      (d.timeline || []).slice(-20).reverse().forEach(e => {
+        if (e.stage === 'diagnosed' && incidents[e.target] && !shown.has(e.target)) { shown.add(e.target); timeline.push(explainRow(incidents[e.target])); }
+        timeline.push(el('li', {}, el('time', {}, Console.ago(e.at)),
+          el('span', {}, e.target + (e.code ? ' · ' + words(e.code) : e.finding ? ' · ' + words(e.finding) : e.action ? ' · ' + words(e.action) : '')), stageChip(e.stage)));
+      });
+      Object.values(incidents).filter(b => !shown.has(b.target_id)).forEach(b => timeline.unshift(explainRow(b)));
       const board = (d.board || []).map(b => el('div', {class: 'row'}, el('div', {class: 'who'}, el('b', {}, b.target_id),
         el('span', {}, b.available + ' of ' + b.desired + ' ready' + (b.observe_only ? ' · watched read-only' : ''))),
         el('span', {class: 'chip ' + (b.finding === 'HEALTHY' ? 'allowed' : 'denied')}, words(b.finding))));

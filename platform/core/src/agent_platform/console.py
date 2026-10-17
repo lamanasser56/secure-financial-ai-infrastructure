@@ -32,6 +32,8 @@ FRESH_SECONDS = 120  # the ops agent scans every 15 s; a finding older than this
 MAX_EVENTS = 20
 ASSET_TYPES = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
                '.woff2': 'font/woff2'}
+OPS = 'ops-agent'  # the Security & Operations Agent: a platform tenant (ops namespace), not onboarded from an agent.yaml
+OPS_GUARANTEES = ('namespace', 'network', 'model_key', 'budget', 'redaction', 'approval', 'image')
 REDACTION_RECENT_SECONDS = 3600  # how recent a redactor event for the agent's own key must be to count as seen
 
 
@@ -53,6 +55,10 @@ def locate_extras():
     return HERE.parents[2] / 'ui', HERE.parents[4] / 'docs/evidence', HERE.parents[4] / 'docs/examples'
 
 
+def display(name):
+    return ' '.join(w[:1].upper() + w[1:] for w in name.split('-'))
+
+
 def documents(path):
     if not path.is_file():
         return []
@@ -64,7 +70,7 @@ def peer_names(rule):
     found = []
     for peer in rule.get('to') or []:
         if 'ipBlock' in peer:
-            found.append(('ip', peer['ipBlock'].get('cidr')))
+            found.append(('ip', peer['ipBlock'].get('cidr'), None))
             continue
         namespace = ((peer.get('namespaceSelector') or {}).get('matchLabels') or {}).get('kubernetes.io/metadata.name')
         app = ((peer.get('podSelector') or {}).get('matchLabels') or {}).get('app.kubernetes.io/name')
@@ -81,6 +87,7 @@ class Console:
         self.ui_dir, self.evidence_dir, self.examples_dir = extras or locate_extras()
         self._cache = {}
         self._manifests = self._load_manifests()
+        self._opscfg = self._load_ops()
 
     # manifests ---------------------------------------------------------------------------------------------
     def _load_manifests(self):
@@ -93,6 +100,21 @@ class Console:
                 found[name] = {'manifest': manifest, 'rendered': rendered, 'file': f'platform/core/kubernetes/agents/{name}.yaml'}
         return found
 
+    def _load_ops(self):
+        """The ops agent's real config: its Deployment, registry, NetworkPolicies (core + GKE overlay) and observed agents."""
+        from agent_platform.ops import registry
+        docs = documents(self.kube / 'ops/workloads.yaml')
+        deployment = self._kind(docs, 'Deployment', OPS)
+        config = self._kind(docs, 'ConfigMap', 'ops-agent-registry')
+        if deployment is None or config is None:
+            return None
+        policies = [d for d in documents(self.kube / 'policies/network.yaml') + documents(self.gke / 'gke.yaml')
+                    if d.get('kind') == 'NetworkPolicy' and d['metadata'].get('namespace') == 'ops']
+        observed = self._kind(documents(self.kube / 'agents/ops-observe.yaml'), 'ConfigMap', 'ops-agent-observe')
+        return {'deployment': deployment, 'targets': registry.parse(config['data']), 'rendered': policies,
+                'observed': sorted((observed or {}).get('data') or {}), 'policy_names': (OPS, 'ops-agent-apiserver'),
+                'file': 'platform/core/kubernetes/ops/workloads.yaml'}
+
     def _model(self):
         for doc in documents(self.kube / 'platform/generated/litellm.yaml'):
             for entry in doc.get('model_list') or []:
@@ -104,11 +126,17 @@ class Console:
         return next((d for d in rendered if d.get('kind') == kind and (name is None or d['metadata']['name'] == name)), None)
 
     def _egress(self, entry):
-        policy = self._kind(entry['rendered'], 'NetworkPolicy', 'agent')
         found = []
-        for rule in (policy or {}).get('spec', {}).get('egress') or []:
-            found += peer_names(rule)
+        for name in entry.get('policy_names', ('agent',)):
+            policy = self._kind(entry['rendered'], 'NetworkPolicy', name)
+            for rule in (policy or {}).get('spec', {}).get('egress') or []:
+                found += peer_names(rule)
         return found
+
+    @staticmethod
+    def _runtime(command):
+        version = re.search(r'python(3\.\d+)', command)
+        return 'node' if command.endswith('/node') else ('python ' + version.group(1) if version else None)
 
     # live sources -------------------------------------------------------------------------------------------
     def _live(self, path):
@@ -166,11 +194,9 @@ class Console:
     def _agent(self, name):
         entry = self._manifests[name]
         m = entry['manifest']
-        command = (m['runtime']['command'] or [''])[0]
-        version = re.search(r'python(3\.\d+)', command)
-        runtime = 'node' if command.endswith('/node') else ('python ' + version.group(1) if version else None)
+        runtime = self._runtime((m['runtime']['command'] or [''])[0])
         data = m['data']
-        return {'id': name, 'name': name, 'namespace': 'agent-' + name, 'team': m['team'], 'description': m['description'],
+        return {'id': name, 'name': name, 'node': 'agent-' + name, 'kind': 'agent', 'display': display(name), 'namespace': 'agent-' + name, 'team': m['team'], 'description': m['description'],
                 'runtime': runtime, 'model': self._model(), 'budget_usd_month': m['model']['budget_usd_month'],
                 'replicas': m['runtime']['replicas'], 'port': m['runtime']['port'], 'redaction': m['redaction'],
                 'tools': [{'id': t['id'], 'access': t['access'], 'description': t['description']} for t in m['tools']],
@@ -179,12 +205,83 @@ class Console:
                 'reaches': sorted({f'{n}/{a}:{p}' for n, a, p in self._egress(entry) if n != 'ip'}),
                 'manifest_source': entry['file'], 'live': self._live_block(name), 'health': self._health(name)}
 
+    def _ops_live(self):
+        """The ops agent's own live state: its API answered (traffic reaches only ready pods). It does not observe its own pod,
+        so there is no digest or restart count for it."""
+        snapshot = self._live('/v1/snapshot')
+        if snapshot is None:
+            return None
+        return {'source': 'ops-agent /v1/snapshot', 'observed_at': round(self._clock(), 3), 'state': 'ANSWERING',
+                'targets_watched': len(snapshot.get('findings') or {}), 'image_digests': []}
+
+    def _ops_agent(self):
+        from agent_platform.onboarding import PLATFORM_KEYS
+        from agent_platform.ops.registry import ACTIONS
+        o = self._opscfg
+        container = o['deployment']['spec']['template']['spec']['containers'][0]
+        targets = o['targets']
+        tools = [{'id': 'observe', 'access': 'read', 'description': 'Watch %d registered workloads and %d onboarded agents, read-only.'
+                  % (len(targets), len(o['observed']))}]
+        wording = {'restart': 'Restart a registered workload, once, after the owner approves.',
+                   'scale': 'Scale a registered workload within its bounds, after the owner approves.'}
+        tools += [{'id': a, 'access': 'approval', 'description': wording.get(a, a)} for a in ACTIONS]
+        egress = self._egress(o)
+        reaches = sorted({f'{n}/{a}:{p}' for n, a, p in egress if n != 'ip'})
+        if any(n == 'ip' for n, _, _ in egress):
+            reaches.append('kubernetes API (private control-plane range)')
+        live = self._ops_live()
+        return {'id': OPS, 'name': OPS, 'node': OPS, 'kind': 'platform', 'display': 'Security & Ops', 'namespace': 'ops', 'team': 'platform',
+                'description': 'Watches the registered workloads and the onboarded agents read-only, diagnoses faults, and proposes '
+                               'a restart or a bounded scale that runs only after the owner approves.',
+                'runtime': self._runtime(container['command'][0]), 'model': self._model(), 'budget_usd_month': PLATFORM_KEYS['ops-explain'],
+                'replicas': o['deployment']['spec'].get('replicas'), 'port': container['ports'][0]['containerPort'], 'redaction': 'required',
+                'tools': tools, 'data': 'none', 'reaches': reaches,
+                'targets': [{'target': k, 'min': t.min_replicas, 'max': t.max_replicas} for k, t in sorted(targets.items())],
+                'manifest_source': o['file'], 'live': live,
+                'health': {'state': 'running', 'source': 'ops-agent API answered (only ready pods receive traffic)'} if live else None}
+
     def agents(self):
-        return {'agents': [self._agent(n) for n in sorted(self._manifests)], 'live_source': 'ops-agent /v1/snapshot',
+        listed = [self._agent(n) for n in sorted(self._manifests)] + ([self._ops_agent()] if self._opscfg else [])
+        return {'agents': sorted(listed, key=lambda a: a['name']), 'live_source': 'ops-agent /v1/snapshot',
                 'live_available': self._live('/v1/snapshot') is not None}
 
     # onboarding ---------------------------------------------------------------------------------------------
+    def _ops_onboarding(self):
+        o, ns, file = self._opscfg, 'ops', self._opscfg['file']
+        live = self._ops_live()
+        posture = ((self._live('/v1/posture') or {}).get('network') or {}).get(ns)
+        activity = self._live('/v1/activity')
+        seen = [e for e in (activity or {}).get('events', []) if e.get('caller') == 'ops' and type(e.get('at')) in (int, float)
+                and self._clock() - e['at'] <= REDACTION_RECENT_SECONDS]
+        g = lambda gid, title, state, basis, source, detail: {'id': gid, 'title': title, 'state': state, 'basis': basis, 'source': source, 'detail': detail}
+        out = [g('namespace', 'Its own namespace', 'verified', 'observed', 'ops-agent /v1/snapshot', 'its API answered at ops-agent.ops') if live else
+               g('namespace', 'Its own namespace', 'declared', 'manifest', file, 'Deployment ops-agent in namespace ops')]
+        if posture is None:
+            out.append(g('network', 'Default-deny network', 'declared', 'manifest', 'platform/core/kubernetes/policies/network.yaml',
+                         'default-deny rendered for ops; ingress only from the front door; egress only to the gateway, the redactor and the API server'))
+        elif any(p['pods'] == 'all' and p['types'] == ['Egress', 'Ingress'] and not p['ingress'] and not p['egress'] for p in posture):
+            out.append(g('network', 'Default-deny network', 'verified', 'observed', 'ops-agent /v1/posture', 'default-deny seen in the live NetworkPolicy list of ops'))
+        else:
+            out.append(g('network', 'Default-deny network', 'failing', 'observed', 'ops-agent /v1/posture', 'no default-deny policy in the live NetworkPolicy list of ops'))
+        out.append(g('model_key', 'Scoped model key', 'declared', 'manifest', 'platform/core/src/agent_platform/onboarding.py',
+                     'gateway key ops-explain, used only to explain a finding; the key is never readable here'))
+        out.append(g('budget', 'Monthly budget', 'declared', 'manifest', 'platform/core/src/agent_platform/onboarding.py',
+                     'ops-explain: %s per month' % self._ops_agent()['budget_usd_month']))
+        out.append(g('redaction', 'Personal data redaction', 'verified', 'observed', 'redactor audit via ops-agent /v1/activity',
+                     'a recent redactor event for the key of ops') if seen else
+                   g('redaction', 'Personal data redaction', 'declared', 'manifest', 'platform/core/src/agent_platform/ops/explain.py',
+                     'every explanation request is redacted before the model'))
+        out.append(g('approval', 'Approval-gated actions', 'declared', 'manifest', 'platform/core/kubernetes/policies/admission.yaml',
+                     'restart or bounded scale of %d registered workloads only, after a one-use owner approval; the admission policy '
+                     'ops-agent-bounded-remediation limits every change' % len(o['targets'])))
+        out.append(g('image', 'Signed image only', 'declared', 'manifest', 'platform/clouds/gke/images.json',
+                     'image pinned by digest and signed by CI; the ops agent does not observe its own pod'))
+        counts = {state: sum(x['state'] == state for x in out) for state in ('verified', 'declared', 'failing')}
+        return {'agent': OPS, 'guarantees': out, 'counts': counts, 'verified': counts['verified'], 'total': len(out)}
+
     def onboarding(self, name):
+        if name == OPS and self._opscfg:
+            return self._ops_onboarding()
         if name not in self._manifests:
             return None
         entry, ns = self._manifests[name], 'agent-' + name
@@ -248,6 +345,8 @@ class Console:
         for name in ('gateway', 'redactor', 'postgres'):
             if name in platform:
                 nodes.append({'id': name, 'kind': 'platform', 'name': name, 'namespace': 'platform'})
+        if self._opscfg:
+            nodes.append({'id': OPS, 'kind': 'agent', 'tenant': 'platform', 'name': OPS, 'namespace': 'ops', 'data': 'none'})
         nodes.append({'id': 'audit', 'kind': 'platform', 'name': 'audit', 'namespace': 'platform'})
         externals = {}
         for path in (self.gke / 'generated/provider-egress.yaml', self.gke / 'gke.yaml'):
@@ -274,12 +373,21 @@ class Console:
                 elif ns == 'platform' and app in platform:
                     edges.append({'from': 'agent-' + name, 'to': app, 'port': port, 'state': 'allowed',
                                   'source': 'rendered NetworkPolicy agent-' + name + '/agent'})
-        agents = sorted(self._manifests)
-        denied = [{'from': 'agent-' + a, 'to': 'agent-' + b, 'why': 'default-deny; no rule allows it'}
-                  for a in agents for b in agents if a != b and not any(
-                      ns == 'agent-' + b for ns, _, _ in self._egress(self._manifests[a]))]
+        tenants = {'agent-' + n: (self._manifests[n], 'agent-' + n) for n in sorted(self._manifests)}
+        if self._opscfg:
+            tenants[OPS] = (self._opscfg, 'ops')
+            for ns, app, port in self._egress(self._opscfg):
+                if ns == 'platform' and app in platform:
+                    edges.append({'from': OPS, 'to': app, 'port': port, 'state': 'allowed', 'source': 'rendered NetworkPolicy ops/ops-agent'})
+        reaches_ns = lambda entry: {ns for ns, _, _ in self._egress(entry)}
+        denied = [{'from': a, 'to': b, 'why': 'default-deny; no rule allows it'}
+                  for a in tenants for b in tenants if a != b and tenants[b][1] not in reaches_ns(tenants[a][0])]
         if not ip_egress:
-            denied += [{'from': 'agent-' + a, 'to': 'internet', 'why': 'default-deny; no egress rule to an address'} for a in agents]
+            denied += [{'from': a, 'to': 'internet', 'why': 'default-deny; no egress rule to an address'} for a in tenants if a != OPS]
+        if self._opscfg:
+            blocks = [p for ns, p, _ in self._egress(self._opscfg) if ns == 'ip']
+            if all(b == 'CONTROL_PLANE_CIDR' for b in blocks):  # render.py admits only a private /28 for this placeholder
+                denied.append({'from': OPS, 'to': 'internet', 'why': 'default-deny; its only address rule is the private API-server range'})
         return {'nodes': nodes, 'edges': edges, 'denied': denied,
                 'source': 'rendered manifests shipped in the image', 'live': False}
 
@@ -321,8 +429,26 @@ class Console:
                 raise ValueError('shape')
         except (OSError, ValueError, KeyError, TypeError):
             return {'available': False, 'file': 'docs/evidence/attack-suite.json', 'results': []}
+        note = self._attack_note()
+        for r in rows:  # the latest run's note, attached only to the failed case it is about (its text, unchanged)
+            if note and r['case'] == note['case'] and r['result'] == 'FAIL':
+                r['note'] = {'conclusion': note['conclusion'], 'file': note['file']}
         return {'available': True, 'file': 'docs/evidence/attack-suite.json', 'completed_at': data['completed_at'][:40],
                 'results': rows, 'stopped': sum(r['result'] == 'PASS' for r in rows), 'total': len(rows)}
+
+    def _attack_note(self):
+        """The owner's note on the latest run (docs/evidence/attack-suite-run-<n>-note.json with the highest n), or None."""
+        notes = sorted(((int(m.group(1)), p) for p in self.evidence_dir.glob('attack-suite-run-*-note.json')
+                        if (m := re.fullmatch(r'attack-suite-run-([0-9]{1,3})-note\.json', p.name))), reverse=True)
+        if not notes:
+            return None
+        try:
+            value = json.loads(notes[0][1].read_text())
+            if type(value.get('case')) is not str or not self.ATTACK_CASE.fullmatch(value['case']) or type(value.get('conclusion')) is not str:
+                return None
+        except (OSError, ValueError, AttributeError):
+            return None
+        return {'case': value['case'], 'conclusion': value['conclusion'][:800], 'file': 'docs/evidence/' + notes[0][1].name}
 
     def example(self):
         path = self.examples_dir / 'rejected-agent/agent.yaml'

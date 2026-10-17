@@ -43,9 +43,9 @@ COPY --chown=65532:65532 evaluation/agent-composition/ /app/evaluation/agent-com
 COPY --chown=65532:65532 platform/core/kubernetes/ /app/platform/kubernetes/
 COPY --chown=65532:65532 platform/agents/ /app/platform/agents/
 COPY --chown=65532:65532 platform/clouds/gke/kubernetes/ /app/platform/gke/
-# Console UI (fixed files, own fonts) and the two committed files it shows: the latest attack-suite results and the rejected example.
+# Console UI (fixed files, own fonts) and the two committed files it shows: the attack-suite results (and the owner's notes on them) and the rejected example.
 COPY --chown=65532:65532 platform/core/ui/ /app/platform/ui/
-COPY --chown=65532:65532 docs/evidence/attack-suite.json /app/platform/evidence/attack-suite.json
+COPY --chown=65532:65532 docs/evidence/attack-suite*.json /app/platform/evidence/
 COPY --chown=65532:65532 docs/examples/rejected-agent/agent.yaml /app/platform/examples/rejected-agent/agent.yaml
 ENTRYPOINT ["/usr/local/bin/python3.12", "-m", "agent_platform.app"]
 

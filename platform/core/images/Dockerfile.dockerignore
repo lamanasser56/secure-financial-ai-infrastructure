@@ -30,7 +30,7 @@
 !platform/clouds/gke/kubernetes/generated/**
 !docs/
 !docs/evidence/
-!docs/evidence/attack-suite.json
+!docs/evidence/attack-suite*.json
 !docs/examples/
 !docs/examples/rejected-agent/
 !docs/examples/rejected-agent/agent.yaml
