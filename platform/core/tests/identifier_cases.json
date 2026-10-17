@@ -1,0 +1,194 @@
+{
+ "_comment": "Shared by platform/core/tests/test_identifiers.py and platform/agents/platform-guide/test/identifiers.test.js: both detectors must return exactly these (category, value) pairs. The invoice is synthetic (fictional companies; every domain returned NXDOMAIN with no A or MX record on 2026-10-17; the IBAN is a public sample; phone numbers invented).",
+ "invoice": "TAX INVOICE INV-2026-0117 | Nimbus Cloud Tools LLC, Riyadh, billing@nimbuscloud.com.sa, +966 55 014 2386, VAT No 300000000000003 | To Alpha Studio, Jeddah, accounts@alphastudio.sa, +966 53 207 9418 | CC finance@riyadhcoders.org.sa | Issued 2026-01-17 | Cloud software subscription – January 2026, Software, qty 1, 200.00 SAR | Total due 200.00 SAR by 2026-01-31 | IBAN SA03 8000 0000 6080 1016 7519, ref INV-2026-0117 Did I already record this payment in my expenses?",
+ "invoice_values": [
+  "+966 55 014 2386",
+  "+966 53 207 9418",
+  "300000000000003",
+  "SA03 8000 0000 6080 1016 7519"
+ ],
+ "invoice_emails": [
+  "billing@nimbuscloud.com.sa",
+  "accounts@alphastudio.sa",
+  "finance@riyadhcoders.org.sa"
+ ],
+ "cases": [
+  {
+   "text": "TAX INVOICE INV-2026-0117 | Nimbus Cloud Tools LLC, Riyadh, billing@nimbuscloud.com.sa, +966 55 014 2386, VAT No 300000000000003 | To Alpha Studio, Jeddah, accounts@alphastudio.sa, +966 53 207 9418 | CC finance@riyadhcoders.org.sa | Issued 2026-01-17 | Cloud software subscription – January 2026, Software, qty 1, 200.00 SAR | Total due 200.00 SAR by 2026-01-31 | IBAN SA03 8000 0000 6080 1016 7519, ref INV-2026-0117 Did I already record this payment in my expenses?",
+   "expected": [
+    [
+     "PHONE_NUMBER",
+     "+966 55 014 2386"
+    ],
+    [
+     "SAUDI_VAT_ID",
+     "300000000000003"
+    ],
+    [
+     "PHONE_NUMBER",
+     "+966 53 207 9418"
+    ],
+    [
+     "IBAN_CODE",
+     "SA03 8000 0000 6080 1016 7519"
+    ]
+   ]
+  },
+  {
+   "text": "TAX INVOICE INV-2026-0117 | Nimbus Cloud Tools LLC | ٠٥٥٠١٤٢٣٨٦ | الرقم الضريبي: ٣٠٠٠٠٠٠٠٠٠٠٠٠٠٣ | الآيبان SA03 8000 0000 6080 1016 7519",
+   "expected": [
+    [
+     "PHONE_NUMBER",
+     "٠٥٥٠١٤٢٣٨٦"
+    ],
+    [
+     "SAUDI_VAT_ID",
+     "٣٠٠٠٠٠٠٠٠٠٠٠٠٠٣"
+    ],
+    [
+     "IBAN_CODE",
+     "SA03 8000 0000 6080 1016 7519"
+    ]
+   ]
+  },
+  {
+   "text": "Supplier phone 055-014-2386, customer 0532079418, VAT number: 300000000000003, IBAN SA0380000000608010167519",
+   "expected": [
+    [
+     "PHONE_NUMBER",
+     "055-014-2386"
+    ],
+    [
+     "PHONE_NUMBER",
+     "0532079418"
+    ],
+    [
+     "SAUDI_VAT_ID",
+     "300000000000003"
+    ],
+    [
+     "IBAN_CODE",
+     "SA0380000000608010167519"
+    ]
+   ]
+  },
+  {
+   "text": "Phone +966-55-014-2386 or 00966532079418 or 966 55 014 2386; tax ID 3000000000000 03",
+   "expected": [
+    [
+     "PHONE_NUMBER",
+     "+966-55-014-2386"
+    ],
+    [
+     "PHONE_NUMBER",
+     "00966532079418"
+    ],
+    [
+     "PHONE_NUMBER",
+     "966 55 014 2386"
+    ],
+    [
+     "SAUDI_VAT_ID",
+     "3000000000000 03"
+    ]
+   ]
+  },
+  {
+   "text": "رقم الهاتف: 05 5014 2386 — هاتف العميل +٩٦٦ ٥٣ ٢٠٧ ٩٤١٨ — رقم ضريبي ٣٠٠٠٠٠٠٠٠٠٠٠٠٠٣",
+   "expected": [
+    [
+     "PHONE_NUMBER",
+     "05 5014 2386"
+    ],
+    [
+     "PHONE_NUMBER",
+     "+٩٦٦ ٥٣ ٢٠٧ ٩٤١٨"
+    ],
+    [
+     "SAUDI_VAT_ID",
+     "٣٠٠٠٠٠٠٠٠٠٠٠٠٠٣"
+    ]
+   ]
+  },
+  {
+   "text": "VAT No. 300000000000003; VAT #300000000000003; TRN: 300000000000003; bare 300000000000003",
+   "expected": [
+    [
+     "SAUDI_VAT_ID",
+     "300000000000003"
+    ],
+    [
+     "SAUDI_VAT_ID",
+     "300000000000003"
+    ],
+    [
+     "SAUDI_VAT_ID",
+     "300000000000003"
+    ],
+    [
+     "SAUDI_VAT_ID",
+     "300000000000003"
+    ]
+   ]
+  },
+  {
+   "text": "Card 4111 1111 1111 1111, Amex 3782 822463 10005, typo 4111 1111 1111 1112",
+   "expected": [
+    [
+     "CREDIT_CARD",
+     "4111 1111 1111 1111"
+    ],
+    [
+     "CREDIT_CARD",
+     "3782 822463 10005"
+    ]
+   ]
+  },
+  {
+   "text": "National ID: 1012345678, Iqama No 2123456789, bank account number 12345678901, رقم الحساب 1234567890",
+   "expected": [
+    [
+     "SAUDI_NATIONAL_ID",
+     "1012345678"
+    ],
+    [
+     "SAUDI_RESIDENT_ID",
+     "2123456789"
+    ],
+    [
+     "SAUDI_BANK_ACCOUNT",
+     "12345678901"
+    ],
+    [
+     "SAUDI_BANK_ACCOUNT",
+     "1234567890"
+    ]
+   ]
+  },
+  {
+   "text": "IBAN: GB29 NWBK 6016 1331 9268 19 and call +44 20 7946 0958",
+   "expected": [
+    [
+     "IBAN_CODE",
+     "GB29 NWBK 6016 1331 9268 19"
+    ],
+    [
+     "PHONE_NUMBER",
+     "+44 20 7946 0958"
+    ]
+   ]
+  },
+  {
+   "text": "You spent 830.49 SAR in October 2026 between 2026-10-01 and 2026-10-31 (transaction 1500, epoch 1792264440).",
+   "expected": []
+  },
+  {
+   "text": "INV-2026-0117 qty 1 at 200.00 SAR; VAT 15% is 30.00 SAR; reference 0117; id 3a9f0d1c2b",
+   "expected": []
+  },
+  {
+   "text": "Contact 0501234567@mail.sa about room 42 and order 42-1500.",
+   "expected": []
+  }
+ ]
+}

@@ -390,6 +390,71 @@ class Turn(unittest.TestCase):
                                          'redaction', 'injection_result'})
 
 
+class PastedInvoice(unittest.TestCase):
+    """Redaction gap of 2026-10-17: a pasted invoice's phones, IBAN and VAT number reached the model unmasked.
+
+    Production wiring (DeterministicEmailRedactor around the real RedactorClient) against a redactor that finds nothing:
+    the worst case. No value may reach the redactor or the model on any path: question, database tool output, history.
+    """
+    CASES = json.loads((REPO / 'platform/core/tests/identifier_cases.json').read_text(encoding='utf-8'))
+    VALUES = CASES['invoice_values'] + CASES['invoice_emails']
+
+    def chain(self):
+        from agent_platform.redaction import RedactorClient
+        from runtime.phase3.deterministic_email import DeterministicEmailRedactor
+        seen = []
+
+        class Echo:
+            status = 200
+
+            def __init__(self, text):
+                self.body = json.dumps({'text': text, 'categories': []}).encode()
+
+            def read(self, limit=None):
+                return self.body
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        def opener(request, timeout=None):
+            seen.append(json.loads(request.data)['text'])
+            return Echo(seen[-1])
+        return DeterministicEmailRedactor(RedactorClient('http://redactor.invalid:4003', 'k' * 64, opener=opener)), seen
+
+    def assertNothingRaw(self, *texts):
+        sent = json.dumps(texts, ensure_ascii=False)
+        for value in self.VALUES:
+            self.assertNotIn(value, sent)
+
+    def test_the_question(self):
+        redactor, seen = self.chain()
+        model = Model({'action': 'answer', 'text': 'I can only see your own expenses.'})
+        _, result = run(model, redactor=redactor, question=self.CASES['invoice'])
+        self.assertEqual(result['status'], 'answered')
+        self.assertNothingRaw(model.prompts, seen)
+        self.assertEqual(result['privacy']['masked_before_model'], ['EMAIL_ADDRESS', 'IBAN_CODE', 'PHONE_NUMBER', 'SAUDI_VAT_ID'])
+
+    def test_database_tool_output(self):
+        redactor, seen = self.chain()
+        note = 'paid Nimbus +966 55 014 2386, IBAN SA03 8000 0000 6080 1016 7519, VAT No 300000000000003'
+        store = Store({LAMA: [(1, '2026-01-17', 'Nimbus Cloud Tools', 'software', 20000, note)]})
+        model = Model({'action': 'tool', 'tool': 'find_transactions', 'args': {'month': '2026-01'}},
+                      {'action': 'answer', 'text': 'I can only see your own expenses.'})
+        run(model, store=store, redactor=redactor, question='Did I already record this payment in my expenses?')
+        self.assertEqual(len(model.prompts), 2)  # the second prompt carries the tool result
+        self.assertNothingRaw(model.prompts, seen)
+
+    def test_history_and_the_shown_answer(self):
+        redactor, seen = self.chain()
+        model = Model({'action': 'answer', 'text': 'Noted.'}, {'action': 'answer', 'text': 'Your supplier phone is +966 55 014 2386.'})
+        agent, _ = run(model, redactor=redactor, question=self.CASES['invoice'])
+        second = agent.ask(LAMA, 'What was in my last message?', 'en')
+        self.assertNothingRaw(model.prompts, seen, second)
+
+
 try:
     import psycopg
 except ImportError:  # pragma: no cover

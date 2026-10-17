@@ -3,6 +3,11 @@
 Contract: POST {base}/redact {"text"} with a per-namespace bearer key -> {"text", "categories"}.
 Any failure (network, status, shape, unsupported category, size) raises ControlFailure, so the caller never
 sends a model request with unredacted text. It plugs into the existing agent core as its redactor.
+
+Before sending, structured identifiers (phone, IBAN, VAT, card, labelled IDs and bank accounts) are masked locally
+(agent_platform.identifiers): the redactor's policy anchors those patterns to the start of a line, which never happens
+inside the JSON string an agent redacts per model call. The redactor never sees the original values, and an answer that
+still contains one is refused like any other failure.
 """
 import json
 import threading
@@ -11,6 +16,7 @@ import urllib.error
 import urllib.request
 
 from agent_platform import request_context
+from agent_platform.identifiers import identifier_spans, mask
 from runtime.agents.composition import BoundaryBudget
 from runtime.phase3.trusted_runtime import ControlFailure, RedactionResult, SUPPORTED_ENTITIES
 
@@ -66,10 +72,12 @@ class RedactorClient:
         except ControlFailure:  # budget exhausted: a runtime redaction stage, so the trace says unavailable
             raise ControlFailure('presidio_anonymizer', 'unavailable') from None
         try:
+            spans = identifier_spans(value)  # raises ValueError on a non-str or oversized value: unavailable
+            masked = mask(value, spans)
             headers = {'Authorization': 'Bearer ' + self._key, 'Content-Type': 'application/json'}
             if request_context.current():  # the redactor's audit line carries the same request ID
                 headers[request_context.HEADER] = request_context.current()
-            request = urllib.request.Request(self._url, data=json.dumps({'text': value}).encode(), method='POST',
+            request = urllib.request.Request(self._url, data=json.dumps({'text': masked}).encode(), method='POST',
                                              headers=headers)
             with self._open(request, timeout=self._timeout) as response:
                 if response.status != 200:
@@ -80,8 +88,11 @@ class RedactorClient:
                     or not set(result['categories']) <= self._supported
                     or result['categories'] != sorted(set(result['categories']))):
                 raise ValueError('shape')
+            if any(value[start:end] in result['text'] for start, end, _ in spans):
+                raise ValueError('residual')  # fail closed: a masked value came back
             self.budget.accept_output(result['text'])
-            return RedactionResult(result['text'], tuple(result['categories']))
+            categories = sorted(set(result['categories']) | {category for _, _, category in spans})
+            return RedactionResult(result['text'], tuple(categories))
         except ControlFailure:  # output budget: same runtime stage as every other redaction failure
             raise ControlFailure('presidio_anonymizer', 'unavailable') from None
         except (urllib.error.URLError, OSError, ValueError):

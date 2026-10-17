@@ -2,6 +2,7 @@
 // The platform clients, written like the Financial Agent's: the redactor first (fail closed), then the gateway with
 // this agent's own scoped key. Both calls carry the request ID. No provider, no internet: only these two Services.
 const http = require('node:http');
+const { identifierSpans, maskSpans } = require('./identifiers');
 const { HEADER } = require('./requestId');
 
 const REDACTOR_URL = 'http://redactor.platform.svc.cluster.local:4003/redact';
@@ -68,8 +69,19 @@ class Redactor {
   }
 
   // -> { text, categories }. Any failure throws Blocked('redaction_unavailable'): nothing reaches the model.
+  // Emails, then structured identifiers (phone, IBAN, VAT, card, labelled IDs) are masked here, in raw text and inside the
+  // JSON prompt alike: the redactor's own patterns for those are line-anchored and never match inside a JSON string.
   async redact(text, requestId) {
-    const { masked, found } = maskEmails(String(text));
+    const emailMasked = maskEmails(String(text));
+    let spans;
+    try {
+      spans = identifierSpans(emailMasked.masked);
+    } catch {
+      throw new Blocked('redaction_unavailable');
+    }
+    const originals = spans.map(([start, end]) => emailMasked.masked.slice(start, end));
+    const masked = maskSpans(emailMasked.masked, spans);
+    const found = emailMasked.found;
     if (Buffer.byteLength(masked) > MAX_TEXT_BYTES) throw new Blocked('redaction_unavailable');
     let response;
     try {
@@ -84,8 +96,10 @@ class Redactor {
       && Array.isArray(categories) && categories.every((c) => typeof c === 'string' && SUPPORTED.has(c))
       && categories.join() === [...new Set(categories)].sort().join();
     if (!ok) throw new Blocked('redaction_unavailable');
+    if (originals.some((value) => result.text.includes(value))) throw new Blocked('redaction_unavailable'); // fail closed
     const all = new Set(categories);
     if (found) all.add('EMAIL_ADDRESS');
+    for (const [, , category] of spans) all.add(category);
     return { text: result.text, categories: [...all].sort() };
   }
 }
