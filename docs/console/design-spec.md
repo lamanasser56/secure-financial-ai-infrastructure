@@ -153,7 +153,7 @@ Message: one file in, eight guarantees out.
 
   Chip `VERIFIED` (`--allowed`, ✓ in a green ring) means seen live. Chip `DECLARED` (`--declared`, ✓ in a blue ring)
   means from the manifest only. Chip `FAILING` (`--denied` fill, ! in an amber ring) means a live check ran and
-  contradicts the manifest. The count is `verified` over eight; when `failing` is above 0 it adds `· n failing` in
+  contradicts the manifest (today only default-deny missing). The count is `verified` over eight; when `failing` is above 0 it adds `· n failing` in
   `--denied`.
 - **Rejected strip** (dashed `--denied` outline, full width): `REJECTED  A file asking for the internet, a write tool,
   or a $50 budget is refused. Nothing gets created.` and `See example →`.
@@ -224,7 +224,7 @@ the same Host/Origin boundary as the rest of the front door. Defined in
 | Endpoint | Screen | Returns |
 | --- | --- | --- |
 | `/api/console/topology` | Map | `nodes`, `edges` (allowed paths), `denied` (blocked paths), from the rendered manifests shipped in the image |
-| `/api/console/agents` | Agents | per agent: manifest facts and a `live` block (pods ready, restarts, running image digest) or `null` |
+| `/api/console/agents` | Agents | per agent: manifest facts, a `live` block (pods ready, restarts, running image digest) or `null`, and `health` |
 | `/api/console/onboarding/<agent>` | Onboard, Agents | `guarantees` (8; `state` is `verified`, `declared` or `failing`, plus `basis` and `source`), `counts` (`{verified, declared, failing}`), `verified`, `total` |
 | `/api/console/activity?limit=3` | Header / Ops strip | latest `blocked`, `masked` and `approved` events from readable sources |
 | `/api/console/explain/<topic>` | Explain card and drawer | `{title, plain, how, proof, without, file}`; topics: `network`, `private-link`, `internet`, `redactor`, `gateway`, `audit` |
@@ -234,8 +234,12 @@ Rules the UI relies on:
 - An unknown agent or topic is `404`. A bad `limit` is `400`.
 - `proof` is live data or `null`. It is never fixed text. Everything else in `explain` is fixed wording.
 - A guarantee is `verified` only when its `source` is a live read; `basis` is `observed` or `inference`. It is `failing`
-  only when a live check ran and contradicts the manifest (no default-deny in the live list, pods not ready). A check
-  that could not run leaves the guarantee `declared`, never `failing`.
+  only when a live check ran and contradicts the manifest (today: default-deny missing from the live NetworkPolicy list).
+  A check that could not run leaves the guarantee `declared`, never `failing`. Pod health is not a guarantee: a
+  not-ready pod says nothing about the signature, so `Signed image only` stays `declared` then.
+- `agents[].health` is `{state: running | not_ready | absent}` or `null` when the live source cannot say. It is shown as a
+  status chip on the passport and the rail row (`RUNNING` in `--allowed`, `NOT READY` in `--denied`, `ABSENT` in
+  `--muted`; no chip for `null`), never as a guarantee or a stamp.
 - No response contains a secret, a key, a project ID or a registry path. Image digests are `sha256:` values only.
 
 ## Implementation notes for Part E

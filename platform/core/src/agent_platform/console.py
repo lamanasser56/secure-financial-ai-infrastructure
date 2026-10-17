@@ -129,6 +129,25 @@ class Console:
                 'restarts': f['restarts'], 'image_digests': f['image_digests']}
 
     # agents -------------------------------------------------------------------------------------------------
+    def _health(self, name):
+        """Live workload health: running | not_ready | absent, or None when the live source cannot say (ops unreachable or stale)."""
+        snapshot = self._live('/v1/snapshot')
+        if snapshot is None:
+            return None
+        finding = self._finding(f'agent-{name}.agent')
+        if finding is not None and not self._fresh(finding):
+            return None
+        live = self._live_block(name)
+        if live is None:
+            state = 'absent'  # the ops agent answered and has no scan of this workload
+        elif live['pods_ready'] >= 1 and live['pods_ready'] >= live['desired']:
+            state = 'running'
+        elif live['pods_total'] >= 1:
+            state = 'not_ready'
+        else:
+            state = 'absent'
+        return {'state': state, 'source': 'ops-agent /v1/snapshot'}
+
     def _agent(self, name):
         entry = self._manifests[name]
         m = entry['manifest']
@@ -143,7 +162,7 @@ class Console:
                 'data': 'none' if data == 'none' else {'database': data['database'], 'user_entry': data['user_entry'],
                                                         'row_level_security': data['row_level_security']},
                 'reaches': sorted({f'{n}/{a}:{p}' for n, a, p in self._egress(entry) if n != 'ip'}),
-                'manifest_source': entry['file'], 'live': self._live_block(name)}
+                'manifest_source': entry['file'], 'live': self._live_block(name), 'health': self._health(name)}
 
     def agents(self):
         return {'agents': [self._agent(n) for n in sorted(self._manifests)], 'live_source': 'ops-agent /v1/snapshot',
@@ -192,11 +211,9 @@ class Console:
         if live and live['pods_ready'] >= 1 and live['image_digests'] and live['pods_ready'] >= live['desired']:
             out.append(verified('image', 'Signed image only', 'ops-agent /v1/snapshot', 'inference',
                                 'running pod => admitted under the enforced Binary Authorization policy (inferred: the policy itself is not read here)'))
-        elif live:
-            out.append(failing('image', 'Signed image only', 'ops-agent /v1/snapshot',
-                               'pods not ready: %d of %d (%s)' % (live['pods_ready'], live['desired'], live['state'])))
-        else:
-            out.append(declared('image', 'Signed image only', 'image pinned by digest and signed by CI; no running pod seen'))
+        else:  # not ready (or not seen): the signature cannot be inferred; health is reported separately, never as a failure here
+            out.append(declared('image', 'Signed image only', 'image pinned by digest and signed by CI; ' + (
+                'no ready pod, so nothing can be inferred' if live else 'no running pod seen')))
         out.append(verified('ops', 'Ops monitoring', 'ops-agent /v1/snapshot', 'observed', 'a scan of ' + ns + '.agent is recent')
                    if live else declared('ops', 'Ops monitoring', 'registered read-only in the ops agent; no recent scan seen'))
         counts = {state: sum(g['state'] == state for g in out) for state in ('verified', 'declared', 'failing')}
