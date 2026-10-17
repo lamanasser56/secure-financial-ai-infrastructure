@@ -20,24 +20,24 @@ PAGES = (FRONT / 'index.html', FIN / 'index.html')
 
 class Assets(unittest.TestCase):
     def test_exact_file_set(self):
-        self.assertEqual(sorted(p.name for p in FRONT.iterdir()), sorted(FRONT_FILES + ('fonts',)))
-        self.assertEqual(sorted(p.name for p in FIN.iterdir()), ['app.js', 'core.js', 'fonts', 'index.html', 'style.css'])
+        self.assertEqual(sorted(p.name for p in FRONT.iterdir()), sorted(FRONT_FILES + ('typeface',)))
+        self.assertEqual(sorted(p.name for p in FIN.iterdir()), ['app.js', 'core.js', 'index.html', 'style.css', 'typeface'])
 
     def test_shared_design_is_byte_identical_in_both_uis(self):
         for name in SHARED:
             self.assertEqual((FRONT / name).read_bytes(), (FIN / name).read_bytes(), name)
-        self.assertEqual(sorted(p.name for p in (FRONT / 'fonts').iterdir()), sorted(p.name for p in (FIN / 'fonts').iterdir()))
-        for p in (FRONT / 'fonts').iterdir():
-            self.assertEqual(p.read_bytes(), (FIN / 'fonts' / p.name).read_bytes(), p.name)
+        self.assertEqual(sorted(p.name for p in (FRONT / 'typeface').iterdir()), sorted(p.name for p in (FIN / 'typeface').iterdir()))
+        for p in (FRONT / 'typeface').iterdir():
+            self.assertEqual(p.read_bytes(), (FIN / 'typeface' / p.name).read_bytes(), p.name)
 
     def test_fonts_are_self_hosted_ofl_woff2(self):
         css = (FRONT / 'style.css').read_text()
         urls = re.findall(r"url\('([^']+)'\)", css)
-        self.assertEqual(sorted(urls), sorted('/fonts/' + f + '.woff2' for f in FONTS))
+        self.assertEqual(sorted(urls), sorted('/typeface/' + f + '.woff2' for f in FONTS))
         for f in FONTS:
-            self.assertEqual((FRONT / 'fonts' / (f + '.woff2')).read_bytes()[:4], b'wOF2')
+            self.assertEqual((FRONT / 'typeface' / (f + '.woff2')).read_bytes()[:4], b'wOF2')
         for licence in ('LICENSE-barlow.txt', 'LICENSE-ibm-plex.txt'):
-            self.assertIn('SIL Open Font License', (FRONT / 'fonts' / licence).read_text())
+            self.assertIn('SIL Open Font License', (FRONT / 'typeface' / licence).read_text())
 
     def test_tokens_and_type_from_the_spec(self):
         css = (FRONT / 'style.css').read_text()
