@@ -25,6 +25,11 @@ Covered (Western, Arabic-Indic and Persian digits; space, no-break space, thin s
 Not covered here (left to the redactor): unlabelled national/resident IDs and bank accounts (a bare 10-digit number is
 too often a timestamp), unlabelled non-Saudi IBANs, local non-Saudi phone numbers without a + prefix, and digits that
 were \\u-escaped by json.dumps(ensure_ascii=True).
+
+Known limitation: structured-ID masking currently runs in the platform client libraries (this module in Python, and
+platform/agents/platform-guide/src/identifiers.js in JS). The central redactor alone catches emails only until the
+qualified policy v2 (context-pattern-v2) is released, so an agent that bypasses the platform client gets email-only
+protection.
 """
 import re
 

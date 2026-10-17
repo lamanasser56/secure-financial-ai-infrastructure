@@ -2,6 +2,9 @@
 // Deterministic masking of structured identifiers before any text leaves for the redactor and the model. A line-for-line
 // mirror of platform/core/src/agent_platform/identifiers.py (see its docstring for why and for what is covered);
 // platform/core/tests/identifier_cases.json binds both: they must return exactly the same (category, value) pairs.
+// Known limitation: structured-ID masking currently runs in the platform client libraries (Python + JS). The central
+// redactor alone catches emails only until the qualified policy v2 (context-pattern-v2) is released, so an agent that
+// bypasses the platform client gets email-only protection.
 
 const MAX_TEXT = 16384;
 const D = '[0-9\u0660-\u0669\u06F0-\u06F9]';
