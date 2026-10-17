@@ -1,6 +1,7 @@
 """The per-request trace: one object, audited and returned; bounded fields only; honest about the data path."""
 import io
 import json
+import re
 import unittest
 
 from agent_platform import audit, request_context
@@ -77,9 +78,21 @@ class Trace(unittest.TestCase):
         _, result, audited = ask(Costed(TOOL, ANSWER), question=question)
         text = json.dumps(result['trace']) + json.dumps(audited)
         self.assertFalse(set(keys(result['trace'])) & FORBIDDEN_KEYS)
-        for content in (question, 'lama@example.com', ANSWER['text'], 'Cafe Nova', 'secret note text', '2450', LAMA):
+        for content in (question, 'lama@example.com', ANSWER['text'], 'Cafe Nova', 'secret note text', LAMA):
             self.assertNotIn(content, text)
+        # The amount as a whole token only: '2450' can occur inside a random hex request id (the old flake).
+        self.assertIsNone(re.search(r'(?<![0-9A-Za-z])24\.?50(?![0-9A-Za-z])', text))
         self.assertEqual(result['trace']['redaction']['categories'], {'EMAIL_ADDRESS': 3})  # counts, not values: two prompts and the stored history entry
+
+    def test_the_content_check_is_not_fooled_by_a_request_id_with_the_same_digits(self):
+        """Deterministic form of the old flake: a request id full of '2450' is an id, not the amount."""
+        from unittest import mock
+        with mock.patch.object(agent_module.request_context, 'new', return_value='2450' * 8):
+            _, result, audited = ask(Costed(TOOL, ANSWER))
+        text = json.dumps(result['trace']) + json.dumps(audited)
+        self.assertEqual(result['request_id'], '2450' * 8)
+        self.assertIn('2450', text)  # the substring check the old test used would have failed here
+        self.assertIsNone(re.search(r'(?<![0-9A-Za-z])24\.?50(?![0-9A-Za-z])', text))
 
     def test_redaction_counts_are_calls_in_which_the_category_was_found(self):
         reply = {'action': 'answer', 'text': 'I can only see your expenses.'}
