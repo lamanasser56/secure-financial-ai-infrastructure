@@ -27,19 +27,26 @@ def summarize(policy):
 
 
 def check(client, namespaces):
-    findings, network = [], {}
+    findings, network, unreadable = [], {}, []
     for ns in namespaces:
-        try:
+        try:  # read on its own: a namespace whose other lists are not readable can still prove its network policies
             policies = client.list('networkpolicies', ns)
+            network[ns] = [summarize(p) for p in policies]
+        except KubeError as error:
+            policies = None
+            unreadable.append(ns)
+            findings.append({'namespace': ns, 'finding': 'UNREADABLE', 'detail': str(error.status)})
+        try:
             pods = client.list('pods', ns)
             bindings = client.list('rolebindings', ns)
             events = client.list('events', ns)
         except KubeError as error:
-            findings.append({'namespace': ns, 'finding': 'UNREADABLE', 'detail': str(error.status)})
+            if policies is not None:  # (a namespace already reported unreadable above is not reported twice)
+                findings.append({'namespace': ns, 'finding': 'UNREADABLE', 'detail': str(error.status)})
             continue
-        network[ns] = [summarize(p) for p in policies]
-        if not any(p['spec'].get('podSelector') == {} and set(p['spec'].get('policyTypes', [])) == {'Ingress', 'Egress'}
-                   and not p['spec'].get('ingress') and not p['spec'].get('egress') for p in policies):
+        if policies is not None and not any(
+                p['spec'].get('podSelector') == {} and set(p['spec'].get('policyTypes', [])) == {'Ingress', 'Egress'}
+                and not p['spec'].get('ingress') and not p['spec'].get('egress') for p in policies):
             findings.append({'namespace': ns, 'finding': 'NO_NETWORK_POLICY'})
         for pod in pods:
             spec = pod.get('spec') or {}
@@ -60,4 +67,4 @@ def check(client, namespaces):
                 findings.append({'namespace': ns, 'finding': 'IMAGE_REJECTED',
                                  'object': (event.get('involvedObject') or {}).get('name')})
     return {'findings': findings, 'namespaces': list(namespaces), 'clean': not findings, 'network': network,
-            'unreadable': sorted(f['namespace'] for f in findings if f['finding'] == 'UNREADABLE')}
+            'unreadable': sorted(unreadable)}

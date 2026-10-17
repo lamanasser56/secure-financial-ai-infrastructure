@@ -110,8 +110,9 @@ Message: every agent has an identity, permissions and proof.
   `RESTRICTED` (`--denied` heading, ✕ rows: `No internet access`, `Cannot reach other agents`,
   `Personal data hidden from the model`, plus `Sees only the signed-in user's rows` when the agent has own-rows data).
 - Buttons: `SEE THE EVIDENCE` (outlined) and `TRY THIS AGENT →` (`--allowed` fill, dark text).
-- The `VERIFIED` stamp shows only when the live block exists and every verified guarantee on Onboard is verified.
-  Without live data the stamp reads `DECLARED` in `--declared`, with no `CHECKED LIVE`.
+- The stamp comes from `counts` in `onboarding/<agent>`. `VERIFIED` (with `CHECKED LIVE` and `n / 8 GUARANTEES`, `n` =
+  `verified`) shows when `failing` is 0 and `verified` is at least 1. `FAILING` in `--denied` shows when `failing` is
+  above 0. With no live data (`verified` is 0) it reads `DECLARED` in `--declared`, with no `CHECKED LIVE`.
 - Data: `agents` (list, card fields, live block), `onboarding/<agent>` (stamp count).
 
 ### Ask ★ — "Ask. Then see what protected you."
@@ -151,7 +152,9 @@ Message: one file in, eight guarantees out.
   | 8 | Ops monitoring | `ops` |
 
   Chip `VERIFIED` (`--allowed`, ✓ in a green ring) means seen live. Chip `DECLARED` (`--declared`, ✓ in a blue ring)
-  means from the manifest only. The count is the number of `verified` rows over eight.
+  means from the manifest only. Chip `FAILING` (`--denied` fill, ! in an amber ring) means a live check ran and
+  contradicts the manifest. The count is `verified` over eight; when `failing` is above 0 it adds `· n failing` in
+  `--denied`.
 - **Rejected strip** (dashed `--denied` outline, full width): `REJECTED  A file asking for the internet, a write tool,
   or a $50 budget is refused. Nothing gets created.` and `See example →`.
 - Row 7 carries the label `inferred`: `running pod ⇒ admitted under the enforced Binary Authorization policy`. It is
@@ -222,7 +225,7 @@ the same Host/Origin boundary as the rest of the front door. Defined in
 | --- | --- | --- |
 | `/api/console/topology` | Map | `nodes`, `edges` (allowed paths), `denied` (blocked paths), from the rendered manifests shipped in the image |
 | `/api/console/agents` | Agents | per agent: manifest facts and a `live` block (pods ready, restarts, running image digest) or `null` |
-| `/api/console/onboarding/<agent>` | Onboard, Agents | `guarantees` (8; `state` is `verified` or `declared`, plus `basis` and `source`), `verified`, `total` |
+| `/api/console/onboarding/<agent>` | Onboard, Agents | `guarantees` (8; `state` is `verified`, `declared` or `failing`, plus `basis` and `source`), `counts` (`{verified, declared, failing}`), `verified`, `total` |
 | `/api/console/activity?limit=3` | Header / Ops strip | latest `blocked`, `masked` and `approved` events from readable sources |
 | `/api/console/explain/<topic>` | Explain card and drawer | `{title, plain, how, proof, without, file}`; topics: `network`, `private-link`, `internet`, `redactor`, `gateway`, `audit` |
 
@@ -230,7 +233,9 @@ Rules the UI relies on:
 
 - An unknown agent or topic is `404`. A bad `limit` is `400`.
 - `proof` is live data or `null`. It is never fixed text. Everything else in `explain` is fixed wording.
-- A guarantee is `verified` only when its `source` is a live read; `basis` is `observed` or `inference`.
+- A guarantee is `verified` only when its `source` is a live read; `basis` is `observed` or `inference`. It is `failing`
+  only when a live check ran and contradicts the manifest (no default-deny in the live list, pods not ready). A check
+  that could not run leaves the guarantee `declared`, never `failing`.
 - No response contains a secret, a key, a project ID or a registry path. Image digests are `sha256:` values only.
 
 ## Implementation notes for Part E

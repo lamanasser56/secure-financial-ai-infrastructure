@@ -277,7 +277,9 @@ def render_ops_observe(manifests):
         ns = 'agent-' + name
         docs += [{'apiVersion': 'rbac.authorization.k8s.io/v1', 'kind': 'Role', 'metadata': {'name': 'ops-agent-observe', 'namespace': ns},
                   'rules': [{'apiGroups': ['apps'], 'resources': ['deployments'], 'resourceNames': ['agent'], 'verbs': ['get']},
-                            {'apiGroups': [''], 'resources': ['pods', 'events'], 'verbs': ['list']}]},
+                            {'apiGroups': [''], 'resources': ['pods', 'events'], 'verbs': ['list']},
+                            # live proof that default-deny is in place (console); the policies are not secret
+                            {'apiGroups': ['networking.k8s.io'], 'resources': ['networkpolicies'], 'verbs': ['get', 'list']}]},
                  {'apiVersion': 'rbac.authorization.k8s.io/v1', 'kind': 'RoleBinding', 'metadata': {'name': 'ops-agent-observe', 'namespace': ns},
                   'roleRef': {'apiGroup': 'rbac.authorization.k8s.io', 'kind': 'Role', 'name': 'ops-agent-observe'},
                   'subjects': [{'kind': 'ServiceAccount', 'name': 'ops-agent', 'namespace': 'ops'}]}]

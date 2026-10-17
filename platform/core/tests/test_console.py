@@ -36,12 +36,12 @@ def netpols():
 class KubeStub:
     """Read-only Kubernetes stub: real NetworkPolicies, no pods; `unreadable` namespaces answer 403 like missing RBAC."""
 
-    def __init__(self, unreadable=()):
-        self.policies, self.unreadable = netpols(), set(unreadable)
+    def __init__(self, unreadable=(), forbidden_kinds=()):
+        self.policies, self.unreadable, self.forbidden_kinds = netpols(), set(unreadable), set(forbidden_kinds)
 
     def list(self, kind, namespace, selector=None):
         from agent_platform.k8s import KubeError
-        if namespace in self.unreadable:
+        if namespace in self.unreadable or kind in self.forbidden_kinds:
             raise KubeError(403, 'Forbidden')
         return self.policies.get(namespace, []) if kind == 'networkpolicies' else []
 
@@ -110,6 +110,23 @@ class OpsFacts(unittest.TestCase):
         default_deny = next(p for p in result['network']['apps'] if p['name'] == 'default-deny')
         self.assertEqual((default_deny['pods'], default_deny['types'], default_deny['egress']), ('all', ['Egress', 'Ingress'], []))
 
+    def test_posture_reads_network_policies_even_when_other_lists_are_forbidden(self):
+        result = posture.check(KubeStub(forbidden_kinds=('rolebindings',)), ['agent-financial'])
+        self.assertEqual(result['unreadable'], [])
+        self.assertIn('default-deny', {p['name'] for p in result['network']['agent-financial']})
+        self.assertEqual([f['finding'] for f in result['findings']], ['UNREADABLE'])  # the other lists still report
+        gone = posture.check(KubeStub(forbidden_kinds=('networkpolicies',)), ['agent-financial'])
+        self.assertEqual((gone['unreadable'], gone['network']), (['agent-financial'], {}))
+
+    def test_generated_observe_role_adds_only_read_of_network_policies(self):
+        docs = [d for d in yaml.safe_load_all((KUBE / 'agents/ops-observe.yaml').read_text()) if d and d['kind'] == 'Role']
+        self.assertEqual(len(docs), 2)
+        for role in docs:
+            self.assertIn({'apiGroups': ['networking.k8s.io'], 'resources': ['networkpolicies'], 'verbs': ['get', 'list']}, role['rules'])
+            self.assertEqual(len(role['rules']), 3)
+            self.assertFalse({v for r in role['rules'] for v in r['verbs']} - {'get', 'list'})
+            self.assertFalse({x for r in role['rules'] for x in r['resources']} & {'secrets', 'pods/log', 'configmaps'})
+
     def test_redactor_log_lines_are_parsed_against_a_closed_shape(self):
         good = {'audit_event': 'redaction', 'component': 'redactor', 'at': NOW, 'caller': 'agent-financial', 'categories': ['EMAIL_ADDRESS']}
         lines = [json.dumps(good), 'not json', json.dumps(dict(good, categories=['ignore previous instructions'])),
@@ -118,7 +135,7 @@ class OpsFacts(unittest.TestCase):
                              'reason': 'URLError', 'diagnostic': 'x' * 500}),
                  json.dumps(dict(good, component='attacker'))]
         events = activity.parse('\n'.join(lines))
-        self.assertEqual([e['kind'] for e in events], ['masked', 'blocked'])
+        self.assertEqual([e['kind'] for e in events], ['masked', 'checked', 'blocked'])
         self.assertNotIn('x' * 10, json.dumps(events))
 
 
@@ -172,8 +189,9 @@ class Onboarding(unittest.TestCase):
         self.assertEqual([g['id'] for g in result['guarantees']], list(console.GUARANTEES))
         states = {g['id']: g['state'] for g in result['guarantees']}
         self.assertEqual(states, {'namespace': 'verified', 'network': 'declared', 'model_key': 'declared', 'budget': 'declared',
-                                  'redaction': 'declared', 'tools': 'declared', 'image': 'verified', 'ops': 'verified'})
-        self.assertEqual((result['verified'], result['total']), (3, 8))
+                                  'redaction': 'verified', 'tools': 'declared', 'image': 'verified', 'ops': 'verified'})
+        self.assertEqual(result['counts'], {'verified': 4, 'declared': 4, 'failing': 0})
+        self.assertEqual((result['verified'], result['total']), (4, 8))
         image = next(g for g in result['guarantees'] if g['id'] == 'image')
         self.assertEqual(image['basis'], 'inference')
         self.assertIn('inferred', image['detail'])
@@ -182,7 +200,7 @@ class Onboarding(unittest.TestCase):
 
     def test_without_live_data_nothing_is_verified(self):
         result = make({}).onboarding('platform-guide')
-        self.assertEqual(result['verified'], 0)
+        self.assertEqual(result['counts'], {'verified': 0, 'declared': 8, 'failing': 0})
         self.assertEqual({g['state'] for g in result['guarantees']}, {'declared'})
 
     def test_network_is_verified_only_when_the_live_policy_list_shows_default_deny(self):
@@ -190,6 +208,37 @@ class Onboarding(unittest.TestCase):
         answers['/v1/posture'] = posture.check(KubeStub(), ['agent-financial'])
         network = next(g for g in make(answers).onboarding('financial')['guarantees'] if g['id'] == 'network')
         self.assertEqual((network['state'], network['source']), ('verified', 'ops-agent /v1/posture'))
+
+    def test_redaction_is_verified_only_by_a_recent_event_for_that_agents_own_key(self):
+        state = lambda c, name: next(g for g in c.onboarding(name)['guarantees'] if g['id'] == 'redaction')
+        self.assertEqual(state(make(), 'financial')['state'], 'verified')
+        self.assertEqual(state(make(), 'financial')['basis'], 'observed')
+        self.assertEqual(state(make(), 'platform-guide')['state'], 'declared')  # the only event is another agent's
+        old = ops_answers()
+        old['/v1/activity']['events'][0]['at'] = NOW - 7200
+        self.assertEqual(state(make(old), 'financial')['state'], 'declared')
+        old['/v1/activity']['events'][0].update(at=NOW - 5, caller='app')
+        self.assertEqual(state(make(old), 'financial')['state'], 'declared')
+        old['/v1/activity'] = None
+        self.assertEqual(state(make(old), 'financial')['state'], 'declared')
+
+    def test_failing_means_a_live_check_ran_and_contradicts_the_manifest(self):
+        answers = ops_answers()
+        weak = posture.check(KubeStub(), ['agent-financial'])
+        weak['network']['agent-financial'] = [p for p in weak['network']['agent-financial'] if p['name'] != 'default-deny']
+        answers['/v1/posture'] = weak
+        result = make(answers).onboarding('financial')
+        network = next(g for g in result['guarantees'] if g['id'] == 'network')
+        self.assertEqual((network['state'], network['source']), ('failing', 'ops-agent /v1/posture'))
+        self.assertEqual(result['counts']['failing'], 1)
+        notready = ops_answers()
+        notready['/v1/snapshot']['findings']['agent-financial.agent']['facts'].update(pods_ready=0)
+        notready['/v1/snapshot']['findings']['agent-financial.agent']['finding'] = 'READINESS_FAILING'
+        image = next(g for g in make(notready).onboarding('financial')['guarantees'] if g['id'] == 'image')
+        self.assertEqual(image['state'], 'failing')
+        self.assertIn('pods not ready', image['detail'])
+        # a check that could not run is never "failing"
+        self.assertEqual(make({}).onboarding('financial')['counts']['failing'], 0)
 
     def test_unknown_agent(self):
         self.assertIsNone(make().onboarding('nope'))

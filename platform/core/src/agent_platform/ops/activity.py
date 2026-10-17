@@ -1,7 +1,8 @@
 """Bounded masking activity from the redactor's own audit lines (read-only; uses the existing pods/log read right).
 
 The redactor prints one audit line per request: {"audit_event":"redaction","caller":..., "categories":[...],"at":...}
-or "redaction_failed" / "redaction_rejected". Lines are untrusted data: each is parsed against a closed shape, only
+or "redaction_failed" / "redaction_rejected". Event kinds: masked (categories found), checked (redacted, nothing found:
+used only as proof that a caller's text goes through the redactor), blocked. Lines are untrusted data: each is parsed against a closed shape, only
 closed fields are kept, and nothing else from the line is returned. No text from a request is ever in these lines.
 """
 import json
@@ -12,7 +13,7 @@ from agent_platform.k8s import KubeError
 NAMESPACE, SELECTOR, CONTAINER = 'platform', 'app.kubernetes.io/name=redactor', 'redactor'
 CALLER = re.compile(r'[a-z0-9][a-z0-9-]{0,40}')
 CATEGORY = re.compile(r'[A-Z][A-Z_]{1,40}')
-TAIL, LIMIT, KEEP = 200, 16384, 20
+TAIL, LIMIT, KEEP = 200, 16384, 50
 
 
 def parse(text):
@@ -32,7 +33,7 @@ def parse(text):
         if type(categories) is not list or not all(type(c) is str and CATEGORY.fullmatch(c) for c in categories):
             continue
         if kind == 'masked' and not categories:
-            continue  # nothing was masked: not an event worth showing
+            kind = 'checked'  # the text went through the redactor and nothing needed masking: proof of use, not an event to show
         events.append({'kind': kind, 'at': round(float(value['at']), 3), 'source': 'redactor', 'caller': caller,
                        'categories': categories[:10],
                        'reason': 'redaction_unavailable' if value['audit_event'] == 'redaction_failed' else

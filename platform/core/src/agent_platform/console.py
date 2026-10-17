@@ -26,6 +26,7 @@ NAME = re.compile(r'[a-z][a-z0-9-]{1,20}[a-z0-9]')
 GUARANTEES = ('namespace', 'network', 'model_key', 'budget', 'redaction', 'tools', 'image', 'ops')
 FRESH_SECONDS = 120  # the ops agent scans every 15 s; a finding older than this is not "live"
 MAX_EVENTS = 20
+REDACTION_RECENT_SECONDS = 3600  # how recent a redactor event for the agent's own key must be to count as seen
 
 
 def locate():
@@ -155,7 +156,7 @@ class Console:
         entry, ns = self._manifests[name], 'agent-' + name
         m, file = entry['manifest'], entry['file']
         live, finding = self._live_block(name), self._finding(f'{ns}.agent')
-        posture = (self._live('/v1/posture') or {}).get('network', {}).get(ns)
+        posture = ((self._live('/v1/posture') or {}).get('network') or {}).get(ns)  # None: not readable or ops down
         deny = lambda policies: any(p['pods'] == 'all' and p['types'] == ['Egress', 'Ingress'] and not p['ingress'] and not p['egress']
                                     for p in policies or [])
         reaches = sorted({a for n, a, _ in self._egress(entry) if n != 'ip'})
@@ -163,27 +164,43 @@ class Console:
                                                'source': file, 'detail': detail}
         verified = lambda gid, title, source, basis, detail: {'id': gid, 'title': title, 'state': 'verified', 'basis': basis,
                                                               'source': source, 'detail': detail}
+        failing = lambda gid, title, source, detail: {'id': gid, 'title': title, 'state': 'failing', 'basis': 'observed',
+                                                      'source': source, 'detail': detail}
         ns_doc = self._kind(entry['rendered'], 'Namespace')
+        activity = self._live('/v1/activity')
+        seen = [e for e in (activity or {}).get('events', []) if e.get('caller') == ns and type(e.get('at')) in (int, float)
+                and self._clock() - e['at'] <= REDACTION_RECENT_SECONDS]
         out = []
         out.append(verified('namespace', 'Its own namespace', 'ops-agent /v1/snapshot', 'observed', 'a Deployment is running in ' + ns)
                    if live and finding['namespace'] == ns and ns_doc else
                    declared('namespace', 'Its own namespace', 'rendered Namespace ' + ns + ' (pod security restricted)'))
-        out.append(verified('network', 'Default-deny network', 'ops-agent /v1/posture', 'observed',
-                            'default-deny seen in the live NetworkPolicy list of ' + ns)
-                   if deny(posture) else
-                   declared('network', 'Default-deny network', 'default-deny policy rendered; egress only to ' + ', '.join(reaches)))
+        if posture is None:
+            out.append(declared('network', 'Default-deny network', 'default-deny policy rendered; egress only to ' + ', '.join(reaches)))
+        elif deny(posture):
+            out.append(verified('network', 'Default-deny network', 'ops-agent /v1/posture', 'observed',
+                                'default-deny seen in the live NetworkPolicy list of ' + ns))
+        else:
+            out.append(failing('network', 'Default-deny network', 'ops-agent /v1/posture',
+                               'no default-deny policy in the live NetworkPolicy list of ' + ns))
         out.append(declared('model_key', 'Scoped model key', 'gateway key agent-' + name + ' created by make up; the key is never readable here'))
         out.append(declared('budget', 'Monthly budget', 'budget_usd_month: %s' % m['model']['budget_usd_month']))
-        out.append(declared('redaction', 'Personal data redaction', 'redaction: required; egress rendered to the redactor'
+        out.append(verified('redaction', 'Personal data redaction', 'redactor audit via ops-agent /v1/activity', 'observed',
+                            'a recent redactor event for the key of ' + ns) if seen else
+                   declared('redaction', 'Personal data redaction', 'redaction: required; egress rendered to the redactor'
                             if 'redactor' in reaches else 'redaction: required'))
         out.append(declared('tools', 'Read-only tools', ', '.join(t['id'] for t in m['tools']) or 'no tools'))
-        out.append(verified('image', 'Signed image only', 'ops-agent /v1/snapshot', 'inference',
-                            'running pod => admitted under the enforced Binary Authorization policy (inferred: the policy itself is not read here)')
-                   if live and live['pods_ready'] >= 1 and live['image_digests'] else
-                   declared('image', 'Signed image only', 'image pinned by digest and signed by CI; no running pod seen'))
+        if live and live['pods_ready'] >= 1 and live['image_digests'] and live['pods_ready'] >= live['desired']:
+            out.append(verified('image', 'Signed image only', 'ops-agent /v1/snapshot', 'inference',
+                                'running pod => admitted under the enforced Binary Authorization policy (inferred: the policy itself is not read here)'))
+        elif live:
+            out.append(failing('image', 'Signed image only', 'ops-agent /v1/snapshot',
+                               'pods not ready: %d of %d (%s)' % (live['pods_ready'], live['desired'], live['state'])))
+        else:
+            out.append(declared('image', 'Signed image only', 'image pinned by digest and signed by CI; no running pod seen'))
         out.append(verified('ops', 'Ops monitoring', 'ops-agent /v1/snapshot', 'observed', 'a scan of ' + ns + '.agent is recent')
                    if live else declared('ops', 'Ops monitoring', 'registered read-only in the ops agent; no recent scan seen'))
-        return {'agent': name, 'guarantees': out, 'verified': sum(g['state'] == 'verified' for g in out), 'total': len(out)}
+        counts = {state: sum(g['state'] == state for g in out) for state in ('verified', 'declared', 'failing')}
+        return {'agent': name, 'guarantees': out, 'counts': counts, 'verified': counts['verified'], 'total': len(out)}
 
     # topology -----------------------------------------------------------------------------------------------
     def topology(self):
