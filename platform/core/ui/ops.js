@@ -40,17 +40,36 @@
       el('div', {class: 'hint'}, 'Valid once, for this action on this service, for 5 minutes.'));
   }
 
+  // Status board, from live data only: every agent (the ops agent's own row is this live answer), then the platform services.
+  const SERVICES = {'platform.gateway': 'Model gateway', 'platform.redactor': 'Redactor', 'apps.app': 'Front door (console)', 'apps.fault-demo': 'Fault demo'};
+  function statusBoard(board, agents) {
+    const row = (name, id, detail, chip) => el('div', {class: 'row'}, el('div', {class: 'who'}, el('b', {}, name), el('span', {}, id + ' · ' + detail)), chip);
+    const finding = b => el('span', {class: 'chip ' + (b.finding === 'HEALTHY' ? 'allowed' : 'denied')}, words(b.finding));
+    const ready = b => b.available + ' of ' + b.desired + ' ready' + (b.observe_only ? ' · watched read-only' : '');
+    const byTarget = Object.fromEntries(board.map(b => [b.target_id, b]));
+    const used = new Set();
+    const rows = agents.map(a => {
+      if (a.kind === 'platform') return row(Console.title(a), a.namespace + '/' + a.name, 'answered just now', el('span', {class: 'chip allowed'}, 'running'));
+      const b = byTarget[a.node + '.agent'];
+      if (!b) return row(Console.title(a), a.namespace, 'not in the ops agent\'s scan', el('span', {class: 'chip muted'}, 'not seen'));
+      used.add(b.target_id);
+      return row(Console.title(a), a.namespace, ready(b), finding(b));
+    });
+    board.filter(b => !used.has(b.target_id)).forEach(b => rows.push(row(SERVICES[b.target_id] || b.target_id, b.target_id, ready(b), finding(b))));
+    return rows.length ? rows : el('p', {class: 'muted'}, 'Nothing reported yet.');
+  }
+
   Console.screens.ops = (view, arg, alive) => {
     view.append(Console.head('Security & Operations', 'What the ops agent saw, and what waits for the owner.'));
     const body = el('div', {}, el('p', {class: 'muted'}, 'Loading…'));
     view.append(body);
     let last = '';
     const refresh = async () => {
-      const r = await call({operation: 'overview'});
+      const [r, agents] = await Promise.all([call({operation: 'overview'}), Console.getJSON('/api/console/agents')]);
       if (!alive()) return;
       Console.setLive(r.ok);
       if (!r.ok) { body.replaceChildren(Console.empty('The ops agent cannot be reached.', 'Reason: ' + words(r.error))); last = ''; return; }
-      const key = JSON.stringify(r.data);
+      const key = JSON.stringify([r.data, agents.data]);
       if (key === last) return;
       if (body.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;  // do not wipe a passphrase being typed
       last = key;
@@ -68,9 +87,7 @@
           el('span', {}, e.target + (e.code ? ' · ' + words(e.code) : e.finding ? ' · ' + words(e.finding) : e.action ? ' · ' + words(e.action) : '')), stageChip(e.stage)));
       });
       Object.values(incidents).filter(b => !shown.has(b.target_id)).forEach(b => timeline.unshift(explainRow(b)));
-      const board = (d.board || []).map(b => el('div', {class: 'row'}, el('div', {class: 'who'}, el('b', {}, b.target_id),
-        el('span', {}, b.available + ' of ' + b.desired + ' ready' + (b.observe_only ? ' · watched read-only' : ''))),
-        el('span', {class: 'chip ' + (b.finding === 'HEALTHY' ? 'allowed' : 'denied')}, words(b.finding))));
+      const board = statusBoard(d.board || [], agents.ok ? agents.data.agents : []);
       body.replaceChildren(el('div', {class: 'ops'},
         el('section', {class: 'panel', 'aria-label': 'Incident timeline'}, el('div', {class: 'label'}, 'Incident timeline'),
           timeline.length ? el('ul', {class: 'tl'}, timeline) : el('p', {class: 'muted'}, 'No events yet.'), el('div', {class: 'label'}, 'Status board'), board),

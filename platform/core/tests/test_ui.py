@@ -191,6 +191,19 @@ class Scripts(unittest.TestCase):
         self.assertIn("'No explanation yet.'", ops)
         self.assertIn('b.explanation', ops)
 
+    def test_ops_board_lists_every_agent_and_the_services_from_live_data(self):
+        ops = (FRONT / 'ops.js').read_text()
+        self.assertIn("Console.getJSON('/api/console/agents')", ops)
+        self.assertIn('function statusBoard(board, agents)', ops)
+        self.assertIn("'not seen'", ops)  # an agent the ops agent has not scanned is shown as such, not hidden
+        self.assertNotIn("'Financial'", ops)  # agent names come from the API
+
+    def test_result_card_shows_what_was_not_stopped_with_its_evidence(self):
+        attacks = (FRONT / 'attacks.js').read_text()
+        self.assertIn("failed.length + ' not stopped'", attacks)
+        self.assertIn('x.note.conclusion', attacks[attacks.index('function notStopped'):])
+        self.assertIn("'no note in the evidence for this run.'", attacks)
+
     def test_mrz_is_built_from_real_values_only(self):
         agents = (FRONT / 'agents.js').read_text()
         body = agents[agents.index('function mrz('):agents.index('const emblem')]
