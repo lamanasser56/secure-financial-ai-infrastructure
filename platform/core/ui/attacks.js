@@ -20,7 +20,8 @@
     egress_containment: ['Call the internet or reach another agent', 'network wall'],
     ops_agent_cannot_change_onboarded_agents: ['Make the ops agent change an agent', 'access rules'],
     ops_stale_approval_refused: ['Replay a stale approval', 'one-use approvals'],
-    log_planted_instruction_stays_data: ['Plant an order in a log', 'logs are data'],
+    log_planted_instruction_stays_data: ['Plant an order in a log', 'logs are data'], // recorded runs before 2026-10-19
+    ops_log_injection_adds_no_action_and_no_text: ['Plant an order in a log', 'logs are data'],
     no_secrets_in_env_or_logs: ['Find a secret in env or logs', 'secret handling']
   };
 
