@@ -33,6 +33,9 @@ from finance_agent.tools import TOOLS, WITHHELD, ToolRejected, instruction_like
 MAX_MODEL_CALLS = 4
 MAX_QUESTION = 500
 MAX_PROMPT_BYTES = 12_000
+# The redactor accepts at most 4096 UTF-8 bytes per call (client budget and server). Arabic is 2 bytes a letter, so
+# three Arabic turns of history used to push the fourth question over it: the turn failed as redaction_unavailable.
+REDACTION_MAX_BYTES = 4096
 MAX_REPLY_TOKENS = 1024
 MAX_CALL_TOKENS = MAX_PROMPT_BYTES + MAX_REPLY_TOKENS  # one token is at least one byte: a safe upper bound per call
 TURNS_PER_HOUR = 20
@@ -413,8 +416,9 @@ class FinanceAgent:
             prompt = {'question': question, 'language': language, 'history': history, 'final_only': final_only,
                       'tools': {} if final_only else {name: spec[1] for name, spec in TOOLS.items()},
                       'observations': observations}
+            text = self._fit(prompt)
             try:
-                redacted = self._redact(json.dumps(prompt, ensure_ascii=False), turn)
+                redacted = self._redact(text, turn)
             except Exception:
                 raise Blocked('redaction_unavailable') from None  # nothing reaches the model
             turn['masked'] |= set(redacted.categories)
@@ -458,6 +462,19 @@ class FinanceAgent:
             turn['tool_calls'].append({'tool_id': name, 'rows_returned': rows_returned(name, result)})
             turn['withheld'] += sum(1 for t in result.get('transactions', []) for f in ('merchant', 'note') if t.get(f) == WITHHELD)
         raise Blocked('step_limit')  # unreachable: the last call accepts only an answer
+
+    @staticmethod
+    def _fit(prompt):
+        """The prompt as JSON within REDACTION_MAX_BYTES: the oldest history turns are dropped first (history is context,
+        not evidence). If the question, tools and observations alone do not fit, the turn stops as prompt_too_large."""
+        history = list(prompt['history'])
+        while True:
+            text = json.dumps(dict(prompt, history=history), ensure_ascii=False)
+            if len(text.encode()) <= REDACTION_MAX_BYTES:
+                return text
+            if not history:
+                raise Blocked('prompt_too_large')
+            history = history[1:]
 
     def _safe(self, question, turn):
         try:
