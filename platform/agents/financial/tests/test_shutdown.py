@@ -50,7 +50,7 @@ class Shutdown(unittest.TestCase):
         started = time.monotonic()
         child.send_signal(signal.SIGTERM)
         self.assertEqual(child.wait(timeout=5), 0)
-        self.assertLess(time.monotonic() - started, 2)
+        self.assertLess(time.monotonic() - started, 5)  # locally ~0.5 s; well under the 30 s grace period
         self.assertEqual(child.stdout.read().strip(), 'drained')
 
     def test_in_flight_request_finishes_and_new_connections_are_refused(self):
@@ -74,7 +74,9 @@ class Shutdown(unittest.TestCase):
         started = time.monotonic()
         child.send_signal(signal.SIGTERM)
         self.assertEqual(child.wait(timeout=5), 0)
-        self.assertLess(time.monotonic() - started, 3)  # not the 30 s request, not the Pod's 30 s grace period
+        # Locally ~0.75 s (one 0.5 s poll + the 0.5 s drain); a busy CI runner once took 4.0 s. The bound only has to
+        # prove the process did not wait for the 30 s request or the Pod's 30 s grace period.
+        self.assertLess(time.monotonic() - started, 10)
         self.assertEqual(child.stdout.read().strip(), 'cut')
 
 
