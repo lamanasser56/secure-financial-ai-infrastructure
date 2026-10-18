@@ -17,6 +17,8 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
+import threading
 from urllib.parse import parse_qs, urlsplit
 
 from agent_platform import audit
@@ -166,18 +168,57 @@ def build(config, *, store=None, redactor=None, gateway=None):
     return store, Sessions(key), LoginThrottle(), agent
 
 
+DRAIN_SECONDS = 10  # in-flight requests may finish within this, well inside the Pod's 30 s grace period
+
+
+class Server(ThreadingHTTPServer):
+    """ThreadingHTTPServer that counts in-flight requests, so a shutdown can wait for them (bounded)."""
+    daemon_threads = True
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.active, self._idle = 0, threading.Condition()
+
+    def process_request_thread(self, request, client_address):
+        with self._idle:
+            self.active += 1
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            with self._idle:
+                self.active -= 1
+                self._idle.notify_all()
+
+    def drain(self, seconds):
+        """Wait until no request is in flight, at most `seconds`. True if none was left."""
+        with self._idle:
+            return self._idle.wait_for(lambda: self.active == 0, seconds)
+
+
+def serve(server, *, drain_seconds=DRAIN_SECONDS):
+    """Serve until SIGTERM, then stop accepting, let in-flight requests finish (bounded) and return.
+
+    The agent runs as PID 1, which ignores SIGTERM unless it installs a handler: without this, every rollout or
+    scale-down waited the full grace period for SIGKILL. shutdown() blocks until serve_forever() returns, so it runs on
+    its own thread, never inside the handler on the serving thread."""
+    signal.signal(signal.SIGTERM, lambda signum, frame: threading.Thread(target=server.shutdown, daemon=True).start())
+    server.serve_forever()
+    server.server_close()  # stop accepting before draining
+    return server.drain(drain_seconds)
+
+
 def main():
     config = json.loads(Path('/secrets/agent/agent.json').read_text())
     required = {'gateway_key', 'redactor_key', 'web_db_url', 'agent_db_url', 'session_key'}
     if set(config) != required or not re.fullmatch(r'[0-9a-f]{64}', config['session_key']):
         raise SystemExit('financial:config')
     port = int(os.environ.get('AGENT_PORT', '8081'))
-    server = ThreadingHTTPServer(('0.0.0.0', port), Handler)
-    server.daemon_threads = True
+    server = Server(('0.0.0.0', port), Handler)
     server.hosts = {'127.0.0.1:%d' % port}
     server.store, server.sessions, server.throttle, server.agent = build(config)
     audit.emit('agent_started', 'agent-financial')
-    server.serve_forever()
+    drained = serve(server)
+    audit.emit('agent_stopped', 'agent-financial', drained=drained)
 
 
 if __name__ == '__main__':
