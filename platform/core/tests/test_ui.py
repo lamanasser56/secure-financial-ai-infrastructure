@@ -256,7 +256,7 @@ class Scripts(unittest.TestCase):
     def test_financial_ui_renders_only_the_steps_the_trace_says_happened(self):
         app = (FIN / 'app.js').read_text()
         for text in ('Checked who you are', 'Hid personal data from the model', 'Read only your own rows', 'Ignored orders hidden in the data',
-                     'Matched the number to the data', 'trace.redaction.calls > 0', 'if (trace.data_access)', 'if (trace.injection_result)',
+                     'Matched the number to the data', 'trace.redaction.calls > 0', 'if (trace.data_access)', 'if (trace.injection_result && trace.injection_result.withheld_fields)', 'if (trace.injection_result && trace.injection_result.question_instruction_like)',
                      "trace.grounding_result === 'grounded'", 'Audit record →', 'Real login'.lower() and '/api/login'):
             self.assertIn(text, app)
         self.assertNotIn('language: UI', app)

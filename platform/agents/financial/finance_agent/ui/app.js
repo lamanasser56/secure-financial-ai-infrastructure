@@ -54,7 +54,13 @@
         ['role: ' + trace.data_access.role, 'scoped_to: ' + trace.data_access.scoped_to, ...trace.tool_calls.map(t => t.tool_id + ': ' + t.rows_returned + ' row(s)')],
         "The agent could be tricked into reading someone else's expenses.")});
     }
-    if (trace.injection_result) {
+    if (trace.injection_result && trace.injection_result.question_instruction_like) {
+      out.push({mark: '!', kind: 'plain', text: 'Your question contained instruction-like text', open: ex('Your question contained instruction-like text',
+        'Text you pasted (an invoice, an email) reads like an order to the assistant. It was sent as your question, and recorded.',
+        'Your own question is never withheld. The answer is still limited to read-only tools, your own rows and the checks on figures and claims.',
+        ['question_instruction_like: true'], 'A pasted document could carry someone else\'s instructions.')});
+    }
+    if (trace.injection_result && trace.injection_result.withheld_fields) {
       out.push({mark: '!', kind: 'denied', text: 'Ignored orders hidden in the data', open: ex('Ignored orders hidden in the data', 'Text in your records that looked like an instruction was withheld from the model.',
         'Record fields are screened before the model sees them. Instruction-like text is replaced and never followed.',
         ['result: ' + words(trace.injection_result.result), 'withheld fields: ' + trace.injection_result.withheld_fields], 'A merchant name could give the model orders.')});
