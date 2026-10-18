@@ -2,9 +2,9 @@
 (() => {
   'use strict';
   const {el, $, getJSON} = Console;
-  const W = 948;
+  const W = 918;
   const EXTERNAL = {'model-provider': ['Google AI', 'the model'], dlp: ['Google DLP', 'finds personal data']};
-  const CELLS = {redactor: ['Redactor', 'hides personal data'], gateway: ['Model gateway', 'one key, one budget'], audit: ['Audit', 'every request recorded']};
+  const CELLS = {gateway: ['Model gateway', 'one key, one budget'], redactor: ['Redactor', 'hides personal data'], audit: ['Audit', 'every request recorded']};
 
   function agentExplain(agent, from) {
     Console.explain({eyebrow: agent.live ? 'EXPLAIN · VERIFIED LIVE' : 'EXPLAIN · NOT SEEN LIVE', live: !!agent.live, title: Console.title(agent), sub: agent.namespace,
@@ -22,23 +22,25 @@
   // A dot travelling along an allowed path. With reduced motion there is no moving dot, only the fixed ones at the ends.
   const moving = d => Console.reduced() ? null : el('circle', {r: 4, class: 'dot'}, el('animateMotion', {dur: '3.2s', repeatCount: 'indefinite', path: d}));
 
-  // Drawn at the size of its panel on the 1440 x 900 frame (948 x 672), so 1 unit = 1 px there; more agents make it taller.
+  // Drawn 1:1 at its panel size on the 1440 x 900 frame: ~920 px wide while Explain is open beside it, centred in the wider
+  // panel otherwise (the svg's max-height keeps it at that scale). More agents make it taller.
+  // The platform cells are ordered gateway, redactor, audit so that Google AI sits above Google DLP with straight lines.
   function drawing(data) {
     const {agents, topology} = data;
     const nodes = Object.fromEntries(topology.nodes.map(n => [n.id, n]));
-    const AX = 48, AW = 210, AH = 96, GAP = 64, TOP = 84;
-    const cells = ['redactor', 'gateway', 'audit'].filter(id => nodes[id]);
-    const PX = 356, PW = 230, HEAD = 44, CH = 92, PH = HEAD + CH * cells.length;
+    const AX = 32, AW = 210, AH = 96, GAP = 64, TOP = 84;
+    const cells = ['gateway', 'redactor', 'audit'].filter(id => nodes[id]);
+    const busX = AX + AW + 28, PX = busX + 28, PW = 230, HEAD = 44, CH = 92, PH = HEAD + CH * cells.length;
     const agentsH = agents.length * AH + Math.max(0, agents.length - 1) * GAP;
     const PY = TOP + Math.max(0, (agentsH - PH) / 2), A0 = TOP + Math.max(0, (PH - agentsH) / 2);
     const bottom = Math.max(PY + PH, A0 + agentsH) + 28;
     const IY = bottom + 64, H = Math.max(672, IY + 62);
-    const busX = (AX + AW + PX) / 2, midY = PY + PH / 2;
+    const midY = PY + PH / 2;
     const ayTop = i => A0 + i * (AH + GAP);
     const out = [el('defs', {}, el('pattern', {id: 'hatch', width: 10, height: 10, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)'},
       el('line', {x1: 0, y1: 0, x2: 0, y2: 10, stroke: '#F2F7FF', 'stroke-opacity': 0.35, 'stroke-width': 2.5})))];
-    out.push(el('rect', {x: 20, y: 52, width: 600, height: bottom - 52, fill: 'none', stroke: '#F2F7FF', 'stroke-opacity': 0.35, 'stroke-dasharray': '7 6'}));
-    out.push(text(32, 40, 't-label', 'PRIVATE CLUSTER'));
+    out.push(el('rect', {x: 14, y: 52, width: PX + PW + 12 - 14, height: bottom - 52, fill: 'none', stroke: '#F2F7FF', 'stroke-opacity': 0.35, 'stroke-dasharray': '7 6'}));
+    out.push(text(26, 40, 't-label', 'PRIVATE CLUSTER'));
 
     // allowed paths: agent -> bus -> platform (one line per agent, a dot travels along it)
     const openNetwork = (focus) => from => Console.explainTopic('network', from, focus);
@@ -61,7 +63,7 @@
         el('rect', {x: AX, y, width: AW, height: AH, class: 'shape'}), text(AX + 18, y + 42, 't-name', Console.title(a)),
         text(AX + 18, y + 70, 't-sub', ((a.runtime || '').split(' ')[0] || 'runtime unknown') + ' · ' + what)));
     });
-    // denied: agent <-> agent (only pairs the topology says are denied)
+    // denied: agent <-> agent (only pairs the topology says are denied); the "✕ why?" chip on the wall opens it
     const denied = topology.denied || [];
     for (let i = 0; i + 1 < agents.length; i++) {
       const a = agents[i].node, b = agents[i + 1].node;
@@ -82,7 +84,7 @@
       });
     }
     // platform -> Google (private link), only what the topology declares
-    const EX = 700, EW = 220, EH = 84;
+    const EX = 694, EW = 208, EH = 84;
     const cellY = id => PY + HEAD + cells.indexOf(id) * CH + CH / 2;
     (topology.edges || []).filter(e => nodes[e.to] && nodes[e.to].kind === 'external' && EXTERNAL[e.to] && cells.includes(e.from)).forEach(e => {
       const y = cellY(e.from), by = y - EH / 2;
@@ -92,9 +94,9 @@
         el('rect', {x: EX, y: by, width: EW, height: EH, class: 'shape'}), text(EX + 18, by + 36, 't-item', EXTERNAL[e.to][0]), text(EX + 18, by + 60, 't-sub', EXTERNAL[e.to][1])));
     });
     if (cells.includes('gateway') && cells.includes('redactor') && (topology.edges || []).some(e => e.to === 'model-provider' || e.to === 'dlp')) {
-      const ty = (cellY('redactor') + cellY('gateway')) / 2, tx = (PX + PW + EX) / 2;
-      out.push(part('Private link', from => Console.explainTopic('private-link', from), el('rect', {x: tx - 46, y: ty - 14, width: 92, height: 28, class: 'tag'}),
-        el('text', {x: tx, y: ty + 5, class: 't-tag', 'text-anchor': 'middle'}, 'private link')));
+      const ty = (cellY('gateway') + cellY('redactor')) / 2, tx = (PX + PW + EX) / 2;
+      out.push(part('Private link', from => Console.explainTopic('private-link', from), el('rect', {x: tx - 70, y: ty - 14, width: 140, height: 28, class: 'tag'}),
+        el('text', {x: tx, y: ty + 5, class: 't-tag', 'text-anchor': 'middle'}, 'private link · why?')));
     }
     // internet: no route
     if (nodes.internet) {
@@ -104,7 +106,9 @@
         text(EX + 18, IY - 4, 't-item', 'Internet'), text(EX + 18, IY + 22, 't-deny', noRoute ? 'no way out · why?' : 'why?'),
         noRoute ? el('text', {x: busX + 14, y: IY - 10, class: 'cross'}, '✕') : null));
     }
-    return el('svg', {viewBox: `0 0 ${W} ${H}`, role: 'group', 'aria-label': 'Cluster drawing: agents, platform, Google services and the internet'}, out);
+    const svg = el('svg', {viewBox: `0 0 ${W} ${H}`, role: 'group', 'aria-label': 'Cluster drawing: agents, platform, Google services and the internet'}, out);
+    svg.style.maxHeight = H + 'px';  // CSSOM, not a style attribute: allowed by the page's CSP
+    return svg;
   }
 
   const kindChip = k => el('span', {class: 'chip ' + (k === 'blocked' ? 'denied' : 'allowed')}, k);
@@ -156,7 +160,30 @@
       el('span', {class: 'hint'}, 'Click any part to see how it works.')));
     const body = el('div', {}, el('p', {class: 'muted'}, 'Loading…'));
     view.append(body);
-    let last = '';
+    // Explain opens in the right column in place of the aside; the drawing stays fully visible. The open panel and the selected
+    // part (by its accessible name) survive the periodic redraw.
+    let last = '', drawn = '', grid = null, col = null, aside = null, panel = null, selected = null;
+    const mark = () => grid && grid.querySelectorAll('.part').forEach(g => g.classList.toggle('sel', g.getAttribute('aria-label') === selected));
+    const paint = () => {
+      if (!grid) return;
+      grid.classList.toggle('explaining', !!panel);
+      col.replaceChildren(panel || aside);
+      mark();
+    };
+    Console.setDock({
+      show(nodes, spec, from) {
+        panel = el('section', {class: 'panel xpanel' + (spec.live ? ' proof-live' : ''), role: 'region', 'aria-labelledby': 'ex-title'}, nodes);
+        selected = from && from.classList && from.classList.contains('part') ? from.getAttribute('aria-label') : null;
+        paint();
+      },
+      hide() {
+        panel = null;
+        const back = selected && grid && [...grid.querySelectorAll('.part')].find(g => g.getAttribute('aria-label') === selected);
+        selected = null;
+        paint();
+        return back || null;
+      }
+    });
     Console.every(async () => {
       const [data, act] = await Promise.all([Console.loadAgents(), getJSON('/api/console/activity?limit=3')]);
       if (!alive()) return;
@@ -164,8 +191,17 @@
       if (key === last) return;  // nothing changed: keep focus and the running animation
       last = key;
       numbers.replaceChildren(...[stats(data)].filter(Boolean));
-      if (!data || !data.topology) { body.replaceChildren(Console.empty('The console cannot reach its data.', 'Nothing is shown until the API answers.')); return; }
-      body.replaceChildren(el('div', {class: 'map'}, el('div', {class: 'panel cluster'}, drawing(data)), side(data, act.ok ? act.data : null)));
+      if (!data || !data.topology) { grid = null; drawn = ''; body.replaceChildren(Console.empty('The console cannot reach its data.', 'Nothing is shown until the API answers.')); return; }
+      aside = side(data, act.ok ? act.data : null);
+      if (grid && JSON.stringify(data) === drawn) {  // only the activity changed: leave the drawing (and an open panel) alone
+        if (!panel) col.replaceChildren(aside);
+        return;
+      }
+      drawn = JSON.stringify(data);
+      col = el('div', {class: 'col'});
+      grid = el('div', {class: 'map'}, el('div', {class: 'panel cluster'}, drawing(data)), col);
+      paint();
+      body.replaceChildren(grid);
     }, 10000);
   };
 })();

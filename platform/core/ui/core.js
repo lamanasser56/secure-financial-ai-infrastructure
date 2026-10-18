@@ -119,11 +119,22 @@
   }
 
   // Explain drawer: closed by default; Esc, the close button or a click outside closes it; focus returns to the opener.
-  let opener = null;
+  // A screen can instead host Explain in its own layout (the Map shows it in its right column, nothing dimmed):
+  // setDock({show(nodes, spec, from), hide() -> element to focus or null}), and setDock(null) when the screen goes.
+  let opener = null, dock = null, docked = false;
+  const setDock = d => { dock = d; docked = false; };
   function close() {
+    if (dock && docked) {
+      docked = false;
+      const back = dock.hide();
+      const to = opener && document.contains(opener) ? opener : back;
+      if (to) to.focus();
+      opener = null;
+      return;
+    }
     const drawer = $('explain');
     if (!drawer || drawer.hidden) return;
-    drawer.hidden = true; $('scrim').hidden = true;
+    drawer.hidden = true; $('scrim').hidden = true; drawer.replaceChildren();
     if (opener && document.contains(opener)) opener.focus();
     opener = null;
   }
@@ -131,14 +142,23 @@
   function explain(spec, from) {
     const drawer = $('explain');
     opener = from || document.activeElement;
-    drawer.replaceChildren(...[
+    const nodes = [
       el('button', {class: 'btn link close', type: 'button', 'aria-label': 'Close', onclick: close}, 'Close ✕'),
       el('div', {class: 'eyebrow' + (spec.live ? ' live-proof' : '')}, spec.eyebrow),
       el('h2', {id: 'ex-title'}, spec.title),
       spec.sub ? el('div', {class: 'sub-id mono muted'}, spec.sub) : null,
       spec.copy ? copyable(spec.copy.label, spec.copy.value) : null,
       ...spec.blocks.map(b => el('div', {class: 'block ' + (b.cls || '')}, el('div', {class: 'label'}, b.label), b.node || el('p', {}, b.text))),
-      spec.file ? el('div', {class: 'file'}, el('a', {class: 'btn link', href: REPO + spec.file, target: '_blank', rel: 'noopener', title: spec.file}, 'View code →')) : null].filter(Boolean));
+      spec.file ? el('div', {class: 'file'}, el('div', {class: 'path mono muted'}, spec.file),
+        el('a', {class: 'btn link', href: REPO + spec.file, target: '_blank', rel: 'noopener', title: spec.file}, 'View code →')) : null].filter(Boolean);
+    if (dock) {
+      docked = true;
+      dock.show(nodes, spec, opener);
+      nodes[0].focus();
+      return;
+    }
+    drawer.replaceChildren(...nodes);
+    drawer.classList.toggle('proof-live', !!spec.live);
     drawer.classList.toggle('slide', !reduced());
     drawer.hidden = false; $('scrim').hidden = false;
     drawer.querySelector('.close').focus();
@@ -146,6 +166,11 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
   document.addEventListener('click', e => { if (e.target.id === 'scrim') close(); });
 
+  // The layer each platform topic rests on (fixed wording, like the title; the infrastructure files say so:
+  // ADVANCED_DATAPATH, private_endpoints.tf, no Cloud NAT, the redactor's Sensitive Data Protection adapter, LiteLLM).
+  const LAYER = {network: 'Kubernetes NetworkPolicy · GKE Dataplane V2', 'private-link': 'Private Service Connect · FQDNNetworkPolicy',
+                 internet: 'default-deny egress · no Cloud NAT', redactor: 'Sensitive Data Protection · fails closed',
+                 gateway: 'LiteLLM · one scoped key per agent', audit: 'one JSON line per request · no content'};
   // The six platform topics: wording and proof both come from /api/console/explain (proof is live or null).
   async function explainTopic(topic, from, focus) {
     const r = await getJSON('/api/console/explain/' + encodeURIComponent(topic));
@@ -156,12 +181,12 @@
     const d = r.data;
     // "Verified live" only if the part clicked has live proof of its own (a focused list with no readable namespace has none).
     const seen = !!d.proof && typeof narrow(d.proof, focus).namespaces !== 'string';
-    explain({eyebrow: seen ? 'EXPLAIN · VERIFIED LIVE' : 'EXPLAIN · NOT SEEN LIVE', live: seen, title: d.title,
+    explain({eyebrow: seen ? 'EXPLAIN · VERIFIED LIVE' : 'EXPLAIN · NOT SEEN LIVE', live: seen, title: d.title, sub: LAYER[topic],
              blocks: [{label: 'In plain words', text: d.plain}, {label: 'How it works', text: d.how},
                       {label: 'Proof' + (d.proof && d.proof.source ? ' · ' + d.proof.source : ''), node: proofBox(d.proof, focus)},
                       {label: 'Without it', text: d.without, cls: 'without'}], file: d.file}, from);
   }
   const head = (title, sub, action) => el('div', {class: 'head'}, el('div', {}, el('h1', {}, title), sub ? el('p', {class: 'sub'}, sub) : null), action || null);
   const empty = (title, text) => el('div', {class: 'panel empty'}, el('strong', {}, title), text);
-  window.Console = {head, empty, el, $, reduced, setLive, setDegraded, getJSON, clock, ago, shortDigest, proofBox, explain, explainTopic, close, screens: {}};
+  window.Console = {head, empty, el, $, reduced, setLive, setDegraded, getJSON, clock, ago, shortDigest, proofBox, explain, explainTopic, close, setDock, screens: {}};
 })();

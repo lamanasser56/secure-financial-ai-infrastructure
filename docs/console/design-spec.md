@@ -81,20 +81,24 @@ Message: each agent is isolated; the platform sits between it and everything els
   `blocked today`: `activity` is a short window of recent events, not a count for the day.
 - A diagram on the left (the cluster panel, about 950 × 674 at 1440 × 900; agent boxes about 210 × 96, the platform block
   about 230 × 320). On the right (386 px): each agent with its health chip and `n verified · m declared`, `Live activity`
-  (the last three events), and two buttons, `ONBOARD AN AGENT` and `TRY TO BREAK IT`. The Explain drawer is closed until a part is clicked.
+  (the last three events), and two buttons, `ONBOARD AN AGENT` and `TRY TO BREAK IT`. Explain is closed until a part is clicked.
 - **Diagram.** A dashed outline `PRIVATE CLUSTER` holds the agents (left column, `--box` boxes with a name and one
   muted line, for example `python · own rows only`) and a hatched-header `PLATFORM` block (middle) with three stacked
-  cells: Redactor (`hides personal data`), Model gateway (`one key, one budget`), Audit (`every request recorded`).
-  Outside the outline, right: Google AI, Google DLP (boxes) and Internet (dashed, `--denied`, `no way out · why?`).
+  cells: Model gateway (`one key, one budget`), Redactor (`hides personal data`), Audit (`every request recorded`), in that
+  order so the straight lines reach Google AI (top) and Google DLP (below) without crossing. Outside the outline, right:
+  Google AI, Google DLP (boxes) and Internet (dashed, `--denied`, `no way out · why?`; the whole box is clickable).
 - **Lines.** Allowed paths are solid `--ink` lines with a `--allowed` dot at each end. Denied paths are dashed
   `--denied` with a small `✕ why?` tag (agent ↔ agent, agent → Internet). The platform-to-Google paths carry a
   `private link · why?` tag.
-- Every box, line and tag is clickable and opens its topic in the Explain drawer (below). The selected one is outlined
-  `--allowed`.
-- **Explain drawer** (right, on demand): eyebrow `EXPLAIN · VERIFIED LIVE` in `--allowed` (or `EXPLAIN · NOT SEEN LIVE` in `--muted`
-  when `proof` is null); title (Barlow 700, 32 px) and a mono subtitle; then labelled blocks `IN PLAIN WORDS`,
-  `HOW IT WORKS`, `PROOF · <SOURCE>` (a dark code box, Plex Mono), `WITHOUT IT` (an amber left-border block); a file
-  path at the bottom in Plex Mono.
+- Every box, line and tag is clickable (the `✕ why?` wall chips, `private link · why?`, the Internet box, the three platform
+  rows) and opens its topic in Explain (below). The selected one is outlined `--allowed`.
+- **Explain on the Map** opens in the right column in place of the aside (about 420 px, same top and height as the
+  drawing panel); the drawing (about 920 px) stays fully visible and is not dimmed. Close or Esc brings the aside back and
+  returns focus to the part. Content: eyebrow `EXPLAIN · VERIFIED LIVE` (12 px, `--allowed`; `EXPLAIN · NOT SEEN LIVE` in
+  `--muted` when `proof` is null); title (Barlow 800, 32 px); a mono line naming the layer the part rests on (for example
+  `Kubernetes NetworkPolicy · GKE Dataplane V2`, fixed wording taken from the infrastructure files); `IN PLAIN WORDS`
+  (16 px), `HOW IT WORKS` (15 px), `PROOF · <SOURCE>` (Plex Mono 12 px, an `--allowed` border when live), `WITHOUT IT`
+  (an amber left rule); the source path in Plex Mono pinned to the bottom of the panel. Other screens keep the drawer.
 - Data: `topology` for the diagram; `explain/<topic>` for the card.
 
 ### Agents ★ — "Agent passports"
@@ -103,10 +107,14 @@ Message: every agent has an identity, permissions and proof.
 
 - Subtext: `Every agent gets an identity, a set of permissions, and proof.` Primary action top right: `ISSUE A PASSPORT →`
   (`--inverse`), which goes to Onboard.
-- **Left rail:** one row per agent: a small passport thumbnail, the name (Barlow 700) and the namespace (mono, muted).
+- **Left rail** (300 px): one row per agent: a small passport cover with the agent's icon, the name (Barlow 700, 20 px) and
+  the namespace (mono 12 px, muted).
   The selected row has a `--allowed` left bar and a `--box` fill.
-- **Passport card** (right): a rounded `--box` card with a top strip `AGENT PLATFORM` (left) and
-  `AGENT PASSPORT · P<PLT<01` (right). Left: a framed icon tile with the image digest beneath it
+- **Passport card** (right): a `--box` card (14 px radius, a soft shadow, a faint guilloche from CSS gradients, about
+  368 px tall) with a top strip `AGENT PLATFORM` (left) and `AGENT PASSPORT · P<PLT<01` (right). Left: a framed icon tile
+  (about 150 × 176) with the image digest beneath it. The icon is a simple inline line icon chosen from manifest facts,
+  never from the name: shield for the platform tenant, bank for an agent over the `finance` database, book for an agent
+  whose tool searches the docs, the platform emblem otherwise. The name is 40 px; the MRZ is Plex Mono 15 px, widely tracked
   (`sha256:4b1e…09cd`, mono, first 4 and last 4 hex characters). Fields in a grid (label 10–11 px muted caps, value
   Barlow 700 20 px): NAME (large), NAMESPACE, TEAM, RUNTIME, MODEL, BUDGET (`$5.00 / month`), DATA (`none`, or the database and `own rows`). The reference screens show VALID UNTIL here; no
   live or manifest source for it exists, so DATA replaces it rather than showing a made-up date. A round
@@ -152,8 +160,8 @@ Message: you got an answer, and here is what the platform did for you.
 Message: one file in, eight guarantees out.
 
 - Subtext: `One file in. Eight guarantees out.` Primary action top right: `▶ ONBOARD <AGENT>` (`--inverse`).
-- **Left card `agent.yaml`:** the manifest, Plex Mono, keys in `--declared`, values in `--ink`.
-- **Right card `The platform builds`** with a count (`8 / 8`, `--allowed`): eight rows, each a ring icon, the name
+- **Left card `agent.yaml`** (440 px): the manifest, Plex Mono 16 px, line height about 1.9, keys in `#9DCBFF`, values in `--ink`.
+- **Right card `The platform builds`** with a count (`8 / 8`, `--allowed`): eight rows, each a ring icon, the name (Barlow 700, 20 px)
   and a right-aligned chip:
 
   | # | Row | Id |
@@ -171,7 +179,7 @@ Message: one file in, eight guarantees out.
   means from the manifest only. Chip `FAILING` (`--denied` fill, ! in an amber ring) means a live check ran and
   contradicts the manifest (today only default-deny missing). The count is `verified` over eight; when `failing` is above 0 it adds `· n failing` in
   `--denied`.
-- **Rejected strip** (dashed `--denied` outline, full width): `REJECTED  A file asking for the internet, a write tool,
+- **Rejected strip** (2 px dashed `--denied` outline, full width, `REJECTED` in Barlow 800 20 px): `REJECTED  A file asking for the internet, a write tool,
   or a $50 budget is refused. Nothing gets created.` and `See example →`.
 - Row 7 carries the label `inferred`: `running pod ⇒ admitted under the enforced Binary Authorization policy`. It is
   never presented as a direct observation of the policy.
