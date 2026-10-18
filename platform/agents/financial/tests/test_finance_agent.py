@@ -539,6 +539,22 @@ class PastedInvoice(unittest.TestCase):
         for value in self.VALUES:
             self.assertNotIn(value, sent)
 
+    def test_a_multi_line_paste_at_line_starts(self):
+        """Realistic-data review RD-01: inside json.dumps(prompt) a newline is "\\n", and the letter n hid a value that
+        starts a pasted line (an IBAN on its own line, "National ID:" at a line start) from the detector."""
+        question = ('Please refund me.\n\nIBAN\nSA85 1000 0012 3456 7890 1234\n\nCustomer details\nNational ID: 1073059188\n'
+                    'Iqama No. 2473059182\nAccount Number: 0108061198000123\nMobile: (+966) 53 207 9418')
+        values = ('SA85 1000 0012 3456 7890 1234', '1073059188', '2473059182', '0108061198000123', '53 207 9418')
+        redactor, seen = self.chain()
+        model = Model({'action': 'answer', 'text': 'I can only see your own expenses.'})
+        _, result = run(model, redactor=redactor, question=question)
+        self.assertEqual(result['status'], 'answered')
+        sent = json.dumps([model.prompts, seen], ensure_ascii=False)
+        for value in values:
+            self.assertNotIn(value, sent)
+        self.assertEqual(result['privacy']['masked_before_model'],
+                         ['IBAN_CODE', 'PHONE_NUMBER', 'SAUDI_BANK_ACCOUNT', 'SAUDI_NATIONAL_ID', 'SAUDI_RESIDENT_ID'])
+
     def test_the_question(self):
         redactor, seen = self.chain()
         model = Model({'action': 'answer', 'text': 'I can only see your own expenses.'})

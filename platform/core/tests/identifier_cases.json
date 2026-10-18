@@ -189,6 +189,168 @@
   {
    "text": "Contact 0501234567@mail.sa about room 42 and order 42-1500.",
    "expected": []
+  },
+  {
+   "text": "Please refund me.\n\nIBAN\nSA85 1000 0012 3456 7890 1234\n\nRegards,\nNoura\nMobile: +966 53 207 9418",
+   "expected": [
+    [
+     "IBAN_CODE",
+     "SA85 1000 0012 3456 7890 1234"
+    ],
+    [
+     "PHONE_NUMBER",
+     "+966 53 207 9418"
+    ]
+   ]
+  },
+  {
+   "text": "Customer details\nNational ID: 1073059188\nIqama No. 2473059182\nAccount Number: 0108061198000123\nVAT Number: 310 122 393 500 003",
+   "expected": [
+    [
+     "SAUDI_NATIONAL_ID",
+     "1073059188"
+    ],
+    [
+     "SAUDI_RESIDENT_ID",
+     "2473059182"
+    ],
+    [
+     "SAUDI_BANK_ACCOUNT",
+     "0108061198000123"
+    ],
+    [
+     "SAUDI_VAT_ID",
+     "310 122 393 500 003"
+    ]
+   ]
+  },
+  {
+   "text": "IBAN\tSA8510000012345678901234\r\nNational ID: 1073059188",
+   "expected": [
+    [
+     "IBAN_CODE",
+     "SA8510000012345678901234"
+    ],
+    [
+     "SAUDI_NATIONAL_ID",
+     "1073059188"
+    ]
+   ]
+  },
+  {
+   "text": "هويتي 1073059188 — ID: 1103059187 — رقم هويتك 1803059183 — رقم السجل المدني: 1073059188",
+   "expected": [
+    [
+     "SAUDI_NATIONAL_ID",
+     "1073059188"
+    ],
+    [
+     "SAUDI_NATIONAL_ID",
+     "1103059187"
+    ],
+    [
+     "SAUDI_NATIONAL_ID",
+     "1803059183"
+    ],
+    [
+     "SAUDI_NATIONAL_ID",
+     "1073059188"
+    ]
+   ]
+  },
+  {
+   "text": "رقم إقامتي 2473059182، رقم الاقامه: 2173059185، resident 2473059182",
+   "expected": [
+    [
+     "SAUDI_RESIDENT_ID",
+     "2473059182"
+    ],
+    [
+     "SAUDI_RESIDENT_ID",
+     "2173059185"
+    ],
+    [
+     "SAUDI_RESIDENT_ID",
+     "2473059182"
+    ]
+   ]
+  },
+  {
+   "text": "Call me on (+966) 55 014 2386, (055) 014 2386, 055.014.2386 or 055–014–2386; جوالي (+966)550142386",
+   "expected": [
+    [
+     "PHONE_NUMBER",
+     "(+966) 55 014 2386"
+    ],
+    [
+     "PHONE_NUMBER",
+     "(055) 014 2386"
+    ],
+    [
+     "PHONE_NUMBER",
+     "055.014.2386"
+    ],
+    [
+     "PHONE_NUMBER",
+     "055–014–2386"
+    ],
+    [
+     "PHONE_NUMBER",
+     "(+966)550142386"
+    ]
+   ]
+  },
+  {
+   "text": "mada 5888 4573 0591 8268, 9682017305918260, Amex 3782-8224-6310-005, Visa 4111-1111-1111-1111",
+   "expected": [
+    [
+     "CREDIT_CARD",
+     "5888 4573 0591 8268"
+    ],
+    [
+     "CREDIT_CARD",
+     "9682017305918260"
+    ],
+    [
+     "CREDIT_CARD",
+     "3782-8224-6310-005"
+    ],
+    [
+     "CREDIT_CARD",
+     "4111-1111-1111-1111"
+    ]
+   ]
+  },
+  {
+   "text": "IBAN SA03  8000  0000  6080  1016  7519 and +966‎ 55‎ 014‎ 2386 and 05​50142386 and 055؜0142386",
+   "expected": [
+    [
+     "IBAN_CODE",
+     "SA03  8000  0000  6080  1016  7519"
+    ],
+    [
+     "PHONE_NUMBER",
+     "+966‎ 55‎ 014‎ 2386"
+    ],
+    [
+     "PHONE_NUMBER",
+     "05​50142386"
+    ],
+    [
+     "PHONE_NUMBER",
+     "055؜0142386"
+    ]
+   ]
+  },
+  {
+   "text": "Send the receipt to sara.alotaibi＠qamar-studio-fixture.sa please",
+   "expected": [
+    [
+     "EMAIL_ADDRESS",
+     "sara.alotaibi＠qamar-studio-fixture.sa"
+    ]
+   ]
   }
- ]
+ ],
+ "_comment_realistic": "Cases from the realistic-data review (2026-10-19): multi-line pastes (RD-01), everyday ID phrasings (RD-02), mada cards (RD-03), (+966) and other phone writings (RD-04, RD-09), Amex 4-4-4-3 (RD-08), double spaces and invisible marks inside numbers and the fullwidth at sign (RD-09). All values are synthetic."
 }
