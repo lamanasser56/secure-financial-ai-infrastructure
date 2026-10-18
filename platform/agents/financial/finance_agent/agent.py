@@ -75,6 +75,31 @@ CLAIM_STEMS = (
     'رصيد', 'تحويل', 'راتب', 'ميزاني', 'ضريب', 'قسط', 'قرض')
 CATEGORY_WORDS = {'bills': ('bill', 'فاتور', 'فواتير'), 'subscriptions': ('subscription',)}
 ARABIC_MARKS = re.compile('[\u064B-\u0652\u0640]')  # harakat and tatweel
+# Each stem matches as a word, not inside one: "spending" is not "pending", "taxi" is not "tax", "private" is not "vat".
+# English stems ending in a letter that can start a longer unrelated word take only their inflections; truncated stems
+# (approv, reimburs, ...) take any ending. Arabic stems may carry the usual clitics (و ف ب ل ك, ال, لل) and any ending;
+# موافق alone is not matched after ال, because الموافق is the standard word in Arabic dates ("الموافق ٢٠٢٦-١٠-٠٣").
+_EN_ENDINGS = {'invoice': '(?:s|d)?', 'receipt': 's?', 'refund': '(?:s|ed|ing|able)?', 'paid': '', 'payment': 's?',
+               'pending': '', 'recorded': '', 'registered': '', 'processed': '', 'submitted': '', 'settled': '',
+               'balance': 's?', 'transfer': '(?:s|red|ring)?', 'salary': '', 'income': 's?', 'budget': '(?:s|ed)?',
+               'overdue': '', 'subscription': 's?', 'tax': '(?:es|ed)?', 'vat': '', 'loan': 's?', 'installment': 's?',
+               'bill': '(?:s|ed|ing)?'}
+_AR_START = '(?<![\u0621-\u064A])(?:[وفبلك]?(?:ال)?|لل)'
+
+
+def _claim_pattern(stem):
+    if stem == 'salary':
+        return re.compile(r'\bsalar(?:y|ies)\b')
+    if stem in _EN_ENDINGS:
+        return re.compile(r'\b' + stem + _EN_ENDINGS[stem] + r'\b')
+    if stem.isascii():
+        return re.compile(r'\b' + stem + r'\w*')
+    if stem == 'موافق':
+        return re.compile('(?<![\u0621-\u064A])(?<!ال)[وفبلك]?موافق')
+    return re.compile(_AR_START + stem)
+
+
+CLAIM_PATTERNS = {stem: _claim_pattern(stem) for stem in CLAIM_STEMS}
 
 
 def normalize(text):
@@ -97,7 +122,7 @@ def ungrounded_claims(text, observations):
     categories = {c['category'] for o in observations for c in o['result'].get('categories', [])}
     categories |= {t['category'] for o in observations for t in o['result'].get('transactions', [])}
     allowed = {word for category in categories for word in CATEGORY_WORDS.get(category, ())}
-    return sorted({stem for stem in CLAIM_STEMS if stem in answer} - allowed)
+    return sorted({stem for stem, pattern in CLAIM_PATTERNS.items() if pattern.search(answer)} - allowed)
 
 
 def numbers(text):
