@@ -58,8 +58,10 @@ next to the console assets, are served from the same origin, and are never loade
 
 ## Frame
 
-- One column, centred, about 1000–1040 px wide at desktop; 16 px side gutters on small screens.
-- **Header** on every screen: the wordmark `AGENT-PLATFORM` (Barlow 800, tracked) and a green `● Live` badge on the left;
+- Full width, as the ★ screens were drawn (1440 × 900, the recording viewport): 40 px side padding and no centred
+  max-width column; 16 px side gutters on small screens. Each screen fills that frame at 1440 × 900 without scrolling
+  sideways or cutting anything off.
+- **Header** (68 px tall) on every screen: the wordmark `AGENT-PLATFORM` (Barlow 800, tracked) and a green `● Live` badge on the left;
   the tab row in the centre; a 1 px rule under all of it. There is no `Sample data` badge: the console shows no sample data.
 - **Tabs:** `MAP · AGENTS · ONBOARD · OPS · BREAK IT`. The current tab is `--ink` with a 2 px underline; the others are
   `--muted`. `BREAK IT` is always `--denied` (its underline too, when current).
@@ -74,8 +76,12 @@ next to the console assets, are served from the same origin, and are never loade
 Message: each agent is isolated; the platform sits between it and everything else.
 
 - Headline right-aligned with a muted hint: `Click any part to see how it works.`
-- A diagram on the left (about 2/3). On the right: each agent with its health chip and `n verified · m declared`, the last
-  three activity events, and two buttons. The Explain drawer is closed until a part is clicked.
+- Beside the headline, numbers from real data only: `agents` (agent nodes in `topology`) and `protected` (agents whose
+  passport stamp reads VERIFIED; shown only while live checks answer and every agent's checks came back). There is no
+  `blocked today`: `activity` is a short window of recent events, not a count for the day.
+- A diagram on the left (the cluster panel, about 950 × 674 at 1440 × 900; agent boxes about 210 × 96, the platform block
+  about 230 × 320). On the right (386 px): each agent with its health chip and `n verified · m declared`, `Live activity`
+  (the last three events), and two buttons, `ONBOARD AN AGENT` and `TRY TO BREAK IT`. The Explain drawer is closed until a part is clicked.
 - **Diagram.** A dashed outline `PRIVATE CLUSTER` holds the agents (left column, `--box` boxes with a name and one
   muted line, for example `python · own rows only`) and a hatched-header `PLATFORM` block (middle) with three stacked
   cells: Redactor (`hides personal data`), Model gateway (`one key, one budget`), Audit (`every request recorded`).
