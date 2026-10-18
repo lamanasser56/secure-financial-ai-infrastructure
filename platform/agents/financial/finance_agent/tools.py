@@ -4,6 +4,9 @@ The model may only name a tool and give arguments; the code validates them, runs
 and returns plain data. Text that users typed (merchant names, notes) is untrusted: it is returned as data, and any
 field that looks like an instruction is withheld before the model sees it.
 """
+import re
+import unicodedata
+
 from runtime.agents.controls import BoundedInjectionAssessor
 from runtime.phase4.prompt_injection import PromptInjectionOutcome
 
@@ -26,11 +29,50 @@ def _args(args, allowed, required):
         raise ToolRejected(str(error)) from None
 
 
+# Look-alike letters folded to Latin before matching (Greek and Cyrillic capitals and small letters that render like
+# ASCII), so "Ιgnore" (Greek iota) or "ignоre" (Cyrillic o) is read as "ignore".
+_CONFUSABLES = str.maketrans('ΑΒΕΖΗΙΚΜΝΟΡΤΥΧαεικνορτυχАВЕКМНОРСТХаеіјорсуххѕ', 'ABEZHIKMNOPTYXaeikvoptuxABEKMHOPCTXaeijopcyxxs')
+_ARABIC_MARKS = re.compile('[\u064B-\u0652\u0640]')  # harakat and tatweel
+# The platform-level indicators for user-entered text, in addition to the qualified assessor (runtime/agents/controls.py,
+# hash-bound, unchanged). Found missing by the realistic-data review (RD-05): "ignore ALL PREVIOUS instructions",
+# disregard/forget, role labels, Arabic with words between the verb and التعليمات, and the feminine/plural forms.
+_INSTRUCTION_LIKE = re.compile('|'.join((
+    r'\b(?:ignore|disregard|forget|override|bypass|skip)\b(?:\W+\w+){0,3}?\W+(?:instructions?|rules?|prompts?|polic(?:y|ies)'
+    r'|guidelines?|directions?|constraints?)\b',
+    r'\b(?:new|updated|real|actual) (?:system )?instructions\b',
+    r'\bnote to (?:the )?(?:ai|assistant|model|agent|llm)\b',
+    r'(?:^|[\s"{(\[])(?:system|assistant|developer)\s*:',
+    r'"role"\s*:\s*"(?:system|assistant|developer)"',
+    r'\byou are (?:now )?(?:an? |the )?(?:admin|administrator|root|developer|system|superuser)\b',
+    '(?:تجاهل|تجاهلي|تجاهلوا|اتجاهل|انس|انسي|انسى|لا تتبع|لا تتبعي|لا تلتزم|تخط|تخطي|تخطى|تجاوز)'
+    r'(?:\s+\S+){0,3}?\s+(?:ب|ل)?(?:ال)?(?:تعليمات|اوامر|قواعد|سياس)',
+    r'ملاحظة\s+(?:لل|الي ال|الى ال)(?:مساعد|ذكاء|نموذج|وكيل)',
+    r'انت الان\s+(?:ال)?(?:مدير|مسوول|مسؤول|ادمن|المشرف|مشرف)',
+)), re.IGNORECASE)
+
+
+def fold(text):
+    """The text as a reader sees it: NFKC, no invisible format characters (zero-width, bidi marks, soft hyphen), look-alike
+    letters as Latin, no Arabic harakat or tatweel, bare alef, lower case, single spaces."""
+    text = unicodedata.normalize('NFKC', text)
+    text = ''.join(c for c in text if unicodedata.category(c) != 'Cf').translate(_CONFUSABLES)
+    text = _ARABIC_MARKS.sub('', text).translate(str.maketrans('أإآى', 'اااي'))
+    return ' '.join(text.lower().split())
+
+
+def instruction_like(text):
+    """True if user-entered text reads like an instruction to the model. A filter is never complete: the read-only tools,
+    row-level security and the grounding checks hold whatever it misses."""
+    if type(text) is not str or not text:
+        return False
+    folded = fold(text)
+    return (any(_ASSESSOR.assess({'text': t}).outcome is not PromptInjectionOutcome.CLEAR for t in (text, folded))
+            or _INSTRUCTION_LIKE.search(folded) is not None)
+
+
 def untrusted(text):
     """User-entered text reaches the model only as data; instruction-like text is withheld."""
-    if _ASSESSOR.assess({'text': text}).outcome is not PromptInjectionOutcome.CLEAR:
-        return WITHHELD
-    return text
+    return WITHHELD if instruction_like(text) else text
 
 
 def monthly_total(store, user_id, args):

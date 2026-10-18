@@ -28,7 +28,7 @@ import time
 import urllib.request
 
 from agent_platform import audit, request_context
-from finance_agent.tools import TOOLS, WITHHELD, ToolRejected
+from finance_agent.tools import TOOLS, WITHHELD, ToolRejected, instruction_like
 
 MAX_MODEL_CALLS = 4
 MAX_QUESTION = 500
@@ -339,6 +339,9 @@ class FinanceAgent:
                 if language not in ('en', 'ar'):
                     raise Blocked('language')
                 self.limits.check(user_id)
+                # The user's own question is assessed and recorded, never withheld: a pasted invoice or email may carry
+                # instructions from someone else, and the audit should say so. The answer is still bound by the checks.
+                turn['question_instruction_like'] = instruction_like(question)
                 answer, observations = self._run(user_id, question.strip(), language, turn)
                 result = {'status': 'answered', 'answer': answer,
                           'how_we_know': {'tools': turn['tools'], 'months': sorted({o['result']['month'] for o in observations}),
@@ -384,9 +387,16 @@ class FinanceAgent:
             'grounding_result': grounding,
             'redaction': {'calls': turn['redactor_calls'], 'categories': dict(sorted(turn['redaction'].items())),
                           'counted': 'redactor_calls_in_which_the_category_was_found'},
-            'injection_result': ({'result': 'instruction_like_text_withheld', 'withheld_fields': turn['withheld']}
-                                 if turn['withheld'] else None),
+            'injection_result': self._injection_result(turn),
         }
+
+    @staticmethod
+    def _injection_result(turn):
+        """Closed values only: how many tool fields were withheld, and whether the question itself read like an instruction."""
+        result = {'result': 'instruction_like_text_withheld', 'withheld_fields': turn['withheld']} if turn['withheld'] else None
+        if turn.get('question_instruction_like'):
+            result = dict(result or {'result': 'instruction_like_question_recorded'}, question_instruction_like=True)
+        return result
 
     def _redact(self, text, turn):
         redacted = self._redactor.redact(text)
