@@ -56,7 +56,25 @@ RULES = ' '.join((
 ))
 ARABIC_DIGITS = str.maketrans('٠١٢٣٤٥٦٧٨٩٫٬', '0123456789.,')
 MODEL_NAME = re.compile(r'[A-Za-z0-9._/:-]{1,80}')
-NUMBER = re.compile(r'(?<![\w.])\d+(?:,\d{3})*(?:\.\d+)?')
+# A figure as people write it: thousands grouped by comma, Arabic comma ٬, space, no-break or narrow space, or apostrophe
+# ("10 000", "1'000", "٥٬٠٠٠" are one value, not two); a decimal point (Arabic ٫ is mapped to "."), or a decimal comma
+# before exactly two digits ("830,49", "٨٣٠،٤٩"); and a multiplier word ("12k", "5 آلاف"). A space-grouped "10 000" used to
+# parse as 10 and 0, both "grounded" by the month and the default allowance.
+NUMBER = re.compile("(?<![\\w.,،])(\\d{1,3}(?:[,   '٬]\\d{3})+|\\d+)"
+                    "(?:(?:\\.|[,،](?=\\d{2}(?!\\d)))(\\d+))?"
+                    "(?:[  ]?(k|thousands?|million|ألف|الف|آلاف|الاف|مليون)(?![A-Za-zء-ي]))?", re.IGNORECASE)
+MULTIPLIER = {'k': 1000, 'thousand': 1000, 'thousands': 1000, 'ألف': 1000, 'الف': 1000, 'آلاف': 1000, 'الاف': 1000,
+              'million': 10 ** 6, 'مليون': 10 ** 6}
+# Amounts written in words carry no checkable figure; next to a currency they are refused like an ungrounded figure.
+NUMBER_WORDS = frozenset((
+    'zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen '
+    'eighteen nineteen twenty thirty forty fifty sixty seventy eighty ninety hundred hundreds thousand thousands million '
+    'millions half a and '
+    'واحد واحدة اثنان اثنين اثنتان ثلاث ثلاثة اربع اربعة خمس خمسة ست ستة سبع سبعة ثمان ثماني ثمانية تسع تسعة عشر عشرة '
+    'عشرون عشرين ثلاثون ثلاثين اربعون اربعين خمسون خمسين ستون ستين سبعون سبعين ثمانون ثمانين تسعون تسعين مية مئة مائة '
+    'مئتان مائتان مئتين مائتين ثلاثمئة ثلاثمائة اربعمئة اربعمائة خمسمئة خمسمائة ستمئة ستمائة سبعمئة سبعمائة ثمانمئة '
+    'ثمانمائة تسعمئة تسعمائة الف الفان الفين الاف مليون ملايين نصف').split())
+CURRENCY_WORDS = frozenset(('sar', 'riyal', 'riyals', 'ريال', 'ريالات', 'ريالا', 'ر.س'))
 
 
 class Blocked(Exception):
@@ -72,7 +90,9 @@ CLAIM_STEMS = (
     'processed', 'submitted', 'settled', 'balance', 'transfer', 'salary', 'income', 'budget', 'overdue', 'subscription',
     'tax', 'vat', 'loan', 'installment', 'bill',
     'فاتور', 'فواتير', 'ايصال', 'استرداد', 'مسترد', 'مدفوع', 'دفعة', 'معلق', 'موافق', 'الموافقة', 'مسجل', 'تسجيل',
-    'رصيد', 'تحويل', 'راتب', 'ميزاني', 'ضريب', 'قسط', 'قرض')
+    'رصيد', 'تحويل', 'راتب', 'ميزاني', 'ضريب', 'قسط', 'قرض',
+    # payment-state words found by the realistic-data review (RD-06): "تم سداد المبلغ", "تم اعتماد الطلب", "cleared"
+    'confirmed', 'cleared', 'credited', 'reversed', 'reversal', 'سداد', 'سدد', 'مسدد', 'اعتماد', 'معتمد')
 CATEGORY_WORDS = {'bills': ('bill', 'فاتور', 'فواتير'), 'subscriptions': ('subscription',)}
 ARABIC_MARKS = re.compile('[\u064B-\u0652\u0640]')  # harakat and tatweel
 # Each stem matches as a word, not inside one: "spending" is not "pending", "taxi" is not "tax", "private" is not "vat".
@@ -104,7 +124,7 @@ CLAIM_PATTERNS = {stem: _claim_pattern(stem) for stem in CLAIM_STEMS}
 
 def normalize(text):
     text = ARABIC_MARKS.sub('', (text or '').lower())
-    return text.translate(str.maketrans('أإآى', 'اايي'))
+    return text.translate(str.maketrans('أإآى', 'اااي'))  # alef forms to bare alef, alef maqsura to ya
 
 
 def ungrounded_claims(text, observations):
@@ -126,7 +146,37 @@ def ungrounded_claims(text, observations):
 
 
 def numbers(text):
-    return {round(float(n.replace(',', '')), 2) for n in NUMBER.findall((text or '').translate(ARABIC_DIGITS))}
+    """Every figure in the text, as values. "1.000" is ambiguous (one, or one thousand written with a dot): both readings
+    are returned, so both must be grounded."""
+    found = set()
+    for whole, fraction, word in NUMBER.findall((text or '').translate(ARABIC_DIGITS)):
+        whole, fraction = _ascii_digits(whole), _ascii_digits(fraction)
+        factor = MULTIPLIER.get(word.lower() if word.isascii() else word, 1) if word else 1
+        found.add(round(float(whole + ('.' + fraction if fraction else '')) * factor, 2))
+        if len(fraction) == 3 and len(whole) <= 3 and not word:
+            found.add(float(whole + fraction))
+    return found
+
+
+def _ascii_digits(text):
+    """Any decimal digit (Western, Arabic-Indic, Persian, ...) as ASCII; everything else (group separators) dropped."""
+    return ''.join(str(int(c)) for c in text if c.isdecimal())
+
+
+def spelled_amount(text):
+    """True if a currency word follows a run of number words ("nine thousand nine hundred riyals", "تسعة آلاف ريال")."""
+    words = [w.strip('.,،؛:;!?()') for w in normalize(text).replace('ر.س', ' ر.س ').split()]
+    for index, word in enumerate(words):
+        if word in CURRENCY_WORDS or word.rstrip('.') in CURRENCY_WORDS:
+            run = 0
+            for previous in reversed(words[:index]):
+                bare = previous[1:] if previous[:1] == 'و' and previous[1:] in NUMBER_WORDS else previous
+                if bare not in NUMBER_WORDS:
+                    break
+                run += bare not in ('and', 'a')
+            if run:
+                return True
+    return False
 
 
 def grounded_numbers(observations):
@@ -371,7 +421,8 @@ class FinanceAgent:
             step = self._step(content, final_only)
             if step['action'] == 'answer':
                 text = step['text']
-                if not numbers(without_quoted_fields(text, observations)) <= grounded_numbers(observations):
+                unquoted = without_quoted_fields(text, observations)
+                if not numbers(unquoted) <= grounded_numbers(observations) or spelled_amount(unquoted):
                     raise Blocked('ungrounded_numbers')
                 if ungrounded_claims(text, observations):
                     raise Blocked('ungrounded_claim')
