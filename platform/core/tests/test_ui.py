@@ -191,6 +191,10 @@ class Scripts(unittest.TestCase):
         self.assertIn("'No explanation yet.'", ops)
         self.assertIn('b.explanation', ops)
 
+    def test_ops_explain_says_not_needed_when_an_automated_fix_is_proposed(self):
+        ops = (FRONT / 'ops.js').read_text()
+        self.assertIn("b.automated_fix ? 'Not needed: an automated fix is proposed.' : 'No explanation yet.'", ops)
+
     def test_ops_keeps_the_approval_result_across_refreshes(self):
         ops = (FRONT / 'ops.js').read_text()
         handler = ops[ops.index('function pending('):ops.index('// Status board')]
