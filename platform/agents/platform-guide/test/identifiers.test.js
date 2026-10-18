@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { identifierSpans, maskSpans } = require('../src/identifiers');
-const { Redactor, Blocked } = require('../src/clients');
+const { Redactor, Blocked, maskEmails } = require('../src/clients');
 const { guideWith, SEARCH } = require('./helpers');
 
 // The same cases the Python detector is held to (platform/core/tests/test_identifiers.py).
@@ -42,4 +42,56 @@ test('regression: tonight\'s invoice pasted into the Guide never reaches the red
   const sent = JSON.stringify([h.calls.redactor.map((c) => c.body), h.calls.gateway.map((c) => c.body)]);
   for (const value of [...CASES.invoice_values, ...CASES.invoice_emails]) assert.ok(!sent.includes(value), value);
   assert.ok(h.calls.gateway.length >= 1); // the model was reached, with masked text only
+});
+
+// Realistic-data review 2026-10: the synthetic Saudi/bilingual corpus (platform/core/tests/corpus/), the same checks as
+// platform/core/tests/test_realistic_corpus.py. Every covered value is masked raw, in a JSON.stringify prompt where it
+// starts a pasted line (RD-01), and in ensure_ascii-style JSON with \uXXXX-escaped Arabic digits; masking keeps JSON valid.
+const CORPUS = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../core/tests/corpus/saudi_bilingual_corpus.json'), 'utf8'));
+const asciiEscaped = (s) => s.replace(/[\u007f-￿]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
+const SHAPES = {
+  raw: (text) => text,
+  'guide prompt, value at a line start': (text) => JSON.stringify({ question: 'Please check this:\n' + text, history: [] }),
+  'ensure_ascii JSON': (text) => asciiEscaped(JSON.stringify({ evidence: { message: '\n' + text } })),
+};
+const toAscii = (c) => String((c.charCodeAt(0) - (c.charCodeAt(0) >= 0x06F0 ? 0x06F0 : 0x0660)));
+const normalized = (text) => text.replace(/\\u([0-9a-fA-F]{4})/g, (m, h) => String.fromCharCode(parseInt(h, 16)))
+  .replace(/\p{Cf}/gu, '').replace(/[\s\-–.()+   ‑＠@]/g, '').replace(/[٠-٩۰-۹]/g, toAscii)
+  .toLowerCase();
+// What the Guide's client (src/clients.js redact()) sends: its email layer first, then the structured identifiers.
+const masked = (text) => { const e = maskEmails(text).masked; return maskSpans(e, identifierSpans(e)); };
+
+test('every covered corpus value is masked in every prompt shape (RD-01 to RD-04, RD-08, RD-09)', () => {
+  const covered = CORPUS.items.filter((item) => item.covered);
+  assert.ok(covered.length >= 180);
+  for (const item of covered) {
+    for (const [shape, build] of Object.entries(SHAPES)) {
+      const out = normalized(masked(build(item.text)));
+      for (const value of item.values) assert.ok(!out.includes(normalized(value)), item.id + ' / ' + shape);
+    }
+  }
+});
+
+test('every value in the pasted corpus documents is masked, and masked JSON stays valid', () => {
+  for (const doc of CORPUS.documents) {
+    for (const [shape, build] of Object.entries(SHAPES)) {
+      const prompt = build(doc.text);
+      if (shape !== 'raw') JSON.parse(maskSpans(prompt, identifierSpans(prompt))); // the identifiers layer keeps JSON valid
+      const out = normalized(masked(prompt));
+      for (const value of doc.values) assert.ok(!out.includes(normalized(value)), doc.id + ' / ' + shape + ' / ' + value);
+    }
+  }
+});
+
+test('regression RD-01: a pasted multi-line email never reaches the redactor or the model raw', async () => {
+  const doc = CORPUS.documents.find((d) => d.id === 'doc_email_thread');
+  const question = doc.text.slice(0, 480);
+  const answer = { action: 'answer', text: 'Every namespace has a default-deny NetworkPolicy.' };
+  const h = guideWith({ replies: [SEARCH, answer] });
+  await h.guide.ask(question, 'en');
+  const sent = normalized(JSON.stringify([h.calls.redactor.map((c) => c.body), h.calls.gateway.map((c) => c.body)]));
+  const values = doc.values.filter((v) => question.includes(v));
+  assert.ok(values.length >= 3);
+  for (const value of values) assert.ok(!sent.includes(normalized(value)), value);
+  assert.ok(h.calls.gateway.length >= 1);
 });
