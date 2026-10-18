@@ -12,7 +12,8 @@ These must already be on `main`, with their images rebuilt, signed and pinned in
 - [ ] `make demo-check` (#91) and `make demo-reset` (#92) merged
 - [ ] The image-pin PR for the images rebuilt after those merges merged (the front door image must contain the console)
 - [ ] With the platform up, in your own terminal: `make passphrase-check` (prints only `{"match": true|false}`). If
-  false, `make passphrase` replaces only the approval passphrase hash in Secret apps/app and rolls out the front door.
+  false, `make passphrase` replaces only the approval passphrase hash in Secret apps/app and rolls out the front door
+  if it has a ready replica (otherwise it says so, and the new hash loads on the front door's next start).
   Never use `make secrets --rotate` for this: it regenerates every platform secret.
 
 ## 1. Check before anything changes

@@ -6,8 +6,10 @@
   replace   type a new passphrase twice (at least 12 characters, no leading/trailing spaces, both the same). Only
             operator_secret_scrypt in Secret apps/app is replaced (new random salt, same scrypt n=2**14 r=8 p=1);
             every other byte of the Secret's data stays as it was. Applied with `kubectl apply -f -` on stdin. If the
-            front door (apps/app) has pods, it is rolled out so it loads the new hash.
-            Prints only {"result": "PASSPHRASE_REPLACED", "values_printed": false}.
+            front door (apps/app) has at least one ready replica, it is rolled out so it loads the new hash; otherwise
+            nothing is restarted (a rollout would wait on Pods that cannot start) and the new hash loads on its next start.
+            Prints only {"result": "PASSPHRASE_REPLACED", "values_printed": false, "front_door": "restarted" | "not_ready",
+            "note": ...}.
 
 Both refuse unless stdin is a terminal. The Secret travels only through kubectl pipes and this process's memory: it is
 never printed, logged or written to disk. Nothing else is generated or rotated (this is not `make secrets --rotate`).
@@ -96,13 +98,18 @@ class Passphrase:
         rc, _ = self.kubectl('apply', '-f', '-', input=json.dumps(manifest))
         if rc != 0:
             raise Refused('passphrase: refused: kubectl apply failed (Secret unchanged)')
-        rc, replicas = self.kubectl('-n', NAMESPACE, 'get', 'deployment', NAME, '-o', 'jsonpath={.status.replicas}')
-        if rc == 0 and replicas.strip().isdigit() and int(replicas.strip()) >= 1:
+        # Roll out only a front door that is serving: with no ready replica (scaled to 0, still starting, crash-looping)
+        # `rollout status` would wait out its timeout and report a failure for a Secret change that already succeeded.
+        rc, ready = self.kubectl('-n', NAMESPACE, 'get', 'deployment', NAME, '-o', 'jsonpath={.status.readyReplicas}')
+        if rc == 0 and ready.strip().isdigit() and int(ready.strip()) >= 1:
             for args in (('rollout', 'restart', 'deployment/' + NAME), ('rollout', 'status', 'deployment/' + NAME, '--timeout=300s')):
                 if self.kubectl('-n', NAMESPACE, *args)[0] != 0:
                     raise Refused('passphrase: the Secret was replaced, but the apps/app rollout failed; run '
                                   'kubectl -n apps rollout restart deployment/app')
-        self.out(json.dumps({'result': 'PASSPHRASE_REPLACED', 'values_printed': False}))
+            front_door, note = 'restarted', 'apps/app was restarted and now uses the new passphrase'
+        else:
+            front_door, note = 'not_ready', 'apps/app has no ready replica, so it was not restarted; the new hash loads on its next start'
+        self.out(json.dumps({'result': 'PASSPHRASE_REPLACED', 'values_printed': False, 'front_door': front_door, 'note': note}))
         return 0
 
 
