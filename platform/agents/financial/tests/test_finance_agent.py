@@ -216,6 +216,36 @@ class Turn(unittest.TestCase):
                 _, result = run(Model({'action': 'tool', 'tool': 'monthly_total', 'args': {'month': '2026-10'}}, {'action': 'answer', 'text': text}))
                 self.assertEqual(result['status'], 'answered')
 
+    def test_invented_amounts_in_realistic_writing_are_rejected(self):
+        """Realistic-data review RD-06: with October's total 830.49 and its month 10 in the tool result, these figures were
+        accepted: a space-grouped "10 000" parsed as 10 and 0, "12k" as 12, and spelled-out amounts carry no digit."""
+        store = Store({LAMA: [(1, '2026-10-02', 'Cafe Nadia', 'food', 83049, None)]})
+        for text in ('You spent 10 000 SAR in October 2026.', 'You spent 10 000 SAR in October 2026.',
+                     'You spent 10 000 SAR in October 2026.', 'أنفقت ١٠ ٠٠٠ ريال في أكتوبر ٢٠٢٦.', 'About 1k SAR in October 2026.',
+                     "You spent 1'000 SAR in October 2026.", 'You spent 1.000 SAR in October 2026.', 'أنفقت ٥ آلاف ريال.',
+                     'You spent nine thousand nine hundred riyals in October 2026.', 'أنفقت تسعة آلاف وتسعمائة ريال في أكتوبر ٢٠٢٦.',
+                     'أنفقت عشرة آلاف ريال.', 'صرفت ۹۹۰۰ ریال.'):
+            with self.subTest(text=text):
+                _, result = run(Model({'action': 'tool', 'tool': 'monthly_total', 'args': {'month': '2026-10'}},
+                                      {'action': 'answer', 'text': text}), store=store)
+                self.assertEqual(result['reason'], 'ungrounded_numbers')
+
+    def test_real_figures_in_every_writing_are_accepted(self):
+        store = Store({LAMA: [(1, '2026-10-02', 'Cafe Nadia', 'food', 83049, None)]})
+        for text in ('In October 2026 you spent 830.49 SAR.', 'أنفقت ٨٣٠٫٤٩ ر.س في أكتوبر ٢٠٢٦.', 'In October 2026 you spent 830,49 SAR.',
+                     'أنفقت ٨٣٠،٤٩ ر.س في أكتوبر ٢٠٢٦.', 'You had one expense in October 2026: 830.49 SAR.'):
+            with self.subTest(text=text):
+                _, result = run(Model({'action': 'tool', 'tool': 'monthly_total', 'args': {'month': '2026-10'}},
+                                      {'action': 'answer', 'text': text}), store=store)
+                self.assertEqual(result['status'], 'answered')
+
+    def test_payment_state_claims_found_by_the_review_are_rejected(self):
+        for text in ('تم سداد المبلغ بالكامل.', 'تم اعتماد الطلب.', 'The payment was confirmed and cleared by the bank.',
+                     'It was reversed and credited back.'):
+            with self.subTest(text=text):
+                _, result = run(Model({'action': 'tool', 'tool': 'monthly_total', 'args': {'month': '2026-10'}}, {'action': 'answer', 'text': text}))
+                self.assertEqual(result['reason'], 'ungrounded_claim')
+
     def test_claim_words_inside_ordinary_words_do_not_block_an_answer(self):
         """Realistic-data review RD-07: stems were matched as substrings, so "spending" (pending), "taxi" (tax),
         "private" (vat) and the Arabic date word الموافق (موافق) blocked ordinary answers."""
