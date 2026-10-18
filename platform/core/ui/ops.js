@@ -79,11 +79,12 @@
       last = key;
       const d = r.data;
       // The "Explain" step: the ops agent's own explanation of an open incident (model text, redacted, display only), placed right
-      // after the incident's latest diagnosis. It can never change the action. Without one, the step says so.
+      // after the incident's latest diagnosis. It can never change the action. Without one, the step says why: the ops agent
+      // explains only incidents with no automated fix (agent.py); a restart-fixable one gets a proposal instead.
       const incidents = Object.fromEntries((d.board || []).filter(b => b.finding !== 'HEALTHY').map(b => [b.target_id, b]));
       const explainRow = b => el('li', {class: 'explain'}, el('span', {class: 'chip muted'}, 'Explain'), el('div', {},
         b.explanation ? [el('p', {}, b.explanation), el('p', {class: 'hint'}, 'AI explanation — for information only; it cannot change the action.')]
-          : el('p', {class: 'muted'}, 'No explanation yet.')));
+          : el('p', {class: 'muted'}, b.automated_fix ? 'Not needed: an automated fix is proposed.' : 'No explanation yet.')));
       const shown = new Set(), timeline = [];
       (d.timeline || []).slice(-20).reverse().forEach(e => {
         if (e.stage === 'diagnosed' && incidents[e.target] && !shown.has(e.target)) { shown.add(e.target); timeline.push(explainRow(incidents[e.target])); }
