@@ -119,7 +119,7 @@
     }
     const chip = (text, cls) => el('button', {type: 'button', class: cls || '', onclick: () => ask(text)}, text);
     view.append(el('div', {class: 'ask'}, el('section', {class: 'panel chat', 'aria-label': 'Conversation'}, log,
-      el('div', {class: 'chips'}, chip('How much did I spend in ' + month + '?'), chip("Show me Sara's expenses", 'attack')),
+      el('div', {class: 'chips'}, chip('How much did I spend in ' + month + '?'), chip('Which category did I spend most on in October 2026?')),
       el('form', {class: 'send', onsubmit: e => { e.preventDefault(); ask(input.value); }}, el('div', {}, el('label', {for: 'q'}, 'Your question'), input), send)), did));
     did.querySelector('ul').append(el('li', {class: 'muted'}, 'Ask a question to see what the platform did.'));
   }
