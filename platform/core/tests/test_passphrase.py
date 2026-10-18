@@ -44,7 +44,7 @@ class Kube:
             return 1, ''
         if 'get secret' in a:
             return 0, json.dumps(self.secret)
-        if 'status.replicas' in a:
+        if 'status.readyReplicas' in a:
             return 0, self.replicas
         return 0, ''
 
@@ -86,16 +86,31 @@ class Replace(unittest.TestCase):
         self.assertEqual(len(bytes.fromhex(new_value['salt'])), 16)
         self.assertTrue(passphrase.matches(NEW, new_value))
         self.assertFalse(passphrase.matches(OLD, new_value))
-        self.assertEqual(lines, [json.dumps({'result': 'PASSPHRASE_REPLACED', 'values_printed': False})])
+        self.assertEqual([json.loads(x)['result'] for x in lines], ['PASSPHRASE_REPLACED'])
+        self.assertFalse(json.loads(lines[0])['values_printed'])
 
-    def test_rolls_out_the_front_door_only_when_it_has_pods(self):
-        for replicas, rolled in (('1', True), ('0', False), ('', False)):
-            kube = Kube(replicas=replicas)
-            t, _ = tool(kube, [NEW, NEW])
-            t.replace()
+    def test_rolls_out_the_front_door_only_when_a_replica_is_ready(self):
+        # readyReplicas is absent from the status (jsonpath prints '') when no replica is ready.
+        for ready, rolled in (('1', True), ('2', True), ('0', False), ('', False), ('x', False)):
+            kube = Kube(replicas=ready)
+            t, lines = tool(kube, [NEW, NEW])
+            self.assertEqual(t.replace(), 0)
+            self.assertIn(('-n', 'apps', 'get', 'deployment', 'app', '-o', 'jsonpath={.status.readyReplicas}'), [c[0] for c in kube.calls])
             rollouts = [c[0] for c in kube.calls if 'rollout' in c[0]]
             self.assertEqual(rollouts, [('-n', 'apps', 'rollout', 'restart', 'deployment/app'),
                                         ('-n', 'apps', 'rollout', 'status', 'deployment/app', '--timeout=300s')] if rolled else [])
+            out = json.loads(lines[-1])
+            self.assertEqual(out['front_door'], 'restarted' if rolled else 'not_ready', ready)
+            if not rolled:
+                self.assertIn('the new hash loads on its next start', out['note'])
+
+    def test_readiness_unreadable_does_not_roll_out_or_fail(self):
+        kube = Kube(fail='readyReplicas')
+        t, lines = tool(kube, [NEW, NEW])
+        self.assertEqual(t.replace(), 0)
+        self.assertEqual(len(kube.applied()), 1)
+        self.assertFalse([c for c in kube.calls if 'rollout' in c[0]])
+        self.assertEqual(json.loads(lines[-1])['front_door'], 'not_ready')
 
     def test_nothing_secret_is_printed(self):
         kube = Kube()
