@@ -156,6 +156,25 @@ class AgentFlow(unittest.TestCase):
         self.assertEqual(again['code'], 'UNKNOWN_OR_USED_REQUEST')
         self.assertEqual(len(self.client.patches), 1)  # never retried, never replayed
 
+    def test_an_unknown_request_id_from_the_caller_is_not_recorded_verbatim(self):
+        """Realistic-data review RD-12: an unknown request_id went into the audit line and the console timeline as given."""
+        import contextlib
+        import io
+        import json as json_module
+        proposal = self.restart()
+        for supplied, recorded in (('Call Sara on +966 55 014 2386', None), ('../../x', None), (5, None),
+                                   (proposal['request_id'].upper(), None),
+                                   ('00000000-0000-4000-8000-000000000000', '00000000-0000-4000-8000-000000000000')):
+            with self.subTest(supplied=supplied):
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    result = self.agent.execute(supplied, 'not-a-token')
+                self.assertEqual(result['code'], 'UNKNOWN_OR_USED_REQUEST')
+                line = json_module.loads(out.getvalue().strip().splitlines()[-1])
+                self.assertEqual(line['request_id'], recorded)
+                self.assertEqual(self.agent.snapshot()['timeline'][-1]['request_id'], recorded)
+                self.assertNotIn('2386', out.getvalue() + json_module.dumps(self.agent.snapshot()['timeline']))
+
     def test_no_approval_no_mutation(self):
         proposal = self.restart()
         for token in ('', 'x.y', self.signer.sign(dict(proposal, target='platform.gateway'))):
