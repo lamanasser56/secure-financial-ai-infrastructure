@@ -10,4 +10,7 @@ Measured on every page after the change: the document is 1440 × 900 (no horizon
 past the right edge, no text is clipped, and every label in the Map drawing fits inside its box. At 360 px every console page
 is 360 px wide. Under `prefers-reduced-motion` the drawing has no moving packets and the × marks do not pulse.
 
-`after/7-map-explain.png` shows the Explain drawer opened from the keyboard.
+The `after/` set is from bde7aa8. `after/7-map-explain.png` is Map + Explain: Explain opened from the keyboard on a wall chip
+appears in the right column (420 px, same top and height as the drawing: both 671 px at y = 176) while the drawing stays
+914 px wide and undimmed. Esc brings the aside back and returns focus to the chip. The proof shown is the stub's live
+NetworkPolicy answer.
