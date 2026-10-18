@@ -453,6 +453,31 @@ class Turn(unittest.TestCase):
         self.assertEqual(heavy.ask(LAMA, 'hi', 'en')['status'], 'answered')
         self.assertEqual(heavy.ask(LAMA, 'hi', 'en')['reason'], 'token_budget_exhausted')
 
+    def test_a_long_arabic_conversation_stays_within_the_redaction_limit(self):
+        """Realistic-data review RD-10: the redactor refuses more than 4096 UTF-8 bytes. With a long Arabic question and
+        Arabic answers, turn 4 used to exceed it and fail as redaction_unavailable; the oldest history is dropped instead."""
+        class Capped(Redactor):
+            def redact(self, value):
+                if len(value.encode()) > 4096:
+                    raise RuntimeError('over the redaction limit')  # what the client budget and the server do
+                return super().redact(value)
+        question = ('كم صرفت على الأكل والمواصلات والفواتير في أكتوبر ٢٠٢٦؟ أريد المجموع لكل فئة مع ذكر عدد المصروفات، '
+                    'ومقارنة بسيطة بين الفئات، وأي ملاحظة عن أكبر مصروف في الشهر إن وجدت، من فضلك بالتفصيل وباللغة العربية. ') * 3
+        answer = 'أنفقت ٢٤٫٥٠ ر.س على مصروف واحد من المصروفات التي أدخلتها في أكتوبر ٢٠٢٦، وهذا كل ما أراه في سجلاتك. ' * 3
+        agent = FinanceAgent(Store({LAMA: [(1, '2026-10-02', 'Cafe', 'food', 2450, '')]}), Capped(), None, audit_key=b'k' * 32)
+        for turn in range(5):
+            agent._gateway = Model({'action': 'tool', 'tool': 'monthly_total', 'args': {'month': '2026-10'}}, {'action': 'answer', 'text': answer})
+            with self.subTest(turn=turn + 1):
+                result = agent.ask(LAMA, question[:500], 'ar')
+                self.assertEqual(result['status'], 'answered', result.get('reason'))
+
+    def test_a_prompt_that_cannot_fit_stops_as_prompt_too_large(self):
+        rows = [(i, '2026-10-02', 'متجر ' + 'ب' * 55, 'food', 100 + i, 'ملاحظة ' + 'ج' * 190) for i in range(40)]
+        model = Model({'action': 'tool', 'tool': 'find_transactions', 'args': {'month': '2026-10'}},
+                      {'action': 'answer', 'text': 'In October 2026 you spent 1.00 SAR.'})
+        _, result = run(model, store=Store({LAMA: rows}))
+        self.assertEqual((result['status'], result['reason']), ('blocked', 'prompt_too_large'))
+
     def test_history_is_server_side_and_audit_has_no_content(self):
         from agent_platform import audit
         events = []
