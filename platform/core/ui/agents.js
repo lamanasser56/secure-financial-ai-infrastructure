@@ -58,11 +58,24 @@
     return [fill('P<PLT<' + up(agent.name), 44), fill(up(agent.namespace.replace('agent-', '')).slice(0, 8) + '<' + hex + '<' + budget + '<' + counts + '<' + (agent.health ? up(agent.health.state) : 'UNKNOWN'), 44)];
   }
 
-  const emblem = size => el('svg', {viewBox: '0 0 60 60', width: size, height: size, 'aria-hidden': 'true'},
-    el('path', {d: 'M30 6 L52 18 V42 L30 54 L8 42 V18 Z', fill: 'none', stroke: '#F2F7FF', 'stroke-width': 2.5}),
-    el('path', {d: 'M30 18 L42 24 V36 L30 42 L18 36 V24 Z', fill: 'none', stroke: '#7CF0C0', 'stroke-width': 2}), el('circle', {cx: 30, cy: 30, r: 3.5, fill: '#F2F7FF'}));
-  const cover = () => el('svg', {class: 'cover', viewBox: '0 0 44 58', 'aria-hidden': 'true'}, el('rect', {x: 1, y: 1, width: 42, height: 56, rx: 4, fill: '#14406E', stroke: '#F2F7FF', 'stroke-opacity': 0.7}),
-    el('path', {d: 'M22 12 L36 20 V34 L22 42 L8 34 V20 Z', fill: 'none', stroke: '#F2F7FF', 'stroke-width': 1.6}), el('circle', {cx: 22, cy: 27, r: 3, fill: '#7CF0C0'}), el('text', {x: 22, y: 50, 'text-anchor': 'middle', 'font-size': 6, 'font-family': 'Barlow Semi Condensed', fill: '#9DB6D6'}, 'PASSPORT'));
+  // The passport photo: a simple line icon chosen from what the manifest says the agent is (never from its name): the platform
+  // tenant guards the platform (shield), an agent over the finance database handles money (bank), an agent whose tool searches
+  // the documentation answers from docs (book); anything else gets the platform emblem.
+  const ICONS = {
+    shield: [['M30 7 L50 15 V30 C50 42 41 50 30 54 C19 50 10 42 10 30 V15 Z', '#F2F7FF'], ['M21 31 L28 38 L40 23', '#7CF0C0']],
+    bank: [['M8 22 L30 9 L52 22 Z', '#F2F7FF'], ['M14 27 V44 M24 27 V44 M36 27 V44 M46 27 V44', '#7CF0C0'], ['M9 48 H51 M7 53 H53', '#F2F7FF']],
+    book: [['M30 17 C24 12 16 12 8 14 V48 C16 46 24 46 30 51 C36 46 44 46 52 48 V14 C44 12 36 12 30 17 Z', '#F2F7FF'], ['M30 17 V51', '#7CF0C0'],
+           ['M14 22 H24 M14 29 H24 M36 22 H46 M36 29 H46', '#7CF0C0']],
+    emblem: [['M30 6 L52 18 V42 L30 54 L8 42 V18 Z', '#F2F7FF'], ['M30 18 L42 24 V36 L30 42 L18 36 V24 Z', '#7CF0C0']]
+  };
+  const iconOf = agent => agent.kind === 'platform' ? 'shield' : agent.data !== 'none' && agent.data.database === 'finance' ? 'bank'
+    : (agent.tools || []).some(t => /docs/.test(t.id)) ? 'book' : 'emblem';
+  const icon = (agent, attrs) => el('svg', {viewBox: '0 0 60 60', 'aria-hidden': 'true', ...attrs},
+    ICONS[iconOf(agent)].map(([d, stroke]) => el('path', {d, fill: 'none', stroke, 'stroke-width': 2.5, 'stroke-linejoin': 'round', 'stroke-linecap': 'round'})));
+  const emblem = (agent, size) => icon(agent, {width: size, height: size});
+  const cover = agent => el('svg', {class: 'cover', viewBox: '0 0 44 58', 'aria-hidden': 'true'}, el('rect', {x: 1, y: 1, width: 42, height: 56, rx: 4, fill: '#14406E', stroke: '#F2F7FF', 'stroke-opacity': 0.7}),
+    el('g', {transform: 'translate(8 10) scale(0.47)'}, ICONS[iconOf(agent)].map(([d, stroke]) => el('path', {d, fill: 'none', stroke, 'stroke-width': 3.4, 'stroke-linejoin': 'round', 'stroke-linecap': 'round'}))),
+    el('text', {x: 22, y: 50, 'text-anchor': 'middle', 'font-size': 6, 'font-family': 'Barlow Semi Condensed', fill: '#9DB6D6'}, 'PASSPORT'));
 
   // One list row: plain text; a small LIVE tag only when its guarantee was verified in the cluster now; FAILING when a live check contradicts it.
   function listItem(kind, label, g, fallbackId, agent) {
@@ -99,7 +112,7 @@
     if (agent.data !== 'none' && agent.data.user_entry === 'own-rows') restricted.push(listItem('no', "Sees only the signed-in user's rows", null, 'rows', agent));
     const card = el('article', {class: 'passport', 'aria-label': 'Passport of ' + Console.title(agent)},
       el('div', {class: 'band'}, el('span', {}, 'AGENT PLATFORM'), el('span', {}, 'AGENT PASSPORT · P<PLT<01')),
-      el('div', {class: 'page'}, el('div', {}, el('div', {class: 'emblem'}, emblem(84)), el('div', {class: 'digest'},
+      el('div', {class: 'page'}, el('div', {}, el('div', {class: 'emblem'}, emblem(agent, 96)), el('div', {class: 'digest'},
           Console.shortDigest(digest) || (agent.kind === 'platform' ? 'own pod not observed' : 'no running image seen'),
           agent.live && agent.live.image_digests.length > 1 ? ' +' + (agent.live.image_digests.length - 1) : '')),
         el('div', {}, el('div', {class: 'label'}, 'Name'), el('h2', {class: 'name'}, Console.title(agent), Console.healthChip(agent.health)),
@@ -137,7 +150,7 @@
       const show = (flip) => {
         const agent = data.agents.find(a => a.name === selected);
         const rail = el('nav', {class: 'rail', 'aria-label': 'Agents'}, data.agents.map(a => el('button', {type: 'button', 'aria-current': a.name === selected ? 'true' : 'false',
-          onclick: () => { selected = a.name; history.replaceState(null, '', '#/agents/' + encodeURIComponent(a.name)); show(true); }}, cover(),
+          onclick: () => { selected = a.name; history.replaceState(null, '', '#/agents/' + encodeURIComponent(a.name)); show(true); }}, cover(a),
           el('span', {}, el('b', {}, Console.title(a)), el('span', {class: 'mono'}, a.namespace)))));
         const page = passport(agent, data.onboarding[agent.name], data.topology);
         body.replaceChildren(el('div', {class: 'passports'}, rail, page));

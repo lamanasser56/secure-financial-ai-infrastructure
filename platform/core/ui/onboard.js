@@ -56,7 +56,7 @@
         return row;
       }) : el('div', {class: 'empty'}, 'Guarantees are not available right now.');
       first = false;
-      body.replaceChildren(el('div', {class: 'two'},
+      body.replaceChildren(el('div', {class: 'two onb'},
         el('section', {class: 'panel', 'aria-label': 'agent.yaml'}, el('div', {class: 'card-head'}, el('span', {class: 'mono muted'}, 'agent.yaml')), picker, yaml(agent)),
         el('section', {class: 'panel', 'aria-label': 'The platform builds'}, el('div', {class: 'card-head'}, el('h2', {}, 'The platform builds'),
           onb ? el('span', {class: 'count'}, onb.counts.verified + ' / ' + onb.total, onb.counts.failing ? el('span', {class: 'bad'}, onb.counts.failing + ' failing') : null) : null), rows)));

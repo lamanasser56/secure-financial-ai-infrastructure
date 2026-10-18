@@ -31,6 +31,7 @@
   const titles = {map: 'Map', agents: 'Agents', onboard: 'Onboard', ops: 'Ops', break: 'Break it'};
   function route() {
     Console.close();
+    Console.setDock(null);  // only the screen that asks for it hosts Explain in its layout; the others use the drawer
     timers.forEach(clearInterval); timers = [];
     const [first, arg] = location.hash.replace(/^#\/?/, '').split('/');
     const name = screens.includes(first) ? first : 'map';
