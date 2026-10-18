@@ -97,7 +97,7 @@ input::placeholder { color: var(--muted); }
 .map .cluster { border: 1px solid var(--hair); align-self: start; }
 .title-row { display: flex; align-items: flex-end; gap: 16px 36px; flex-wrap: wrap; }
 .stats { display: flex; gap: 28px; margin: 0; padding-bottom: 4px; } .stats div { display: flex; flex-direction: column-reverse; }
-.stats dt { font: 700 12px var(--head); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); } .stats dd { margin: 0; font: 800 34px/1 var(--head); }
+.stats dt { font: 700 12px var(--head); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); } .stats dd { margin: 0; font: 800 44px/1 var(--head); }
 .part { cursor: pointer; } .part:focus-visible { outline: none; } .part:focus-visible .shape, .part:hover .shape { stroke: var(--allowed); stroke-width: 2.5; }
 .shape { fill: var(--box); stroke: var(--line); stroke-width: 1.2; }
 .shape.dash { fill: none; stroke: var(--denied); stroke-dasharray: 5 4; pointer-events: all; }  /* the whole box is the click target, not only its outline */
