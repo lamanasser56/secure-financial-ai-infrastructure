@@ -22,7 +22,16 @@ APP_ROOT = Path('/app')
 sys.path.insert(0, str(APP_ROOT))
 POLICY_HASH = 'c1b782c6fd051243dec4173f903cb33607893010c7d38a6b35bc1372ddb2d4db'
 WINDOW_SECONDS, WINDOW_OPERATIONS, DAILY_OPERATIONS = 3600, 174, 1740
-IDLE_SECONDS = 120  # rebuild the provider client after this long without a call (idle channels go stale in ~10 min)
+IDLE_SECONDS = 120  # backstop: rebuild the provider client after this long without a call
+# gRPC keepalive on the Sensitive Data Protection channel. The network path drops a TCP flow that is idle for about
+# 10 minutes without telling either end, so the next call waits out its 3 s deadline and fails closed. A ping every
+# 60 s keeps the flow from going idle. max_pings_without_data=0 is required: by default gRPC stops pinging after two
+# pings with no call in between, and the flow then goes stale anyway. A local subchannel pool gives every rebuilt
+# client its own connection, so a rebuild never reuses the old one. If the server ever refuses the ping rate, it
+# closes the connection with GOAWAY (the client reconnects on the next call; it does not hang).
+KEEPALIVE_OPTIONS = (('grpc.keepalive_time_ms', 60_000), ('grpc.keepalive_timeout_ms', 20_000),
+                     ('grpc.keepalive_permit_without_calls', 1), ('grpc.http2.max_pings_without_data', 0),
+                     ('grpc.use_local_subchannel_pool', 1))
 RETIRE_SECONDS = 30  # a replaced client is closed after this delay: longer than the adapter's 8 s overall deadline
 MAX_TEXT_BYTES, MAX_BODY_BYTES = 4096, 16384
 REQUEST_ID = re.compile(r'[0-9a-f]{32}')  # the caller's X-Request-ID; any other value is dropped
@@ -45,10 +54,9 @@ def audit(event, **fields):
 class Budget:
     """Hourly window of SDK operations with a daily ceiling.
 
-    The adapter owns one gRPC channel to the Sensitive Data Protection endpoint. A channel left idle for several
-    minutes is dropped silently by the network path; the next call then waits for its full 3 s deadline and fails
-    closed. Construction is free (no request is sent), so the adapter is rebuilt after IDLE_SECONDS without a call.
-    The window's attempt budget object is shared by every adapter of the window, so a rebuild never renews it.
+    The adapter owns one gRPC channel to the Sensitive Data Protection endpoint, kept alive by KEEPALIVE_OPTIONS. As
+    a backstop, the adapter is also rebuilt after IDLE_SECONDS without a call (construction is free: no request is
+    sent). The window's attempt budget object is shared by every adapter of the window, so a rebuild never renews it.
     """
 
     def __init__(self, factory, new_window, clock=time.time, idle_seconds=IDLE_SECONDS, retire_seconds=RETIRE_SECONDS):
@@ -92,6 +100,26 @@ class Budget:
             if self._day_used + sum(self.redactor.operation_counts.values()) + 2 > DAILY_OPERATIONS:
                 raise RuntimeError('daily budget')
             return self.redactor
+
+
+def keepalive_client():
+    """The adapter's Sensitive Data Protection client: same endpoint, same Application Default Credentials, same
+    SDK defaults, on a gRPC channel that also carries KEEPALIVE_OPTIONS. Construction sends no request."""
+    from google.cloud import dlp_v2
+    from google.cloud.dlp_v2.services.dlp_service.transports import DlpServiceGrpcTransport
+    from runtime.phase3.google_sdp_adapter import ENDPOINT
+
+    def channel(host, *, options=(), **kwargs):
+        return DlpServiceGrpcTransport.create_channel(host, options=[*options, *KEEPALIVE_OPTIONS], **kwargs)
+    return dlp_v2.DlpServiceClient(client_options={'api_endpoint': ENDPOINT},
+                                   transport=lambda **kwargs: DlpServiceGrpcTransport(channel=channel, **kwargs))
+
+
+def use_keepalive_client(adapter_module):
+    """Make the qualified adapter build keepalive_client() where it would call its own _create_client(). The adapter
+    still guards construction, checks api_endpoint == ENDPOINT and counts every call as a real SDK call; only the
+    channel's options change (no request, response, deadline or retry change)."""
+    adapter_module._create_client = keepalive_client
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -156,8 +184,10 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
+    from runtime.phase3 import google_sdp_adapter
     from runtime.phase3.google_sdp_adapter import ContentAttemptBudget
     from runtime.phase3.sdp_context_policy import GoogleSDPContextRedactor
+    use_keepalive_client(google_sdp_adapter)
     if hashlib.sha256((APP_ROOT / 'evaluation/google-sdp-context/policy.json').read_bytes()).hexdigest() != POLICY_HASH:
         raise SystemExit('redactor:policy_hash')
     project = os.environ['PORTFOLIO_PROJECT_ID']
