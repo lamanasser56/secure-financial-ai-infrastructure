@@ -191,6 +191,15 @@ class Scripts(unittest.TestCase):
         self.assertIn("'No explanation yet.'", ops)
         self.assertIn('b.explanation', ops)
 
+    def test_ops_keeps_the_approval_result_across_refreshes(self):
+        ops = (FRONT / 'ops.js').read_text()
+        handler = ops[ops.index('function pending('):ops.index('// Status board')]
+        self.assertNotIn('msg.textContent = x.ok', handler)  # every outcome goes through keep(), which stores it
+        self.assertIn("keep(x.ok ? 'Result: '", handler)
+        self.assertIn("keep('Refused: '", handler)
+        self.assertIn('JSON.stringify([r.data, agents.data, lastResult])', ops)  # a new result redraws even if data did not change
+        self.assertRegex(ops, r"'Last approval'\),\s+el\('div', \{class: 'msg', role: 'status'\}, lastResult\.text\)")
+
     def test_ops_board_lists_every_agent_and_the_services_from_live_data(self):
         ops = (FRONT / 'ops.js').read_text()
         self.assertIn("Console.getJSON('/api/console/agents')", ops)
