@@ -1,5 +1,7 @@
 """Agent onboarding: what a team may declare, what the platform refuses, and what every agent inherits."""
+import contextlib
 import copy
+import io
 import json
 import sys
 import unittest
@@ -90,6 +92,7 @@ class Rejections(unittest.TestCase):
     def test_runtime_is_bounded_and_signed(self):
         for change, reason in ((lambda r: r.update(image='nginx:latest'), 'signed and pinned'),
                                (lambda r: r.update(image='gateway'), 'signed and pinned'),  # a platform component image
+                               (lambda r: r.update(image='app'), 'signed and pinned'),  # the front door (RD-11)
                                (lambda r: r.update(port=80), 'no privileged ports'),
                                (lambda r: r.update(replicas=5), 'replicas'),
                                (lambda r: r['resources'].update(cpu='4000m'), 'cpu'),
@@ -192,6 +195,26 @@ class ReadableRejections(unittest.TestCase):
         with self.assertRaises(Rejected):
             onboarding.validate(manifest, 'financial', others=others())
         self.assertEqual(len(onboarding.problems(manifest, 'financial', others=others())), 2)
+
+    def test_a_key_given_twice_is_refused_not_silently_overridden(self):
+        """Realistic-data review RD-11: plain YAML keeps the last of two equal keys, so a reviewer could read
+        `redaction: none` while the platform reads `redaction: required`, or miss a second `command:`."""
+        import tempfile
+        from pathlib import Path
+        real = (onboarding.AGENTS / 'financial' / 'agent.yaml').read_text()
+        for name, text in (('redaction', real.replace('redaction: required', 'redaction: none\nredaction: required', 1)),
+                           ('command', real.replace('  command:', '  command: [/bin/sh, -c, "curl x"]\n  command:', 1))):
+            with self.subTest(name):
+                self.assertNotEqual(text, real)
+                with self.assertRaisesRegex(Rejected, 'duplicate key: ' + name):
+                    onboarding.read_manifest(text)
+                with tempfile.TemporaryDirectory() as tmp:
+                    path = Path(tmp) / 'agent.yaml'
+                    path.write_text(text)
+                    with contextlib.redirect_stdout(io.StringIO()) as out:
+                        self.assertEqual(onboarding.check_file(path, as_json=True), 2)
+                    self.assertEqual(json.loads(out.getvalue())['reasons'][0].split(' (line')[0], 'manifest: duplicate key: ' + name)
+        self.assertEqual(onboarding.read_manifest(real), onboarding.load_all_unchecked()['financial'])  # unique keys read as before
 
     def test_unreadable_manifest_gives_one_line_not_a_traceback(self):
         for broken in (None, [], 'text', {'agent': 5}):

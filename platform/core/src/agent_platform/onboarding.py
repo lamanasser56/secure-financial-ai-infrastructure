@@ -31,7 +31,7 @@ PLATFORM_TOTAL_USD = 10.0
 # retired front-door Financial Agent (budget 0: the gateway refuses it; owner decision 2026-10-12).
 PLATFORM_KEYS = {'app-infrastructure': 2.5, 'ops-explain': 2.0, 'app-financial': 0.0}
 # Images that are platform components; an agent may only run an agent image that CI signed and pinned.
-PLATFORM_IMAGES = {'gateway', 'database', 'redactor', 'ops-agent'}
+PLATFORM_IMAGES = {'gateway', 'database', 'redactor', 'app', 'ops-agent'}  # app: the front door (holds the approval signer)
 RESERVED = {'platform', 'apps', 'ops', 'default', 'app', 'gateway', 'redactor', 'postgres', 'schema', 'ops-agent',
             'infrastructure', 'kube-system', 'kube-public', 'kube-node-lease'}
 DATABASES = {'finance'}  # platform databases with per-user row-level security (platform/core/database/*.sql)
@@ -45,6 +45,25 @@ NAME = re.compile(r'[a-z][a-z0-9-]{1,20}[a-z0-9]')
 
 class Rejected(ValueError):
     pass
+
+
+class _UniqueKeyLoader(yaml.SafeLoader):
+    """safe_load that refuses a mapping with the same key twice. Plain YAML keeps the last one silently, so a manifest
+    could show `redaction: none` to a reviewer and be read as `redaction: required` (or hide a second `command:`)."""
+
+    def construct_mapping(self, node, deep=False):
+        seen = set()
+        for key_node, _ in node.value:
+            key = self.construct_object(key_node, deep=True)
+            if key in seen:
+                raise Rejected('manifest: duplicate key: %s (line %d)' % (str(key)[:40], key_node.start_mark.line + 1))
+            seen.add(key)
+        return super().construct_mapping(node, deep=deep)
+
+
+def read_manifest(text):
+    """An agent.yaml as data: YAML safe types only, and no key given twice in any mapping."""
+    return yaml.load(text, Loader=_UniqueKeyLoader)  # a SafeLoader subclass: safe types only
 
 
 _COLLECT = None  # set by problems(): require() then records every violated rule instead of stopping at the first
@@ -97,7 +116,7 @@ def load(name, *, others=None):
     require(NAME.fullmatch(name or '') is not None and name not in RESERVED, 'agent name: lowercase, 3-22 characters, not reserved')
     path = AGENTS / name / 'agent.yaml'
     require(path.is_file(), 'no manifest: platform/agents/' + name + '/agent.yaml')
-    manifest = yaml.safe_load(path.read_text())
+    manifest = read_manifest(path.read_text())
     validate(manifest, name, others=others)
     return manifest
 
@@ -161,7 +180,7 @@ def load_all():
     manifests = {}
     for name in found:
         path = AGENTS / name / 'agent.yaml'
-        manifests[name] = yaml.safe_load(path.read_text())
+        manifests[name] = read_manifest(path.read_text())
     for name in found:  # each validated against the budget of all the others
         validate(manifests[name], name, others=[m for n, m in manifests.items() if n != name])
     return manifests
@@ -334,14 +353,17 @@ def rejection_text(source, reasons):
 
 def check_file(path, *, as_json=False):
     """Validate one manifest file against the platform rules without rendering anything."""
+    duplicate = None
     try:
-        manifest = yaml.safe_load(Path(path).read_text())
+        manifest = read_manifest(Path(path).read_text())
+    except Rejected as rejected:
+        manifest, duplicate = None, str(rejected)
     except (OSError, yaml.YAMLError):
         manifest = None
     name = manifest.get('agent') if isinstance(manifest, dict) and isinstance(manifest.get('agent'), str) else ''
     others = [m for n, m in load_all_unchecked().items() if n != name]
-    found = problems(manifest, name, others=others)
-    if not (NAME.fullmatch(name) and name not in RESERVED):
+    found = [duplicate] if duplicate else problems(manifest, name, others=others)
+    if not duplicate and not (NAME.fullmatch(name) and name not in RESERVED):
         found.insert(0, 'agent name: lowercase, 3-22 characters, not reserved')
     if as_json:
         print(json.dumps({'result': 'REJECTED' if found else 'ACCEPTED', 'reasons': found}))
@@ -361,7 +383,7 @@ def main(argv):
         raise SystemExit(check_file(argv[1], as_json=as_json))
     try:
         if argv[0] == 'render':
-            found = problems(yaml.safe_load((AGENTS / argv[1] / 'agent.yaml').read_text()) if (AGENTS / argv[1] / 'agent.yaml').is_file() else None,
+            found = problems(read_manifest((AGENTS / argv[1] / 'agent.yaml').read_text()) if (AGENTS / argv[1] / 'agent.yaml').is_file() else None,
                              argv[1], others=[m for n, m in load_all_unchecked().items() if n != argv[1]])
             if not (NAME.fullmatch(argv[1] or '') and argv[1] not in RESERVED):
                 found.insert(0, 'agent name: lowercase, 3-22 characters, not reserved')
@@ -390,7 +412,7 @@ def main(argv):
 
 
 def load_all_unchecked():
-    return {n: yaml.safe_load((AGENTS / n / 'agent.yaml').read_text()) for n in names()}
+    return {n: read_manifest((AGENTS / n / 'agent.yaml').read_text()) for n in names()}
 
 
 if __name__ == '__main__':
