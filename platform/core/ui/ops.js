@@ -3,6 +3,9 @@
   'use strict';
   const {el, $} = Console;
   let csrf = null;
+  // The outcome of the last approval in this page, kept here so the 6 s refresh (which redraws the panel and drops the
+  // finished proposal) cannot erase it. Shown in the approvals panel until the next approval replaces it.
+  let lastResult = null;
 
   async function call(request) {
     if (csrf === null) {
@@ -30,9 +33,10 @@
       approve.disabled = true; msg.textContent = 'Checking…';
       const a = await call({operation: 'approve', request_id: p.request_id, operator_secret: input.value});
       input.value = '';
-      if (!a.ok) { msg.textContent = 'Refused: ' + words(a.error); approve.disabled = false; return; }
+      const keep = text => { msg.textContent = text; lastResult = {text, target: p.target, action: p.action, at: Date.now() / 1000}; };
+      if (!a.ok) { keep('Refused: ' + words(a.error)); approve.disabled = false; return; }
       const x = await call({operation: 'execute', request_id: p.request_id, approval_id: a.data.approval_id});
-      msg.textContent = x.ok ? 'Result: ' + words(x.data.result) + (x.data.code ? ' · ' + words(x.data.code) : '') : 'Refused: ' + words(x.error);
+      keep(x.ok ? 'Result: ' + words(x.data.result) + (x.data.code ? ' · ' + words(x.data.code) : '') : 'Refused: ' + words(x.error));
       setTimeout(refresh, 800);
     }}, 'Approve');
     return el('div', {class: 'pend'}, el('div', {}, el('b', {}, words(p.action) + ' · ' + p.target), el('div', {class: 'muted'}, 'Finding: ' + words(p.finding))),
@@ -69,7 +73,7 @@
       if (!alive()) return;
       Console.setLive(r.ok);
       if (!r.ok) { body.replaceChildren(Console.empty('The ops agent cannot be reached.', 'Reason: ' + words(r.error))); last = ''; return; }
-      const key = JSON.stringify([r.data, agents.data]);
+      const key = JSON.stringify([r.data, agents.data, lastResult]);
       if (key === last) return;
       if (body.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;  // do not wipe a passphrase being typed
       last = key;
@@ -93,6 +97,9 @@
           timeline.length ? el('ul', {class: 'tl'}, timeline) : el('p', {class: 'muted'}, 'No events yet.'), el('div', {class: 'label'}, 'Status board'), board),
         el('section', {class: 'panel', 'aria-label': 'Approvals'}, el('div', {class: 'label'}, 'Needs approval'),
           (d.pending || []).length ? d.pending.map(p => pending(p, refresh)) : el('p', {class: 'muted'}, 'No pending approvals.'),
+          lastResult ? el('div', {class: 'last-result'}, el('div', {class: 'label'}, 'Last approval'),
+            el('div', {class: 'msg', role: 'status'}, lastResult.text),
+            el('div', {class: 'hint'}, words(lastResult.action) + ' · ' + lastResult.target + ' · ' + Console.ago(lastResult.at))) : null,
           el('div', {class: 'label'}, 'Policy denials'), el('p', {class: 'muted'}, (d.denials || []).length ? (d.denials.length + ' recorded. Latest: ' + words(d.denials[d.denials.length - 1].code)) : 'None recorded.'))));
     };
     Console.every(refresh, 6000);
