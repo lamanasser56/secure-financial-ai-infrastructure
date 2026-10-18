@@ -10,6 +10,7 @@ A request that fails these checks is consumed and marked stale. Pending proposal
 a newer proposal for the same target supersedes older pending ones, and the proposal history is bounded.
 """
 import collections
+import re
 import threading
 import time
 import uuid
@@ -22,6 +23,7 @@ from agent_platform.ops.registry import ACTIONS
 STAGES = ('observed', 'diagnosed', 'proposed', 'approved', 'executed', 'verified', 'denied', 'failed')
 PROPOSAL_TTL = approval.MAX_TTL  # a pending proposal lives as long as one approval may
 MAX_PROPOSALS = 100  # proposals kept (pending + history); the oldest finished ones are dropped first
+REQUEST_ID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}')  # the uuid4 propose() issues
 
 
 class Agent:
@@ -162,7 +164,10 @@ class Agent:
             if proposal is None or proposal['state'] != 'proposed':
                 proposal = None
         if proposal is None:
-            self.record('denied', None, code='UNKNOWN_OR_USED_REQUEST', request_id=request_id)
+            # An unknown ID came from the caller: record it only if it has the shape of an ID this agent issues, so caller
+            # text never reaches the audit log or the timeline the console shows.
+            self.record('denied', None, code='UNKNOWN_OR_USED_REQUEST',
+                        request_id=request_id if isinstance(request_id, str) and REQUEST_ID.fullmatch(request_id) else None)
             return {'result': 'DENIED', 'code': 'UNKNOWN_OR_USED_REQUEST'}
         key = proposal['target']
         try:
