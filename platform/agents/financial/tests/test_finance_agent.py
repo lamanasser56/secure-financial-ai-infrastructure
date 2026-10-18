@@ -216,6 +216,24 @@ class Turn(unittest.TestCase):
                 _, result = run(Model({'action': 'tool', 'tool': 'monthly_total', 'args': {'month': '2026-10'}}, {'action': 'answer', 'text': text}))
                 self.assertEqual(result['status'], 'answered')
 
+    def test_claim_words_inside_ordinary_words_do_not_block_an_answer(self):
+        """Realistic-data review RD-07: stems were matched as substrings, so "spending" (pending), "taxi" (tax),
+        "private" (vat) and the Arabic date word الموافق (موافق) blocked ordinary answers."""
+        for text in ('Your spending in October 2026: 24.50 SAR.', 'You spent 24.50 SAR on a taxi in October 2026.',
+                     'Your private expenses in October 2026 total 24.50 SAR.',
+                     'أنفقت ٢٤٫٥٠ ر.س في الشهر ١٠ الموافق أكتوبر ٢٠٢٦.'):
+            with self.subTest(text=text):
+                _, result = run(Model({'action': 'tool', 'tool': 'monthly_total', 'args': {'month': '2026-10'}}, {'action': 'answer', 'text': text}))
+                self.assertEqual(result['status'], 'answered')
+
+    def test_claim_words_still_block_as_whole_words_and_inflections(self):
+        for text in ('Your invoices were approved.', 'You paid your taxes in October 2026.', 'This VAT is due.', 'Your refund is pending.',
+                     'Salaries were transferred.', 'تمت الموافقة على الفاتورة.', 'الطلب موافق عليه.', 'والفاتورة مدفوعة.',
+                     'تم تسجيل المبلغ في رصيدك.'):
+            with self.subTest(text=text):
+                _, result = run(Model({'action': 'tool', 'tool': 'monthly_total', 'args': {'month': '2026-10'}}, {'action': 'answer', 'text': text}))
+                self.assertEqual(result['reason'], 'ungrounded_claim')
+
     def test_injection_that_evades_the_filter_reaches_the_model_as_data_but_cannot_unground_the_answer(self):
         """Pattern filters are incomplete: this merchant name passes them, is stored, and reaches the model as tool data.
         Even if the model obeys it, the answer is checked against this turn's data and rejected."""
