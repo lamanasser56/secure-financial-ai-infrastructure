@@ -251,12 +251,30 @@ class OpsTenant(unittest.TestCase):
 
 class AttackNotes(unittest.TestCase):
     def test_the_latest_note_is_attached_verbatim_to_its_failed_case(self):
-        data = make().attacks()
-        noted = [r for r in data['results'] if 'note' in r]
+        # The run-3 note against a copy of the results in which its case failed, as it did in run 3.
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            results = json.loads((REPO / 'docs/evidence/attack-suite.json').read_text())
+            for r in results['results']:
+                if r['case'] == 'financial_redaction_down_no_model_call':
+                    r['result'] = 'FAIL'
+            (Path(tmp) / 'attack-suite.json').write_text(json.dumps(results))
+            (Path(tmp) / 'attack-suite-run-3-note.json').write_text((REPO / 'docs/evidence/attack-suite-run-3-note.json').read_text())
+            c = make()
+            c.evidence_dir = Path(tmp)
+            noted = [r for r in c.attacks()['results'] if 'note' in r]
         self.assertEqual([r['case'] for r in noted], ['financial_redaction_down_no_model_call'])
         evidence = json.loads((REPO / 'docs/evidence/attack-suite-run-3-note.json').read_text())
         self.assertEqual(noted[0]['note'], {'conclusion': evidence['conclusion'], 'file': 'docs/evidence/attack-suite-run-3-note.json'})
         self.assertEqual(noted[0]['result'], 'FAIL')  # not relabelled
+
+    def test_the_recorded_run_5_has_no_failed_case_and_no_note_attached(self):
+        data = make().attacks()
+        self.assertEqual((data['source'], data['stopped'], data['total']), ('recorded', 18, 18))  # 19 suite cases minus the setup step
+        self.assertFalse([r for r in data['results'] if 'note' in r])
+        note = json.loads((REPO / 'docs/evidence/attack-suite-run-5-note.json').read_text())
+        self.assertNotIn('case', note)  # the run-5 note is about passes that did not exercise their control, not a failure
+        self.assertEqual(note['run_5_result'], '19/19')
 
     def test_without_a_note_file_nothing_is_attached(self):
         import shutil
