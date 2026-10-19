@@ -22,6 +22,25 @@ test('other records\' IDs are not national IDs (owner review of #118)', () => {
   assert.deepEqual(pairs('ID: 1073059188'), [['SAUDI_NATIONAL_ID', '1073059188']]);
 });
 
+test('Iqama and generic ID labels take the category from the first digit (Lama\'s review of #118)', () => {
+  const expected = {
+    'Iqama ID: 2123456789': 'SAUDI_RESIDENT_ID', 'Iqama ID 2123456789': 'SAUDI_RESIDENT_ID', 'ID: 2123456789': 'SAUDI_RESIDENT_ID',
+    'my ID is 1073059188': 'SAUDI_NATIONAL_ID', 'Iqama Number: 2123456789': 'SAUDI_RESIDENT_ID', 'Resident ID No. 2123456789': 'SAUDI_RESIDENT_ID',
+    'Residence ID 2123456789': 'SAUDI_RESIDENT_ID', 'رقم إقامتي 2123456789': 'SAUDI_RESIDENT_ID', 'ID No 1073059188': 'SAUDI_NATIONAL_ID',
+    'ID Number 2123456789': 'SAUDI_RESIDENT_ID', 'Saudi ID 1073059188': 'SAUDI_NATIONAL_ID', 'ID is 2123456789': 'SAUDI_RESIDENT_ID',
+    'رقمي 2123456789': 'SAUDI_RESIDENT_ID', 'هويتي رقمها 1073059188': 'SAUDI_NATIONAL_ID',
+  };
+  for (const [text, category] of Object.entries(expected)) {
+    for (const shaped of [text, JSON.stringify({ question: 'x\n' + text })]) {
+      assert.deepEqual(identifierSpans(shaped).map(([, , c]) => c), [category], shaped);
+    }
+  }
+  for (const text of ['Order ID is 2123456789', 'Booking ID: 2123456789']) assert.deepEqual(identifierSpans(text), [], text);
+  for (const text of ['Passport ID: A12345678', 'Passport No. AB1234567', 'رقم الجواز: A12345678']) {
+    assert.deepEqual(identifierSpans(text), [], text); // documented gap: no qualified passport category, never mislabelled
+  }
+});
+
 test('the invoice is found raw and inside a JSON string, including after an escaped newline', () => {
   for (const shaped of [CASES.invoice, JSON.stringify({ question: CASES.invoice, history: [{ q: 'x\n' + CASES.invoice }] })]) {
     const found = pairs(shaped).map(([, value]) => value);

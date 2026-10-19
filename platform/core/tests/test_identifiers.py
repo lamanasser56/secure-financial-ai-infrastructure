@@ -66,11 +66,31 @@ class Detector(unittest.TestCase):
 
     def test_other_records_ids_are_not_national_ids(self):
         """Owner review of #118: the bare "ID" label masked "Order ID 1234567890" and "Transaction ID: 1029384756"."""
-        for text in ('Order ID 1234567890', 'Transaction ID: 1029384756'):
+        for text in ('Order ID 1234567890', 'Transaction ID: 1029384756', 'Order ID is 2123456789', 'Booking ID: 2123456789'):
             for shaped in (text, json.dumps({'question': 'x\n' + text}, ensure_ascii=False), json.dumps({'m': text})):
                 with self.subTest(text=shaped):
                     self.assertEqual(identifier_spans(shaped), [])
         self.assertEqual(pairs('ID: 1073059188'), [['SAUDI_NATIONAL_ID', '1073059188']])
+
+    def test_iqama_and_generic_id_labels_take_the_category_from_the_first_digit(self):
+        """Lama's review of #118: these reached the model unmasked."""
+        expected = {'Iqama ID: 2123456789': 'SAUDI_RESIDENT_ID', 'Iqama ID 2123456789': 'SAUDI_RESIDENT_ID',
+                    'ID: 2123456789': 'SAUDI_RESIDENT_ID', 'my ID is 1073059188': 'SAUDI_NATIONAL_ID',
+                    'Iqama Number: 2123456789': 'SAUDI_RESIDENT_ID', 'Resident ID No. 2123456789': 'SAUDI_RESIDENT_ID',
+                    'Residence ID 2123456789': 'SAUDI_RESIDENT_ID', 'رقم إقامتي 2123456789': 'SAUDI_RESIDENT_ID',
+                    'ID No 1073059188': 'SAUDI_NATIONAL_ID', 'ID Number 2123456789': 'SAUDI_RESIDENT_ID',
+                    'Saudi ID 1073059188': 'SAUDI_NATIONAL_ID', 'ID is 2123456789': 'SAUDI_RESIDENT_ID',
+                    'رقمي 2123456789': 'SAUDI_RESIDENT_ID', 'هويتي رقمها 1073059188': 'SAUDI_NATIONAL_ID'}
+        for text, category in expected.items():
+            for shaped in (text, json.dumps({'question': 'x\n' + text}, ensure_ascii=False), json.dumps({'m': '\n' + text})):
+                with self.subTest(text=shaped):
+                    self.assertEqual([c for _, _, c in identifier_spans(shaped)], [category])
+                    self.assertNotIn(text[-10:], mask(shaped, identifier_spans(shaped)))
+
+    def test_passports_are_a_documented_gap_not_mislabelled(self):
+        """No qualified passport category exists (SUPPORTED_ENTITIES is hash-bound): not masked as anything else."""
+        for text in ('Passport ID: A12345678', 'Passport No. AB1234567', 'رقم الجواز: A12345678'):
+            self.assertEqual(identifier_spans(text), [])
 
     def test_amounts_dates_and_references_are_untouched(self):
         text = 'You spent 830.49 SAR in October 2026 (2026-10-01 to 2026-10-31); INV-2026-0117; VAT 15% is 30.00 SAR.'

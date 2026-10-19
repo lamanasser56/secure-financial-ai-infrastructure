@@ -1199,7 +1199,29 @@
    "covered": true
   },
   {
-   "id": "v108_saudi_national_id_labelled",
+   "id": "v108_saudi_national_id_label_my_id_is",
+   "kind": "value_in_sentence",
+   "text": "my ID is 1073059188",
+   "values": [
+    "1073059188"
+   ],
+   "category": "SAUDI_NATIONAL_ID",
+   "form": "label_my_id_is",
+   "covered": true
+  },
+  {
+   "id": "v109_saudi_national_id_label_hawiyati_raqmuha",
+   "kind": "value_in_sentence",
+   "text": "هويتي رقمها 1073059188",
+   "values": [
+    "1073059188"
+   ],
+   "category": "SAUDI_NATIONAL_ID",
+   "form": "label_hawiyati_raqmuha",
+   "covered": true
+  },
+  {
+   "id": "v110_saudi_national_id_labelled",
    "kind": "value_in_sentence",
    "text": "National ID: 1173059187",
    "values": [
@@ -1210,7 +1232,7 @@
    "covered": true
   },
   {
-   "id": "v109_saudi_national_id_arabic_indic_labelled",
+   "id": "v111_saudi_national_id_arabic_indic_labelled",
    "kind": "value_in_sentence",
    "text": "رقم الهوية: ١١٧٣٠٥٩١٨٧",
    "values": [
@@ -1221,7 +1243,7 @@
    "covered": true
   },
   {
-   "id": "v110_saudi_national_id_bare",
+   "id": "v112_saudi_national_id_bare",
    "kind": "value_in_sentence",
    "text": "my number is 1173059187",
    "values": [
@@ -1232,7 +1254,7 @@
    "covered": false
   },
   {
-   "id": "v111_saudi_national_id_label_id_colon",
+   "id": "v113_saudi_national_id_label_id_colon",
    "kind": "value_in_sentence",
    "text": "ID: 1173059187",
    "values": [
@@ -1243,7 +1265,7 @@
    "covered": true
   },
   {
-   "id": "v112_saudi_national_id_label_hawiyati",
+   "id": "v114_saudi_national_id_label_hawiyati",
    "kind": "value_in_sentence",
    "text": "هويتي 1173059187",
    "values": [
@@ -1254,7 +1276,29 @@
    "covered": true
   },
   {
-   "id": "v113_saudi_national_id_labelled",
+   "id": "v115_saudi_national_id_label_my_id_is",
+   "kind": "value_in_sentence",
+   "text": "my ID is 1173059187",
+   "values": [
+    "1173059187"
+   ],
+   "category": "SAUDI_NATIONAL_ID",
+   "form": "label_my_id_is",
+   "covered": true
+  },
+  {
+   "id": "v116_saudi_national_id_label_hawiyati_raqmuha",
+   "kind": "value_in_sentence",
+   "text": "هويتي رقمها 1173059187",
+   "values": [
+    "1173059187"
+   ],
+   "category": "SAUDI_NATIONAL_ID",
+   "form": "label_hawiyati_raqmuha",
+   "covered": true
+  },
+  {
+   "id": "v117_saudi_national_id_labelled",
    "kind": "value_in_sentence",
    "text": "National ID: 1873059180",
    "values": [
@@ -1265,7 +1309,7 @@
    "covered": true
   },
   {
-   "id": "v114_saudi_national_id_arabic_indic_labelled",
+   "id": "v118_saudi_national_id_arabic_indic_labelled",
    "kind": "value_in_sentence",
    "text": "رقم الهوية: ١٨٧٣٠٥٩١٨٠",
    "values": [
@@ -1276,7 +1320,7 @@
    "covered": true
   },
   {
-   "id": "v115_saudi_national_id_bare",
+   "id": "v119_saudi_national_id_bare",
    "kind": "value_in_sentence",
    "text": "my number is 1873059180",
    "values": [
@@ -1287,7 +1331,7 @@
    "covered": false
   },
   {
-   "id": "v116_saudi_national_id_label_id_colon",
+   "id": "v120_saudi_national_id_label_id_colon",
    "kind": "value_in_sentence",
    "text": "ID: 1873059180",
    "values": [
@@ -1298,7 +1342,7 @@
    "covered": true
   },
   {
-   "id": "v117_saudi_national_id_label_hawiyati",
+   "id": "v121_saudi_national_id_label_hawiyati",
    "kind": "value_in_sentence",
    "text": "هويتي 1873059180",
    "values": [
@@ -1309,7 +1353,29 @@
    "covered": true
   },
   {
-   "id": "v118_saudi_resident_id_labelled",
+   "id": "v122_saudi_national_id_label_my_id_is",
+   "kind": "value_in_sentence",
+   "text": "my ID is 1873059180",
+   "values": [
+    "1873059180"
+   ],
+   "category": "SAUDI_NATIONAL_ID",
+   "form": "label_my_id_is",
+   "covered": true
+  },
+  {
+   "id": "v123_saudi_national_id_label_hawiyati_raqmuha",
+   "kind": "value_in_sentence",
+   "text": "هويتي رقمها 1873059180",
+   "values": [
+    "1873059180"
+   ],
+   "category": "SAUDI_NATIONAL_ID",
+   "form": "label_hawiyati_raqmuha",
+   "covered": true
+  },
+  {
+   "id": "v124_saudi_resident_id_labelled",
    "kind": "value_in_sentence",
    "text": "Iqama No. 2473059182",
    "values": [
@@ -1320,7 +1386,7 @@
    "covered": true
   },
   {
-   "id": "v119_saudi_resident_id_arabic_indic_labelled",
+   "id": "v125_saudi_resident_id_arabic_indic_labelled",
    "kind": "value_in_sentence",
    "text": "رقم الإقامة: ٢٤٧٣٠٥٩١٨٢",
    "values": [
@@ -1331,7 +1397,7 @@
    "covered": true
   },
   {
-   "id": "v120_saudi_resident_id_label_resident",
+   "id": "v126_saudi_resident_id_label_resident",
    "kind": "value_in_sentence",
    "text": "resident 2473059182",
    "values": [
@@ -1342,7 +1408,51 @@
    "covered": true
   },
   {
-   "id": "v121_saudi_resident_id_labelled",
+   "id": "v127_saudi_resident_id_label_iqama_id",
+   "kind": "value_in_sentence",
+   "text": "Iqama ID: 2473059182",
+   "values": [
+    "2473059182"
+   ],
+   "category": "SAUDI_RESIDENT_ID",
+   "form": "label_iqama_id",
+   "covered": true
+  },
+  {
+   "id": "v128_saudi_resident_id_label_id_colon",
+   "kind": "value_in_sentence",
+   "text": "ID: 2473059182",
+   "values": [
+    "2473059182"
+   ],
+   "category": "SAUDI_RESIDENT_ID",
+   "form": "label_id_colon",
+   "covered": true
+  },
+  {
+   "id": "v129_saudi_resident_id_label_residence_id",
+   "kind": "value_in_sentence",
+   "text": "Residence ID 2473059182",
+   "values": [
+    "2473059182"
+   ],
+   "category": "SAUDI_RESIDENT_ID",
+   "form": "label_residence_id",
+   "covered": true
+  },
+  {
+   "id": "v130_saudi_resident_id_label_raqmi",
+   "kind": "value_in_sentence",
+   "text": "رقمي 2473059182",
+   "values": [
+    "2473059182"
+   ],
+   "category": "SAUDI_RESIDENT_ID",
+   "form": "label_raqmi",
+   "covered": true
+  },
+  {
+   "id": "v131_saudi_resident_id_labelled",
    "kind": "value_in_sentence",
    "text": "Iqama No. 2173059185",
    "values": [
@@ -1353,7 +1463,7 @@
    "covered": true
   },
   {
-   "id": "v122_saudi_resident_id_arabic_indic_labelled",
+   "id": "v132_saudi_resident_id_arabic_indic_labelled",
    "kind": "value_in_sentence",
    "text": "رقم الإقامة: ٢١٧٣٠٥٩١٨٥",
    "values": [
@@ -1364,7 +1474,7 @@
    "covered": true
   },
   {
-   "id": "v123_saudi_resident_id_label_resident",
+   "id": "v133_saudi_resident_id_label_resident",
    "kind": "value_in_sentence",
    "text": "resident 2173059185",
    "values": [
@@ -1375,7 +1485,73 @@
    "covered": true
   },
   {
-   "id": "v124_commercial_registration_labelled_en",
+   "id": "v134_saudi_resident_id_label_iqama_id",
+   "kind": "value_in_sentence",
+   "text": "Iqama ID: 2173059185",
+   "values": [
+    "2173059185"
+   ],
+   "category": "SAUDI_RESIDENT_ID",
+   "form": "label_iqama_id",
+   "covered": true
+  },
+  {
+   "id": "v135_saudi_resident_id_label_id_colon",
+   "kind": "value_in_sentence",
+   "text": "ID: 2173059185",
+   "values": [
+    "2173059185"
+   ],
+   "category": "SAUDI_RESIDENT_ID",
+   "form": "label_id_colon",
+   "covered": true
+  },
+  {
+   "id": "v136_saudi_resident_id_label_residence_id",
+   "kind": "value_in_sentence",
+   "text": "Residence ID 2173059185",
+   "values": [
+    "2173059185"
+   ],
+   "category": "SAUDI_RESIDENT_ID",
+   "form": "label_residence_id",
+   "covered": true
+  },
+  {
+   "id": "v137_saudi_resident_id_label_raqmi",
+   "kind": "value_in_sentence",
+   "text": "رقمي 2173059185",
+   "values": [
+    "2173059185"
+   ],
+   "category": "SAUDI_RESIDENT_ID",
+   "form": "label_raqmi",
+   "covered": true
+  },
+  {
+   "id": "v138_passport_labelled_en",
+   "kind": "value_in_sentence",
+   "text": "Passport ID: A12345678",
+   "values": [
+    "A12345678"
+   ],
+   "category": "PASSPORT",
+   "form": "labelled_en",
+   "covered": false
+  },
+  {
+   "id": "v139_passport_labelled_ar",
+   "kind": "value_in_sentence",
+   "text": "رقم الجواز: AB1234567",
+   "values": [
+    "AB1234567"
+   ],
+   "category": "PASSPORT",
+   "form": "labelled_ar",
+   "covered": false
+  },
+  {
+   "id": "v140_commercial_registration_labelled_en",
    "kind": "value_in_sentence",
    "text": "C.R. No. 1010567890",
    "values": [
@@ -1386,7 +1562,7 @@
    "covered": false
   },
   {
-   "id": "v125_commercial_registration_labelled_ar",
+   "id": "v141_commercial_registration_labelled_ar",
    "kind": "value_in_sentence",
    "text": "السجل التجاري: ١٠١٠٥٦٧٨٩٠",
    "values": [
@@ -1397,7 +1573,7 @@
    "covered": false
   },
   {
-   "id": "v126_commercial_registration_bare",
+   "id": "v142_commercial_registration_bare",
    "kind": "value_in_sentence",
    "text": "registered under 1010567890",
    "values": [
@@ -1408,7 +1584,7 @@
    "covered": false
   },
   {
-   "id": "v127_commercial_registration_labelled_en",
+   "id": "v143_commercial_registration_labelled_en",
    "kind": "value_in_sentence",
    "text": "C.R. No. 4030123456",
    "values": [
@@ -1419,7 +1595,7 @@
    "covered": false
   },
   {
-   "id": "v128_commercial_registration_labelled_ar",
+   "id": "v144_commercial_registration_labelled_ar",
    "kind": "value_in_sentence",
    "text": "السجل التجاري: ٤٠٣٠١٢٣٤٥٦",
    "values": [
@@ -1430,7 +1606,7 @@
    "covered": false
   },
   {
-   "id": "v129_commercial_registration_bare",
+   "id": "v145_commercial_registration_bare",
    "kind": "value_in_sentence",
    "text": "registered under 4030123456",
    "values": [
@@ -1441,7 +1617,7 @@
    "covered": false
   },
   {
-   "id": "v130_commercial_registration_labelled_en",
+   "id": "v146_commercial_registration_labelled_en",
    "kind": "value_in_sentence",
    "text": "C.R. No. 2050012345",
    "values": [
@@ -1452,7 +1628,7 @@
    "covered": false
   },
   {
-   "id": "v131_commercial_registration_labelled_ar",
+   "id": "v147_commercial_registration_labelled_ar",
    "kind": "value_in_sentence",
    "text": "السجل التجاري: ٢٠٥٠٠١٢٣٤٥",
    "values": [
@@ -1463,7 +1639,7 @@
    "covered": false
   },
   {
-   "id": "v132_commercial_registration_bare",
+   "id": "v148_commercial_registration_bare",
    "kind": "value_in_sentence",
    "text": "registered under 2050012345",
    "values": [
@@ -1474,7 +1650,7 @@
    "covered": false
   },
   {
-   "id": "v133_credit_card_visa_test_unspaced",
+   "id": "v149_credit_card_visa_test_unspaced",
    "kind": "value_in_sentence",
    "text": "Charged to card 4111111111111111 on 17 Oct.",
    "values": [
@@ -1485,7 +1661,7 @@
    "covered": true
   },
   {
-   "id": "v134_credit_card_visa_test_spaced",
+   "id": "v150_credit_card_visa_test_spaced",
    "kind": "value_in_sentence",
    "text": "Charged to card 4111 1111 1111 1111 on 17 Oct.",
    "values": [
@@ -1496,7 +1672,7 @@
    "covered": true
   },
   {
-   "id": "v135_credit_card_visa_test_dashed",
+   "id": "v151_credit_card_visa_test_dashed",
    "kind": "value_in_sentence",
    "text": "Charged to card 4111-1111-1111-1111 on 17 Oct.",
    "values": [
@@ -1507,7 +1683,7 @@
    "covered": true
   },
   {
-   "id": "v136_credit_card_visa_test_arabic_indic_spaced",
+   "id": "v152_credit_card_visa_test_arabic_indic_spaced",
    "kind": "value_in_sentence",
    "text": "دفعت ببطاقة ٤١١١ ١١١١ ١١١١ ١١١١",
    "values": [
@@ -1518,7 +1694,7 @@
    "covered": true
   },
   {
-   "id": "v137_credit_card_mastercard_test_unspaced",
+   "id": "v153_credit_card_mastercard_test_unspaced",
    "kind": "value_in_sentence",
    "text": "Charged to card 5555555555554444 on 17 Oct.",
    "values": [
@@ -1529,7 +1705,7 @@
    "covered": true
   },
   {
-   "id": "v138_credit_card_mastercard_test_spaced",
+   "id": "v154_credit_card_mastercard_test_spaced",
    "kind": "value_in_sentence",
    "text": "Charged to card 5555 5555 5555 4444 on 17 Oct.",
    "values": [
@@ -1540,7 +1716,7 @@
    "covered": true
   },
   {
-   "id": "v139_credit_card_mastercard_test_dashed",
+   "id": "v155_credit_card_mastercard_test_dashed",
    "kind": "value_in_sentence",
    "text": "Charged to card 5555-5555-5555-4444 on 17 Oct.",
    "values": [
@@ -1551,7 +1727,7 @@
    "covered": true
   },
   {
-   "id": "v140_credit_card_mastercard_test_arabic_indic_spaced",
+   "id": "v156_credit_card_mastercard_test_arabic_indic_spaced",
    "kind": "value_in_sentence",
    "text": "دفعت ببطاقة ٥٥٥٥ ٥٥٥٥ ٥٥٥٥ ٤٤٤٤",
    "values": [
@@ -1562,7 +1738,7 @@
    "covered": true
   },
   {
-   "id": "v141_credit_card_amex_test_unspaced",
+   "id": "v157_credit_card_amex_test_unspaced",
    "kind": "value_in_sentence",
    "text": "Charged to card 378282246310005 on 17 Oct.",
    "values": [
@@ -1573,7 +1749,7 @@
    "covered": true
   },
   {
-   "id": "v142_credit_card_amex_test_spaced",
+   "id": "v158_credit_card_amex_test_spaced",
    "kind": "value_in_sentence",
    "text": "Charged to card 3782 822463 10005 on 17 Oct.",
    "values": [
@@ -1584,7 +1760,7 @@
    "covered": true
   },
   {
-   "id": "v143_credit_card_amex_test_dashed",
+   "id": "v159_credit_card_amex_test_dashed",
    "kind": "value_in_sentence",
    "text": "Charged to card 3782-8224-6310-005 on 17 Oct.",
    "values": [
@@ -1595,7 +1771,7 @@
    "covered": true
   },
   {
-   "id": "v144_credit_card_amex_test_arabic_indic_spaced",
+   "id": "v160_credit_card_amex_test_arabic_indic_spaced",
    "kind": "value_in_sentence",
    "text": "دفعت ببطاقة ٣٧٨٢٨٢٢٤٦٣١٠٠٠٥",
    "values": [
@@ -1606,7 +1782,7 @@
    "covered": true
   },
   {
-   "id": "v145_credit_card_mada_visa_unspaced",
+   "id": "v161_credit_card_mada_visa_unspaced",
    "kind": "value_in_sentence",
    "text": "Charged to card 4464047305918262 on 17 Oct.",
    "values": [
@@ -1617,7 +1793,7 @@
    "covered": true
   },
   {
-   "id": "v146_credit_card_mada_visa_spaced",
+   "id": "v162_credit_card_mada_visa_spaced",
    "kind": "value_in_sentence",
    "text": "Charged to card 4464 0473 0591 8262 on 17 Oct.",
    "values": [
@@ -1628,7 +1804,7 @@
    "covered": true
   },
   {
-   "id": "v147_credit_card_mada_visa_dashed",
+   "id": "v163_credit_card_mada_visa_dashed",
    "kind": "value_in_sentence",
    "text": "Charged to card 4464-0473-0591-8262 on 17 Oct.",
    "values": [
@@ -1639,7 +1815,7 @@
    "covered": true
   },
   {
-   "id": "v148_credit_card_mada_visa_arabic_indic_spaced",
+   "id": "v164_credit_card_mada_visa_arabic_indic_spaced",
    "kind": "value_in_sentence",
    "text": "دفعت ببطاقة ٤٤٦٤ ٠٤٧٣ ٠٥٩١ ٨٢٦٢",
    "values": [
@@ -1650,7 +1826,7 @@
    "covered": true
   },
   {
-   "id": "v149_credit_card_mada_5888_unspaced",
+   "id": "v165_credit_card_mada_5888_unspaced",
    "kind": "value_in_sentence",
    "text": "Charged to card 5888457305918268 on 17 Oct.",
    "values": [
@@ -1661,7 +1837,7 @@
    "covered": true
   },
   {
-   "id": "v150_credit_card_mada_5888_spaced",
+   "id": "v166_credit_card_mada_5888_spaced",
    "kind": "value_in_sentence",
    "text": "Charged to card 5888 4573 0591 8268 on 17 Oct.",
    "values": [
@@ -1672,7 +1848,7 @@
    "covered": true
   },
   {
-   "id": "v151_credit_card_mada_5888_dashed",
+   "id": "v167_credit_card_mada_5888_dashed",
    "kind": "value_in_sentence",
    "text": "Charged to card 5888-4573-0591-8268 on 17 Oct.",
    "values": [
@@ -1683,7 +1859,7 @@
    "covered": true
   },
   {
-   "id": "v152_credit_card_mada_5888_arabic_indic_spaced",
+   "id": "v168_credit_card_mada_5888_arabic_indic_spaced",
    "kind": "value_in_sentence",
    "text": "دفعت ببطاقة ٥٨٨٨ ٤٥٧٣ ٠٥٩١ ٨٢٦٨",
    "values": [
@@ -1694,7 +1870,7 @@
    "covered": true
   },
   {
-   "id": "v153_credit_card_mada_9682_unspaced",
+   "id": "v169_credit_card_mada_9682_unspaced",
    "kind": "value_in_sentence",
    "text": "Charged to card 9682017305918260 on 17 Oct.",
    "values": [
@@ -1705,7 +1881,7 @@
    "covered": true
   },
   {
-   "id": "v154_credit_card_mada_9682_spaced",
+   "id": "v170_credit_card_mada_9682_spaced",
    "kind": "value_in_sentence",
    "text": "Charged to card 9682 0173 0591 8260 on 17 Oct.",
    "values": [
@@ -1716,7 +1892,7 @@
    "covered": true
   },
   {
-   "id": "v155_credit_card_mada_9682_dashed",
+   "id": "v171_credit_card_mada_9682_dashed",
    "kind": "value_in_sentence",
    "text": "Charged to card 9682-0173-0591-8260 on 17 Oct.",
    "values": [
@@ -1727,7 +1903,7 @@
    "covered": true
   },
   {
-   "id": "v156_credit_card_mada_9682_arabic_indic_spaced",
+   "id": "v172_credit_card_mada_9682_arabic_indic_spaced",
    "kind": "value_in_sentence",
    "text": "دفعت ببطاقة ٩٦٨٢ ٠١٧٣ ٠٥٩١ ٨٢٦٠",
    "values": [
@@ -1738,7 +1914,7 @@
    "covered": true
   },
   {
-   "id": "v157_credit_card_mada_5297_unspaced",
+   "id": "v173_credit_card_mada_5297_unspaced",
    "kind": "value_in_sentence",
    "text": "Charged to card 5297417305918267 on 17 Oct.",
    "values": [
@@ -1749,7 +1925,7 @@
    "covered": true
   },
   {
-   "id": "v158_credit_card_mada_5297_spaced",
+   "id": "v174_credit_card_mada_5297_spaced",
    "kind": "value_in_sentence",
    "text": "Charged to card 5297 4173 0591 8267 on 17 Oct.",
    "values": [
@@ -1760,7 +1936,7 @@
    "covered": true
   },
   {
-   "id": "v159_credit_card_mada_5297_dashed",
+   "id": "v175_credit_card_mada_5297_dashed",
    "kind": "value_in_sentence",
    "text": "Charged to card 5297-4173-0591-8267 on 17 Oct.",
    "values": [
@@ -1771,7 +1947,7 @@
    "covered": true
   },
   {
-   "id": "v160_credit_card_mada_5297_arabic_indic_spaced",
+   "id": "v176_credit_card_mada_5297_arabic_indic_spaced",
    "kind": "value_in_sentence",
    "text": "دفعت ببطاقة ٥٢٩٧ ٤١٧٣ ٠٥٩١ ٨٢٦٧",
    "values": [
@@ -1782,7 +1958,7 @@
    "covered": true
   },
   {
-   "id": "v161_email_address_plain",
+   "id": "v177_email_address_plain",
    "kind": "value_in_sentence",
    "text": "Please email billing@nakhla-trading-fixture.com.sa today.",
    "values": [
@@ -1793,7 +1969,7 @@
    "covered": true
   },
   {
-   "id": "v162_email_address_uppercase",
+   "id": "v178_email_address_uppercase",
    "kind": "value_in_sentence",
    "text": "Please email BILLING@NAKHLA-TRADING-FIXTURE.COM.SA today.",
    "values": [
@@ -1804,7 +1980,7 @@
    "covered": true
   },
   {
-   "id": "v163_email_address_angle_brackets",
+   "id": "v179_email_address_angle_brackets",
    "kind": "value_in_sentence",
    "text": "From: Sara <billing@nakhla-trading-fixture.com.sa>",
    "values": [
@@ -1815,7 +1991,7 @@
    "covered": true
   },
   {
-   "id": "v164_email_address_mailto",
+   "id": "v180_email_address_mailto",
    "kind": "value_in_sentence",
    "text": "Contact: mailto:billing@nakhla-trading-fixture.com.sa",
    "values": [
@@ -1826,7 +2002,7 @@
    "covered": true
   },
   {
-   "id": "v165_email_address_arabic_glued_before",
+   "id": "v181_email_address_arabic_glued_before",
    "kind": "value_in_sentence",
    "text": "راسلني علىbilling@nakhla-trading-fixture.com.sa",
    "values": [
@@ -1837,7 +2013,7 @@
    "covered": true
   },
   {
-   "id": "v166_email_address_arabic_comma_after",
+   "id": "v182_email_address_arabic_comma_after",
    "kind": "value_in_sentence",
    "text": "بريدي billing@nakhla-trading-fixture.com.sa، شكرًا",
    "values": [
@@ -1848,7 +2024,7 @@
    "covered": true
   },
   {
-   "id": "v167_email_address_obfuscated_at_dot",
+   "id": "v183_email_address_obfuscated_at_dot",
    "kind": "value_in_sentence",
    "text": "Please email billing [at] nakhla-trading-fixture [dot] com [dot] sa today.",
    "values": [
@@ -1859,7 +2035,7 @@
    "covered": false
   },
   {
-   "id": "v168_email_address_fullwidth_at",
+   "id": "v184_email_address_fullwidth_at",
    "kind": "value_in_sentence",
    "text": "Please email billing＠nakhla-trading-fixture.com.sa today.",
    "values": [
@@ -1870,7 +2046,7 @@
    "covered": true
   },
   {
-   "id": "v169_email_address_arabic_at_word",
+   "id": "v185_email_address_arabic_at_word",
    "kind": "value_in_sentence",
    "text": "Please email billing آت nakhla-trading-fixture.com.sa today.",
    "values": [
@@ -1881,7 +2057,7 @@
    "covered": false
   },
   {
-   "id": "v170_email_address_plain",
+   "id": "v186_email_address_plain",
    "kind": "value_in_sentence",
    "text": "Please email sara.alotaibi@qamar-studio-fixture.sa today.",
    "values": [
@@ -1892,7 +2068,7 @@
    "covered": true
   },
   {
-   "id": "v171_email_address_uppercase",
+   "id": "v187_email_address_uppercase",
    "kind": "value_in_sentence",
    "text": "Please email SARA.ALOTAIBI@QAMAR-STUDIO-FIXTURE.SA today.",
    "values": [
@@ -1903,7 +2079,7 @@
    "covered": true
   },
   {
-   "id": "v172_email_address_angle_brackets",
+   "id": "v188_email_address_angle_brackets",
    "kind": "value_in_sentence",
    "text": "From: Sara <sara.alotaibi@qamar-studio-fixture.sa>",
    "values": [
@@ -1914,7 +2090,7 @@
    "covered": true
   },
   {
-   "id": "v173_email_address_mailto",
+   "id": "v189_email_address_mailto",
    "kind": "value_in_sentence",
    "text": "Contact: mailto:sara.alotaibi@qamar-studio-fixture.sa",
    "values": [
@@ -1925,7 +2101,7 @@
    "covered": true
   },
   {
-   "id": "v174_email_address_arabic_glued_before",
+   "id": "v190_email_address_arabic_glued_before",
    "kind": "value_in_sentence",
    "text": "راسلني علىsara.alotaibi@qamar-studio-fixture.sa",
    "values": [
@@ -1936,7 +2112,7 @@
    "covered": true
   },
   {
-   "id": "v175_email_address_arabic_comma_after",
+   "id": "v191_email_address_arabic_comma_after",
    "kind": "value_in_sentence",
    "text": "بريدي sara.alotaibi@qamar-studio-fixture.sa، شكرًا",
    "values": [
@@ -1947,7 +2123,7 @@
    "covered": true
   },
   {
-   "id": "v176_email_address_obfuscated_at_dot",
+   "id": "v192_email_address_obfuscated_at_dot",
    "kind": "value_in_sentence",
    "text": "Please email sara.alotaibi [at] qamar-studio-fixture [dot] sa today.",
    "values": [
@@ -1958,7 +2134,7 @@
    "covered": false
   },
   {
-   "id": "v177_email_address_fullwidth_at",
+   "id": "v193_email_address_fullwidth_at",
    "kind": "value_in_sentence",
    "text": "Please email sara.alotaibi＠qamar-studio-fixture.sa today.",
    "values": [
@@ -1969,7 +2145,7 @@
    "covered": true
   },
   {
-   "id": "v178_email_address_arabic_at_word",
+   "id": "v194_email_address_arabic_at_word",
    "kind": "value_in_sentence",
    "text": "Please email sara.alotaibi آت qamar-studio-fixture.sa today.",
    "values": [
@@ -1980,7 +2156,7 @@
    "covered": false
   },
   {
-   "id": "v179_email_address_plain",
+   "id": "v195_email_address_plain",
    "kind": "value_in_sentence",
    "text": "Please email noura+receipts@sahab-labs-fixture.net.sa today.",
    "values": [
@@ -1991,7 +2167,7 @@
    "covered": true
   },
   {
-   "id": "v180_email_address_uppercase",
+   "id": "v196_email_address_uppercase",
    "kind": "value_in_sentence",
    "text": "Please email NOURA+RECEIPTS@SAHAB-LABS-FIXTURE.NET.SA today.",
    "values": [
@@ -2002,7 +2178,7 @@
    "covered": true
   },
   {
-   "id": "v181_email_address_angle_brackets",
+   "id": "v197_email_address_angle_brackets",
    "kind": "value_in_sentence",
    "text": "From: Sara <noura+receipts@sahab-labs-fixture.net.sa>",
    "values": [
@@ -2013,7 +2189,7 @@
    "covered": true
   },
   {
-   "id": "v182_email_address_mailto",
+   "id": "v198_email_address_mailto",
    "kind": "value_in_sentence",
    "text": "Contact: mailto:noura+receipts@sahab-labs-fixture.net.sa",
    "values": [
@@ -2024,7 +2200,7 @@
    "covered": true
   },
   {
-   "id": "v183_email_address_arabic_glued_before",
+   "id": "v199_email_address_arabic_glued_before",
    "kind": "value_in_sentence",
    "text": "راسلني علىnoura+receipts@sahab-labs-fixture.net.sa",
    "values": [
@@ -2035,7 +2211,7 @@
    "covered": true
   },
   {
-   "id": "v184_email_address_arabic_comma_after",
+   "id": "v200_email_address_arabic_comma_after",
    "kind": "value_in_sentence",
    "text": "بريدي noura+receipts@sahab-labs-fixture.net.sa، شكرًا",
    "values": [
@@ -2046,7 +2222,7 @@
    "covered": true
   },
   {
-   "id": "v185_email_address_obfuscated_at_dot",
+   "id": "v201_email_address_obfuscated_at_dot",
    "kind": "value_in_sentence",
    "text": "Please email noura+receipts [at] sahab-labs-fixture [dot] net [dot] sa today.",
    "values": [
@@ -2057,7 +2233,7 @@
    "covered": false
   },
   {
-   "id": "v186_email_address_fullwidth_at",
+   "id": "v202_email_address_fullwidth_at",
    "kind": "value_in_sentence",
    "text": "Please email noura+receipts＠sahab-labs-fixture.net.sa today.",
    "values": [
@@ -2068,7 +2244,7 @@
    "covered": true
   },
   {
-   "id": "v187_email_address_arabic_at_word",
+   "id": "v203_email_address_arabic_at_word",
    "kind": "value_in_sentence",
    "text": "Please email noura+receipts آت sahab-labs-fixture.net.sa today.",
    "values": [
@@ -2079,7 +2255,7 @@
    "covered": false
   },
   {
-   "id": "v188_email_address_plain",
+   "id": "v204_email_address_plain",
    "kind": "value_in_sentence",
    "text": "Please email m.alqahtani@jameiya-fixture.org.sa today.",
    "values": [
@@ -2090,7 +2266,7 @@
    "covered": true
   },
   {
-   "id": "v189_email_address_uppercase",
+   "id": "v205_email_address_uppercase",
    "kind": "value_in_sentence",
    "text": "Please email M.ALQAHTANI@JAMEIYA-FIXTURE.ORG.SA today.",
    "values": [
@@ -2101,7 +2277,7 @@
    "covered": true
   },
   {
-   "id": "v190_email_address_angle_brackets",
+   "id": "v206_email_address_angle_brackets",
    "kind": "value_in_sentence",
    "text": "From: Sara <m.alqahtani@jameiya-fixture.org.sa>",
    "values": [
@@ -2112,7 +2288,7 @@
    "covered": true
   },
   {
-   "id": "v191_email_address_mailto",
+   "id": "v207_email_address_mailto",
    "kind": "value_in_sentence",
    "text": "Contact: mailto:m.alqahtani@jameiya-fixture.org.sa",
    "values": [
@@ -2123,7 +2299,7 @@
    "covered": true
   },
   {
-   "id": "v192_email_address_arabic_glued_before",
+   "id": "v208_email_address_arabic_glued_before",
    "kind": "value_in_sentence",
    "text": "راسلني علىm.alqahtani@jameiya-fixture.org.sa",
    "values": [
@@ -2134,7 +2310,7 @@
    "covered": true
   },
   {
-   "id": "v193_email_address_arabic_comma_after",
+   "id": "v209_email_address_arabic_comma_after",
    "kind": "value_in_sentence",
    "text": "بريدي m.alqahtani@jameiya-fixture.org.sa، شكرًا",
    "values": [
@@ -2145,7 +2321,7 @@
    "covered": true
   },
   {
-   "id": "v194_email_address_obfuscated_at_dot",
+   "id": "v210_email_address_obfuscated_at_dot",
    "kind": "value_in_sentence",
    "text": "Please email m.alqahtani [at] jameiya-fixture [dot] org [dot] sa today.",
    "values": [
@@ -2156,7 +2332,7 @@
    "covered": false
   },
   {
-   "id": "v195_email_address_fullwidth_at",
+   "id": "v211_email_address_fullwidth_at",
    "kind": "value_in_sentence",
    "text": "Please email m.alqahtani＠jameiya-fixture.org.sa today.",
    "values": [
@@ -2167,7 +2343,7 @@
    "covered": true
   },
   {
-   "id": "v196_email_address_arabic_at_word",
+   "id": "v212_email_address_arabic_at_word",
    "kind": "value_in_sentence",
    "text": "Please email m.alqahtani آت jameiya-fixture.org.sa today.",
    "values": [
@@ -2178,7 +2354,7 @@
    "covered": false
   },
   {
-   "id": "v197_email_address_plain",
+   "id": "v213_email_address_plain",
    "kind": "value_in_sentence",
    "text": "Please email accounts_2026@kulliya-fixture.edu.sa today.",
    "values": [
@@ -2189,7 +2365,7 @@
    "covered": true
   },
   {
-   "id": "v198_email_address_uppercase",
+   "id": "v214_email_address_uppercase",
    "kind": "value_in_sentence",
    "text": "Please email ACCOUNTS_2026@KULLIYA-FIXTURE.EDU.SA today.",
    "values": [
@@ -2200,7 +2376,7 @@
    "covered": true
   },
   {
-   "id": "v199_email_address_angle_brackets",
+   "id": "v215_email_address_angle_brackets",
    "kind": "value_in_sentence",
    "text": "From: Sara <accounts_2026@kulliya-fixture.edu.sa>",
    "values": [
@@ -2211,7 +2387,7 @@
    "covered": true
   },
   {
-   "id": "v200_email_address_mailto",
+   "id": "v216_email_address_mailto",
    "kind": "value_in_sentence",
    "text": "Contact: mailto:accounts_2026@kulliya-fixture.edu.sa",
    "values": [
@@ -2222,7 +2398,7 @@
    "covered": true
   },
   {
-   "id": "v201_email_address_arabic_glued_before",
+   "id": "v217_email_address_arabic_glued_before",
    "kind": "value_in_sentence",
    "text": "راسلني علىaccounts_2026@kulliya-fixture.edu.sa",
    "values": [
@@ -2233,7 +2409,7 @@
    "covered": true
   },
   {
-   "id": "v202_email_address_arabic_comma_after",
+   "id": "v218_email_address_arabic_comma_after",
    "kind": "value_in_sentence",
    "text": "بريدي accounts_2026@kulliya-fixture.edu.sa، شكرًا",
    "values": [
@@ -2244,7 +2420,7 @@
    "covered": true
   },
   {
-   "id": "v203_email_address_obfuscated_at_dot",
+   "id": "v219_email_address_obfuscated_at_dot",
    "kind": "value_in_sentence",
    "text": "Please email accounts_2026 [at] kulliya-fixture [dot] edu [dot] sa today.",
    "values": [
@@ -2255,7 +2431,7 @@
    "covered": false
   },
   {
-   "id": "v204_email_address_fullwidth_at",
+   "id": "v220_email_address_fullwidth_at",
    "kind": "value_in_sentence",
    "text": "Please email accounts_2026＠kulliya-fixture.edu.sa today.",
    "values": [
@@ -2266,7 +2442,7 @@
    "covered": true
   },
   {
-   "id": "v205_email_address_arabic_at_word",
+   "id": "v221_email_address_arabic_at_word",
    "kind": "value_in_sentence",
    "text": "Please email accounts_2026 آت kulliya-fixture.edu.sa today.",
    "values": [
@@ -2277,7 +2453,7 @@
    "covered": false
   },
   {
-   "id": "v206_email_address_plain",
+   "id": "v222_email_address_plain",
    "kind": "value_in_sentence",
    "text": "Please email reem@wadi-cafe-fixture.com.sa today.",
    "values": [
@@ -2288,7 +2464,7 @@
    "covered": true
   },
   {
-   "id": "v207_email_address_uppercase",
+   "id": "v223_email_address_uppercase",
    "kind": "value_in_sentence",
    "text": "Please email REEM@WADI-CAFE-FIXTURE.COM.SA today.",
    "values": [
@@ -2299,7 +2475,7 @@
    "covered": true
   },
   {
-   "id": "v208_email_address_angle_brackets",
+   "id": "v224_email_address_angle_brackets",
    "kind": "value_in_sentence",
    "text": "From: Sara <reem@wadi-cafe-fixture.com.sa>",
    "values": [
@@ -2310,7 +2486,7 @@
    "covered": true
   },
   {
-   "id": "v209_email_address_mailto",
+   "id": "v225_email_address_mailto",
    "kind": "value_in_sentence",
    "text": "Contact: mailto:reem@wadi-cafe-fixture.com.sa",
    "values": [
@@ -2321,7 +2497,7 @@
    "covered": true
   },
   {
-   "id": "v210_email_address_arabic_glued_before",
+   "id": "v226_email_address_arabic_glued_before",
    "kind": "value_in_sentence",
    "text": "راسلني علىreem@wadi-cafe-fixture.com.sa",
    "values": [
@@ -2332,7 +2508,7 @@
    "covered": true
   },
   {
-   "id": "v211_email_address_arabic_comma_after",
+   "id": "v227_email_address_arabic_comma_after",
    "kind": "value_in_sentence",
    "text": "بريدي reem@wadi-cafe-fixture.com.sa، شكرًا",
    "values": [
@@ -2343,7 +2519,7 @@
    "covered": true
   },
   {
-   "id": "v212_email_address_obfuscated_at_dot",
+   "id": "v228_email_address_obfuscated_at_dot",
    "kind": "value_in_sentence",
    "text": "Please email reem [at] wadi-cafe-fixture [dot] com [dot] sa today.",
    "values": [
@@ -2354,7 +2530,7 @@
    "covered": false
   },
   {
-   "id": "v213_email_address_fullwidth_at",
+   "id": "v229_email_address_fullwidth_at",
    "kind": "value_in_sentence",
    "text": "Please email reem＠wadi-cafe-fixture.com.sa today.",
    "values": [
@@ -2365,7 +2541,7 @@
    "covered": true
   },
   {
-   "id": "v214_email_address_arabic_at_word",
+   "id": "v230_email_address_arabic_at_word",
    "kind": "value_in_sentence",
    "text": "Please email reem آت wadi-cafe-fixture.com.sa today.",
    "values": [
@@ -2376,7 +2552,7 @@
    "covered": false
   },
   {
-   "id": "v215_person_name_arabic",
+   "id": "v231_person_name_arabic",
    "kind": "value_in_sentence",
    "text": "أرسلت الفاتورة إلى سارة العتيبي",
    "values": [
@@ -2387,7 +2563,7 @@
    "covered": false
   },
   {
-   "id": "v216_person_name_english",
+   "id": "v232_person_name_english",
    "kind": "value_in_sentence",
    "text": "Invoice sent to Sara Al-Otaibi.",
    "values": [
@@ -2398,7 +2574,7 @@
    "covered": false
   },
   {
-   "id": "v217_person_name_arabic",
+   "id": "v233_person_name_arabic",
    "kind": "value_in_sentence",
    "text": "أرسلت الفاتورة إلى نورة الدوسري",
    "values": [
@@ -2409,7 +2585,7 @@
    "covered": false
   },
   {
-   "id": "v218_person_name_english",
+   "id": "v234_person_name_english",
    "kind": "value_in_sentence",
    "text": "Invoice sent to Noura Aldosari.",
    "values": [
@@ -2420,7 +2596,7 @@
    "covered": false
   },
   {
-   "id": "v219_person_name_arabic",
+   "id": "v235_person_name_arabic",
    "kind": "value_in_sentence",
    "text": "أرسلت الفاتورة إلى محمد بن عبدالله القحطاني",
    "values": [
@@ -2431,7 +2607,7 @@
    "covered": false
   },
   {
-   "id": "v220_person_name_english",
+   "id": "v236_person_name_english",
    "kind": "value_in_sentence",
    "text": "Invoice sent to Mohammed Alqahtani.",
    "values": [
@@ -2442,7 +2618,7 @@
    "covered": false
   },
   {
-   "id": "v221_person_name_arabic",
+   "id": "v237_person_name_arabic",
    "kind": "value_in_sentence",
    "text": "أرسلت الفاتورة إلى فهد الشمري",
    "values": [
@@ -2453,7 +2629,7 @@
    "covered": false
   },
   {
-   "id": "v222_person_name_english",
+   "id": "v238_person_name_english",
    "kind": "value_in_sentence",
    "text": "Invoice sent to Fahad Al Shammari.",
    "values": [
@@ -2464,7 +2640,7 @@
    "covered": false
   },
   {
-   "id": "v223_person_name_arabic",
+   "id": "v239_person_name_arabic",
    "kind": "value_in_sentence",
    "text": "أرسلت الفاتورة إلى ريم الغامدي",
    "values": [
@@ -2475,7 +2651,7 @@
    "covered": false
   },
   {
-   "id": "v224_person_name_english",
+   "id": "v240_person_name_english",
    "kind": "value_in_sentence",
    "text": "Invoice sent to Reem Alghamdi.",
    "values": [
