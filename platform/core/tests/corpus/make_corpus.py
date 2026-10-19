@@ -14,6 +14,10 @@ Each value carries `covered`: what the platform says it masks before the model (
 email layer), so a review can tell a leak (covered but not masked) from a documented gap (not covered by design).
 test_realistic_corpus.py (Python) and identifiers.test.js (JS) require every covered value to be masked, raw and inside
 JSON prompts; the coverage flags were raised by the fixes for the realistic-data review (RD-01 to RD-04, RD-08, RD-09).
+
+Known limitations recorded with the corpus: INFO-7, passport numbers are a documented gap (no qualified passport
+category); INFO-8, values after an ID label whose first digit is not 1 or 2 are masked as SAUDI_ID_UNKNOWN but are not
+listed in the reported categories / privacy panel.
 """
 import json
 from pathlib import Path
