@@ -50,6 +50,13 @@ registration numbers, email addresses written with a word for "at", and passport
 runtime/phase3/trusted_runtime.py SUPPORTED_ENTITIES, is hash-bound and has no passport category; masking a passport as
 another category would mislabel it).
 
+Known limitations (realistic-data review, docs/security/realistic-data-review-2026-10.md):
+  INFO-7  passport numbers are not masked: the qualified category set (SUPPORTED_ENTITIES in
+          runtime/phase3/trusted_runtime.py) is hash-bound and has no passport category, and a passport must not be
+          mislabelled as another category.
+  INFO-8  values after an ID label whose first digit is not 1 or 2 are masked as SAUDI_ID_UNKNOWN but are not listed in
+          the reported categories / privacy panel (SAUDI_ID_UNKNOWN is outside the hash-bound qualified category set).
+
 Known limitation: structured-ID masking currently runs in the platform client libraries (this module in Python, and
 platform/agents/platform-guide/src/identifiers.js in JS). The central redactor alone catches emails only until the
 qualified policy v2 (context-pattern-v2) is released, so an agent that bypasses the platform client gets email-only
