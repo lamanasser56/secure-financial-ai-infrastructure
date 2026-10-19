@@ -26,3 +26,5 @@ secrets*.yaml
 terraform.rc
 .qualified/
 .cache/
+# Private continuation notes (project identifiers): never committed; scripts/lint-repository.sh fails if any is tracked.
+docs/handoffs/
