@@ -159,7 +159,7 @@ in Python and JS.
 **Second owner review (#122):** "Iqama ID: 2123456789", "ID: 2123456789" and "my ID is 1073059188" were still unmasked.
 The Iqama labels now include Iqama ID / Number, Resident ID No and Residence ID. A generic ID label (ID, ID No, ID
 Number, ID is, my ID is, Saudi ID, رقمي, هويتي رقمها) takes its category from the first digit: 1 for a national ID,
-2 for an Iqama. "Passport ID: A12345678" stays unmasked (INFO-7).
+2 for an Iqama. "Passport ID: A12345678" stays unmasked (INFO-7, a known limitation).
 
 **Owner requirement (#122):** masking does not depend on the leading digit; the 1/2 rule is a naming convention, not a
 sourced definition (Microsoft Purview's Saudi National ID requires only 10 digits). Any 10 digits after an ID, Iqama or
@@ -351,6 +351,44 @@ reaches the ops model (facts are closed fields). So the case proves the registry
 line in the workload's log (the attack ran) and no planted phrase anywhere in the ops agent's snapshot (findings and
 explanations, timeline, pending proposals, denials).
 
+## Known limitations INFO-7 and INFO-8
+
+**INFO-7: passport numbers are not masked.**
+
+- No platform layer masks them.
+- The qualified category set (`SUPPORTED_ENTITIES` in `runtime/phase3/trusted_runtime.py`) has no passport category.
+- A passport must not be masked or reported under another category's name.
+
+**INFO-8: IDs of unknown kind are masked but not reported.** A 10-digit value after an ID label whose first digit is
+not 1 or 2 is masked as `SAUDI_ID_UNKNOWN`. It is not listed in the reported categories or the privacy panel, because
+`SAUDI_ID_UNKNOWN` is not in the qualified set: the deterministic email layer refuses any category outside that set.
+
+**The proper fix for both** adds the categories to the qualified redaction chain itself, not to a layer beside it:
+
+1. Add `PASSPORT_NUMBER` and `SAUDI_ID_UNKNOWN` to `SUPPORTED_ENTITIES` in `runtime/phase3/trusted_runtime.py`.
+2. Add the matching custom info types and mapping to `evaluation/google-sdp-context/policy.json`. The policy loader
+   (`runtime/phase3/sdp_context_policy.py`) requires the mapping to equal `SUPPORTED_ENTITIES` and fixes the number of
+   info types, so it changes with them.
+3. Regenerate `POLICY_HASH` in `platform/core/src/agent_platform/programs/redactor_server.py` as the SHA-256 of the new
+   `policy.json`. The redactor checks it at startup and refuses to start on a mismatch.
+4. Update the `detected_categories` enum in the hash-bound `contracts/` schemas (`agents/model-trace-v2`,
+   `agents/model-trace-v3`, `phase3/sanitized-trace-envelope`). The front door validates its traces against them at
+   runtime.
+5. Run a live DLP requalification of the new policy, record new qualification evidence (the records that bind
+   `trusted_runtime.py` no longer match), and run the release workflow.
+6. Rebuild the redactor image (it bakes in `trusted_runtime.py`, `sdp_context_policy.py` and `policy.json`), then sign
+   it, attest it for Binary Authorization and pin its new digest in `platform/clouds/gke/images.json`.
+7. Add regression tests in Python and JS, raw, inside JSON and with `ensure_ascii`. Include passport-label precedence
+   over ID labels, a forced residual that must refuse the turn, and the negatives ("Passport photo", "Ticket ID
+   A12345678", "Order ID 1234567890").
+
+**Why it was deferred:** the live requalification and the release of a new redactor image are out of scope before the
+platform's teardown (credits end on 2026-11-08). It was **not** deferred because it is unimportant.
+
+A lighter platform-layer workaround (masking and reporting these categories in our own client code, beside the
+qualified chain) was scoped and then declined by the owner. It would have reported categories that are not
+DLP-qualified.
+
 ## Claims that held
 
 1. **Single-line values are masked.** Every value the platform says it covers, written on one line, is masked at every
@@ -402,7 +440,8 @@ explanations, timeline, pending proposals, denials).
 | RD-12 | #117 | merged |
 | T-01, T-02 | #119 (RT-01 requires `OBJECT_CHANGED`; the log case renamed `ops_log_injection_adds_no_action_and_no_text` and checks the ops output) | merged |
 | INFO-4 | #118 (escaped digits are matched) | with RD-01 |
-| INFO-1, INFO-2, INFO-3, INFO-5, INFO-6, INFO-7, INFO-8 | none (documented, accepted, or fail-closed) | — |
+| INFO-1, INFO-2, INFO-3, INFO-5, INFO-6 | none (documented, accepted, or fail-closed) | — |
+| INFO-7, INFO-8 | the proper fix needs a DLP requalification (see [Known limitations](#known-limitations-info-7-and-info-8)) | known limitation, deferred |
 | Live check | #120: `make corpus-live` runs the corpus through the real redactor at the next `make up` (ids, categories and booleans only) | merged; runs in the next cluster session |
 
 The corpus and how it is used are described in [realistic-data-corpus.md](realistic-data-corpus.md).

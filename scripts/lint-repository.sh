@@ -29,6 +29,12 @@ repository_root="$(git rev-parse --show-toplevel 2>/dev/null)" \
   || fail 'run this script from a Git working tree'
 cd "$repository_root"
 
+# docs/handoffs/ holds private continuation notes with project identifiers: no file under it may ever be tracked.
+tracked_handoffs="$(git ls-files -- docs/handoffs)"
+[[ -z "$tracked_handoffs" ]] \
+  || fail "files under docs/handoffs/ must never be committed: ${tracked_handoffs//$'\n'/ }"
+pass 'no tracked file under docs/handoffs/'
+
 printf 'Lint tool versions:\n'
 actionlint -version
 pymarkdown version

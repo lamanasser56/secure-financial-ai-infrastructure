@@ -34,8 +34,8 @@ example. It lives in `platform/core/tests/corpus/`:
 | Phones | `+966`, `00966`, `966`, `(+966)`, `05…`. Spaced, unspaced, dashed, dotted, en dash, NBSP. Arabic-Indic, Persian and mixed digits. Bidi marks around and inside the number, zero-width characters inside it. Landlines. A few non-Saudi numbers. |
 | IBANs | Unspaced, in groups, lowercase, dashed, Arabic-Indic, double-spaced, with a mark inside. |
 | VAT, National ID, Iqama, commercial registration numbers | With and without English and Arabic labels, including everyday phrasings (هويتي, هويتي رقمها, `ID:`, `my ID is`, Iqama ID, رقمي, رقم إقامتي). |
-| IDs of unknown kind | `Iqama: 3123456789`, رقم الهوية 4123456789: a labelled ID whose first digit is neither 1 nor 2, masked as `SAUDI_ID_UNKNOWN` but not listed in the reported categories (INFO-8). |
-| Passports | `Passport ID:` and رقم الجواز, as documented gaps: there is no qualified passport category (INFO-7). |
+| IDs of unknown kind | `Iqama: 3123456789`, رقم الهوية 4123456789: a labelled ID whose first digit is neither 1 nor 2, masked as `SAUDI_ID_UNKNOWN` but not listed in the reported categories (INFO-8, a known limitation; see the review's "Known limitations" section). |
+| Passports | `Passport ID:` and رقم الجواز, as documented gaps: there is no qualified passport category (INFO-7, a known limitation until a DLP requalification adds one). |
 | Cards | Visa, Mastercard, Amex and mada (5888xx, 9682xx), in each grouping. |
 | Emails | Plain, uppercase, angle brackets, `mailto:`, next to Arabic text, `[at]`/`[dot]`, the fullwidth at sign, and the Arabic word for "at". |
 
