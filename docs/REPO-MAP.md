@@ -27,6 +27,7 @@ image build.
 | `docs/agent-onboarding-contract.md`, `docs/agent-developer-guide.md` | How a team onboards an agent with one manifest. |
 | `docs/evidence/` | Live evidence: requalification, onboarding, Financial Agent, attack-suite runs. |
 | `docs/security/main-branch-protection.md`, `security-review-2026-10-13.md`, `known-limitations.md` | The `main` ruleset (applied), the security review and the accepted limitations. |
+| `docs/security/claims-inventory.md`, `realistic-data-review-2026-10.md`, `realistic-data-corpus.md` | Every claim graded by its test; the realistic-data review and its fix PRs; the synthetic Saudi/bilingual corpus (`platform/core/tests/corpus/`). |
 | `.github/workflows/agent-platform-images.yml` | Runs only after CI passes on `main`: build → Trivy → SBOM → push by digest → KEV gate → cosign → KMS attestation. |
 | `.github/workflows/ci.yml`, `supply-chain.yml` | The required checks: `checks`, `agents`, `gitleaks`, `google-sdp-offline-evaluation`, `qualification`. |
 
