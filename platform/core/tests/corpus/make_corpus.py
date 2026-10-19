@@ -109,6 +109,9 @@ def values():
         out += [{'category': 'SAUDI_RESIDENT_ID', 'form': f, 'value': s, 'covered': cov} for f, s, cov in (
             ('labelled', iq, True), ('arabic_indic_labelled', iq.translate(AR), True), ('label_resident', iq, True),
             ('label_iqama_id', iq, True), ('label_id_colon', iq, True), ('label_residence_id', iq, True), ('label_raqmi', iq, True))]
+    # Labelled IDs whose first digit is neither 1 nor 2: masked all the same (named SAUDI_ID_UNKNOWN).
+    out += [{'category': 'SAUDI_ID_UNKNOWN', 'form': f, 'value': v, 'covered': True} for f, v in (
+        ('label_iqama', '3123456789'), ('label_raqm_alhawiya', '4123456789'), ('arabic_indic_label_id', '9876543210'.translate(AR)))]
     # Passports: no qualified category exists (SUPPORTED_ENTITIES is hash-bound), so they are a documented gap.
     out += [{'category': 'PASSPORT', 'form': f, 'value': v, 'covered': False} for f, v in (
         ('labelled_en', 'A12345678'), ('labelled_ar', 'AB1234567'))]
@@ -153,6 +156,8 @@ def sentence(v):
         return {'labelled': 'Iqama No. %s' % s, 'arabic_indic_labelled': 'رقم الإقامة: %s' % s, 'label_resident': 'resident %s' % s,
                 'label_iqama_id': 'Iqama ID: %s' % s, 'label_id_colon': 'ID: %s' % s, 'label_residence_id': 'Residence ID %s' % s,
                 'label_raqmi': 'رقمي %s' % s}[f]
+    if c == 'SAUDI_ID_UNKNOWN':
+        return {'label_iqama': 'Iqama: %s' % s, 'label_raqm_alhawiya': 'رقم الهوية %s' % s, 'arabic_indic_label_id': 'ID: %s' % s}[f]
     if c == 'PASSPORT':
         return {'labelled_en': 'Passport ID: %s' % s, 'labelled_ar': 'رقم الجواز: %s' % s}[f]
     if c == 'COMMERCIAL_REGISTRATION':

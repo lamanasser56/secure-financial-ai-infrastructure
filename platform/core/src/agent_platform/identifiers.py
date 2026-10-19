@@ -35,13 +35,13 @@ en dash and dot):
   CREDIT_CARD         13-19 digits (4-4-4-4, 4-6-5, 4-4-4-3 or unspaced) that pass the Luhn check with a card-network
                       prefix (Visa, Mastercard, Amex, 6x, and the mada-only 58xx and 9682); any Luhn-valid 16 digits
                       written 4-4-4-4
-  SAUDI_NATIONAL_ID   10 digits starting with 1 after a national-ID label (National ID, NID, Identity Number,
-                      الهوية الوطنية, رقم الهوية, الهوية, هويتي, هويتك, رقم هويتي, السجل المدني)
-  SAUDI_RESIDENT_ID   10 digits starting with 2 after an Iqama label (Iqama, Iqama ID, Iqama No/Number, resident,
-                      resident ID (No), residence/residency ID or number, رقم الإقامة / الاقامه, الإقامة, إقامتي,
-                      رقم إقامتي, إقامتك, هوية مقيم)
-  either of the two   10 digits starting with 1 (national ID) or 2 (Iqama) after a generic ID label (ID, ID No, ID
-                      Number, ID is, my ID is, Saudi ID, رقمي, هويتي رقمها); a bare "ID" label is skipped after Order,
+  Saudi IDs           any 10 digits after an ID label, whatever the first digit: national-ID labels (National ID, NID,
+                      Identity Number, الهوية الوطنية, رقم الهوية, الهوية, هويتي, هويتك, رقم هويتي, السجل المدني), Iqama
+                      labels (Iqama, Iqama ID/No/Number, resident, resident ID (No), residence/residency ID or number,
+                      رقم الإقامة / الاقامه, الإقامة, إقامتي, رقم إقامتي, إقامتك, هوية مقيم) and generic labels (ID, ID No,
+                      ID Number, ID is, my ID is, Saudi ID, رقمي, هويتي رقمها). The first digit only names the category:
+                      1 SAUDI_NATIONAL_ID, 2 SAUDI_RESIDENT_ID, anything else SAUDI_ID_UNKNOWN (masked, but not reported
+                      by the clients: it is outside the qualified category set). A bare "ID" label is skipped after Order,
                       Transaction, Invoice, Ref(erence), Request, Ticket, Booking, رقم الطلب, رقم الفاتورة or المرجع
   SAUDI_BANK_ACCOUNT  8-20 digits after a label (bank account, account number, رقم الحساب, الحساب البنكي)
 Not covered here (left to the redactor): unlabelled national/resident IDs and bank accounts (a bare 10-digit number is
@@ -92,16 +92,15 @@ _PATTERNS = (
      + _S + _D + '{5}|' + _D + '{4}(?:' + _S + _D + '{4}){2}' + _S + _D + '{3}|' + _D + '{13,19})'),
     ('SAUDI_VAT_ID', 2, True, '(?:' + _B + 'VAT[ \\t]?(?:No\\.?|Number|#|ID|Reg(?:istration)?\\.?[ \\t]?(?:No\\.?|Number))|' + _B + 'Tax[ \\t]?(?:ID|No\\.?|Number)'
      '|' + _B + 'TRN|الرقم[ \\t]الضريبي|رقم[ \\t]ضريبي|رقم[ \\t]التسجيل[ \\t]الضريبي)' + _LABEL_END + '(?P<v>' + _D + '(?:' + _S + _D + '){9,16})'),
-    ('SAUDI_NATIONAL_ID', 2, True, '(?:' + _B + 'National[ \\t]ID(?:[ \\t]No\\.?|[ \\t]Number)?|' + _B + 'NID(?:[ \\t](?:No\\.?|Number))?'
+    ('SAUDI_ID', 2, True, '(?:' + _B + 'National[ \\t]ID(?:[ \\t]No\\.?|[ \\t]Number)?|' + _B + 'NID(?:[ \\t](?:No\\.?|Number))?'
      '|' + _B + 'Identity[ \\t]Number|الهوية[ \\t]الوطنية|رقم[ \\t]الهوية|الهوية|هويتي|هويتك|السجل[ \\t]المدني)' + _LABEL_END
-     + '(?P<v>' + _digit('1') + '(?:' + _S + _D + '){9})'),
-    ('SAUDI_RESIDENT_ID', 2, True, '(?:' + _B + 'Iqama(?:[ \\t](?:ID|No\\.?|Number|#))*|' + _B + 'Residen(?:cy|ce)[ \\t](?:ID|Number|Permit)(?:[ \\t](?:No\\.?|Number))?'
+     + '(?P<v>' + _D + '(?:' + _S + _D + '){9})'),
+    ('SAUDI_ID', 2, True, '(?:' + _B + 'Iqama(?:[ \\t](?:ID|No\\.?|Number|#))*|' + _B + 'Residen(?:cy|ce)[ \\t](?:ID|Number|Permit)(?:[ \\t](?:No\\.?|Number))?'
      '|' + _B + 'Resident(?:[ \\t]ID)?(?:[ \\t](?:No\\.?|Number))?'
-     '|(?:ال)?[اإ]قام[ةه]|[اإ]قامتي|[اإ]قامتك|هوية[ \\t]مقيم)' + _LABEL_END + '(?P<v>' + _digit('2') + '(?:' + _S + _D + '){9})'),
-    # A generic ID label: the first digit decides (1 a citizen's national ID, 2 a resident's Iqama). A bare "ID" label
-    # after another record's name (Order ID, Transaction ID, ...) is skipped in identifier_spans.
+     '|(?:ال)?[اإ]قام[ةه]|[اإ]قامتي|[اإ]قامتك|هوية[ \\t]مقيم)' + _LABEL_END + '(?P<v>' + _D + '(?:' + _S + _D + '){9})'),
+    # A generic ID label. A bare "ID" label after another record's name (Order ID, Transaction ID, ...) is skipped.
     ('SAUDI_ID', 2, True, '(?:' + _B + '(?P<bare>(?:my[ \\t])?ID(?:[ \\t](?:No\\.?|Number|is))?)|' + _B + 'Saudi[ \\t]ID(?:[ \\t](?:No\\.?|Number))?'
-     '|رقمي|هويتي[ \\t]رقمها)' + _LABEL_END + '(?P<v>' + _digit('12') + '(?:' + _S + _D + '){9})'),
+     '|رقمي|هويتي[ \\t]رقمها)' + _LABEL_END + '(?P<v>' + _D + '(?:' + _S + _D + '){9})'),
     ('SAUDI_BANK_ACCOUNT', 2, True, '(?:' + _B + 'Bank[ \\t]Account(?:[ \\t]No\\.?|[ \\t]Number)?|' + _B + 'Account[ \\t](?:No\\.?|Number)'
      '|رقم[ \\t]الحساب(?:[ \\t]البنكي)?|الحساب[ \\t]البنكي)' + _LABEL_END + '(?P<v>' + _D + '(?:' + _S + _D + '){7,19})'),
     ('PHONE_NUMBER', 3, False, '(?P<v>' + _COUNTRY + _PS + '(?:\\(' + _digit('0') + '\\)' + _PS + ')?(?:' + _NATIONAL + '))'),
@@ -117,6 +116,9 @@ _DIGITS = re.compile(_D)
 _CARD_PREFIX = re.compile('^(?:4|5[1-5]|2[2-7]|3[47]|6|58|9682)')  # 58xx and 9682: mada-only cards (RD-03)
 _GROUPED_16 = re.compile('^' + _D + '{4}(?:' + _SEP + _D + '{4}){3}$')  # 4-4-4-4 is how a card is written, any prefix
 _ESCAPE = re.compile(r'\\(?:u([0-9A-Fa-f]{4})|["\\/bfnrt])')
+# Microsoft Purview's Saudi National ID definition requires only 10 digits; the 1 (citizen) / 2 (resident) split below is a
+# naming convention only, never a security boundary: any 10 digits after an ID, Iqama or residency label are masked.
+_ID_NAMES = {'1': 'SAUDI_NATIONAL_ID', '2': 'SAUDI_RESIDENT_ID'}
 _TRAILING = ' \u00A0\u2009\u202F\u2011\u2013.-'
 _FULLWIDTH_AT = '\uFF20'
 # A bare "ID" / "ID No." label is a national-ID label only when it is not some other record's ID: "Order ID 1234567890"
@@ -205,10 +207,10 @@ def identifier_spans(text):
                 continue
             if any(start < e_end and e_start < end for e_start, e_end in emails):
                 continue
-            kind = category
-            if category == 'SAUDI_ID':
-                kind = 'SAUDI_NATIONAL_ID' if _ascii_digits(value)[0] == '1' else 'SAUDI_RESIDENT_ID'
-            candidates.append((priority, -(end - start), *original(start, end), kind))
+            kind = _ID_NAMES.get(_ascii_digits(value)[0], 'SAUDI_ID_UNKNOWN') if category == 'SAUDI_ID' else category
+            # An ID of unknown kind yields to a phone number on the same span ("رقمي 0550142386" is a phone); it is still
+            # masked as SAUDI_ID_UNKNOWN when nothing else matches.
+            candidates.append((3.5 if kind == 'SAUDI_ID_UNKNOWN' else priority, -(end - start), *original(start, end), kind))
     chosen = []
     for _, _, start, end, category in sorted(candidates):
         if all(end <= s or e <= start for s, e, _ in chosen):
