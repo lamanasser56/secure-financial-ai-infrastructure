@@ -35,12 +35,15 @@ const PATTERNS = [
     + S + D + '{5}|' + D + '{4}(?:' + S + D + '{4}){2}' + S + D + '{3}|' + D + '{13,19})'],
   ['SAUDI_VAT_ID', 2, true, '(?:' + B + 'VAT[ \\t]?(?:No\\.?|Number|#|ID|Reg(?:istration)?\\.?[ \\t]?(?:No\\.?|Number))|' + B + 'Tax[ \\t]?(?:ID|No\\.?|Number)'
     + '|' + B + 'TRN|الرقم[ \\t]الضريبي|رقم[ \\t]ضريبي|رقم[ \\t]التسجيل[ \\t]الضريبي)' + LABEL_END + '(?<v>' + D + '(?:' + S + D + '){9,16})'],
-  ['SAUDI_NATIONAL_ID', 2, true, '(?:' + B + 'National[ \\t]ID(?:[ \\t]No\\.?|[ \\t]Number)?|' + B + '(?:Saudi[ \\t]|N)ID(?:[ \\t](?:No\\.?|Number))?'
-    + '|' + B + '(?<bare>ID(?:[ \\t](?:No\\.?|Number))?)'
+  ['SAUDI_NATIONAL_ID', 2, true, '(?:' + B + 'National[ \\t]ID(?:[ \\t]No\\.?|[ \\t]Number)?|' + B + 'NID(?:[ \\t](?:No\\.?|Number))?'
     + '|' + B + 'Identity[ \\t]Number|الهوية[ \\t]الوطنية|رقم[ \\t]الهوية|الهوية|هويتي|هويتك|السجل[ \\t]المدني)' + LABEL_END
     + '(?<v>' + digit('1') + '(?:' + S + D + '){9})'],
-  ['SAUDI_RESIDENT_ID', 2, true, '(?:' + B + 'Iqama(?:[ \\t]No\\.?|[ \\t]Number)?|' + B + 'Residency[ \\t]Number|' + B + 'Resident(?:[ \\t]ID)?'
+  ['SAUDI_RESIDENT_ID', 2, true, '(?:' + B + 'Iqama(?:[ \\t](?:ID|No\\.?|Number|#))*|' + B + 'Residen(?:cy|ce)[ \\t](?:ID|Number|Permit)(?:[ \\t](?:No\\.?|Number))?'
+    + '|' + B + 'Resident(?:[ \\t]ID)?(?:[ \\t](?:No\\.?|Number))?'
     + '|(?:ال)?[اإ]قام[ةه]|[اإ]قامتي|[اإ]قامتك|هوية[ \\t]مقيم)' + LABEL_END + '(?<v>' + digit('2') + '(?:' + S + D + '){9})'],
+  // A generic ID label: the first digit decides (1 a national ID, 2 an Iqama); see identifiers.py.
+  ['SAUDI_ID', 2, true, '(?:' + B + '(?<bare>(?:my[ \\t])?ID(?:[ \\t](?:No\\.?|Number|is))?)|' + B + 'Saudi[ \\t]ID(?:[ \\t](?:No\\.?|Number))?'
+    + '|رقمي|هويتي[ \\t]رقمها)' + LABEL_END + '(?<v>' + digit('12') + '(?:' + S + D + '){9})'],
   ['SAUDI_BANK_ACCOUNT', 2, true, '(?:' + B + 'Bank[ \\t]Account(?:[ \\t]No\\.?|[ \\t]Number)?|' + B + 'Account[ \\t](?:No\\.?|Number)'
     + '|رقم[ \\t]الحساب(?:[ \\t]البنكي)?|الحساب[ \\t]البنكي)' + LABEL_END + '(?<v>' + D + '(?:' + S + D + '){7,19})'],
   ['PHONE_NUMBER', 3, false, '(?<v>' + COUNTRY + PS + '(?:\\(' + digit('0') + '\\)' + PS + ')?(?:' + NATIONAL + '))'],
@@ -155,7 +158,8 @@ function identifierSpans(text) {
       if (!bounded(seen, start, end) || !valid(category, value)) continue;
       if (match.groups.bare && OTHER_RECORD.test(seen.slice(Math.max(0, match.index - 40), match.index))) continue;
       if (emails.some(([s, e]) => start < e && s < end)) continue;
-      candidates.push([priority, -(end - start), ...original(start, end), category]);
+      const kind = category === 'SAUDI_ID' ? (asciiDigits(value)[0] === '1' ? 'SAUDI_NATIONAL_ID' : 'SAUDI_RESIDENT_ID') : category;
+      candidates.push([priority, -(end - start), ...original(start, end), kind]);
     }
   }
   candidates.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3] || (a[4] < b[4] ? -1 : a[4] > b[4] ? 1 : 0));

@@ -103,10 +103,15 @@ def values():
     for nid in NIDS:
         out += [{'category': 'SAUDI_NATIONAL_ID', 'form': f, 'value': s, 'covered': cov} for f, s, cov in (
             ('labelled', nid, True), ('arabic_indic_labelled', nid.translate(AR), True), ('bare', nid, False),
-            ('label_id_colon', nid, True), ('label_hawiyati', nid, True))]
+            ('label_id_colon', nid, True), ('label_hawiyati', nid, True), ('label_my_id_is', nid, True),
+            ('label_hawiyati_raqmuha', nid, True))]
     for iq in IQAMAS:
         out += [{'category': 'SAUDI_RESIDENT_ID', 'form': f, 'value': s, 'covered': cov} for f, s, cov in (
-            ('labelled', iq, True), ('arabic_indic_labelled', iq.translate(AR), True), ('label_resident', iq, True))]
+            ('labelled', iq, True), ('arabic_indic_labelled', iq.translate(AR), True), ('label_resident', iq, True),
+            ('label_iqama_id', iq, True), ('label_id_colon', iq, True), ('label_residence_id', iq, True), ('label_raqmi', iq, True))]
+    # Passports: no qualified category exists (SUPPORTED_ENTITIES is hash-bound), so they are a documented gap.
+    out += [{'category': 'PASSPORT', 'form': f, 'value': v, 'covered': False} for f, v in (
+        ('labelled_en', 'A12345678'), ('labelled_ar', 'AB1234567'))]
     for cr in CRS:
         out += [{'category': 'COMMERCIAL_REGISTRATION', 'form': f, 'value': s, 'covered': False} for f, s in (
             ('labelled_en', cr), ('labelled_ar', cr.translate(AR)), ('bare', cr))]
@@ -142,9 +147,14 @@ def sentence(v):
         return {'spaced_3_labelled_en': 'VAT Registration Number: %s' % s, 'arabic_indic': 'الرقم الضريبي: %s' % s}.get(f, 'Supplier VAT %s on the invoice.' % s)
     if c == 'SAUDI_NATIONAL_ID':
         return {'labelled': 'National ID: %s' % s, 'arabic_indic_labelled': 'رقم الهوية: %s' % s, 'bare': 'my number is %s' % s,
-                'label_id_colon': 'ID: %s' % s, 'label_hawiyati': 'هويتي %s' % s}[f]
+                'label_id_colon': 'ID: %s' % s, 'label_hawiyati': 'هويتي %s' % s, 'label_my_id_is': 'my ID is %s' % s,
+                'label_hawiyati_raqmuha': 'هويتي رقمها %s' % s}[f]
     if c == 'SAUDI_RESIDENT_ID':
-        return {'labelled': 'Iqama No. %s' % s, 'arabic_indic_labelled': 'رقم الإقامة: %s' % s, 'label_resident': 'resident %s' % s}[f]
+        return {'labelled': 'Iqama No. %s' % s, 'arabic_indic_labelled': 'رقم الإقامة: %s' % s, 'label_resident': 'resident %s' % s,
+                'label_iqama_id': 'Iqama ID: %s' % s, 'label_id_colon': 'ID: %s' % s, 'label_residence_id': 'Residence ID %s' % s,
+                'label_raqmi': 'رقمي %s' % s}[f]
+    if c == 'PASSPORT':
+        return {'labelled_en': 'Passport ID: %s' % s, 'labelled_ar': 'رقم الجواز: %s' % s}[f]
     if c == 'COMMERCIAL_REGISTRATION':
         return {'labelled_en': 'C.R. No. %s' % s, 'labelled_ar': 'السجل التجاري: %s' % s, 'bare': 'registered under %s' % s}[f]
     if c == 'CREDIT_CARD':
