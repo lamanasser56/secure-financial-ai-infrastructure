@@ -5,9 +5,9 @@
     "gateway": "agent-demo-gateway@sha256:a3dcf411dc50f7cb4d63dacfbc0b8c6103051a182b27936e703fb798478cd7d4",
     "database": "agent-demo-database@sha256:545d822b1aa7537a177b60bc6d0d72bcd9c68eb6a50512b4bb9403263d25739a",
     "redactor": "google-sdp-context@sha256:667ceec4b8290df1341a91a7685ad140319fca6d23f92b9948dddf9fac64136b",
-    "app": "agent-platform-app@sha256:53d767de76dba798b27dfcdae0dd01ee19b7a83c8eabdd59d3e86f887375bfdc",
-    "ops-agent": "agent-platform-ops@sha256:97ce5c847f3b27c8150c774855f588b3cfbd34dfc4014238003ad384bd28d061",
-    "agent-financial": "agent-financial@sha256:1e202cfd3cb18abc31e1d1efe0c7c9042c8aa69bebb719060e0c85face95ef67",
-    "platform-guide": "platform-guide@sha256:e62f9404ec64e13af55aecf1008e3846c51c5d946e09ad69b4a06e754dd9d635"
+    "app": "agent-platform-app@sha256:871aa23f9fcf0abe57d291d104fc43454ff27daae120c6683b7b00731e88b69e",
+    "ops-agent": "agent-platform-ops@sha256:30fd5c5e0c7ac1ed8ea0fdf2f94c771e8ca84679861c1f44c2c10c7e2ee0bf21",
+    "agent-financial": "agent-financial@sha256:ad437220bbb0bd3048332bb42417f9efad8e191c223ee8698927c892f8d06868",
+    "platform-guide": "platform-guide@sha256:ea2005a937710c5fb211615230fe6d96c08af6682790bb000b910aa79d3d605b"
   }
 }
