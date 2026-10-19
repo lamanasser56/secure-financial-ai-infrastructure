@@ -15,6 +15,13 @@ test('the detector returns exactly the shared cases (parity with Python)', () =>
   for (const { text, expected } of CASES.cases) assert.deepEqual(pairs(text), expected, text);
 });
 
+test('other records\' IDs are not national IDs (owner review of #118)', () => {
+  for (const text of ['Order ID 1234567890', 'Transaction ID: 1029384756']) {
+    for (const shaped of [text, JSON.stringify({ question: 'x\n' + text })]) assert.deepEqual(identifierSpans(shaped), [], shaped);
+  }
+  assert.deepEqual(pairs('ID: 1073059188'), [['SAUDI_NATIONAL_ID', '1073059188']]);
+});
+
 test('the invoice is found raw and inside a JSON string, including after an escaped newline', () => {
   for (const shaped of [CASES.invoice, JSON.stringify({ question: CASES.invoice, history: [{ q: 'x\n' + CASES.invoice }] })]) {
     const found = pairs(shaped).map(([, value]) => value);

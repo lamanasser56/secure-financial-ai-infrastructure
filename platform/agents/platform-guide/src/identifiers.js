@@ -35,7 +35,8 @@ const PATTERNS = [
     + S + D + '{5}|' + D + '{4}(?:' + S + D + '{4}){2}' + S + D + '{3}|' + D + '{13,19})'],
   ['SAUDI_VAT_ID', 2, true, '(?:' + B + 'VAT[ \\t]?(?:No\\.?|Number|#|ID|Reg(?:istration)?\\.?[ \\t]?(?:No\\.?|Number))|' + B + 'Tax[ \\t]?(?:ID|No\\.?|Number)'
     + '|' + B + 'TRN|الرقم[ \\t]الضريبي|رقم[ \\t]ضريبي|رقم[ \\t]التسجيل[ \\t]الضريبي)' + LABEL_END + '(?<v>' + D + '(?:' + S + D + '){9,16})'],
-  ['SAUDI_NATIONAL_ID', 2, true, '(?:' + B + 'National[ \\t]ID(?:[ \\t]No\\.?|[ \\t]Number)?|' + B + '(?:Saudi[ \\t]|N)?ID(?:[ \\t](?:No\\.?|Number))?'
+  ['SAUDI_NATIONAL_ID', 2, true, '(?:' + B + 'National[ \\t]ID(?:[ \\t]No\\.?|[ \\t]Number)?|' + B + '(?:Saudi[ \\t]|N)ID(?:[ \\t](?:No\\.?|Number))?'
+    + '|' + B + '(?<bare>ID(?:[ \\t](?:No\\.?|Number))?)'
     + '|' + B + 'Identity[ \\t]Number|الهوية[ \\t]الوطنية|رقم[ \\t]الهوية|الهوية|هويتي|هويتك|السجل[ \\t]المدني)' + LABEL_END
     + '(?<v>' + digit('1') + '(?:' + S + D + '){9})'],
   ['SAUDI_RESIDENT_ID', 2, true, '(?:' + B + 'Iqama(?:[ \\t]No\\.?|[ \\t]Number)?|' + B + 'Residency[ \\t]Number|' + B + 'Resident(?:[ \\t]ID)?'
@@ -64,6 +65,9 @@ const GROUPED_16 = new RegExp('^' + D + '{4}(?:' + SEP + D + '{4}){3}$'); // 4-4
 const ESCAPE = /\\(?:u([0-9A-Fa-f]{4})|["\\/bfnrt])/y;
 const FORMAT = /^\p{Cf}$/u;
 const FULLWIDTH_AT = '\uFF20';
+// A bare "ID" / "ID No." label is a national-ID label only when it is not some other record's ID (see identifiers.py).
+const OTHER_RECORD = new RegExp('(?:' + B + '(?:Order|Transaction|Invoice|Ref|Reference|Request|Ticket|Booking)|رقم[ \\t]الطلب'
+  + '|رقم[ \\t]الفاتورة|المرجع)[ \\t]*[#.:-]?[ \\t]*\\n?$', 'i');
 const TRAILING = ' \u00A0\u2009\u202F\u2011\u2013.-';
 
 function asciiDigits(value) {
@@ -149,6 +153,7 @@ function identifierSpans(text) {
       const end = start + value.length;
       if (TRAILING.includes(value[value.length - 1])) continue;
       if (!bounded(seen, start, end) || !valid(category, value)) continue;
+      if (match.groups.bare && OTHER_RECORD.test(seen.slice(Math.max(0, match.index - 40), match.index))) continue;
       if (emails.some(([s, e]) => start < e && s < end)) continue;
       candidates.push([priority, -(end - start), ...original(start, end), category]);
     }
