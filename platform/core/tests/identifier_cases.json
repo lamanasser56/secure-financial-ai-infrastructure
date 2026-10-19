@@ -350,7 +350,33 @@
      "sara.alotaibi＠qamar-studio-fixture.sa"
     ]
    ]
+  },
+  {
+   "text": "Order ID 1234567890",
+   "expected": []
+  },
+  {
+   "text": "Transaction ID: 1029384756",
+   "expected": []
+  },
+  {
+   "text": "Invoice ID# 1234567890; Ref ID 1234567890; Request ID No. 1234567890; Ticket ID 1029384756; Booking ID: 1029384756; Reference ID 1234567890",
+   "expected": []
+  },
+  {
+   "text": "رقم الطلب ID 1234567890 — رقم الفاتورة ID: 1029384756 — المرجع ID 1234567890",
+   "expected": []
+  },
+  {
+   "text": "Customer ID: 1073059188 (not an order: still a national ID)",
+   "expected": [
+    [
+     "SAUDI_NATIONAL_ID",
+     "1073059188"
+    ]
+   ]
   }
  ],
- "_comment_realistic": "Cases from the realistic-data review (2026-10-19): multi-line pastes (RD-01), everyday ID phrasings (RD-02), mada cards (RD-03), (+966) and other phone writings (RD-04, RD-09), Amex 4-4-4-3 (RD-08), double spaces and invisible marks inside numbers and the fullwidth at sign (RD-09). All values are synthetic."
+ "_comment_realistic": "Cases from the realistic-data review (2026-10-19): multi-line pastes (RD-01), everyday ID phrasings (RD-02), mada cards (RD-03), (+966) and other phone writings (RD-04, RD-09), Amex 4-4-4-3 (RD-08), double spaces and invisible marks inside numbers and the fullwidth at sign (RD-09). All values are synthetic.",
+ "_comment_other_record_ids": "A bare \"ID\" label after Order/Transaction/Invoice/Ref/Reference/Request/Ticket/Booking or رقم الطلب/رقم الفاتورة/المرجع is another record's ID, never a national ID (owner review of #118)."
 }

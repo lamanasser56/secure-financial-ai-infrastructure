@@ -36,7 +36,9 @@ en dash and dot):
                       prefix (Visa, Mastercard, Amex, 6x, and the mada-only 58xx and 9682); any Luhn-valid 16 digits
                       written 4-4-4-4
   SAUDI_NATIONAL_ID   10 digits starting with 1 after a label (National ID, ID, NID, Saudi ID, ID number, Identity
-                      Number, الهوية الوطنية, رقم الهوية, الهوية, هويتي, هويتك, رقم هويتي, السجل المدني)
+                      Number, الهوية الوطنية, رقم الهوية, الهوية, هويتي, هويتك, رقم هويتي, السجل المدني); a bare "ID"
+                      is not a label after Order, Transaction, Invoice, Ref(erence), Request, Ticket, Booking,
+                      رقم الطلب, رقم الفاتورة or المرجع
   SAUDI_RESIDENT_ID   10 digits starting with 2 after a label (Iqama, resident, resident ID, residency number,
                       رقم الإقامة / الاقامه, الإقامة, إقامتي, إقامتك, هوية مقيم)
   SAUDI_BANK_ACCOUNT  8-20 digits after a label (bank account, account number, رقم الحساب, الحساب البنكي)
@@ -86,7 +88,8 @@ _PATTERNS = (
      + _S + _D + '{5}|' + _D + '{4}(?:' + _S + _D + '{4}){2}' + _S + _D + '{3}|' + _D + '{13,19})'),
     ('SAUDI_VAT_ID', 2, True, '(?:' + _B + 'VAT[ \\t]?(?:No\\.?|Number|#|ID|Reg(?:istration)?\\.?[ \\t]?(?:No\\.?|Number))|' + _B + 'Tax[ \\t]?(?:ID|No\\.?|Number)'
      '|' + _B + 'TRN|الرقم[ \\t]الضريبي|رقم[ \\t]ضريبي|رقم[ \\t]التسجيل[ \\t]الضريبي)' + _LABEL_END + '(?P<v>' + _D + '(?:' + _S + _D + '){9,16})'),
-    ('SAUDI_NATIONAL_ID', 2, True, '(?:' + _B + 'National[ \\t]ID(?:[ \\t]No\\.?|[ \\t]Number)?|' + _B + '(?:Saudi[ \\t]|N)?ID(?:[ \\t](?:No\\.?|Number))?'
+    ('SAUDI_NATIONAL_ID', 2, True, '(?:' + _B + 'National[ \\t]ID(?:[ \\t]No\\.?|[ \\t]Number)?|' + _B + '(?:Saudi[ \\t]|N)ID(?:[ \\t](?:No\\.?|Number))?'
+     '|' + _B + '(?P<bare>ID(?:[ \\t](?:No\\.?|Number))?)'
      '|' + _B + 'Identity[ \\t]Number|الهوية[ \\t]الوطنية|رقم[ \\t]الهوية|الهوية|هويتي|هويتك|السجل[ \\t]المدني)' + _LABEL_END
      + '(?P<v>' + _digit('1') + '(?:' + _S + _D + '){9})'),
     ('SAUDI_RESIDENT_ID', 2, True, '(?:' + _B + 'Iqama(?:[ \\t]No\\.?|[ \\t]Number)?|' + _B + 'Residency[ \\t]Number|' + _B + 'Resident(?:[ \\t]ID)?'
@@ -108,6 +111,10 @@ _GROUPED_16 = re.compile('^' + _D + '{4}(?:' + _SEP + _D + '{4}){3}$')  # 4-4-4-
 _ESCAPE = re.compile(r'\\(?:u([0-9A-Fa-f]{4})|["\\/bfnrt])')
 _TRAILING = ' \u00A0\u2009\u202F\u2011\u2013.-'
 _FULLWIDTH_AT = '\uFF20'
+# A bare "ID" / "ID No." label is a national-ID label only when it is not some other record's ID: "Order ID 1234567890"
+# and "Transaction ID: 1029384756" are not people (owner review of #118).
+_OTHER_RECORD = re.compile('(?:' + _B + '(?:Order|Transaction|Invoice|Ref|Reference|Request|Ticket|Booking)|رقم[ \\t]الطلب'
+                           '|رقم[ \\t]الفاتورة|المرجع)[ \\t]*[#.:-]?[ \\t]*\\n?\\Z', re.IGNORECASE)
 
 
 def _ascii_digits(value):
@@ -185,6 +192,8 @@ def identifier_spans(text):
             if value[-1] in _TRAILING:
                 continue
             if not _bounded(view, start, end) or not _valid(category, value):
+                continue
+            if 'bare' in pattern.groupindex and match.group('bare') and _OTHER_RECORD.search(view[max(0, match.start() - 40):match.start()]):
                 continue
             if any(start < e_end and e_start < end for e_start, e_end in emails):
                 continue
