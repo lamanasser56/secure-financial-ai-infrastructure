@@ -473,9 +473,41 @@
   {
    "text": "Order ID 1234567890; Transaction ID: 1029384756; Order ID is 2123456789",
    "expected": []
+  },
+  {
+   "text": "Iqama: 3123456789",
+   "expected": [
+    [
+     "SAUDI_ID_UNKNOWN",
+     "3123456789"
+    ]
+   ]
+  },
+  {
+   "text": "رقم الهوية 4123456789",
+   "expected": [
+    [
+     "SAUDI_ID_UNKNOWN",
+     "4123456789"
+    ]
+   ]
+  },
+  {
+   "text": "National ID: 2123456789; ID: 9876543210; my number is 3123456789",
+   "expected": [
+    [
+     "SAUDI_RESIDENT_ID",
+     "2123456789"
+    ],
+    [
+     "SAUDI_ID_UNKNOWN",
+     "9876543210"
+    ]
+   ]
   }
  ],
  "_comment_realistic": "Cases from the realistic-data review (2026-10-19): multi-line pastes (RD-01), everyday ID phrasings (RD-02), mada cards (RD-03), (+966) and other phone writings (RD-04, RD-09), Amex 4-4-4-3 (RD-08), double spaces and invisible marks inside numbers and the fullwidth at sign (RD-09). All values are synthetic.",
  "_comment_other_record_ids": "A bare \"ID\" label after Order/Transaction/Invoice/Ref/Reference/Request/Ticket/Booking or رقم الطلب/رقم الفاتورة/المرجع is another record's ID, never a national ID (owner review of #118).",
- "_comment_generic_ids": "Lama's review of #118 (2026-10-19): Iqama ID/Number/Resident ID No/Residence ID/رقم إقامتي are Iqama labels; a generic ID label (ID, ID No, ID Number, ID is, my ID is, Saudi ID, رقمي, هويتي رقمها) takes the category from the first digit (1 national ID, 2 Iqama); other records' IDs stay unmasked; passports are a documented gap (no qualified category)."
+ "_comment_generic_ids": "Lama's review of #118 (2026-10-19): Iqama ID/Number/Resident ID No/Residence ID/رقم إقامتي are Iqama labels; a generic ID label (ID, ID No, ID Number, ID is, my ID is, Saudi ID, رقمي, هويتي رقمها) takes the category from the first digit (1 national ID, 2 Iqama); other records' IDs stay unmasked; passports are a documented gap (no qualified category).",
+ "_comment_any_leading_digit": "Owner requirement 2026-10-19: any 10 digits after an ID, Iqama or residency label are masked; the first digit only names the category (1 national ID, 2 Iqama, else SAUDI_ID_UNKNOWN). Unlabelled numbers are not masked."
 }

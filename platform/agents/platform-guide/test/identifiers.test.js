@@ -22,6 +22,23 @@ test('other records\' IDs are not national IDs (owner review of #118)', () => {
   assert.deepEqual(pairs('ID: 1073059188'), [['SAUDI_NATIONAL_ID', '1073059188']]);
 });
 
+test('any ten digits after an ID label are masked; the first digit only names it (owner requirement)', async () => {
+  for (const text of ['Iqama: 3123456789', 'رقم الهوية 4123456789', 'ID: 9876543210']) {
+    for (const shaped of [text, JSON.stringify({ question: 'x\n' + text })]) {
+      assert.deepEqual(identifierSpans(shaped).map(([, , c]) => c), ['SAUDI_ID_UNKNOWN'], shaped);
+    }
+  }
+  assert.deepEqual(pairs('National ID: 2123456789'), [['SAUDI_RESIDENT_ID', '2123456789']]);
+  assert.deepEqual(pairs('رقمي 0550142386'), [['PHONE_NUMBER', '0550142386']]);
+  assert.deepEqual(pairs('ID: 0923456789'), [['SAUDI_ID_UNKNOWN', '0923456789']]);
+  for (const text of ['Order ID 1234567890', 'my number is 3123456789', '3123456789']) assert.deepEqual(identifierSpans(text), [], text);
+  const seen = [];
+  const echo = async (url, headers, body) => { seen.push(body.text); return { status: 200, headers: {}, json: { text: body.text, categories: [] } }; };
+  const result = await new Redactor('k'.repeat(64), { transport: echo }).redact('My Iqama: 3123456789 and National ID: 1073059188', 'r'.repeat(32));
+  assert.ok(!seen[0].includes('3123456789') && seen[0].includes('SAUDI_ID_UNKNOWN'));
+  assert.deepEqual(result.categories, ['SAUDI_NATIONAL_ID']); // only qualified categories are reported
+});
+
 test('Iqama and generic ID labels take the category from the first digit (Lama\'s review of #118)', () => {
   const expected = {
     'Iqama ID: 2123456789': 'SAUDI_RESIDENT_ID', 'Iqama ID 2123456789': 'SAUDI_RESIDENT_ID', 'ID: 2123456789': 'SAUDI_RESIDENT_ID',

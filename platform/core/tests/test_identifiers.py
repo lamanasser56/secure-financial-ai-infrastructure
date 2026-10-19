@@ -87,6 +87,20 @@ class Detector(unittest.TestCase):
                     self.assertEqual([c for _, _, c in identifier_spans(shaped)], [category])
                     self.assertNotIn(text[-10:], mask(shaped, identifier_spans(shaped)))
 
+    def test_any_ten_digits_after_an_id_label_are_masked_the_first_digit_only_names_it(self):
+        """Owner requirement 2026-10-19: masking must not depend on the leading digit (Purview's Saudi National ID needs only
+        10 digits); 1 and 2 only choose the name, anything else is SAUDI_ID_UNKNOWN. Unlabelled numbers stay as they were."""
+        for text in ('Iqama: 3123456789', 'رقم الهوية 4123456789', 'ID: 9876543210'):
+            for shaped in (text, json.dumps({'question': 'x\n' + text}, ensure_ascii=False), json.dumps({'m': '\n' + text})):
+                with self.subTest(text=shaped):
+                    self.assertEqual([c for _, _, c in identifier_spans(shaped)], ['SAUDI_ID_UNKNOWN'])
+                    self.assertNotIn(text[-10:], mask(shaped, identifier_spans(shaped)))
+        self.assertEqual(pairs('National ID: 2123456789'), [['SAUDI_RESIDENT_ID', '2123456789']])  # the digit names it
+        self.assertEqual(pairs('رقمي 0550142386'), [['PHONE_NUMBER', '0550142386']])  # a phone wins over an ID of unknown kind
+        self.assertEqual(pairs('ID: 0923456789'), [['SAUDI_ID_UNKNOWN', '0923456789']])  # not phone-shaped: still masked
+        for text in ('Order ID 1234567890', 'my number is 3123456789', '3123456789'):
+            self.assertEqual(identifier_spans(text), [], text)
+
     def test_passports_are_a_documented_gap_not_mislabelled(self):
         """No qualified passport category exists (SUPPORTED_ENTITIES is hash-bound): not masked as anything else."""
         for text in ('Passport ID: A12345678', 'Passport No. AB1234567', 'رقم الجواز: A12345678'):
@@ -117,6 +131,15 @@ class Client(unittest.TestCase):
         for value in VALUES + EMAILS:
             self.assertNotIn(value, seen[0])
         self.assertEqual(set(result.categories), {'EMAIL_ADDRESS', 'PHONE_NUMBER', 'IBAN_CODE', 'SAUDI_VAT_ID'})
+
+    def test_an_id_of_unknown_kind_is_masked_but_only_qualified_categories_are_reported(self):
+        """SAUDI_ID_UNKNOWN is not in the hash-bound SUPPORTED_ENTITIES: reporting it would make the email layer refuse the
+        turn, and naming it as another category would mislabel it. It is masked in the text and left out of the list."""
+        seen = []
+        result = DeterministicEmailRedactor(echo_client(seen)).redact('My Iqama: 3123456789 and National ID: 1073059188')
+        self.assertNotIn('3123456789', seen[0])
+        self.assertIn('SAUDI_ID_UNKNOWN', seen[0])
+        self.assertEqual(result.categories, ('SAUDI_NATIONAL_ID',))
 
     def test_a_masked_value_in_the_answer_fails_closed(self):
         client = echo_client([], reply={'text': 'call +966 55 014 2386', 'categories': []})

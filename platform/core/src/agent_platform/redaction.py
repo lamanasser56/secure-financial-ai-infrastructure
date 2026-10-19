@@ -91,7 +91,10 @@ class RedactorClient:
             if any(value[start:end] in result['text'] for start, end, _ in spans):
                 raise ValueError('residual')  # fail closed: a masked value came back
             self.budget.accept_output(result['text'])
-            categories = sorted(set(result['categories']) | {category for _, _, category in spans})
+            # Reported categories stay within the qualified set (SUPPORTED_ENTITIES, hash-bound). An ID of unknown kind is
+            # masked in the text as SAUDI_ID_UNKNOWN but not reported: there is no qualified name for it, and naming it as
+            # another category would mislabel it.
+            categories = sorted(set(result['categories']) | {category for _, _, category in spans if category in self._supported})
             return RedactionResult(result['text'], tuple(categories))
         except ControlFailure:  # output budget: same runtime stage as every other redaction failure
             raise ControlFailure('presidio_anonymizer', 'unavailable') from None

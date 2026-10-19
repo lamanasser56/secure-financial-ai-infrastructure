@@ -99,7 +99,9 @@ class Redactor {
     if (originals.some((value) => result.text.includes(value))) throw new Blocked('redaction_unavailable'); // fail closed
     const all = new Set(categories);
     if (found) all.add('EMAIL_ADDRESS');
-    for (const [, , category] of spans) all.add(category);
+    // Reported categories stay within the qualified set: an ID of unknown kind is masked as SAUDI_ID_UNKNOWN in the
+    // text but not reported (see platform/core/src/agent_platform/redaction.py).
+    for (const [, , category] of spans) if (SUPPORTED.has(category)) all.add(category);
     return { text: result.text, categories: [...all].sort() };
   }
 }
