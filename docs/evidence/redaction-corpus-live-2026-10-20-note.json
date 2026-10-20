@@ -37,6 +37,41 @@
     "text_utf8_bytes": 390
    }
   ],
-  "conclusion": "The same batches fail every time with 503 (the redactor fails closed), independent of size (422 bytes fails, 4624 bytes passes) and not a rate limit. The cause inside the redactor was not investigated; no harness or product change was made. The pipeline path, which is what the agent uses, had no failures."
+  "conclusion": "The same 4 batches fail every time with 503, independent of size (422 bytes fails, 4624 bytes passes) and not a rate limit. The redactor's audit log gives the reason: its own fail-closed checks rejected the Sensitive Data Protection result (3 x RESIDUAL_VALUE at the output check, 1 x MALFORMED_RESPONSE at the inspection check), so no text was returned for those batches. Which values in those batches trigger the checks was not determined; no harness or product change was made. The pipeline path, which is what the agent uses, was unaffected: 207/207 covered values masked, 0 leaked, 0 errors.",
+  "redactor_log": {
+   "source": "Cloud Logging, the redactor container's audit entries (closed fields only: audit_event, reason, diagnostic.code, diagnostic.stage)",
+   "same_in_both_runs": "corpus-live 2026-10-19T23:06:38Z and the diagnostic rerun 2026-10-20T00:19:04Z",
+   "failures": [
+    {
+     "batch": 1,
+     "audit_event": "redaction_failed",
+     "reason": "GoogleSDPFailure",
+     "code": "RESIDUAL_VALUE",
+     "stage": "output"
+    },
+    {
+     "batch": 2,
+     "audit_event": "redaction_failed",
+     "reason": "GoogleSDPFailure",
+     "code": "RESIDUAL_VALUE",
+     "stage": "output"
+    },
+    {
+     "batch": 3,
+     "audit_event": "redaction_failed",
+     "reason": "GoogleSDPFailure",
+     "code": "RESIDUAL_VALUE",
+     "stage": "output"
+    },
+    {
+     "batch": 7,
+     "audit_event": "redaction_failed",
+     "reason": "GoogleSDPFailure",
+     "code": "MALFORMED_RESPONSE",
+     "stage": "inspect_response"
+    }
+   ],
+   "meaning": "Both are the redactor's own fail-closed checks on Sensitive Data Protection's results (runtime/phase3/google_sdp_adapter.py): RESIDUAL_VALUE = the text of a finding was still present in the de-identified output, so nothing was returned; MALFORMED_RESPONSE at inspect_response = the inspection findings did not pass the adapter's validation."
+  }
  }
 }
