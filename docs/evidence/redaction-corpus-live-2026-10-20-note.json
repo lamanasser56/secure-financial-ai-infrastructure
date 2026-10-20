@@ -1,0 +1,42 @@
+{
+ "record": "Note on redaction-corpus-live-2026-10-20.json (make corpus-live, 2026-10-19T23:06Z, redactor 667ceec4). The file holds the runner output unchanged: ids, categories and booleans only.",
+ "pipeline": "The Financial Agent's real client path: 11 redactions, 0 errors, 207 covered values masked, 0 covered values leaked, 6 uncovered values still masked by the redactor, 0 not measured.",
+ "sdp_only": "The raw text straight to the redactor, without the client layer: 7 of 11 redactions measured; 4 batches failed, so 140 items are not measured. Of the measured covered items, 66 leaked and 1 was masked by the redactor alone. The agent never sends raw text this way: its client masks identifiers first (see pipeline).",
+ "sdp_only_failures": {
+  "diagnosed": "2026-10-20T00:18Z, one rerun of the same raw requests from the agent Pod; HTTP status and byte sizes only, no body",
+  "batches": [
+   {
+    "batch": 0,
+    "status": 200,
+    "request_bytes": 4624,
+    "text_utf8_bytes": 2961,
+    "note": "control"
+   },
+   {
+    "batch": 1,
+    "status": 503,
+    "request_bytes": 5020,
+    "text_utf8_bytes": 2957
+   },
+   {
+    "batch": 2,
+    "status": 503,
+    "request_bytes": 4187,
+    "text_utf8_bytes": 2971
+   },
+   {
+    "batch": 3,
+    "status": 503,
+    "request_bytes": 1303,
+    "text_utf8_bytes": 1024
+   },
+   {
+    "batch": 7,
+    "status": 503,
+    "request_bytes": 422,
+    "text_utf8_bytes": 390
+   }
+  ],
+  "conclusion": "The same batches fail every time with 503 (the redactor fails closed), independent of size (422 bytes fails, 4624 bytes passes) and not a rate limit. The cause inside the redactor was not investigated; no harness or product change was made. The pipeline path, which is what the agent uses, had no failures."
+ }
+}
