@@ -1,0 +1,29 @@
+{
+ "record": "Redactor gRPC keepalive (too_many_pings) after a long idle period, observed live on 2026-10-19/20 (redactor 667ceec4). Counts only; no log lines.",
+ "test": "Pod redactor-5cf9bfbb46-b6tdb had no redaction from 23:06:40Z; the next redaction (a Platform Guide question, request a175969c, answered) reached it at about 23:40Z, after about 34 minutes idle.",
+ "result": {
+  "too_many_pings": 0,
+  "restarts": 0,
+  "source": "the Pod's log via kubectl, rechecked in Cloud Logging (resource k8s_container, that pod_name), 2026-10-20T00:1xZ"
+ },
+ "other_checks_same_session": [
+  {
+   "pod": "redactor-5cf9bfbb46-kx6rx",
+   "window_utc": "2026-10-19 14:18:11-14:28:52",
+   "too_many_pings": 0,
+   "restarts": 0
+  },
+  {
+   "pod": "redactor-5cf9bfbb46-gm8c6",
+   "window_utc": "2026-10-19 21:05:17-21:18:47",
+   "too_many_pings": 0,
+   "restarts": 0
+  },
+  {
+   "pod": "redactor-5cf9bfbb46-h66kt",
+   "window_utc": "2026-10-19 21:43:21 (no redaction for ~79 min, then replaced by the fail-closed test)",
+   "too_many_pings": 0,
+   "restarts": 0
+  }
+ ]
+}
