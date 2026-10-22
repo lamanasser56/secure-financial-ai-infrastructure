@@ -36,8 +36,8 @@ The Security & Operations Agent shows `approval` in place of `tools` and `ops`.
 
 ## 2. Attack suite cases (`make attack`, `platform/clouds/gke/attack_suite.py`)
 
-18 attacks plus a setup step. Last committed run: run 5, 2026-10-17 22:41Z, 19/19 (`docs/evidence/attack-suite.json`
-and its note).
+18 attacks plus a setup step. Last committed run: run 6, 2026-10-19 21:49Z, 19/19 (`docs/evidence/attack-suite.json`
+and `docs/evidence/attack-suite-run-6-note.json`).
 
 | Case | Claim attacked | Control | Input | Path | Gap |
 |---|---|---|---|---|---|

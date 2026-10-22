@@ -1,5 +1,7 @@
 # Integration and operations
 
+> **History.** This page describes the earlier reference design (Presidio redaction and the `kubernetes/` templates), before the GKE agent platform. It is kept as a record and is not the running platform. For the current platform see the [architecture overview](architecture.md) and the [repository map](REPO-MAP.md).
+
 ## Before deployment
 
 1. Choose an approved provider model and region. Replace the `REPLACE_WITH_*` values in the LiteLLM ConfigMap through an environment-owned overlay or templating system.

@@ -20,12 +20,13 @@ These must already be on `main`, with their images rebuilt, signed and pinned in
 
 - [ ] `make demo-check`
 
-  Expected while the platform is down: every image line PASS, the node pool at 0 nodes, and FAIL only for the hello
-  leftovers and `agent-platform-guide/agent` (that Secret is created by `make up`).
+  Expected while the platform is down: every image line PASS, the node pool at 0 nodes, and every hello check PASS
+  (section 2). `agent-platform-guide/agent` fails until `make up` has created that Secret.
 
-## 2. Retire the hello agent (once)
+## 2. Retire the hello agent (done)
 
-Follow [hello-retirement-cleanup.md](hello-retirement-cleanup.md). In short, in this order:
+Completed and verified by `make demo-check` on 22 Oct 2026 ([hello-retirement-cleanup.md](hello-retirement-cleanup.md)).
+Nothing to do. The planned steps, kept for the record:
 
 - [ ] Write the private kubeconfig (local file only):
   `PYTHONPATH=platform/core/src:. python3 -B platform/clouds/gke/lifecycle.py kubeconfig`

@@ -10,21 +10,31 @@ flowchart LR
   owner([Owner laptop]) -- "kubectl port-forward 8080<br/>(IAM-gated DNS endpoint)" --> ui
   subgraph cluster [GKE agent-platform: private nodes, no LB/Ingress/external IP, no NAT, no internet egress]
     subgraph apps [ns apps: PSS restricted, default deny]
-      ui[UI + Financial Agent<br/>loopback only]
+      ui[Front door: console + ops approval<br/>loopback only]
       fault[fault-demo target]
+    end
+    subgraph agents [ns agent-financial, agent-platform-guide: PSS restricted, default deny]
+      fin[Financial Agent<br/>sign-in, read-only tools]
+      guide[Platform Guide<br/>bundled docs, no data]
     end
     subgraph ops [ns ops]
       agent[Security & Operations Agent<br/>verify-only approval key]
     end
     subgraph platform [ns platform]
       redactor[Redactor<br/>SDP + deterministic email]
-      gateway[LiteLLM gateway<br/>stable alias, $10/month keys]
+      gateway[LiteLLM gateway<br/>stable alias, per-agent keys, $10/month total]
       pg[(Postgres<br/>FORCE RLS, non-owner role)]
     end
     ui -- redact first --> redactor
     ui -- redacted text only --> gateway
     ui -- tenant-pinned read --> pg
     ui -- signed one-use approval --> agent
+    owner -- "make agent-forward 8081 / 8082" --> agents
+    fin -- redact first --> redactor
+    fin -- redacted text only --> gateway
+    fin -- "read-only role, FORCE RLS" --> pg
+    guide -- redact first --> redactor
+    guide -- redacted text only --> gateway
     agent -- "RBAC: read + patch named deployments<br/>VAP: rollout restart / bounded scale only" --> api[(kube-apiserver)]
     agent --> redactor
     agent --> gateway
@@ -43,7 +53,7 @@ flowchart LR
 | Namespace isolation | default-deny NetworkPolicies + explicit paths; FQDN egress only for gateway (Vertex) and redactor (DLP) | render invariants, live attack suite (direct egress blocked) |
 | Workload hardening | Pod Security "restricted" in every namespace; nonroot, read-only root, no capabilities | `make test-policies` (real kube-apiserver), render invariants |
 | Tenant isolation | Postgres FORCE ROW LEVEL SECURITY; app role non-owner, NOBYPASSRLS; tenant set server-side | bootstrap contract check, live attack suite (cross-tenant read) |
-| Redaction before any model call | `RedactorClient` raises on any failure, so the gateway is never called | unit tests, live attack suite (redactor down → 0 spend) |
+| Redaction before any model call | the platform client libraries (`RedactorClient`; `clients.js` in the Platform Guide) raise on any redaction failure, so they never call the gateway. Not enforced at the gateway: an agent's NetworkPolicy also allows the gateway, and the gateway does not check redaction ([known limitations](security/known-limitations.md)) | unit tests, live attack suite (redactor down → 0 spend) |
 | Ops agent authority | RBAC (read + patch named deployments) and a ValidatingAdmissionPolicy (rollout restart and bounded scale only; the Pod template may change only by the restart annotation, so no command, args, env, envFrom, resources, probes, image or label change, even if the agent identity is compromised; no rollback) | `make test-policies`: allowed and denied cases on a real API server |
 | Human approval | Ed25519 one-use tokens signed only by the front door (owner passphrase); the agent holds only the public key | unit tests (binding, expiry, replay, forgery, restart) |
 | Supply chain | Trivy + SBOM + keyless cosign in CI; Binary Authorization with a KMS attestor rejects unattested digests | CI receipts, live attack suite (unsigned image rejected) |
@@ -72,5 +82,5 @@ Phase 4 provides a registry and a governance coordinator for tool requests:
 
 The platform composes these unchanged agent cores (`IntegratedCore`, `TenantDatabaseTools`, `DeterministicEmailRedactor`) with in-cluster transports.
 
-This repository is a portfolio reference implementation with synthetic data only. Each claim is classified in the README claims
-matrix as implemented and live-tested, implemented but not live-tested, documented only, or future.
+This repository is a portfolio reference implementation with synthetic data only. Each claim is classified in the [claims
+matrix](agent-platform/claims-matrix.md); the [claims inventory](security/claims-inventory.md) grades the test behind each claim.

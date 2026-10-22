@@ -57,6 +57,17 @@ fixed or documented as an accepted limitation. Each finding below gives its stat
 | 17 | LOW | Worker host hardening items carried from the independent audit. | **Mitigated** by stopping the VM. It is deleted at teardown. |
 | 18 | INFO | The redactor ignores SIGTERM. | **Accepted limitation** (availability only). |
 
+**Note on finding #9, added 22 October 2026** (the row above is unchanged). An independent hostile-agent review
+(Codex) on 22 October 2026 found that:
+
+- the per-user ceilings are enforced in the agent's own code;
+- a truncated model reply raises before the per-user token charge
+  (`platform/agents/financial/finance_agent/agent.py:255`), so its tokens are not counted against the user;
+- the DLP client budget is process-wide: one budget for all users of the agent, not one per user.
+
+For a hostile agent the finding is re-graded **MEDIUM**. See the
+[trust model](known-limitations.md#trust-model-the-agents-code-is-trusted).
+
 ## Evidence
 
 - Final attack-suite run: `docs/evidence/attack-suite.json` (run 3, 18/19). The one failure is a documented test

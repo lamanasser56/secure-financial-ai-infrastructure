@@ -1,5 +1,7 @@
 # Tenant authority and database isolation
 
+> **History.** This page describes the earlier reference design (Presidio redaction and the `kubernetes/` templates), before the GKE agent platform. It is kept as a record and is not the running platform. For the current platform see the [architecture overview](../architecture.md) and the [repository map](../REPO-MAP.md).
+
 Tenant identity comes from validated authentication claims. A server-side resolver creates immutable tenant context; request bodies, prompts, tool arguments, URLs and arbitrary headers are never authoritative. The runtime rejects tenant-shaped input recursively before reaching the gateway.
 
 The trusted identity/tenant-resolution layer must supply an already-created pseudonymous `tenant_ref` matching exactly `^[0-9a-f]{16}$` (16 lowercase hexadecimal characters). Phase 3 and Phase 4 reject an invalid reference at tenant resolution, before downstream controls or telemetry. They do not normalize, hash, replace or generate one during request processing. Raw tenant identifiers must not enter AI traces, LiteLLM metadata, logs or audit envelopes. The reference format is not encryption or irreversible anonymization; creating and mapping references securely remains an application-owned responsibility.

@@ -1,5 +1,7 @@
 # Platform inventory (Phase 0, read-only)
 
+> **Snapshot of 15 Oct 2026.** Kept as the Phase 0 record and not kept up to date; only the request ID and the approval-refusal lines below were corrected later. For the current status see the [claims matrix](../agent-platform/claims-matrix.md), the [claims inventory](../security/claims-inventory.md) and the [request trace](request-trace.md).
+
 Taken from `main` on 2026-10-15 by reading the repository. Nothing here was re-tested; "live-tested" repeats what
 `docs/agent-platform/claims-matrix.md` and `docs/evidence/` already record. The project ID is not shown anywhere.
 
@@ -51,7 +53,7 @@ Access is by `make port-forward` (8080) and `make agent-forward A=financial` (80
 
 One JSON line per event: `audit_event`, `component`, `at` (epoch seconds) plus bounded fields. Content fields
 (`text`, `prompt`, `content`, `token`, `key`, `secret`, `password`, `authorization`) are rejected by `audit.emit`.
-No request ID or trace ID is shared between events.
+One request ID is shared between events: see [request-trace.md](request-trace.md) (corrected after this snapshot).
 
 | Event (component) | Fields |
 | --- | --- |
@@ -63,7 +65,7 @@ No request ID or trace ID is shared between events.
 | `model_response_shape` (app) | `shape` |
 | `ops_observed`, `ops_diagnosed`, `ops_proposed`, `ops_denied`, … (ops-agent) | `target`, `finding`, `evidence_digest`, `action`, `request_id`, desired/available counts |
 | `ops_approval_signed` (app) | `request_id`, `target`, `action` |
-| `ops_approval_refused` (app) | `request_id` only on `main` (**no reason**); PR #83 adds `stage`, `reason`, `proposal_pending` |
+| `ops_approval_refused` (app) | `request_id`, `stage` (`approve` or `execute`), `reason`, and `proposal_pending` on an approve refusal |
 | `ops_approved`, `ops_executed`, `ops_denied` (ops-agent) | `target`, `request_id`, `approver` or `code` |
 | `app_started`, `app_session_refreshed`, `app_session_refresh_failed`, `ops_agent_started`, `ops_scan_error` | session and lifecycle fields |
 
@@ -71,14 +73,14 @@ Missing for a per-request "what the platform did" trace:
 
 | Wanted | Today |
 | --- | --- |
-| One request/correlation ID across app → redactor → gateway → tools | Absent; events cannot be joined. `finance_turn` has none. |
+| One request/correlation ID across app → redactor → gateway → tools | Present since this snapshot: `X-Request-ID`, logged as `request_id` by the app or agent, the redactor and the gateway hook ([request-trace.md](request-trace.md)). `finance_turn` carries it. |
 | Caller identity | Only a hashed `user_ref` (Financial Agent) or `tenant_ref`; no agent-level identity in redactor lines beyond `caller`. |
 | Redaction findings per request | Categories per redactor call; no counts, no link to the request. |
 | Tool calls | Tool ids in `finance_turn.tools`; no per-call outcome or arguments (by design). |
 | RLS outcome | Not recorded; RLS is enforced in Postgres and never reported. |
 | Grounding check result | Not in the audit event. |
 | Model, token cost | `tokens` per turn only; no model name, no cost. The LiteLLM spend log is a separate store. |
-| Approval events | Proposed, approved, executed and denied (`ops_approved`, `ops_executed`, `ops_denied` with a code) are recorded by the ops agent; signed/refused by the app. The refusal reason was missing (added in PR #83); a approver identity beyond the fixed `owner` is not modelled. |
+| Approval events | Proposed, approved, executed and denied (`ops_approved`, `ops_executed`, `ops_denied` with a code) are recorded by the ops agent; signed/refused by the app. The refusal records `stage` and `reason`; an approver identity beyond the fixed `owner` is not modelled. |
 
 ## 1e. Agent manifest `platform/agents/<name>/agent.yaml`
 

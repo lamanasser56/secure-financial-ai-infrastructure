@@ -1,5 +1,7 @@
 # Security baseline
 
+> **History.** This page describes the earlier reference design (Presidio redaction and the `kubernetes/` templates), before the GKE agent platform. It is kept as a record and is not the running platform. For the current platform see the [architecture overview](../architecture.md) and the [repository map](../REPO-MAP.md).
+
 1. Validate identity and derive tenant context from claims before authorization or tool routing. Deny on missing or malformed context.
 2. Reject client-supplied tenant, model, provider, policy and approval decisions. Apply structured input and output validation.
 3. Redact sensitive input before LiteLLM. Do not bypass Analyzer or Anonymizer on failure, timeout or empty valid analysis.

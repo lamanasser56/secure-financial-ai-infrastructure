@@ -14,7 +14,7 @@
 | Owner | the project owner (sole administrator of the key ring); IAM changes go through Terraform only |
 | CI rights | `roles/cloudkms.signerVerifier` on this key only (sign, never manage); `containeranalysis.notes.attacher` on the attestor note |
 | Attestor / policy | `agent-platform-ci`; project singleton policy `REQUIRE_ATTESTATION`, `ENFORCED_BLOCK_AND_AUDIT_LOG`, Google system images exempt |
-| Attested images | CI-built `agent-platform-app`, `agent-platform-ops`; the reused C-qualified gateway/database/redactor digests are attested once by the owner (`make attest`) after their existing signatures are verified |
+| Attested images | CI-built `agent-platform-app`, `agent-platform-ops`, `agent-financial` and `platform-guide` (the image matrix in `.github/workflows/agent-platform-images.yml`); the reused C-qualified gateway/database/redactor digests are attested once by the owner (`make attest`) after their existing signatures are verified |
 
 ## Rotation (manual: asymmetric keys do not auto-rotate)
 
