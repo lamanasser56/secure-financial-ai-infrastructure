@@ -73,3 +73,4 @@ For a hostile agent the finding is re-graded **MEDIUM**. See the
 - Final attack-suite run: `docs/evidence/attack-suite.json` (run 3, 18/19). The one failure is a documented test
   defect; the control held (`attack-suite-run-3-note.json`).
 - Accepted limitations: `docs/security/known-limitations.md`.
+- Added 22 October 2026: the latest attack-suite run is run 6, 2026-10-19, 19/19 (`docs/evidence/attack-suite.json`).
