@@ -3,7 +3,7 @@
 **Offline only; full campaign BLOCKED.** The 42 safe fixtures do not replace the
 proposed 87-case eight-class campaign. Five classes and 45 cases lack verified
 provenance. Google detection quality is unmeasured. See the
-[coverage matrix](../../docs/security/google-sdp-agent-coverage.md).
+[coverage matrix](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/google-sdp-agent-coverage.md).
 
 - [Fixture schema](offline-fixtures.schema.json) separates raw synthetic inputs
   from sanitized case/count summaries.

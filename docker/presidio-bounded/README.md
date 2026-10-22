@@ -53,6 +53,6 @@ lock and wrapper; the SDP build's global ignore file remains unchanged.
 Analyzer/Anonymizer HTTP processes inside this image, with networking disabled
 and only its committed script/runtime/corpus mounted read-only. It emits case IDs,
 categories and pass counts; no corpus text, redacted text or protected values.
-It performs no external model request. See the [qualification assessment](../../docs/agents/redactor-qualification.md)
+It performs no external model request. See the [qualification assessment](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/agents/redactor-qualification.md)
 for exact invocation, digest linkage, fresh findings and remediation choices.
 Passing these synthetic cases never overrides a blocked image policy.
