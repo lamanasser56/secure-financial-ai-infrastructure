@@ -1,5 +1,7 @@
 # Observability baseline
 
+> **History.** This page describes the earlier reference design (Presidio redaction and the `kubernetes/` templates), before the GKE agent platform. It is kept as a record and is not the running platform. For the current platform see the [architecture overview](architecture.md) and the [repository map](REPO-MAP.md).
+
 The implemented runtime produces a sanitized trace envelope and the tool boundary defines a sanitized audit-event schema. These records must contain bounded control categories, a correlation reference, and an outcome. They must not contain prompts, original or redacted values, documents, tool arguments, tokens, tenant IDs, or raw exception text.
 
 Only a trusted identity/tenant resolver may supply `tenant_ref`; user-controlled request data is never accepted as its source. Both runtime boundaries require exactly 16 lowercase hexadecimal characters (`^[0-9a-f]{16}$`) and reject other values before traces, gateway metadata, policy or audit structures can receive them. The application owns generation and mapping of this pseudonymous reference. Its format does not provide encryption or irreversible anonymization, so access and retention still require controls. Raw tenant identifiers remain prohibited in traces, gateway metadata, logs and audit envelopes.

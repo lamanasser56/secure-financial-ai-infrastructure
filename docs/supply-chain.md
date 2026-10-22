@@ -1,6 +1,8 @@
 # Supply-chain policy
 
-The main CI validates source scope, schemas, runtime controls, YAML, documentation links, lint, and Git history secrets. A separate pull-request/manual workflow runs dependency scanning and qualifies Trivy, Syft, and Cosign with public or synthetic inputs. It does not build, publish, sign, or deploy portfolio images.
+> **Mostly history.** Most of this page records the Google SDP evaluation and the earlier qualification scripts. The platform images (app, ops agent, Financial Agent, Platform Guide) are built, scanned (Trivy, KEV gate), given an SBOM, signed (keyless cosign) and attested with the Cloud KMS key by `.github/workflows/agent-platform-images.yml` after CI passes on `main`; Binary Authorization admits only attested digests. See the [repository map](REPO-MAP.md).
+
+The main CI validates source scope, schemas, runtime controls, YAML, documentation links, lint, and Git history secrets. A separate pull-request/manual workflow runs dependency scanning and qualifies Trivy, Syft, and Cosign with public or synthetic inputs. It does not build or sign images itself; the platform images are released by the image workflow named above.
 
 `requirements-dev.in` is the reviewed authority for direct development and test dependencies. `requirements-dev.txt` is generated with transitive versions and SHA-256 hashes and is the immutable installation authority. Use Python 3.12 and `pip-tools==7.6.1` to regenerate the lock with `python -m piptools compile --generate-hashes --resolver=backtracking --allow-unsafe --strip-extras --index-url https://pypi.org/simple --output-file requirements-dev.txt requirements-dev.in`. Install it with `python -m pip install --require-hashes -r requirements-dev.txt`, then run `bash scripts/check-python-lock.sh`. Regenerate and review the complete lock whenever a direct dependency changes. Cloud-provider SDKs belong in separate optional dependency sets and must not enter this portable core automatically.
 

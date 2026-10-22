@@ -1,5 +1,7 @@
 # Architecture
 
+> **History.** This page describes the earlier reference design (Presidio redaction and the `kubernetes/` templates), before the GKE agent platform. It is kept as a record and is not the running platform; the platform decision is [ADR-008](decisions/ADR-008-persistent-agent-platform.md). For the current platform see the [architecture overview](../architecture.md) and the [repository map](../REPO-MAP.md).
+
 The [context-pattern candidate](decisions/ADR-007-context-pattern-redaction-candidate.md)
 defines the separately accepted offline masking scope. It leaves full eight-class
 qualification and runtime authority unresolved.

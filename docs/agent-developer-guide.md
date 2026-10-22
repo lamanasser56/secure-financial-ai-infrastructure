@@ -59,7 +59,7 @@ The command does one of two things:
 | Isolation | Namespace `agent-<name>` with Pod Security "restricted", and a quota that allows no load balancers or node ports |
 | Network | Default deny. Egress is allowed only to DNS, the redactor and the LiteLLM gateway: never the internet, never a model provider |
 | Model access | Its own gateway key with your monthly budget. It calls only the stable alias `secure-financial-chat` |
-| Redaction | A redactor client key. Every model call is redacted first; if redaction fails, nothing is sent |
+| Redaction | A redactor client key. The platform client libraries redact every model call first; if redaction fails, nothing is sent. The gateway does not check this, so your code must use the client and never call the gateway with unredacted text ([known limitations](security/known-limitations.md)) |
 | Workload | Nonroot, read-only root filesystem, no capabilities, no Kubernetes API token, resource limits |
 | Supply chain | Only an image that CI signed and attested runs (Binary Authorization) |
 | Tools | Only registered, enabled, read-only tools that need no approval |
@@ -87,8 +87,8 @@ must follow the pattern in the Financial Agent
   other pod in the cluster.
 - **Future work: front-door routing.** The front door (`apps/app`) would authenticate the user, apply the per-user
   rate limit and budget, and forward the request to the agent's Service. That needs an explicit ingress rule from the
-  front door to the agent's namespace (a network change, reviewed as a diff). The Financial Agent rewrite is the first
-  candidate.
+  front door to the agent's namespace (a network change, reviewed as a diff). Not built: the Financial Agent, the
+  first candidate, is reached by port-forward like every onboarded agent.
 
 ## 6. Try it
 

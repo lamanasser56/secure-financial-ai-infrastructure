@@ -1,6 +1,12 @@
 # One-time cleanup after removing the hello agent (owner approval required)
 
-Merging the hello removal changes the repository only. `make up` applies manifests with `kubectl apply --server-side` and **no `--prune`**, so nothing that was removed from source is deleted from the cluster. Nothing below has been run.
+> **Completed.** Verified by `make demo-check` on 22 Oct 2026: namespace `agent-hello` gone, NetworkPolicies
+> `platform/agent-hello-to-gateway` and `platform/agent-hello-to-redactor` gone, and the key alias `agent-hello` gone
+> from Secrets `platform/bootstrap` and `platform/redactor`. The gateway's spend history can still list the retired
+> alias `agent-hello` (run 6, `docs/evidence/attack-suite.json`); that is history, not a live key. The page below is
+> kept as the record of the plan.
+
+Merging the hello removal changes the repository only. `make up` applies manifests with `kubectl apply --server-side` and **no `--prune`**, so nothing that was removed from source is deleted from the cluster. The steps below were the plan (now completed; see the note above).
 
 ## What remains in the live cluster
 

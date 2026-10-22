@@ -4,9 +4,13 @@ This page sorts the repository into the current product (the Secure AI Agent Pla
 runs on, and the history behind it. Start with **Product**. The **History** paths are kept as evidence and are not
 part of the running platform.
 
-Files under `runtime/`, `contracts/`, `demo/`, `evaluation/` and `scripts/` are bound by SHA-256 in the
-qualification records under `evaluation/`. Do not move or rename them. A move breaks those records and the
-image build.
+The qualification records under `evaluation/` bind files by SHA-256: every file in `runtime/`, `contracts/` and
+`demo/`, 14 files in `evaluation/`, 11 in `docker/`, 11 in `scripts/`, and 8 in the repository root (`.dockerignore`
+and seven `requirements-*` files). None of them is Markdown. Do not move, rename or edit them, and keep the records
+in `evaluation/` in place: a change breaks those records and the image build. Do not add any file, not even a README,
+to `runtime/`, `contracts/` or `demo/`: `scripts/verify-operations-image-qualification.py` lists every file in those
+three folders, and the list must equal the inputs recorded in `evaluation/operations/restoration-qualification.json`
+(the CI `agents` job fails otherwise). This map describes them instead.
 
 ## Product: the Secure AI Agent Platform
 
@@ -21,8 +25,9 @@ image build.
 | `platform/core/tests/` | Platform tests: manifest invariants, ops agent, approvals, onboarding, and policies against a real kube-apiserver (envtest). |
 | `platform/agents/financial/` | **Financial Agent** (tenant #1): its own image, web app, read-only tools, grounding, sign-in. |
 | `platform/agents/platform-guide/` | **Platform Guide** (tenant #2, Node.js): answers questions about the platform from a docs index bundled at build time; no data, one read-only `docs_search` tool. |
-| `platform/clouds/gke/` | GKE: Terraform module, `render.py`, `images.json` (signed digests), `lifecycle.py` (`make up` / `down` / `fault` / `inventory`), `attack_suite.py`, `requalify.py`. |
-| `Makefile` | Entry points: `make test`, `make test-policies`, `make up`, `make attack`, `make down`, `make inventory`. |
+| `platform/clouds/gke/` | GKE: Terraform module, `render.py`, `images.json` (signed digests), `lifecycle.py` (`make up` / `down` / `fault` / `inventory`), `attack_suite.py`, `requalify.py`, `demo_check.py`, `demo_reset.py`, `corpus_live.py`, `passphrase.py`. |
+| `providers/` | Model provider profiles. `make provider P=<name>` renders the gateway configuration and egress allowlist from one (`agent_platform/providers.py`); only active, owner-approved profiles render, and `make test` fails if the generated files drift. |
+| `Makefile` | Entry points (listed at the top of the file): `test`, `test-policies`, `onboard`, `onboard-check`, `provider`, `plan`, `apply`, `up`, `down`, `port-forward`, `agent-forward`, `fault`, `attack`, `corpus-live`, `inventory`, `demo-check`, `seed-demo`, `demo-reset`, `secrets`, `passphrase-check`, `passphrase`. |
 | `docs/agent-platform/` | Platform docs: claims matrix, model requalification, teardown plan. |
 | `docs/agent-onboarding-contract.md`, `docs/agent-developer-guide.md` | How a team onboards an agent with one manifest. |
 | `docs/evidence/` | Live evidence: requalification, onboarding, Financial Agent, attack-suite runs. |
@@ -35,11 +40,12 @@ image build.
 
 | Path | Used by the product for |
 | --- | --- |
-| `runtime/agents/` | Agent composition and controls (`controls.py`: the bounded injection assessor used by the Financial Agent's tools). |
+| `runtime/agents/` | Agent composition and controls (`controls.py`: the bounded injection assessor used by the Financial Agent's tools). Hash-bound; copied into the app and Financial Agent images. |
 | `runtime/phase3/` | Trusted runtime types and the deterministic email redaction layer in front of the redactor. |
 | `runtime/phase4/` | Prompt-injection assessment and tool-governance contracts. |
-| `contracts/` | JSON Schema / OpenAPI contracts copied into the images. |
-| `demo/` | UI assets and synthetic fixtures copied into the app image. |
+| `contracts/` | JSON Schema / OpenAPI contracts copied into the images. Hash-bound. |
+| `demo/` | UI assets and synthetic fixtures copied into the app image. Hash-bound; the UI copy here is not served. |
+| `evaluation/agent-composition/`, `evaluation/operations/` | Qualification inputs copied into images: the first into the app image (`platform/core/images/Dockerfile`), the second into the reused gateway image (`docker/agent-composition/Dockerfile`). |
 | `docker/agent-composition/`, `docker/agent-database/`, `docker/google-sdp-context/` | Build definitions of the reused, qualified gateway, database and redactor images (pinned in `images.json`). |
 | `scripts/` | Repository checks (`check.sh`, `validate.py`, `check-references.py`, `lint-repository.sh`), lock checks, the vulnerability policy evaluator and the KEV release gate. |
 | `policy/` | The empty exception register used by the vulnerability policy. |
@@ -50,15 +56,14 @@ image build.
 
 | Path | What it was |
 | --- | --- |
-| `kubernetes/`, `k3s/` | Earlier sanitized Kubernetes templates and an API audit policy, before the GKE platform. |
+| `kubernetes/`, `k3s/` | Earlier sanitized Kubernetes templates and an API audit policy, before the GKE platform. `scripts/validate.py` still checks `kubernetes/` in CI. |
 | `database/reference/` | Synthetic reference RLS schema and SQL behaviour checks. |
 | `deploy/local-agents/` | Local two-agent composition used before the cluster. |
-| `infra/gcp/` | The Google SDP evaluation bootstrap (Terraform), qualified separately. |
+| `infra/gcp/` | Four Terraform units from earlier phases: `google-sdp-evaluation/` (the Google SDP evaluation bootstrap), `google-sdp-evaluation-cluster/`, `agent-synthetic-demo/` and `operations-synthetic-demo/`. Checked offline in CI. |
 | `docker/google-sdp-evaluation/`, `docker/litellm-candidate/`, `docker/presidio-bounded/` | Evaluation and candidate images from earlier phases. |
-| `evaluation/` | Qualification records (hash-bound inputs and results) for the earlier phases. |
+| `evaluation/` (the rest) | Qualification records (hash-bound inputs and results) for the earlier phases. |
 | `archive/qualification-history/` | Pointer to retired qualification history. |
 | `docs/agents/`, `docs/phase3/`–`docs/phase5/`, most of `docs/security/` | Phase-by-phase design and execution records. |
-| `providers/` | Model provider profiles; only active, owner-approved profiles render. |
 
 ## Request flow
 
@@ -73,6 +78,10 @@ browser ──► agent-financial (sign-in, own-rows tools, grounding)
 ```
 
 Infrastructure demo (app): browser ──► `apps/app` (`app.py`, `runtime/agents/web.py`) ──► redactor ──► gateway ──► Vertex.
+
+Platform Guide: browser ──► agent-platform-guide (Node.js, `src/server.js`, turn in `src/agent.js`): every model call
+is redacted first (redactor ──► gateway ──► Vertex AI, at most 2 calls); the model may ask for the read-only
+`docs_search` tool, which runs in the process over the docs index bundled at build time. No data, no database path.
 
 Operations flow: `ops-agent` (`ops/`) watches registered workloads read-only → diagnoses a finding → proposes a restart
 → the owner approves in the operations page with a passphrase → `app` signs the proposal → `ops-agent` executes a

@@ -1,5 +1,7 @@
 # UI redesign proposal
 
+> **Superseded.** The console (Map, Agents, Onboard, Ops, Break it; see [the console design](console/design-spec.md)) replaced the About and Security & Operations pages described below. This proposal is kept as a record. To open the current pages, see [HOW-TO-VIEW.md](HOW-TO-VIEW.md).
+
 **Status: implemented on 13 October 2026, on owner approval.** The pages live in `platform/core/ui/` (About,
 Security & Operations) and `platform/agents/financial/finance_agent/ui/` (Financial Agent). To open them, see
 `docs/HOW-TO-VIEW.md`; live screenshots are in `docs/evidence/ui-2026-10-13/`. The implementation differs from the text below in three ways:

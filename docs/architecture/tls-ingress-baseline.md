@@ -1,5 +1,7 @@
 # TLS and ingress baseline
 
+> **History.** This page describes the earlier reference design (Presidio redaction and the `kubernetes/` templates), before the GKE agent platform. It is kept as a record and is not the running platform. For the current platform see the [architecture overview](../architecture.md) and the [repository map](../REPO-MAP.md).
+
 An integrating application must choose an ingress controller or managed load balancer, public DNS ownership, certificate issuance and renewal, and the route from the edge to application-owned services. Terminate TLS only at an approved edge and define whether internal hops require TLS as part of the deployment design. Redirect cleartext entry, restrict administrative endpoints, and verify certificate renewal and expiry alert delivery.
 
 The AI services in the [Kubernetes base](../../kubernetes/base/) are internal ClusterIP services. They have no public ingress. The standalone repository does not select an edge controller, domain, certificate issuer, or product route. The source project's temporary Traefik HTTP demo is obsolete and was excluded.

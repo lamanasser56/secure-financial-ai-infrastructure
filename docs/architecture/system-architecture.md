@@ -1,5 +1,7 @@
 # System architecture and trust boundaries
 
+> **History.** This page describes the earlier reference design (Presidio redaction and the `kubernetes/` templates), before the GKE agent platform. It is kept as a record and is not the running platform. For the current platform see the [architecture overview](../architecture.md) and the [repository map](../REPO-MAP.md).
+
 The standalone repository owns reusable infrastructure controls and reference contracts. An integrating application owns user entry, authentication, tenant resolution, authorization data, product persistence, and tool execution. The provider and any managed data-protection service are external trust boundaries.
 
 ```text
