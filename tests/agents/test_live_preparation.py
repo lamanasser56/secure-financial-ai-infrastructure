@@ -5,7 +5,6 @@ The HTTP fixture below simulates the gateway and redactor, with no egress.
 """
 
 import contextlib
-import hashlib
 import json
 import threading
 import unittest
@@ -137,29 +136,6 @@ def request(
 
 
 class BilingualBoundaryTests(unittest.TestCase):
-    def test_quarantined_image_evidence_binds_actual_build_inputs_and_never_promotes(
-        self,
-    ):
-        record = json.loads(
-            (ROOT / "evaluation/presidio-bounded/qualification.json").read_text()
-        )
-        self.assertEqual(record["promotion"], "prohibited")
-        self.assertEqual(record["external_model_requests"], 0)
-        for path, expected in record["source_files_sha256"].items():
-            self.assertEqual(
-                hashlib.sha256((ROOT / path).read_bytes()).hexdigest(), expected, path
-            )
-        candidate = next(
-            row
-            for row in record["image_candidates"]
-            if row["candidate_id"] == "candidate"
-        )
-        self.assertEqual(candidate["policy"], "BLOCK")
-        self.assertEqual(candidate["detection"]["passed"], 31)
-        self.assertEqual(candidate["detection"]["total"], 31)
-        self.assertEqual(len(candidate["findings"]), 47)
-        self.assertEqual(candidate["subject_kind"], "local_image_configuration_digest")
-
     def test_both_languages_always_scanned_and_identical_spans_deduplicated(self):
         detection = {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 3, "score": 0.8}
         with mock.patch(

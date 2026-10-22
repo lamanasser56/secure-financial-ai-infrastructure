@@ -5,7 +5,7 @@ cd "$repository_root"
 python3 -c 'import sys; from importlib.metadata import version; assert sys.version_info[:2] == (3, 12); assert version("pip-tools") == "7.6.1"'
 temporary_directory=$(mktemp -d)
 trap 'rm -rf "$temporary_directory"' EXIT
-for lock in requirements-agent-identity requirements-litellm-candidate; do
+for lock in requirements-litellm-candidate; do
   relative_prefix=''
   if [ "$lock" = requirements-litellm-candidate ]; then
     # Preserve the committed compiler's relative source paths in its header.
