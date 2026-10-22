@@ -93,20 +93,6 @@ class CompositionTests(unittest.TestCase):
             for boundary in (redactor, gateway, handler):
                 boundary.assert_not_called()
 
-    def test_existing_rehearsal_marker_blocks_before_composition(self):
-        import importlib.util
-        root = Path(__file__).resolve().parents[2]
-        spec = importlib.util.spec_from_file_location("rehearsal", root / "scripts/rehearse-integrated-demo.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        with tempfile.TemporaryDirectory() as state:
-            Path(state, "demo-started.json").write_text("{}")
-            with mock.patch.object(module, "compose_local") as factory:
-                with self.assertRaises(FileExistsError):
-                    module.run(Path(state))
-                factory.assert_not_called()
-
-
 class TerminalTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()

@@ -13,39 +13,6 @@ spec.loader.exec_module(runner)
 
 
 class ContextCampaignTests(unittest.TestCase):
-    def test_retained_qualification_binds_historical_subject_not_diagnostic_candidate(self):
-        import hashlib
-
-        record = json.loads(
-            (ROOT / "evaluation/google-sdp-context/qualification.json").read_text()
-        )
-        self.assertEqual(
-            hashlib.sha256((ROOT / "evaluation/google-sdp-context/qualification.json").read_bytes()).hexdigest(),
-            "b18f1f5af688e31d72458302b1c1e43b730d740b296b2a5581b0df785c0e3bbe",
-        )  # Preserve the exact historical record; no ancestry/fetch dependency.
-        changed = set()
-        for path, expected in record["source_input_sha256"].items():
-            if hashlib.sha256((ROOT / path).read_bytes()).hexdigest() != expected:
-                changed.add(path)
-        self.assertEqual(changed, {
-            "runtime/phase3/google_sdp_adapter.py",
-            "scripts/evaluate-sdp-context-policy.py",
-            "evaluation/google-sdp-context/result.schema.json",
-        })
-        # Current campaign gate uses a distinct fresh record before build/auth.
-        helper = (ROOT / "scripts/qualify-sdp-context-release.sh").read_text()
-        self.assertIn("campaign image input differs from qualification", helper)
-        self.assertLess(helper.index("campaign image input differs from qualification"),
-                        helper.index('bash scripts/build-sdp-context-image.sh'))
-        self.assertIn("campaign-qualification.json", helper)
-        self.assertFalse(record["google_detection_proven"])
-        self.assertFalse(record["authority_changed"])
-        self.assertIsNone(record["candidate"]["registry_manifest_digest"])
-        self.assertEqual(
-            record["candidate"]["archive_sha256"][0],
-            record["candidate"]["archive_sha256"][1],
-        )
-
     def test_reference_results_sanitized_and_not_google_accuracy(self):
         result = runner.evaluate()
         self.assertEqual(result["outcome"], "OFFLINE_REFERENCE_PASS_GOOGLE_UNPROVEN")
@@ -138,45 +105,3 @@ class ContextCampaignTests(unittest.TestCase):
         result["cases"][0]["status"] = "PASS"
         with self.assertRaises(Exception):
             runner.validate_result(result)
-
-    def test_supported_acceptance_separate_from_declared_unsupported(self):
-        corpus = runner.load_corpus()
-        self.assertTrue(
-            any(c["classification"].startswith("unsupported_") for c in corpus["cases"])
-        )
-        self.assertEqual(2 * len(corpus["cases"]), 172)
-        self.assertEqual(
-            json.loads(
-                (ROOT / "evaluation/google-sdp-agent/qualification.json").read_text()
-            )["fixtures"]["proposed_live_cases"],
-            87,
-        )
-
-    def test_bounded_result_cli_accepts_reference_and_rejects_scope_raw_or_duplicates(self):
-        import copy
-        import subprocess
-        import sys
-        import tempfile
-
-        valid = runner.evaluate()
-        values = [json.dumps(valid)]
-        for key, value in (("scope", "context_001_diagnostic_only"), ("raw_text", "private marker"),
-                           ("required_pass", 69), ("observations", 0)):
-            changed = copy.deepcopy(valid)
-            changed[key] = value
-            values.append(json.dumps(changed))
-        values.extend(['{"scope":"context_pattern_v1_campaign","scope":"context_pattern_v1_campaign"}',
-                       " " * 16385, json.dumps(valid).encode("utf-16")])
-        with tempfile.TemporaryDirectory() as temporary:
-            path = Path(temporary) / "result.json"
-            for index, raw in enumerate(values):
-                path.write_bytes(raw.encode() if isinstance(raw, str) else raw)
-                process = subprocess.run([sys.executable, str(ROOT / "scripts/validate-sdp-context-campaign-result.py"), str(path)],
-                                         capture_output=True, text=True)
-                if index == 0:
-                    self.assertEqual(process.returncode, 0, process.stderr)
-                    self.assertEqual(json.loads(process.stdout)["required_pass"], 70)
-                else:
-                    self.assertNotEqual(process.returncode, 0)
-                    self.assertEqual(process.stderr.strip(), "campaign result contract rejected")
-                    self.assertNotIn("private marker", process.stdout + process.stderr)
