@@ -10,7 +10,6 @@ import unittest
 from unittest import mock
 
 from runtime.agents.audit_preparation import DurableToolAudit
-from runtime.agents.database_preparation import read_document_integrity
 from runtime.agents.protocol_preparation import canonical_decision, completion_content
 from runtime.phase3.trusted_runtime import ControlFailure, IdentityClaims, TenantContext
 
@@ -83,64 +82,6 @@ class ProtocolTests(unittest.TestCase):
                                 ("expense_summary", {"period": "٢٠٢٦-٠١"})):
             with self.assertRaises(ControlFailure):
                 canonical_decision(envelope({"kind": "tool", "tool_id": tool, "arguments": arguments}))
-
-
-class Cursor:
-    def __init__(self, rows): self.rows, self.queries = rows, []
-    def __enter__(self): return self
-    def __exit__(self, *args): return False
-    def execute(self, sql, args=None): self.queries.append((sql, args))
-    def fetchall(self): return self.rows
-
-
-class DatabaseContractTests(unittest.TestCase):
-    def setUp(self):
-        self.claims = IdentityClaims("subject-alpha", "fixture-a", frozenset({"documents.read"}))
-        self.identity = mock.Mock()
-        self.identity.resolve.return_value = TenantContext("fixture-a", "0123456789abcdef")
-        self.identity.authorize.return_value = True
-        self.directory = {"fixture-a": "11111111-1111-4111-8111-111111111111"}
-        self.document = "22222222-2222-4222-8222-222222222222"
-        self.cursor = Cursor([("a" * 64,)])
-        self.connection = mock.Mock(); self.connection.cursor.return_value = self.cursor
-
-    def call(self, **changes):
-        params = dict(identity=self.identity, tenant_directory=self.directory, document_id=self.document)
-        params.update(changes)
-        return read_document_integrity(self.connection, self.claims, **params)
-
-    def test_transaction_uses_server_directory_parameters_and_local_setting(self):
-        self.assertEqual(self.call(), "a" * 64)
-        self.identity.authorize.assert_called_once_with(self.claims, self.identity.resolve.return_value, "documents.read")
-        self.assertEqual(self.cursor.queries[0], ("BEGIN READ ONLY", None))
-        self.assertIn(", true)", self.cursor.queries[1][0])
-        self.assertEqual(self.cursor.queries[1][1], (self.directory["fixture-a"],))
-        self.assertEqual(self.cursor.queries[2][1], (self.directory["fixture-a"], self.document))
-        self.assertNotIn(self.document, self.cursor.queries[2][0])
-        self.connection.rollback.assert_called_once()
-
-    def test_cross_tenant_or_revoked_identity_denied_before_database(self):
-        self.identity.authorize.return_value = False
-        with self.assertRaises(ControlFailure): self.call()
-        self.connection.cursor.assert_not_called()
-        self.identity.authorize.return_value = True
-        self.identity.resolve.side_effect = ControlFailure("authorization", "denied")
-        with self.assertRaises(ControlFailure): self.call()
-        self.connection.cursor.assert_not_called()
-
-    def test_unknown_tenant_and_sql_selector_denied_before_database(self):
-        for changes in ({"tenant_directory": {}}, {"document_id": "'); DROP TABLE documents;--"}):
-            with self.assertRaises(ControlFailure): self.call(**changes)
-        self.connection.cursor.assert_not_called()
-
-    def test_empty_ambiguous_bad_rows_and_rollback_failure_block(self):
-        for rows in ([], [("a" * 64,), ("b" * 64,)], [("raw financial text",)], [("a" * 64, "extra")]):
-            self.cursor.rows = rows
-            with self.assertRaises(ControlFailure): self.call()
-        self.cursor.rows = [("a" * 64,)]
-        self.connection.rollback.side_effect = RuntimeError("private DB details")
-        with self.assertRaises(ControlFailure) as caught: self.call()
-        self.assertNotIn("private", str(caught.exception))
 
 
 class DurableAuditTests(unittest.TestCase):

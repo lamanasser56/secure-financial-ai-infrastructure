@@ -166,17 +166,16 @@ class CompositeScoringAmendment(unittest.TestCase):
 
     def test_google_records_and_subjects_unchanged(self):
         pins = {"evaluation/google-sdp-context/policy.json": "c1b782c6fd051243dec4173f903cb33607893010c7d38a6b35bc1372ddb2d4db",
-                "evaluation/google-sdp-context/corpus.json": "0c07aa1e8b480e732cdcaa6e9f406661058220ad41de607af7124198e5e71eb9",
-                "scripts/diagnose-sdp-email-context.py": "e7d9aea2a2886c2cdda97fad0a47920a8742d6918b1fbdf6323d8d91e64b5d63"}
+                "evaluation/google-sdp-context/corpus.json": "0c07aa1e8b480e732cdcaa6e9f406661058220ad41de607af7124198e5e71eb9"}
         for path, digest in pins.items():
             self.assertEqual(hashlib.sha256((ROOT / path).read_bytes()).hexdigest(), digest, path)
 
     def test_layer_wired_only_where_amendment_allows(self):
-        # AM-R4: only the admitted live trial composition and the composite campaign tooling use it.
+        # AM-R4: its runtime/ and scripts/ users (the trial composition and the composite campaign tooling) were removed
+        # after v1-live-evidence; the platform's clients import it from platform/, which this scan does not cover.
         users = sorted(p.relative_to(ROOT).as_posix() for p in list((ROOT / "runtime").rglob("*.py")) + list((ROOT / "scripts").rglob("*.py"))
                        if "deterministic_email" in p.read_text(errors="ignore") and p.name != "deterministic_email.py")
-        self.assertEqual(users, ["runtime/agents/trial_composition.py", "scripts/evaluate-composite-email-campaign.py",
-                                 "scripts/validate-composite-email-campaign-result.py"])
+        self.assertEqual(users, [])
 
 
 if __name__ == "__main__":

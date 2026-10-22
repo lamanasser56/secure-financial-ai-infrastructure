@@ -22,7 +22,7 @@ authorizes provider calls, scope selection, promotion or retirement.
 
 ## Enforced input boundary for the narrower option
 
-The [unwired candidate](../../../runtime/agents/synthetic_scope_candidate.py) only
+The [unwired candidate](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/runtime/agents/synthetic_scope_candidate.py) only
 accepts exact English/Arabic server-owned phrases and finite committed source/month
 selectors. It emits a new server-controlled prompt; raw browser text never leaves
 that boundary. Arbitrary pasted identifiers, URLs, provider parameters, instructions

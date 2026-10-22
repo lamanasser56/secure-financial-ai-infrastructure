@@ -8,7 +8,7 @@ The qualification records under `evaluation/` bind files by SHA-256: every file 
 `demo/`, 14 files in `evaluation/`, 11 in `docker/`, 11 in `scripts/`, and 8 in the repository root (`.dockerignore`
 and seven `requirements-*` files). None of them is Markdown. Do not move, rename or edit them, and keep the records
 in `evaluation/` in place: a change breaks those records and the image build. Do not add any file, not even a README,
-to `runtime/`, `contracts/` or `demo/`: `scripts/verify-operations-image-qualification.py` lists every file in those
+to `runtime/`, `contracts/` or `demo/`: `https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/scripts/verify-operations-image-qualification.py` lists every file in those
 three folders, and the list must equal the inputs recorded in `evaluation/operations/restoration-qualification.json`
 (the CI `agents` job fails otherwise). This map describes them instead.
 
