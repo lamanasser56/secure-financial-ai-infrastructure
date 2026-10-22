@@ -1,7 +1,7 @@
 # ADR-006: Full redaction qualification or constrained synthetic demonstration
 
 **Status: Proposed — owner decision required; no runtime authority change.**
-2026-10-04. The [bounded research decision](../../security/google-sdp-provenance-decision.md)
+2026-10-04. The [bounded research decision](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/google-sdp-provenance-decision.md)
 does not establish safe positives for five Saudi classes or Saudi phone variants.
 Presidio remains authoritative and remediation remains stopped. No vulnerable
 redactor is an authorized live fallback. Existing offline UI behavior is preserved.
@@ -62,7 +62,7 @@ financial-data protection or Saudi-residency claim follows.
 4. Present one exact resources/IAM/API/calls/cost/lifetime/retention/cleanup bundle.
 5. After separately approved execution, review measured evidence/UNKNOWNs.
 6. Only a separately accepted provider-selection/authority decision can integrate
-   SDP. Retirement then follows the [consumer inventory](../../security/google-sdp-agent-integration-retirement.md).
+   SDP. Retirement then follows the [consumer inventory](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/google-sdp-agent-integration-retirement.md).
 
 Failed redaction disables live execution; no fallback, warning-only bypass or
 automatic rerun. The offline demo remains the available safe demonstration.

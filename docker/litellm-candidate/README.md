@@ -2,7 +2,7 @@
 
 Final minimal-proxy dependency-closure candidate, not the committed deployment. See
 [qualification](../../evaluation/litellm-candidate/qualification.json) and
-[identity/gateway preparation](../../docs/agents/identity-and-gateway-preparation.md).
+[identity/gateway preparation](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/agents/identity-and-gateway-preparation.md).
 No admin UI or Node toolchain is built. Proxy dependencies remain completely
 hash-locked; no selective finding filter or exception is permitted.
 

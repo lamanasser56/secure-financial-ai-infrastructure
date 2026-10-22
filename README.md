@@ -19,7 +19,7 @@ Application-owned identity and tenant adapters
 
 ### Implemented
 
-- Two bounded read-only [demo agents](docs/agents/README.md), shared canonical runtime/governance composition, separate tenant/profile controls, offline CLIs and a private Arabic RTL / English LTR free-text conversation UI. Authentication, model responses and Presidio service doubles are explicitly simulated; no live provider result is claimed.
+- Two bounded read-only [demo agents](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/agents/README.md), shared canonical runtime/governance composition, separate tenant/profile controls, offline CLIs and a private Arabic RTL / English LTR free-text conversation UI. Authentication, model responses and Presidio service doubles are explicitly simulated; no live provider result is claimed.
 
 - Python reference runtime with ordered, fail-closed controls, Presidio and LiteLLM HTTP adapters, sanitized trace envelopes, and synthetic qualification tests.
 - Tool registry, invocation, policy, prompt-injection assessment, approval verification, and audit-event contracts. The governance coordinator produces an eligible invocation; it does not execute a product tool.
@@ -32,13 +32,13 @@ Application-owned identity and tenant adapters
 
 ### Designed
 
-- Observability requirements and sensitive-data limits in [Observability](docs/observability.md). There is no claimed Prometheus or Grafana deployment in this repository.
-- Production image build, registry publication, provenance verification, signing-key custody, and deployment promotion in [Supply chain](docs/supply-chain.md).
-- Cloud identity, secret ownership, alert routing, retention, backup, and recovery boundaries in [Operations](docs/operations.md).
+- Observability requirements and sensitive-data limits in [Observability](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/observability.md). There is no claimed Prometheus or Grafana deployment in this repository.
+- Production image build, registry publication, provenance verification, signing-key custody, and deployment promotion in [Supply chain](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/supply-chain.md).
+- Cloud identity, secret ownership, alert routing, retention, backup, and recovery boundaries in [Operations](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/operations.md).
 
 ### Integration-dependent
 
-- Live demo-agent identity, real Presidio qualification and scoped LiteLLM/Gemini integration require the separate [live integration gates](docs/agents/live-integration.md). No live model call or provider credential is enabled by the demo.
+- Live demo-agent identity, real Presidio qualification and scoped LiteLLM/Gemini integration require the separate [live integration gates](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/agents/live-integration.md). No live model call or provider credential is enabled by the demo.
 
 - A product-owned authenticator, tenant resolver, authorizer, tool executor, and audit sink must be supplied and tested against a real application. The included mocks are only synthetic test fixtures. Product-table RLS coverage must be qualified separately against the authoritative schema.
 - Set an approved provider model, GCP project, region, and Workload Identity binding; inject the LiteLLM master key from an external secret manager. The placeholders deliberately block direct deployment.
@@ -79,7 +79,7 @@ bash scripts/lint-repository.sh
 bash scripts/scan-secrets.sh  # requires Gitleaks 8.30.1
 ```
 
-The tests use synthetic fixtures and local loopback HTTP servers. They do not need cloud credentials or a running Kubernetes cluster. To run the live RLS behavior checks, provide a disposable PostgreSQL database named `portfolio_rls_test` through `PORTFOLIO_TEST_DATABASE_URL` and install `psql`; `scripts/check.sh` runs them automatically when both are available. The [supply-chain qualification](docs/supply-chain.md) requires pinned scanners and network access. Rendering manifests does not configure Workload Identity or authorize deployment; see [Operations](docs/operations.md).
+The tests use synthetic fixtures and local loopback HTTP servers. They do not need cloud credentials or a running Kubernetes cluster. To run the live RLS behavior checks, provide a disposable PostgreSQL database named `portfolio_rls_test` through `PORTFOLIO_TEST_DATABASE_URL` and install `psql`; `scripts/check.sh` runs them automatically when both are available. The [supply-chain qualification](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/supply-chain.md) requires pinned scanners and network access. Rendering manifests does not configure Workload Identity or authorize deployment; see [Operations](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/operations.md).
 
 ## Private agent demonstration
 
@@ -89,7 +89,7 @@ python3 -B scripts/analyze-demo-expenses.py --period 2026-01
 python3 -B scripts/serve-demo-agents.py
 ```
 
-Open `http://127.0.0.1:8765`. This is an offline synthetic simulation with simulated authentication. The server binds only to loopback; do not expose it publicly or enter real data. See the [agent guide](docs/agents/README.md) for startup identity selection, limits and evidence boundaries.
+Open `http://127.0.0.1:8765`. This is an offline synthetic simulation with simulated authentication. The server binds only to loopback; do not expose it publicly or enter real data. See the [agent guide](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/agents/README.md) for startup identity selection, limits and evidence boundaries.
 
 ## Security and attribution
 
@@ -97,4 +97,4 @@ Do not commit `.env` files, live keys, tokens, customer data, private endpoints,
 
 The Python runtime, contracts, infrastructure manifests, and qualification fixtures were adapted from my MASAR AI Infrastructure contribution. MASAR was a team project; its product frontend and backend remain with their original contributors. Public third-party images and GitHub Actions retain their upstream names and version or digest references. This repository makes no claim of ownership of those upstream projects.
 
-See [Architecture](docs/architecture.md) for the trust boundary and [Operations](docs/operations.md) for deployment prerequisites.
+See [Architecture](docs/architecture.md) for the trust boundary and [Operations](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/operations.md) for deployment prerequisites.

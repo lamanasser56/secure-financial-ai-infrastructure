@@ -16,9 +16,9 @@ Current platform:
 
 History (earlier phases, kept as a record; not the running platform):
 
-- [Architecture](architecture/README.md): the reference trust boundaries, gateway, tenant model, network and decisions.
-- [Phase 3](phase3/README.md), [Phase 4](phase4/README.md) and [Phase 5](phase5/README.md): reference contracts and qualifications.
-- [Demo agents](agents/README.md): the offline demo agents and their live integration gates.
-- [Observability](observability.md), [supply chain](supply-chain.md), [integration checklist](operations.md) and [operations runbooks](operations/README.md).
+- [Architecture](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/architecture/README.md): the reference trust boundaries, gateway, tenant model, network and decisions.
+- [Phase 3](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/phase3/README.md), [Phase 4](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/phase4/README.md) and [Phase 5](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/phase5/README.md): reference contracts and qualifications.
+- [Demo agents](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/agents/README.md): the offline demo agents and their live integration gates.
+- [Observability](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/observability.md), [supply chain](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/supply-chain.md), [integration checklist](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/operations.md) and [operations runbooks](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/operations/README.md).
 
 These documents adapt the author's AI Infrastructure work from the private MASAR team repository. Product implementation, deployment identifiers, and historical approvals are excluded.

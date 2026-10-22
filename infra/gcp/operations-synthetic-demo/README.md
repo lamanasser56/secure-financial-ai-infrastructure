@@ -12,4 +12,4 @@ No state-bucket bootstrap. Review complete successful saved plans and stop on
 unexpected refresh/drift. Cleanup deletes the four temporary resources and retains
 the shared Vertex API and sanitized evidence/state.
 
-See the [exact checkpoint](../../../docs/agents/operations-live-execution-bundle.md).
+See the [exact checkpoint](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/agents/operations-live-execution-bundle.md).

@@ -13,7 +13,7 @@ from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from runtime.phase3.adapters import BASE_URL_ENV_VAR, CLIENT_KEY_ENV_VAR  # noqa: E402
+from runtime.phase3.adapters import CLIENT_KEY_ENV_VAR  # noqa: E402
 from runtime.phase3.trusted_runtime import APPROVED_MODEL_ALIAS  # noqa: E402
 SERVER_MASTER_KEY_ENV_VAR = "PORTFOLIO_LITELLM_MASTER_KEY"
 FORBIDDEN_PATH_PARTS = {"backend", "frontend", "fonts"}
@@ -68,9 +68,6 @@ def main() -> None:
     example = yaml.safe_load((ROOT / "kubernetes/secret-templates/litellm-master-key.secret.example.yaml").read_text())
     assert list(example["stringData"]) == [SERVER_MASTER_KEY_ENV_VAR]
     assert example["metadata"]["name"] == "REPLACE_AT_DEPLOYMENT_TIME"
-    assert SERVER_MASTER_KEY_ENV_VAR in (ROOT / "docs/operations.md").read_text()
-    assert CLIENT_KEY_ENV_VAR in (ROOT / "docs/operations.md").read_text()
-    assert BASE_URL_ENV_VAR in (ROOT / "docs/operations.md").read_text()
     assert SERVER_MASTER_KEY_ENV_VAR not in (ROOT / "runtime/phase3/adapters.py").read_text()
     service_account = yaml.safe_load((ROOT / "kubernetes/apps/litellm/serviceaccount.yaml").read_text())
     assert "iam.gke.io/gcp-service-account" not in service_account["metadata"].get("annotations", {})

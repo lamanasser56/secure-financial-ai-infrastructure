@@ -14,7 +14,7 @@ Application/router/network gates must additionally restrict the admitted route.
 Before apply, review complete native saved plans, actual API enablement and all
 IAM readbacks. Any unexpected drift stops. Cleanup removes the five temporary
 identity/role/binding resources; the shared Vertex API remains enabled. Do not
-disable shared APIs. The [consolidated checkpoint](../../../docs/agents/integrated-synthetic-execution-checkpoint.md)
+disable shared APIs. The [consolidated checkpoint](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/agents/integrated-synthetic-execution-checkpoint.md)
 is blocked and grants no execution authority.
 
 Set `demo_identity_enabled=true` for the reviewed creation plan and `false` for

@@ -4,7 +4,7 @@
 
 ## Context
 
-The historical Dammam state-bucket create failed before Terraform initialization. Audit evidence granted bucket-create IAM; effective project location policy allows all locations. The owner reports a USA billing account. Its self-serve/invoiced type and Dammam entitlement are unconfirmed. No SDP API was tested. See [eligibility assessment](../../security/google-sdp-regional-eligibility.md).
+The historical Dammam state-bucket create failed before Terraform initialization. Audit evidence granted bucket-create IAM; effective project location policy allows all locations. The owner reports a USA billing account. Its self-serve/invoiced type and Dammam entitlement are unconfirmed. No SDP API was tested. See [eligibility assessment](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/google-sdp-regional-eligibility.md).
 
 ## Decision
 

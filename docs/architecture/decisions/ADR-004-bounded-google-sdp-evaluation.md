@@ -6,7 +6,7 @@
 
 Microsoft Presidio remains the authoritative redaction implementation and default trusted-runtime path. Its code and Kubernetes reference manifests remain in this repository. Presidio is required until a proposed replacement passes the complete evaluation, security review, qualification, and rollback requirements, followed by a separate decision and Change Set.
 
-Google Sensitive Data Protection (Google SDP) is a candidate for a bounded, non-production, synthetic-text-only comparison with Presidio. It is disabled by default. This decision authorizes an evaluation plan, not an API call, implementation, deployment, automatic replacement, production readiness claim, or regulatory compliance claim. The [evaluation plan](../../security/google-sdp-evaluation-plan.md) defines evidence needed before any selection.
+Google Sensitive Data Protection (Google SDP) is a candidate for a bounded, non-production, synthetic-text-only comparison with Presidio. It is disabled by default. This decision authorizes an evaluation plan, not an API call, implementation, deployment, automatic replacement, production readiness claim, or regulatory compliance claim. The [evaluation plan](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/google-sdp-evaluation-plan.md) defines evidence needed before any selection.
 
 ## Regional and data boundary
 

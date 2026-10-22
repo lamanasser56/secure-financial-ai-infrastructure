@@ -18,7 +18,7 @@ Live preparation preserves the nine-case corpus, rejects changed live inputs,
 sets a 20-second RPC deadline, and reports sanitized SDK invocation attempts.
 Those counters are not proof of server receipts. The fixed timestamp is passed
 explicitly as a BuildKit build argument as well as rewriting layer timestamps.
-See the [integrated readiness record](../../docs/security/google-sdp-milestone-readiness.md)
+See the [integrated readiness record](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/google-sdp-milestone-readiness.md)
 for authentication, egress, release approval and evidence prerequisites.
 
 Build on a linux/amd64 worker with Docker Buildx and Python 3.12:

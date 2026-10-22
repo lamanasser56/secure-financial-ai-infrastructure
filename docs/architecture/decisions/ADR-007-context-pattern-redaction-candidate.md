@@ -15,7 +15,7 @@ Presidio remains authoritative; its remediation remains stopped and it is not de
 | Identifier issuance/person/age inference | Not implemented; prefixes `111`, `112`, `21` convey no such inference. |
 | Comprehensive real identifier detection | Not established; unlabelled and unsupported representations can be missed. |
 
-The [rule matrix](../../security/google-sdp-context-policy.md) is the reviewed policy.
+The [rule matrix](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/google-sdp-context-policy.md) is the reviewed policy.
 The typo `العوية` is one explicit regression case alongside the canonical Arabic
 and English labels. There is no edit-distance, unrestricted fuzzy matching, Unicode
 normalization or automatic spelling expansion. Input offsets refer to original text.
@@ -57,7 +57,7 @@ corpus; no text upload, arbitrary document or agent free-text crosses that bound
 
 ## Conditional integration and retirement
 
-1. Execute only the separately approved [context campaign bundle](../../security/google-sdp-context-execution-bundle.md).
+1. Execute only the separately approved [context campaign bundle](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/google-sdp-context-execution-bundle.md).
    All 70 mandatory cases, exact spans, preservation and provider response guards
    must pass; 16 observations retain their limitations regardless of matches.
 2. Review failure modes, scope, privacy/location, latency/accounting, fresh image
@@ -72,8 +72,8 @@ corpus; no text upload, arbitrary document or agent free-text crosses that bound
    inventory and verified cleanup. If no qualified redactor/rollback is available,
    disable live agents and retain the offline demo; do not silently fall back.
 
-The [full qualification plan](../../security/google-sdp-agent-qualification-plan.md),
-[coverage gaps](../../security/google-sdp-agent-coverage.md) and
-[retirement inventory](../../security/google-sdp-agent-integration-retirement.md)
+The [full qualification plan](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/google-sdp-agent-qualification-plan.md),
+[coverage gaps](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/google-sdp-agent-coverage.md) and
+[retirement inventory](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/google-sdp-agent-integration-retirement.md)
 remain unresolved. This ADR makes no real-data, Saudi-residency, production,
 comprehensive typo, provider replacement or full CS6 completion claim.

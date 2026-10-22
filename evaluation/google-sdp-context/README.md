@@ -1,8 +1,8 @@
 # Unwired context-pattern candidate
 
-See the [policy matrix](../../docs/security/google-sdp-context-policy.md),
+See the [policy matrix](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/google-sdp-context-policy.md),
 [ADR-007](../../docs/architecture/decisions/ADR-007-context-pattern-redaction-candidate.md)
-and [current campaign proposal](../../docs/security/google-sdp-context-campaign-execution-bundle.md).
+and [current campaign proposal](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/google-sdp-context-campaign-execution-bundle.md).
 `policy.json` fixes eleven infoTypes mapped to eight neutral categories; the corpus
 freezes 86 synthetic texts with exact expected value spans. No user upload or
 request-selected detector, endpoint, project or credential is accepted.
@@ -31,7 +31,7 @@ its original historical failure cause remains UNKNOWN. The policy and 86-case
 corpus remain frozen: 70 mandatory cases and 16 unsupported observations.
 New scoped results separate operational failures and unsupported observation
 failures from mandatory acceptance. All failures stop without retries. The
-[current proposal](../../docs/security/google-sdp-context-campaign-execution-bundle.md)
+[current proposal](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/google-sdp-context-campaign-execution-bundle.md)
 records the amended cost boundary, two-hour lifetime, minute-90 cleanup and exact
 subsequent integration gates. It requires a new approval before publication or
 execution. Original `qualification.json`, `diagnostic-qualification.json` and

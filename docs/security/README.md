@@ -13,7 +13,7 @@ Current platform:
 
 History (earlier phases, kept as a record):
 
-- [Baseline](security-baseline.md) and [key ownership](kms-ownership.md) from the reference design.
-- [Google SDP feasibility](google-sdp-feasibility.md), the [evaluation plan](google-sdp-evaluation-plan.md) under [ADR-004](../architecture/decisions/ADR-004-bounded-google-sdp-evaluation.md), and the other `google-sdp-*` records. Sensitive Data Protection, not Presidio, is the redactor of the running platform.
+- [Baseline](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/security-baseline.md) and [key ownership](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/kms-ownership.md) from the reference design.
+- [Google SDP feasibility](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/google-sdp-feasibility.md), the [evaluation plan](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/security/google-sdp-evaluation-plan.md) under [ADR-004](../architecture/decisions/ADR-004-bounded-google-sdp-evaluation.md), and the other `google-sdp-*` records. Sensitive Data Protection, not Presidio, is the redactor of the running platform.
 
 No source-project image-specific risk acceptance record is active here. A clean scanner result is point-in-time evidence, not proof of no vulnerability.
