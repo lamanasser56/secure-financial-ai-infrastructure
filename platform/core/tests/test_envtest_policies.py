@@ -210,8 +210,10 @@ class LivePolicies(unittest.TestCase):
                 hard = json.loads(self.kubectl('-n', agent_ns, 'get', 'resourcequota', 'bounds', '-o', 'json').stdout)['spec']['hard']
                 self.assertEqual((hard['services.loadbalancers'], hard['services.nodeports']), ('0', '0'))
                 self.assertDenied(self.ops_patch(agent_ns, 'agent', restart), 'forbidden')  # watched read-only, never changed
-                self.assertAllowed(self.kubectl('-n', agent_ns, 'get', 'pods', as_ops=True, check=False))
-                self.assertAllowed(self.kubectl('-n', agent_ns, 'get', 'deployment', 'agent', as_ops=True, check=False))
+                self.assertAllowed(self.kubectl('-n', agent_ns, 'get', 'pods', as_ops=READ_ONLY_OPS, check=False))
+                deployment = 'agent-u1' if agent_ns == 'agent-financial' else 'agent'
+                self.assertAllowed(self.kubectl('-n', agent_ns, 'get', 'deployment', deployment, as_ops=READ_ONLY_OPS, check=False))
+                self.assertDenied(self.kubectl('-n', agent_ns, 'get', 'pods', as_ops=True, check=False), 'forbidden')
                 for args in (('get', 'secrets'), ('delete', 'pod', 'agent-x'), ('scale', 'deployment', 'agent', '--replicas', '0'),
                              ('get', 'deployment', 'other')):
                     result = self.kubectl('-n', agent_ns, *args, as_ops=True, check=False)
