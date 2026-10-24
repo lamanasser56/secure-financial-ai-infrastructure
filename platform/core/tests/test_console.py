@@ -505,7 +505,7 @@ class UiRoutes(Http):
     def test_ui_files_are_served_with_a_csp_that_allows_only_own_fonts(self):
         status, body, headers = self.raw('/')
         self.assertEqual((status, headers['Content-Type']), (200, 'text/html; charset=utf-8'))
-        self.assertIn(b'Agent-Platform', body)
+        self.assertIn(b'Agent Runtime Platform', body)
         csp = headers['Content-Security-Policy']
         self.assertIn("font-src 'self'", csp)
         self.assertIn("default-src 'none'", csp)

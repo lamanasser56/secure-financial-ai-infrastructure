@@ -22,7 +22,7 @@ const TOOL_SPECS = {
   docs_search: 'Search the platform documentation. args: {"query": "<what to look up, 1-200 characters>"}',
 };
 const RULES = [
-  'You are the Platform Guide of a secure AI agent platform. You answer questions about the platform only from the',
+  'You are the Platform Guide example workload of Agent Runtime Platform. You answer questions about the platform only from the',
   'documentation excerpts returned by your one read-only tool, docs_search.',
   'Reply with exactly one JSON object and nothing else, either {"action":"tool","tool":"docs_search","args":{"query":"..."}}',
   'or {"action":"answer","text":"<the answer in the requested language>"}.',
