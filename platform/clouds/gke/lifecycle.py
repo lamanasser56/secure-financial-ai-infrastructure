@@ -145,6 +145,10 @@ def scale_staged_to_zero():
 
 
 def up():
+    raise SystemExit('lifecycle:reviewed_v2_cutover_bundle_required_before_any_cloud_call; legacy_up_is_not_a_migration')
+
+
+def _historical_up_not_a_migration():
     started = time.time()
     resize(1)
     kubeconfig()
@@ -207,11 +211,15 @@ def onboarding_namespaces():
 def agent_forward(name):
     sys.path.insert(0, str(REPO / 'platform/core/src'))
     from agent_platform import onboarding
-    port = str(onboarding.load_all()[name]['runtime']['port'])
+    manifest = onboarding.load_all()[name]
+    port = str(manifest['runtime']['port'])
+    if manifest['data'] != 'none' and name != 'financial':
+        raise SystemExit('access:reviewed_trusted_frontdoor_route_required')
+    namespace, target = ('apps', 'deployment/financial-frontdoor') if name == 'financial' else ('agent-' + name, 'deployment/agent')
     kubeconfig()
     print(json.dumps({'agent': name, 'open': 'http://127.0.0.1:' + port + '/'}), flush=True)
-    os.execv(str(KUBECTL), [str(KUBECTL), '--kubeconfig', str(STATE / 'kubeconfig'), '-n', 'agent-' + name, 'port-forward',
-                            '--address', '127.0.0.1', 'deployment/agent', port + ':' + port])
+    os.execv(str(KUBECTL), [str(KUBECTL), '--kubeconfig', str(STATE / 'kubeconfig'), '-n', namespace, 'port-forward',
+                            '--address', '127.0.0.1', target, port + ':' + port])
 
 
 def secrets():

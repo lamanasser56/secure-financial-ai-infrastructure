@@ -14,6 +14,7 @@ import base64
 import hashlib
 import hmac
 import json
+import re
 import secrets
 import threading
 import time
@@ -63,6 +64,10 @@ class Sessions:
         return body + '.' + _b64(hmac.new(self._key, body.encode(), hashlib.sha256).digest()), payload
 
     def verify(self, cookie):
+        # compare_digest(str, str) rejects non-ASCII input. Reject the wire shape before hashing/comparing;
+        # malformed unauthenticated cookies must take the ordinary sign-in-required path.
+        if type(cookie) is not str or len(cookie) > 4096 or not re.fullmatch(r'[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}', cookie):
+            return None
         try:
             body, signature = cookie.split('.')
             expected = _b64(hmac.new(self._key, body.encode(), hashlib.sha256).digest())

@@ -22,7 +22,8 @@ import yaml
 
 REPO = Path(__file__).resolve().parents[3]
 BIN = Path(os.environ.get('ENVTEST_BIN', '/nonexistent'))
-OPS = 'system:serviceaccount:ops:ops-agent'
+OPS = 'system:serviceaccount:ops:ops-executor'
+READ_ONLY_OPS = 'system:serviceaccount:ops:ops-agent'
 GOOD = 'registry.example/app@sha256:' + 'a' * 64
 GATEWAY = 'registry.example/gateway@sha256:' + 'c' * 64
 OTHER = 'registry.example/unsigned@sha256:' + 'f' * 64
@@ -85,7 +86,7 @@ class LivePolicies(unittest.TestCase):
     def kubectl(cls, *args, input=None, check=True, as_ops=False):
         command = [str(BIN / 'kubectl'), '--kubeconfig', str(cls.kubeconfig)]
         if as_ops:
-            command += ['--as', OPS, '--as-group', 'system:serviceaccounts', '--as-group', 'system:serviceaccounts:ops']
+            command += ['--as', OPS if as_ops is True else as_ops, '--as-group', 'system:serviceaccounts', '--as-group', 'system:serviceaccounts:ops']
         result = subprocess.run(command + list(args), input=input, capture_output=True, text=True)
         if check and result.returncode != 0:
             raise AssertionError(' '.join(args) + ': ' + result.stderr)
@@ -101,7 +102,12 @@ class LivePolicies(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(text, result.stderr)
 
-    def test_ops_agent_allowed_remediations(self):
+    def test_untrusted_ops_identity_cannot_patch_even_an_allowed_shape(self):
+        result = self.kubectl('-n','apps','patch','deployment','fault-demo','--type','merge',
+                              '-p','{"spec":{"replicas":2}}',as_ops=READ_ONLY_OPS,check=False)
+        self.assertDenied(result, 'forbidden')
+
+    def test_executor_allowed_remediations(self):
         restart = {'spec': {'template': {'metadata': {'annotations': {'kubectl.kubernetes.io/restartedAt': '2026-10-10T00:00:00Z'}}}}}
         self.assertAllowed(self.ops_patch('apps', 'fault-demo', restart))
         self.assertAllowed(self.ops_patch('platform', 'gateway', restart))

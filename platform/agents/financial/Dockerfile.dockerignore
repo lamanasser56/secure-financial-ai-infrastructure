@@ -12,6 +12,9 @@
 !platform/core/src/agent_platform/
 !platform/core/src/agent_platform/__init__.py
 !platform/core/src/agent_platform/audit.py
+!platform/core/src/agent_platform/identifiers.py
+!platform/core/src/agent_platform/boundary_http.py
+!platform/core/src/agent_platform/data_capability.py
 !platform/core/src/agent_platform/redaction.py
 !platform/core/src/agent_platform/request_context.py
 !platform/agents/

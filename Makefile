@@ -28,7 +28,7 @@ TERRAFORM ?= $(TOOLS)/terraform
 ENVTEST_DIR ?= .cache/envtest-v1.35.0
 ENVTEST_URL := https://github.com/kubernetes-sigs/controller-tools/releases/download/envtest-v1.35.0/envtest-v1.35.0-linux-amd64.tar.gz
 ENVTEST_SHA512 := 130369c16f076e724d089189afaede960316f5f5dea6cf57be7a4fc6f09c77342893192509790e4056e116e232dff832ed863f5bd55dcb55d38f3ab834828a11
-PY := PYTHONPATH=platform/core/src:platform/core/tests:. $(PYTHON) -B
+PY := PYTHONPATH=platform/core/src:platform/core/tests:platform/agents/financial:. $(PYTHON) -B
 LIFECYCLE := PYTHONPATH=platform/core/src:. $(PYTHON) -B platform/clouds/gke/lifecycle.py
 
 .PHONY: test test-policies onboard onboard-check agent-forward provider plan apply up down port-forward fault attack inventory secrets seed-demo demo-check demo-reset passphrase-check passphrase corpus-live

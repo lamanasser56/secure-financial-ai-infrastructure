@@ -33,6 +33,6 @@ USER 65532:65532
 WORKDIR /app
 COPY --chown=65532:65532 runtime/ /app/runtime/
 COPY --chown=65532:65532 contracts/ /app/contracts/
-COPY --chown=65532:65532 platform/core/src/agent_platform/__init__.py platform/core/src/agent_platform/audit.py platform/core/src/agent_platform/identifiers.py platform/core/src/agent_platform/redaction.py platform/core/src/agent_platform/request_context.py /app/platform/src/agent_platform/
+COPY --chown=65532:65532 platform/core/src/agent_platform/__init__.py platform/core/src/agent_platform/audit.py platform/core/src/agent_platform/identifiers.py platform/core/src/agent_platform/redaction.py platform/core/src/agent_platform/request_context.py platform/core/src/agent_platform/boundary_http.py platform/core/src/agent_platform/data_capability.py /app/platform/src/agent_platform/
 COPY --chown=65532:65532 platform/agents/financial/finance_agent/ /app/finance_agent/
-ENTRYPOINT ["/usr/local/bin/python3.12", "-m", "finance_agent.server"]
+ENTRYPOINT ["/usr/local/bin/python3.12", "-m", "finance_agent.worker"]

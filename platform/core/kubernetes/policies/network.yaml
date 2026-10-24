@@ -1,176 +1,502 @@
-# Default-deny ingress and egress in every namespace; only the declared paths below are allowed.
-# Cloud-specific egress (model provider FQDN, metadata server for workload identity, API-server address
-# for the ops agent) is added by the cloud overlay (platform/clouds/<cloud>/kubernetes).
-# kubectl port-forward enters the Pod's own network namespace on loopback and is not a network path.
+# RC1 source only; owner-reviewed migration and live packet-policy qualification required.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: {name: default-deny, namespace: platform}
-spec: {podSelector: {}, policyTypes: [Ingress, Egress]}
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata: {name: default-deny, namespace: apps}
-spec: {podSelector: {}, policyTypes: [Ingress, Egress]}
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata: {name: default-deny, namespace: ops}
-spec: {podSelector: {}, policyTypes: [Ingress, Egress]}
----
-# DNS for every Pod that needs to resolve Services.
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata: {name: allow-dns, namespace: platform}
+metadata:
+  name: default-deny
+  namespace: platform
 spec:
   podSelector: {}
-  policyTypes: [Egress]
-  egress:
-    - to:
-        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
-          podSelector: {matchLabels: {k8s-app: kube-dns}}
-      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+  policyTypes:
+    - Ingress
+    - Egress
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: {name: allow-dns, namespace: apps}
+metadata:
+  name: default-deny
+  namespace: apps
 spec:
   podSelector: {}
-  policyTypes: [Egress]
-  egress:
-    - to:
-        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
-          podSelector: {matchLabels: {k8s-app: kube-dns}}
-      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+  policyTypes:
+    - Ingress
+    - Egress
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: {name: allow-dns, namespace: ops}
+metadata:
+  name: default-deny
+  namespace: ops
 spec:
   podSelector: {}
-  policyTypes: [Egress]
-  egress:
-    - to:
-        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
-          podSelector: {matchLabels: {k8s-app: kube-dns}}
-      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+  policyTypes:
+    - Ingress
+    - Egress
 ---
-# gateway: called by the app and the ops agent; reads/writes its key/budget tables in Postgres.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: {name: gateway, namespace: platform}
+metadata:
+  name: allow-dns
+  namespace: platform
 spec:
-  podSelector: {matchLabels: {app.kubernetes.io/name: gateway}}
-  policyTypes: [Ingress, Egress]
+  egress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+  podSelector: {}
+  policyTypes:
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: apps
+spec:
+  egress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+  podSelector: {}
+  policyTypes:
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: ops
+spec:
+  egress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+  podSelector: {}
+  policyTypes:
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway
+  namespace: platform
+spec:
+  egress:
+    - ports:
+        - port: 5432
+          protocol: TCP
+      to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres
   ingress:
     - from:
-        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: apps}}
-          podSelector: {matchLabels: {app.kubernetes.io/name: app}}
-        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ops}}
-          podSelector: {matchLabels: {app.kubernetes.io/name: ops-agent}}
-        - podSelector: {matchLabels: {app.kubernetes.io/name: schema}}
-      ports: [{protocol: TCP, port: 4000}]
-  egress:
-    - to: [podSelector: {matchLabels: {app.kubernetes.io/name: postgres}}]
-      ports: [{protocol: TCP, port: 5432}]
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gateway-boundary
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: schema
+      ports:
+        - port: 4001
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ops
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ops-executor
+      ports:
+        - port: 4001
+          protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: gateway
+  policyTypes:
+    - Ingress
+    - Egress
 ---
-# redactor: called by the app and the ops agent before any model request.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: {name: redactor, namespace: platform}
+metadata:
+  name: redactor
+  namespace: platform
 spec:
-  podSelector: {matchLabels: {app.kubernetes.io/name: redactor}}
-  policyTypes: [Ingress, Egress]
-  ingress:
-    - from:
-        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: apps}}
-          podSelector: {matchLabels: {app.kubernetes.io/name: app}}
-        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ops}}
-          podSelector: {matchLabels: {app.kubernetes.io/name: ops-agent}}
-      ports: [{protocol: TCP, port: 4003}]
   egress: []
----
-# postgres: the gateway (its own tables), the app (non-owner RLS role) and the one-shot schema job.
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata: {name: postgres, namespace: platform}
-spec:
-  podSelector: {matchLabels: {app.kubernetes.io/name: postgres}}
-  policyTypes: [Ingress, Egress]
   ingress:
     - from:
-        - podSelector: {matchLabels: {app.kubernetes.io/name: gateway}}
-        - podSelector: {matchLabels: {app.kubernetes.io/name: schema}}
-        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: apps}}
-          podSelector: {matchLabels: {app.kubernetes.io/name: app}}
-      ports: [{protocol: TCP, port: 5432}]
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: apps
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: app
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ops
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ops-agent
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gateway-boundary
+      ports:
+        - port: 4003
+          protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redactor
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres
+  namespace: platform
+spec:
   egress: []
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gateway
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: schema
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: apps
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: app
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: apps
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: financial-frontdoor
+      ports:
+        - port: 5432
+          protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  policyTypes:
+    - Ingress
+    - Egress
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: {name: schema, namespace: platform}
+metadata:
+  name: schema
+  namespace: platform
 spec:
-  podSelector: {matchLabels: {app.kubernetes.io/name: schema}}
-  policyTypes: [Egress]
   egress:
-    - to: [podSelector: {matchLabels: {app.kubernetes.io/name: postgres}}]
-      ports: [{protocol: TCP, port: 5432}]
-    - to: [podSelector: {matchLabels: {app.kubernetes.io/name: gateway}}]
-      ports: [{protocol: TCP, port: 4000}]
+    - ports:
+        - port: 5432
+          protocol: TCP
+      to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres
+    - ports:
+        - port: 4001
+          protocol: TCP
+      to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gateway
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: schema
+  policyTypes:
+    - Egress
 ---
-# app: gateway, redactor, its RLS database role, and the ops agent API (dashboard + approvals). No internet.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: {name: app, namespace: apps}
+metadata:
+  name: app
+  namespace: apps
 spec:
-  podSelector: {matchLabels: {app.kubernetes.io/name: app}}
-  policyTypes: [Ingress, Egress]
+  egress:
+    - ports:
+        - port: 4000
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: platform
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gateway-boundary
+    - ports:
+        - port: 4003
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: platform
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redactor
+    - ports:
+        - port: 5432
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: platform
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres
+    - ports:
+        - port: 8090
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ops
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ops-agent
   ingress: []
-  egress:
-    - to:
-        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: platform}}
-          podSelector: {matchLabels: {app.kubernetes.io/name: gateway}}
-      ports: [{protocol: TCP, port: 4000}]
-    - to:
-        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: platform}}
-          podSelector: {matchLabels: {app.kubernetes.io/name: redactor}}
-      ports: [{protocol: TCP, port: 4003}]
-    - to:
-        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: platform}}
-          podSelector: {matchLabels: {app.kubernetes.io/name: postgres}}
-      ports: [{protocol: TCP, port: 5432}]
-    - to:
-        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ops}}
-          podSelector: {matchLabels: {app.kubernetes.io/name: ops-agent}}
-      ports: [{protocol: TCP, port: 8090}]
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: app
+  policyTypes:
+    - Ingress
+    - Egress
 ---
-# fault-demo: the scripted fault target. No network at all besides DNS.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: {name: fault-demo, namespace: apps}
+metadata:
+  name: fault-demo
+  namespace: apps
 spec:
-  podSelector: {matchLabels: {app.kubernetes.io/name: fault-demo}}
-  policyTypes: [Ingress, Egress]
-  ingress: []
   egress: []
+  ingress: []
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: fault-demo
+  policyTypes:
+    - Ingress
+    - Egress
 ---
-# ops agent: serves the app; reaches gateway/redactor for explanations. API-server egress is in the overlay.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: {name: ops-agent, namespace: ops}
+metadata:
+  name: ops-agent
+  namespace: ops
 spec:
-  podSelector: {matchLabels: {app.kubernetes.io/name: ops-agent}}
-  policyTypes: [Ingress, Egress]
+  egress:
+    - ports:
+        - port: 4000
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: platform
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gateway-boundary
+    - ports:
+        - port: 4003
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: platform
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redactor
+    - ports:
+        - port: 8091
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ops
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ops-executor
   ingress:
     - from:
-        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: apps}}
-          podSelector: {matchLabels: {app.kubernetes.io/name: app}}
-      ports: [{protocol: TCP, port: 8090}]
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: apps
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: app
+      ports:
+        - port: 8090
+          protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ops-agent
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway-boundary
+  namespace: platform
+spec:
   egress:
-    - to:
-        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: platform}}
-          podSelector: {matchLabels: {app.kubernetes.io/name: gateway}}
-      ports: [{protocol: TCP, port: 4000}]
-    - to:
-        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: platform}}
-          podSelector: {matchLabels: {app.kubernetes.io/name: redactor}}
-      ports: [{protocol: TCP, port: 4003}]
+    - ports:
+        - port: 4001
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: platform
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gateway
+    - ports:
+        - port: 4003
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: platform
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redactor
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: apps
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: app
+      ports:
+        - port: 4000
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ops
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ops-agent
+      ports:
+        - port: 4000
+          protocol: TCP
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ops
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ops-executor
+      ports:
+        - port: 4000
+          protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: gateway-boundary
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: financial-frontdoor
+  namespace: apps
+spec:
+  egress:
+    - ports:
+        - port: 5432
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: platform
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres
+    - ports:
+        - port: 8081
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: agent-financial
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: agent
+  ingress: []
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: financial-frontdoor
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ops-executor
+  namespace: ops
+spec:
+  egress:
+    - ports:
+        - port: 4001
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: platform
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gateway
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ops
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ops-agent
+      ports:
+        - port: 8091
+          protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ops-executor
+  policyTypes:
+    - Ingress
+    - Egress

@@ -10,6 +10,7 @@ A request that fails these checks is consumed and marked stale. Pending proposal
 a newer proposal for the same target supersedes older pending ones, and the proposal history is bounded.
 """
 import collections
+import copy
 import re
 import threading
 import time
@@ -27,7 +28,8 @@ REQUEST_ID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}
 
 
 class Agent:
-    def __init__(self, client, targets, verifier, *, explainer=None, clock=time.time, verify_kwargs=None):
+    def __init__(self, client, targets, verifier, *, explainer=None, clock=time.time, verify_kwargs=None,
+                 executor=None, component='ops-agent'):
         self.client, self.targets, self.verifier = client, targets, verifier
         self.explainer, self.clock = explainer, clock
         self.timeline = collections.deque(maxlen=200)
@@ -36,6 +38,7 @@ class Agent:
         self._explanations = {}  # (target, finding, revision) -> explanation: one model call per episode
         self._lock = threading.Lock()
         self._verify_kwargs = verify_kwargs or {}
+        self.executor, self.component = executor, component
 
     def record(self, stage, target, **fields):
         event = {'id': str(uuid.uuid4()), 'stage': stage, 'target': target, 'at': round(self.clock(), 3), **fields}
@@ -43,7 +46,7 @@ class Agent:
             self.timeline.append(event)
             if stage == 'denied':
                 self.denials.append(event)
-        audit.emit('ops_' + stage, 'ops-agent', target=target, **{k: v for k, v in fields.items() if k != 'explanation'})
+        audit.emit('ops_' + stage, self.component, target=target, **{k: v for k, v in fields.items() if k != 'explanation'})
         return event
 
     # observe + diagnose ----------------------------------------------------------------------------------
@@ -175,9 +178,26 @@ class Agent:
         except approval.ApprovalDenied as denied:
             self.record('denied', key, code=denied.code, request_id=request_id)
             return {'result': 'DENIED', 'code': denied.code}
+        except Exception:
+            self.record('denied', key, code='APPROVAL_STORAGE_UNAVAILABLE', request_id=request_id)
+            return {'result': 'DENIED', 'code': 'APPROVAL_STORAGE_UNAVAILABLE'}
         # The token is consumed from here on: every outcome below leaves this request unusable.
+        if self.executor is not None:
+            proposal['state'] = 'delegated'
+            try:
+                result = self.executor.execute(proposal, token)
+                if (set(result) != {'result', 'code'} or result['result'] not in ('VERIFIED', 'NOT_VERIFIED', 'DENIED', 'FAILED')
+                        or type(result['code']) is not str or not re.fullmatch(r'[A-Z0-9_:]{1,100}', result['code'])):
+                    raise ValueError('executor response')
+            except Exception:
+                result = {'result': 'NOT_VERIFIED', 'code': 'EXECUTOR_UNAVAILABLE'}
+            proposal['state'] = 'verified' if result['result'] == 'VERIFIED' else 'not_verified'
+            self.record('verified' if result['result'] == 'VERIFIED' else 'failed', key,
+                        code=result['code'], request_id=request_id, authority='ops-executor')
+            return result
         try:
-            fresh = diagnose.diagnose(*self.observe(key))  # re-diagnose from a fresh GET, never the cached scan
+            observed, pods, events = self.observe(key)
+            fresh = diagnose.diagnose(observed, pods, events)  # fresh GET, never the cached scan
         except KubeError as error:
             proposal['state'] = 'failed'
             self.record('failed', key, code='OBSERVE_' + str(error.status), request_id=request_id)
@@ -197,6 +217,11 @@ class Agent:
             # Precondition: the API server applies the patch only to this exact object version, else 409. A same-name
             # replacement always has another resourceVersion (they are never reused), so it is refused the same way.
             patch['metadata'] = {'resourceVersion': proposal['resource_version']}
+            expected_template = copy.deepcopy(observed['spec'].get('template', {}))
+            if proposal['action'] == 'restart':
+                expected_template.setdefault('metadata', {}).setdefault('annotations', {}).update(
+                    patch['spec']['template']['metadata']['annotations'])
+            expected_replicas = patch['spec'].get('replicas', observed['spec'].get('replicas', 1))
             self.client.patch_deployment(target.namespace, target.name, patch)  # exactly one attempt
         except actions.ActionRejected as rejected:
             proposal['state'] = 'failed'
@@ -213,7 +238,12 @@ class Agent:
             return {'result': 'FAILED', 'code': code}
         proposal['state'] = 'executed'
         self.record('executed', key, request_id=request_id, action=proposal['action'])
-        outcome = actions.verify(self.client, target, **self._verify_kwargs)
+        try:
+            outcome = actions.verify(self.client, target, expected_uid=proposal['uid'],
+                                     expected_replicas=expected_replicas, expected_template=expected_template,
+                                     **self._verify_kwargs)
+        except Exception:
+            outcome = {'verified': False, 'code': 'VERIFICATION_UNAVAILABLE'}
         proposal['state'] = 'verified' if outcome['verified'] else 'not_verified'
         self.record('verified' if outcome['verified'] else 'failed', key, request_id=request_id, code=outcome['code'])
         return {'result': 'VERIFIED' if outcome['verified'] else 'NOT_VERIFIED', 'code': outcome['code']}

@@ -52,10 +52,16 @@ def health_ok(url, opener=None, timeout=5):
         return False
 
 
-def verify(client, target, *, timeout=180, interval=5, sleep=time.sleep, clock=time.monotonic, opener=None):
+def verify(client, target, *, expected_uid, expected_replicas, expected_template,
+           timeout=180, interval=5, sleep=time.sleep, clock=time.monotonic, opener=None):
     deadline = clock() + timeout
     while clock() < deadline:
         current = client.get('deployments', target.namespace, target.name)
+        if current['metadata']['uid'] != expected_uid:
+            return {'verified': False, 'code': 'TARGET_REPLACED_DURING_VERIFICATION'}
+        if (current['spec'].get('replicas', 1) != expected_replicas
+                or current['spec'].get('template', {}) != expected_template):
+            return {'verified': False, 'code': 'DESIRED_STATE_CHANGED_DURING_VERIFICATION'}
         if rollout_complete(current) and health_ok(target.health, opener=opener):
             return {'verified': True, 'code': 'ROLLOUT_COMPLETE_AND_HEALTHY', 'available_replicas': current['status'].get('availableReplicas', 0)}
         sleep(interval)

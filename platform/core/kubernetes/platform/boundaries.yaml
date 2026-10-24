@@ -1,0 +1,347 @@
+# RC1 trusted boundary migration; source only, requires new qualified artifacts and owner cutover.
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  name: gateway-boundary
+  namespace: platform
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: gateway-boundary
+    app.kubernetes.io/part-of: agent-platform
+  name: gateway-boundary
+  namespace: platform
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gateway-boundary
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gateway-boundary
+        app.kubernetes.io/part-of: agent-platform
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - command:
+            - /usr/local/bin/python3.12
+            - -m
+            - agent_platform.gateway_boundary
+          image: agent-platform/app
+          name: gateway-boundary
+          ports:
+            - containerPort: 4000
+              name: http4000
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 4000
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - mountPath: /secrets/gateway-boundary
+              name: config
+              readOnly: true
+            - mountPath: /tmp
+              name: tmp
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: gateway-boundary
+      volumes:
+        - name: config
+          secret:
+            defaultMode: 256
+            secretName: gateway-boundary
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 32Mi
+          name: tmp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-boundary
+  namespace: platform
+spec:
+  ports:
+    - name: http4000
+      port: 4000
+      targetPort: 4000
+  selector:
+    app.kubernetes.io/name: gateway-boundary
+  type: ClusterIP
+---
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  name: financial-frontdoor
+  namespace: apps
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: financial-frontdoor
+    app.kubernetes.io/part-of: agent-platform
+  name: financial-frontdoor
+  namespace: apps
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: financial-frontdoor
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: financial-frontdoor
+        app.kubernetes.io/part-of: agent-platform
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - command:
+            - /usr/local/bin/python3.12
+            - -m
+            - finance_agent.frontdoor
+          image: agent-platform/agent-financial
+          name: financial-frontdoor
+          ports:
+            - containerPort: 8081
+              name: http8081
+            - containerPort: 8082
+              name: http8082
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8081
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - mountPath: /secrets/frontdoor
+              name: config
+              readOnly: true
+            - mountPath: /tmp
+              name: tmp
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: financial-frontdoor
+      volumes:
+        - name: config
+          secret:
+            defaultMode: 256
+            secretName: financial-frontdoor
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 32Mi
+          name: tmp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: financial-frontdoor
+  namespace: apps
+spec:
+  ports:
+    - name: http8081
+      port: 8081
+      targetPort: 8081
+    - name: http8082
+      port: 8082
+      targetPort: 8082
+  selector:
+    app.kubernetes.io/name: financial-frontdoor
+  type: ClusterIP
+---
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  name: ops-executor
+  namespace: ops
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: ops-executor
+    app.kubernetes.io/part-of: agent-platform
+  name: ops-executor
+  namespace: ops
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ops-executor
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ops-executor
+        app.kubernetes.io/part-of: agent-platform
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - command:
+            - /usr/local/bin/python3.12
+            - -m
+            - agent_platform.ops.executor
+          image: agent-platform/ops-agent
+          name: ops-executor
+          ports:
+            - containerPort: 8091
+              name: http8091
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8091
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - mountPath: /secrets/executor
+              name: config
+              readOnly: true
+            - mountPath: /tmp
+              name: tmp
+            - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              name: api-token
+              readOnly: true
+            - mountPath: /registry
+              name: registry
+              readOnly: true
+            - mountPath: /state
+              name: state
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: ops-executor
+      volumes:
+        - name: config
+          secret:
+            defaultMode: 256
+            secretName: ops-executor
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 32Mi
+          name: tmp
+        - name: api-token
+          projected:
+            defaultMode: 292
+            sources:
+              - serviceAccountToken:
+                  expirationSeconds: 3600
+                  path: token
+              - configMap:
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+                  name: kube-root-ca.crt
+              - downwardAPI:
+                  items:
+                    - fieldRef:
+                        fieldPath: metadata.namespace
+                      path: namespace
+        - configMap:
+            defaultMode: 292
+            name: ops-agent-registry
+          name: registry
+        - name: state
+          persistentVolumeClaim:
+            claimName: ops-approval-replay
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ops-executor
+  namespace: ops
+spec:
+  ports:
+    - name: http8091
+      port: 8091
+      targetPort: 8091
+  selector:
+    app.kubernetes.io/name: ops-executor
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ops-approval-replay
+  namespace: ops
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: agent-runtime-disposable

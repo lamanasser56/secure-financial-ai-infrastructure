@@ -2,7 +2,9 @@
 ---
 apiVersion: v1
 data:
-  agent-financial.agent.observe: read-only
+  agent-financial.agent-u1.observe: read-only
+  agent-financial.agent-u2.observe: read-only
+  agent-financial.agent-u3.observe: read-only
   agent-platform-guide.agent.observe: read-only
 kind: ConfigMap
 metadata:
@@ -18,7 +20,9 @@ rules:
   - apiGroups:
       - apps
     resourceNames:
-      - agent
+      - agent-u1
+      - agent-u2
+      - agent-u3
     resources:
       - deployments
     verbs:
