@@ -77,8 +77,7 @@ jobs:
         run: node --test platform/agents/platform-guide/test/*.test.js
 
   gitleaks:
-    # Scan every fetched branch and tag. Only the separate, evidence-only
-    # rc1-live-followup branch is excluded from the local ref set.
+    # Scan every fetched branch and tag, including rc1-live-followup, and the PR merge ref.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -97,9 +96,6 @@ jobs:
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           printf '%s  %s\n' "$GITLEAKS_ARCHIVE_SHA256" "$RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check
           tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
-          if git show-ref --verify --quiet refs/remotes/origin/rc1-live-followup; then
-            git update-ref -d refs/remotes/origin/rc1-live-followup
-          fi
           "$RUNNER_TEMP/gitleaks" git --redact --no-banner .
 
   google-sdp-offline-evaluation:
