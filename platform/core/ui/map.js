@@ -4,7 +4,7 @@
   const {el, $, getJSON} = Console;
   const W = 918;
   const EXTERNAL = {'model-provider': ['Google AI', 'the model'], dlp: ['Google DLP', 'finds personal data']};
-  const CELLS = {gateway: ['Model gateway', 'one key, one budget'], redactor: ['Redactor', 'hides personal data'], audit: ['Audit', 'every request recorded']};
+  const CELLS = {'gateway-boundary': ['Redaction gateway', 'trusted provider boundary'], 'financial-frontdoor': ['Data broker', 'verified user capabilities'], 'ops-executor': ['Approval executor', 'owner signature required'], gateway: ['Model gateway', 'one key, one budget'], redactor: ['Redactor', 'hides personal data'], audit: ['Audit', 'bounded component events']};
 
   function agentExplain(agent, from) {
     Console.explain({eyebrow: agent.live ? 'EXPLAIN · VERIFIED LIVE' : 'EXPLAIN · NOT SEEN LIVE', live: !!agent.live, title: Console.title(agent), sub: agent.namespace,
@@ -24,12 +24,12 @@
 
   // Drawn 1:1 at its panel size on the 1440 x 900 frame: ~920 px wide while Explain is open beside it, centred in the wider
   // panel otherwise (the svg's max-height keeps it at that scale). More agents make it taller.
-  // The platform cells are ordered gateway, redactor, audit so that Google AI sits above Google DLP with straight lines.
+  // Keep the provider-facing cells ordered gateway, redactor so Google AI sits above Google DLP with straight lines.
   function drawing(data) {
     const {agents, topology} = data;
     const nodes = Object.fromEntries(topology.nodes.map(n => [n.id, n]));
     const AX = 32, AW = 210, AH = 96, GAP = 64, TOP = 84;
-    const cells = ['gateway', 'redactor', 'audit'].filter(id => nodes[id]);
+    const cells = ['gateway-boundary', 'gateway', 'redactor', 'financial-frontdoor', 'ops-executor', 'audit'].filter(id => nodes[id]);
     const busX = AX + AW + 28, PX = busX + 28, PW = 230, HEAD = 44, CH = 92, PH = HEAD + CH * cells.length;
     const agentsH = agents.length * AH + Math.max(0, agents.length - 1) * GAP;
     const PY = TOP + Math.max(0, (agentsH - PH) / 2), A0 = TOP + Math.max(0, (PH - agentsH) / 2);
