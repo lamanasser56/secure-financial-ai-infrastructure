@@ -33,11 +33,18 @@ def main_file(path):
                           capture_output=True, check=True).stdout
 
 
+def qualified_worktree_file(path):
+    current = (ROOT / path).read_bytes()
+    if current != main_file(path):
+        raise AssertionError(f'current platform source drifted from qualified main: {path}')
+    return current
+
+
 def main_redactor(directory):
     programs = Path(directory)
-    (programs / 'redactor_server.py').write_bytes(main_file(
+    (programs / 'redactor_server.py').write_bytes(qualified_worktree_file(
         'platform/core/src/agent_platform/programs/redactor_server.py'))
-    (programs / 'phone_guard.py').write_bytes(main_file(
+    (programs / 'phone_guard.py').write_bytes(qualified_worktree_file(
         'platform/core/src/agent_platform/programs/phone_guard.py'))
     return load_platform(programs / 'redactor_server.py')
 
@@ -279,7 +286,7 @@ class FollowupTests(unittest.TestCase):
     def test_main_f15_client_does_not_follow_redirect(self):
         with tempfile.TemporaryDirectory() as temporary:
             source = Path(temporary) / 'main_redaction.py'
-            source.write_bytes(main_file('platform/core/src/agent_platform/redaction.py'))
+            source.write_bytes(qualified_worktree_file('platform/core/src/agent_platform/redaction.py'))
             spec = importlib.util.spec_from_file_location('_qualified_main_redaction', source)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
@@ -324,12 +331,12 @@ class FollowupTests(unittest.TestCase):
         programs = next(d for d in docs if d['kind'] == 'ConfigMap' and
                         d['metadata']['namespace'] == 'platform' and
                         d['metadata']['name'].startswith('platform-programs-'))
-        # This evidence branch predates F7; qualify the transform against the
-        # exact current-main inputs rather than its historical local checkout.
-        real_redactor = main_file('platform/core/src/agent_platform/programs/redactor_server.py').decode()
-        real_phone = main_file('platform/core/src/agent_platform/programs/phone_guard.py').decode()
-        programs['data']['redactor_server.py'] = real_redactor
-        programs['data']['phone_guard.py'] = real_phone
+        real_redactor = qualified_worktree_file(
+            'platform/core/src/agent_platform/programs/redactor_server.py').decode()
+        real_phone = qualified_worktree_file(
+            'platform/core/src/agent_platform/programs/phone_guard.py').decode()
+        self.assertEqual(programs['data']['redactor_server.py'], real_redactor)
+        self.assertEqual(programs['data']['phone_guard.py'], real_phone)
         amended, preseed, redactor = patch_redactor_bundle(
             docs, Path(__file__).parent, 'assess-0000000000000001')
         self.assertEqual(programs['data']['redactor_server.py'], real_redactor)
