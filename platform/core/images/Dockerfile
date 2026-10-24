@@ -18,7 +18,7 @@ RUN mkdir -p /out/usr/local/bin /out/usr/local/lib \
       -r /tmp/requirements-litellm-candidate.txt -r /tmp/requirements-agent-composition.txt \
     && find /out -type d -name __pycache__ -prune -exec rm -rf {} +
 
-FROM gcr.io/distroless/base-debian13:nonroot@sha256:a0d70d6a97cd697d9362bc2aae4a6560dd65817e365d0043b07325a97975dc91 AS runtime
+FROM gcr.io/distroless/base-debian13:nonroot@sha256:f9518b74815721f537a7458cc693b4406208c04fce23bbffab511516117f34fd AS runtime
 COPY --from=builder /out/usr/local /usr/local
 COPY --from=builder /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/
 COPY --from=builder /lib/x86_64-linux-gnu/libstdc++.so.6 /lib/x86_64-linux-gnu/

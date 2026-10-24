@@ -1,7 +1,9 @@
 # One bounded minimal-proxy design; not a deployment selection.
 litellm[proxy]==1.104.0
-# Exact fixes justified by the retained gateway finding inventory.
-PyJWT==2.14.0
+# Direct security pins for the gateway and current App/Ops image findings.
+PyJWT==2.15.0
 cryptography==50.0.2
+# Trivy CVE-2026-114603 fix; permitted by FastAPI and MCP.
+opentelemetry-api==1.45.1
 # Gateway-only keyless Vertex authentication dependency; never app ADC.
 google-auth==2.59.1
