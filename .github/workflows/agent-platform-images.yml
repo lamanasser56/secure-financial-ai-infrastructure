@@ -1,7 +1,7 @@
 # Agent platform images (Phase E, ADR-008): app and ops, plus onboarded agents' own images (agent-financial, platform-guide).
 # Runs only after the CI workflow ("Validate infrastructure portfolio") succeeded on a push to main, and builds that
-# exact commit (SC-001). build -> Trivy (HIGH/CRITICAL, fail-closed) -> CycloneDX SBOM -> push by digest -> full-
-# severity Trivy of the pushed digest + CISA KEV gate for every severity, with feed freshness (SC-002) -> keyless
+# exact commit (SC-001). build -> full-severity Trivy + fresh CISA KEV gate (HIGH/CRITICAL fail-closed) ->
+# CycloneDX SBOM -> push by digest -> full-severity Trivy of the pushed digest + KEV and expiry gates (SC-002) -> keyless
 # cosign (this job's OIDC identity, no device login, no stored key) -> cosign verify (exact workflow identity) ->
 # Binary Authorization attestation with the Cloud KMS attestor key (GKE admission cannot enforce keyless signatures
 # natively). An unsigned, unattested digest left in the registry by a blocked run is never admitted.
@@ -119,12 +119,18 @@ jobs:
           docker buildx build --platform linux/amd64 --target "${{ matrix.target }}" \
             --file "${{ matrix.dockerfile }}" --provenance=false --sbom=false \
             --tag "local/${{ matrix.image }}:${SHA}" --load .
-      - name: Trivy (HIGH,CRITICAL; fail-closed) and SBOM
+      - name: Trivy (all severities and KEV; fail-closed) and SBOM
         run: |
           set -Eeuo pipefail
           image="local/${{ matrix.image }}:${SHA}"
-          "$RUNNER_TEMP/tools/trivy" image --severity HIGH,CRITICAL --exit-code 1 --ignore-unfixed=false \
+          "$RUNNER_TEMP/tools/trivy" image --exit-code 0 --ignore-unfixed=false \
             --format json --output "$RUNNER_TEMP/trivy.json" "$image"
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 --max-time 60 \
+            --output "$RUNNER_TEMP/kev.json" \
+            https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+          python3 scripts/reviewed-image-exception-gate.py "$RUNNER_TEMP/trivy.json" "$image" \
+            "${{ matrix.image }}" "$RUNNER_TEMP/kev.json" policy/reviewed-image-exceptions.json \
+            "$RUNNER_TEMP/trivy-prepush-gate.json"
           "$RUNNER_TEMP/tools/syft" "$image" -o "cyclonedx-json=$RUNNER_TEMP/sbom.cdx.json"
           python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['bomFormat']=='CycloneDX' and d['components']" "$RUNNER_TEMP/sbom.cdx.json"
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
@@ -154,10 +160,10 @@ jobs:
           # SC-002: every severity, KEV checked before any severity filter, fresh feed; blocks before signing.
           "$RUNNER_TEMP/tools/trivy" image --exit-code 0 --ignore-unfixed=false --format json \
             --output "$RUNNER_TEMP/trivy-full.json" "$ref"
-          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 --max-time 60 \
-            --output "$RUNNER_TEMP/kev.json" \
-            https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
-          python3 scripts/kev-release-gate.py "$RUNNER_TEMP/trivy-full.json" "$ref" "$RUNNER_TEMP/kev.json" \
+          python3 scripts/reviewed-image-exception-gate.py "$RUNNER_TEMP/trivy-full.json" "$ref" \
+            "$name" "$RUNNER_TEMP/kev.json" policy/reviewed-image-exceptions.json \
+            "$RUNNER_TEMP/trivy-full-gate.json" | tee "$RUNNER_TEMP/reviewed-exception-gate.txt"
+          python3 scripts/kev-release-gate.py "$RUNNER_TEMP/trivy-full-gate.json" "$ref" "$RUNNER_TEMP/kev.json" \
             policy/empty-exceptions.json | tee "$RUNNER_TEMP/release-gate.txt"
           "$RUNNER_TEMP/tools/cosign" sign --yes "$ref"
           "$RUNNER_TEMP/tools/cosign" verify "$ref" \
@@ -169,7 +175,8 @@ jobs:
           python3 - "$ref" "$RUNNER_TEMP/trivy.json" "$SHA" "$RUNNER_TEMP/release-gate.txt" > "$RUNNER_TEMP/receipt.json" <<'PY'
           import hashlib, json, sys
           trivy = json.load(open(sys.argv[2]))
-          findings = sum(len(r.get('Vulnerabilities') or []) for r in trivy.get('Results', []))
+          findings = sum(v.get('Severity') in ('HIGH', 'CRITICAL') for r in trivy.get('Results', [])
+                         for v in (r.get('Vulnerabilities') or []))
           print(json.dumps({'image': sys.argv[1], 'source_sha': sys.argv[3], 'trivy_high_critical': findings,
                             'release_gate': open(sys.argv[4]).read().strip(), 'cosign': 'keyless_verified',
                             'binauthz': 'attested_kms', 'sbom': 'cyclonedx'}, sort_keys=True))
@@ -183,5 +190,6 @@ jobs:
             ${{ runner.temp }}/sbom.cdx.json
             ${{ runner.temp }}/trivy.json
             ${{ runner.temp }}/trivy-full.json
+            ${{ runner.temp }}/reviewed-exception-gate.txt
             ${{ runner.temp }}/release-gate.txt
           retention-days: 30
