@@ -12,6 +12,11 @@ history and are used only by tests that verify those immutable records:
 | `requirements-google-sdp-runtime.txt` | `c232eac3a105050d5406a7cc80f5aa276c4fbbed52f3e8d5ff7892c548199a29` |
 | `requirements-litellm-candidate.txt` | `71f9c84c122b3ee9ebac6fb00901f5730d888ed3e81c86bbb10d76f3c50c8d0a` |
 
+`inputs/requirements-litellm-candidate.in` retains the exact historical source
+input named by the LiteLLM candidate qualification record (SHA-256
+`baef3535164402bddc9b28fc9411f2f1db41a36c4fc3cb47c77bb826a3dbbc47`).
+Its current root counterpart has changed and needs fresh live qualification.
+
 **The current root locks are NOT live-qualified yet.** The [RC1 handoff](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/bed7b0e/CLAUDE_HANDOFF_FINAL.md)
 requires fresh live qualification for changed App/Ops/external files before any
 qualification claim. Historical record hashes and operational gates remain
