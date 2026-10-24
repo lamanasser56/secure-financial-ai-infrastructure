@@ -1,23 +1,22 @@
 """Executed inside the retained redactor image root with synthetic mounts."""
 
 import hashlib
-from http.server import ThreadingHTTPServer
 import http.client
 import json
 from pathlib import Path
 import threading
 import sys
 
-sys.path.insert(0, '/programs')
 sys.path.insert(0, '/assessment')
 
-from redactor_server import Handler, POLICY_HASH, guard_module
+from redactor_server import CompletionBudget, load_guard, load_platform
 from sdp_guard import CompletedLedger
 from seed_sdp import seed
 
 
-assert hashlib.sha256(Path('/app/evaluation/google-sdp-context/policy.json').read_bytes()).hexdigest() == POLICY_HASH
-assert guard_module().CompletedLedger is not None
+platform = load_platform()
+assert hashlib.sha256(Path('/app/evaluation/google-sdp-context/policy.json').read_bytes()).hexdigest() == platform.POLICY_HASH
+assert load_guard().CompletedLedger is not None
 seed('/assessment-state')
 
 
@@ -44,11 +43,10 @@ class Budget:
 
 
 redactor = Redactor()
-server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
-server.daemon_threads = True
-server.keys = {'app': 'a' * 64}
-server.budget = Budget(redactor)
-server.completions = CompletedLedger('/assessment-state/sdp-completions.json')
+keys = {'app': 'a' * 64, 'ops': 'b' * 64}
+server = platform.Server(('127.0.0.1', 0), keys,
+    CompletionBudget(Budget(redactor), CompletedLedger('/assessment-state/sdp-completions.json')),
+    capacity=platform.Capacity(keys, per_client_window=25, global_window=25))
 thread = threading.Thread(target=server.serve_forever, daemon=True)
 thread.start()
 

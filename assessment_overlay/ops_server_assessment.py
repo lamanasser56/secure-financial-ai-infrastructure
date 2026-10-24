@@ -26,9 +26,9 @@ _normal_build = server.build
 def assessment_build(config_dir=Path('/secrets/ops'), registry_dir=Path('/registry'),
                      observe_dir=Path('/observe')):
     config = json.loads((config_dir / 'ops.json').read_text(), object_pairs_hook=server.unique)
-    if set(config) != {'api_key', 'approver_public_key', 'gateway_key', 'redactor_key', 'executor_key'}:
-        raise SystemExit('assessment_ops:config_rejected')
-    if config['gateway_key'] != '' or config['redactor_key'] != '':
+    # The platform build owns the full schema and all target/executor setup.
+    # The assessment adds only the prohibition on live explanation credentials.
+    if type(config) is not dict or config.get('gateway_key') != '' or config.get('redactor_key') != '':
         raise SystemExit('assessment_ops:real_explanation_keys_forbidden')
     agent, api_key = _normal_build(config_dir, registry_dir, observe_dir)
     if agent.explainer is not None:

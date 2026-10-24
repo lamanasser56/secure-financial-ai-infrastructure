@@ -5,8 +5,12 @@ must wait for the seed Job to complete and read back both ledger files before
 applying the Deployment. No cloud operation is performed here.
 """
 
+import hashlib
 from pathlib import Path
 import re
+
+MAIN_REDACTOR_SHA256 = 'efc3f73e96ed93c2ff738cdb10bdd85405212d21c80e54c068cce54abed81731'
+MAIN_PHONE_SHA256 = 'd8713752767fcf7dea66e3d74b9e7fa3260e05e1557fadca966ee3934ece7cfc'
 
 
 def _one(docs, kind, namespace, name):
@@ -25,11 +29,17 @@ def patch(docs, overlay_dir, run_id):
     programs = _one(docs, 'ConfigMap', 'platform', 'platform-programs-')
     deployment = _one(docs, 'Deployment', 'platform', 'redactor')
     quota = _one(docs, 'ResourceQuota', 'platform', 'bounds')
-    if 'phone_guard.py' not in programs['data'] or 'mask_phones' not in programs['data']['phone_guard.py']:
-        raise ValueError('new phone guard absent from source render')
-    if 'CompletedLedger' in programs['data']['redactor_server.py']:
-        raise ValueError('redactor already transformed')
-    programs['data']['redactor_server.py'] = (overlay / 'redactor_server.py').read_text()
+    phone_source = programs['data'].get('phone_guard.py', '')
+    if hashlib.sha256(phone_source.encode()).hexdigest() != MAIN_PHONE_SHA256:
+        raise ValueError('qualified main phone guard absent from source render')
+    # Never replace the real redactor: F7 admission, bounded workers, key
+    # validation and phone masking must stay in the platform source.
+    platform_source = programs['data'].get('redactor_server.py', '')
+    if (hashlib.sha256(platform_source.encode()).hexdigest() != MAIN_REDACTOR_SHA256
+            or not all(marker in platform_source for marker in
+               ('class Capacity:', 'class Server(ThreadingHTTPServer):',
+                'with self.server.capacity.admit(caller):', 'mask_phones', 'valid_client_keys'))):
+        raise ValueError('main redactor capacity/phone/key controls absent')
 
     hard = quota['spec']['hard']
     if (hard['persistentvolumeclaims'], hard['requests.storage']) == ('1', '10Gi'):
@@ -38,12 +48,18 @@ def patch(docs, overlay_dir, run_id):
         raise ValueError('unexpected platform storage quota')
 
     container = deployment['spec']['template']['spec']['containers'][0]
-    if container['name'] != 'redactor' or any(v['name'] == 'assessment-state' for v in container.get('volumeMounts', [])):
+    if (container['name'] != 'redactor'
+            or container.get('command') != ['/usr/local/bin/python3.12', '/programs/redactor_server.py']
+            or any(v['name'] == 'assessment-state' for v in container.get('volumeMounts', []))):
         raise ValueError('unexpected redactor Deployment')
     image = container['image']
+    container['command'] = ['/usr/local/bin/python3.12', '/assessment/redactor_server.py']
     if any(v['name'] == 'ASSESSMENT_RUN_ID' for v in container.get('env', [])):
         raise ValueError('assessment run ID already set')
     container.setdefault('env', []).append({'name': 'ASSESSMENT_RUN_ID', 'value': run_id})
+    guard_bytes = (overlay / 'sdp_guard.py').read_bytes()
+    container['env'].append({'name': 'ASSESSMENT_GUARD_SHA256',
+                             'value': hashlib.sha256(guard_bytes).hexdigest()})
     container.setdefault('volumeMounts', []).extend((
         {'name': 'assessment-guard', 'mountPath': '/assessment', 'readOnly': True},
         {'name': 'assessment-state', 'mountPath': '/assessment-state'},
@@ -54,8 +70,9 @@ def patch(docs, overlay_dir, run_id):
     ))
     guard = {'apiVersion': 'v1', 'kind': 'ConfigMap',
              'metadata': {'name': 'assessment-sdp-guard', 'namespace': 'platform'},
-             'data': {'sdp_guard.py': (overlay / 'sdp_guard.py').read_text(),
-                      'seed_sdp.py': (overlay / 'seed_sdp.py').read_text()}}
+             'data': {'sdp_guard.py': guard_bytes.decode('utf-8'),
+                      'seed_sdp.py': (overlay / 'seed_sdp.py').read_text(),
+                      'redactor_server.py': (overlay / 'redactor_server.py').read_text()}}
     claim = {'apiVersion': 'v1', 'kind': 'PersistentVolumeClaim',
              'metadata': {'name': 'assessment-sdp-attempts', 'namespace': 'platform'},
              'spec': {'accessModes': ['ReadWriteOnce'], 'storageClassName': 'agent-runtime-disposable',
