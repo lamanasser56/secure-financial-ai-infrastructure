@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import unittest
+from tests.qualification_history import HISTORICAL_LOCK_SHA256, historical_input
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -15,7 +16,7 @@ class PreparationEvidenceTests(unittest.TestCase):
         )
         for path, expected in record["source_input_sha256"].items():
             self.assertEqual(
-                hashlib.sha256((ROOT / path).read_bytes()).hexdigest(), expected, path
+                hashlib.sha256(historical_input(ROOT, path, expected).read_bytes()).hexdigest(), expected, path
             )
         self.assertEqual(record["designs_used"], 2)
         self.assertFalse(record["published"])
@@ -59,12 +60,26 @@ class PreparationEvidenceTests(unittest.TestCase):
                                  "83ccb313ff70b109b571327c730497d88a0cd7cf12ec5f295db38d0456a673ed")
                 continue
             self.assertEqual(
-                hashlib.sha256((ROOT / path).read_bytes()).hexdigest(), expected, path
+                hashlib.sha256(historical_input(ROOT, path, expected).read_bytes()).hexdigest(), expected, path
             )
         for path, expected in record["qualification_source_input_sha256"].items():
             self.assertEqual(
-                hashlib.sha256((ROOT / path).read_bytes()).hexdigest(), expected, path
+                hashlib.sha256(historical_input(ROOT, path, expected).read_bytes()).hexdigest(), expected, path
             )
         self.assertEqual(record["fixtures"]["proposed_live_cases"], 87)
         self.assertEqual(record["fixtures"]["prepared_offline_cases"], 42)
         self.assertEqual(record["fixtures"]["unprepared_cases"], 45)
+
+    def test_current_locks_are_not_live_qualified_per_claude_handoff_final(self):
+        """CLAUDE_HANDOFF_FINAL.md (rc1-live-followup:bed7b0e) requires fresh live qualification."""
+        for path, historical_hash in HISTORICAL_LOCK_SHA256.items():
+            with self.subTest(lock=path):
+                self.assertEqual(
+                    hashlib.sha256(historical_input(ROOT, path, historical_hash).read_bytes()).hexdigest(),
+                    historical_hash,
+                )
+                self.assertNotEqual(
+                    hashlib.sha256((ROOT / path).read_bytes()).hexdigest(),
+                    historical_hash,
+                    f"{path} needs a new live qualification record before it can be claimed qualified",
+                )

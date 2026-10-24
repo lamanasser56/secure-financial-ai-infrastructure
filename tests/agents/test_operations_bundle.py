@@ -7,7 +7,9 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
+import shutil
 from unittest import mock
+from tests.qualification_history import historical_input
 
 
 class OperationsBundleTests(unittest.TestCase):
@@ -55,15 +57,29 @@ class OperationsBundleTests(unittest.TestCase):
         gate=importlib.util.module_from_spec(spec);spec.loader.exec_module(gate)
         record=json.loads((root/'evaluation/operations/restoration-qualification.json').read_text())
         expected=sum(len(gate.required_inputs(name)) for name in record['subjects'])
-        self.assertEqual(gate.verify(record)['references'],expected)
-        altered=copy.deepcopy(record);altered['subjects']['application']['source_inputs'].pop()
-        with self.assertRaises(ValueError):gate.verify(altered)
-        altered=copy.deepcopy(record);altered['subjects']['application']['archive_sha256'][1]='b'*64
-        with self.assertRaises(ValueError):gate.verify(altered)
-        altered=copy.deepcopy(record)
-        row=next(x for x in altered['subjects']['application']['source_inputs'] if x[1]=='runtime/agents/operations.py')
-        row[0]='0'*64
-        with self.assertRaises(ValueError):gate.verify(altered)
+        # The operational gate must reject today's changed locks. Recreate the
+        # retained subject from exact historical inputs to verify its record.
+        with self.assertRaises(ValueError):gate.verify(record)
+        with tempfile.TemporaryDirectory() as directory:
+            historical_root=Path(directory)
+            for subject in record['subjects'].values():
+                for digest,path in subject['source_inputs']:
+                    target=historical_root/path
+                    target.parent.mkdir(parents=True,exist_ok=True)
+                    shutil.copyfile(historical_input(root,path,digest),target)
+            with mock.patch.object(gate,'ROOT',historical_root):
+                self.assertEqual(gate.verify(record)['references'],expected)
+                altered=copy.deepcopy(record);altered['subjects']['application']['source_inputs'].pop()
+                with self.assertRaises(ValueError):gate.verify(altered)
+                altered=copy.deepcopy(record);altered['subjects']['application']['archive_sha256'][1]='b'*64
+                with self.assertRaises(ValueError):gate.verify(altered)
+                altered=copy.deepcopy(record)
+                row=next(x for x in altered['subjects']['application']['source_inputs'] if x[1]=='runtime/agents/operations.py')
+                row[0]='0'*64
+                with self.assertRaises(ValueError):gate.verify(altered)
+                # Historical bytes are integrity checked, not merely copied.
+                (historical_root/'requirements-agent-composition.txt').write_bytes(b'changed')
+                with self.assertRaises(ValueError):gate.verify(record)
 
     def test_complete_dedicated_render_and_mutation_rejection(self):
         root=Path(__file__).resolve().parents[2]

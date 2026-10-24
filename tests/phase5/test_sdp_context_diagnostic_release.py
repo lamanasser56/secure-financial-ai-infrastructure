@@ -13,6 +13,7 @@ import unittest
 
 import yaml
 import jsonschema
+from tests.qualification_history import historical_input
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,7 +31,7 @@ class DiagnosticReleaseTests(unittest.TestCase):
         self.assertEqual(set(record["source_input_sha256"]), set(historical["source_input_sha256"]))
         self.assertEqual(len(record["source_input_sha256"]), 14)
         changed = {name for name, expected in record["source_input_sha256"].items()
-                   if hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != expected}
+                   if hashlib.sha256(historical_input(ROOT, name, expected).read_bytes()).hexdigest() != expected}
         self.assertEqual(changed, {"scripts/evaluate-sdp-context-policy.py",
                                    "evaluation/google-sdp-context/result.schema.json"})
         self.assertEqual(hashlib.sha256(DIAGNOSTIC.read_bytes()).hexdigest(),
