@@ -8,24 +8,24 @@ A06,AI,Native tools/images/provider fields with valid content,NOT_EXECUTED,,not 
 A07,AI,Streaming and cancellation,NOT_EXECUTED,,not run after scope-limit stop
 A08,AI,"Repeated observations, replay and multi-step escalation",NOT_EXECUTED,,not run after scope-limit stop
 D01,DATA,Raw LiteLLM bypass without redactor receipt,PASS,evidence/f1-direct-gateway-live.json,complete original-case check
-D02,DATA,Standalone synthetic identifier and JSON/multiline DLP canaries,INCONCLUSIVE,evidence/d02-real-sdp-synthetic-canaries.json; evidence/d02-policy-matching-phone-live.json,partial observations; original case not complete
+D02,DATA,Standalone synthetic identifier and JSON/multiline DLP canaries,INCONCLUSIVE,evidence/d02-real-sdp-synthetic-canaries.json; evidence/d02-policy-matching-phone-live.json,partial observations; original case not complete; 2026-10-25 preflight stop before rerun
 D03,DATA,Redactor down/timeout during model request,PASS,evidence/f1-redactor-egress-failure-live.json,complete original-case check
-D04,DATA,Set RLS context to another known synthetic UUID,NOT_EXECUTED,evidence/f2-worker-capability-live.json,partial observations; original case not complete
-D05,DATA,Use issued web role with user_entry:none; username lookup,NOT_EXECUTED,evidence/f2-f3-f4-real-boundaries.json,partial observations; original case not complete
-D06,DATA,Missing/cleared context and connection reuse,INCONCLUSIVE,evidence/f2-f3-f4-real-boundaries.json,Initial no-context and two scoped users on one connection checked; post-scope cleared-context read was not recorded
-D07,DATA,"Role settings, CONNECT/TEMP/catalog/session rights",NOT_EXECUTED,evidence/f2-f3-f4-real-boundaries.json,partial observations; original case not complete
+D04,DATA,Set RLS context to another known synthetic UUID,NOT_EXECUTED,evidence/f2-worker-capability-live.json,partial observations; original case not complete; 2026-10-25 preflight stop before rerun
+D05,DATA,Use issued web role with user_entry:none; username lookup,NOT_EXECUTED,evidence/f2-f3-f4-real-boundaries.json,partial observations; original case not complete; 2026-10-25 preflight stop before rerun
+D06,DATA,Missing/cleared context and connection reuse,INCONCLUSIVE,evidence/f2-f3-f4-real-boundaries.json,Initial no-context and two scoped users on one connection checked; post-scope cleared-context read was not recorded; 2026-10-25 preflight stop before rerun
+D07,DATA,"Role settings, CONNECT/TEMP/catalog/session rights",NOT_EXECUTED,evidence/f2-f3-f4-real-boundaries.json,partial observations; original case not complete; 2026-10-25 preflight stop before rerun
 D08,DATA,Idle relation lock blocks another tenant or schema job,NOT_EXECUTED,,not run after scope-limit stop
 O01,OPS,"Direct API patch with Ops identity, no approval",PASS,evidence/f2-f3-f4-real-boundaries.json,complete original-case check
 O02,OPS,Approval replay/expiry and arguments substitution,PASS,evidence/f4-replay-process-epoch-live.json,complete original-case check
-O03,OPS,Replacement UID/resourceVersion race,NOT_EXECUTED,,not run after scope-limit stop
-O04,OPS,Observe-only target and explanation confused deputy,NOT_EXECUTED,,not run after scope-limit stop
-K01,K8S,Actual-CNI allow/deny peer matrix,NOT_EXECUTED,,not run after scope-limit stop
-K02,K8S,RBAC secrets/exec/create/impersonation attempts,NOT_EXECUTED,evidence/f2-f3-f4-real-boundaries.json,partial observations; original case not complete
-K03,K8S,Admission template changes and restricted PSA,NOT_EXECUTED,,not run after scope-limit stop
+O03,OPS,Replacement UID/resourceVersion race,NOT_EXECUTED,,not run after scope-limit stop; 2026-10-25 preflight stop before rerun
+O04,OPS,Observe-only target and explanation confused deputy,NOT_EXECUTED,,not run after scope-limit stop; 2026-10-25 preflight stop before rerun
+K01,K8S,Actual-CNI allow/deny peer matrix,NOT_EXECUTED,,not run after scope-limit stop; 2026-10-25 preflight stop before rerun
+K02,K8S,RBAC secrets/exec/create/impersonation attempts,NOT_EXECUTED,evidence/f2-f3-f4-real-boundaries.json,partial observations; original case not complete; 2026-10-25 preflight stop before rerun
+K03,K8S,Admission template changes and restricted PSA,NOT_EXECUTED,,not run after scope-limit stop; 2026-10-25 preflight stop before rerun
 K04,K8S,DNS arbitrary query names and recursion,NOT_EXECUTED,,not run after scope-limit stop
-K05,K8S,Workload Identity scope/deputy,NOT_EXECUTED,,not run after scope-limit stop
+K05,K8S,Workload Identity scope/deputy,NOT_EXECUTED,,not run after scope-limit stop; 2026-10-25 preflight stop before rerun
 K06,K8S,Unsigned/mismatched digest admission,PASS,evidence/setup-admission-negative.json,complete original-case check
-R01,API,"Auth failures, spoofed headers, cookie/CSRF tampering",NOT_EXECUTED,evidence/f2-f3-financial-real-http.json,partial observations; original case not complete
+R01,API,"Auth failures, spoofed headers, cookie/CSRF tampering",NOT_EXECUTED,evidence/f2-f3-financial-real-http.json,partial observations; original case not complete; 2026-10-25 preflight stop before rerun
 R02,API,"Slow headers/body, malformed lengths and bounded sockets",NOT_EXECUTED,,not run after scope-limit stop
 R03,LOAD,Tenant fairness and RPM/parallel limits,NOT_EXECUTED,,not run after scope-limit stop
 R04,LOAD,"Concurrent turn accounting, truncation, restart",NOT_EXECUTED,,not run after scope-limit stop

@@ -1,5 +1,11 @@
 # Claude Code final handoff — Agent Runtime Platform RC1
 
+## 2026-10-25 bounded execution preflight: STOPPED
+
+The user authorized one bounded follow-up against `main` `41ffbf260a446b5db2292356a8ea23219e58a524` and four specified published image digests. **No assessment case was executed and no new live verdict was earned.** Static requalification found a material incompatibility before container startup or GKE work: `assessment_overlay/patch_redactor_bundle.py` replaces the `platform-programs` ConfigMap's `redactor_server.py` with `assessment_overlay/redactor_server.py`. The replacement lacks the F7 per-client/global capacity admission and bounded HTTP worker controls present in current main's redactor. Deploying it would undo a current platform fix and invalidate the intended assessment. Under the user's stop-on-material-failure rule, execution stopped; the overlay was not applied. Requalification of the remaining external files was not completed. See [preflight stop evidence](assessment_overlay/evidence/2026-10-25-preflight-stop.md).
+
+The [40-case ledger](assessment_overlay/live-case-verdicts-final.csv) records this stop for the 12 authorized target cases without changing historical verdicts: five prior PASS, two prior INCONCLUSIVE, and 33 NOT_EXECUTED. **None of F1–F4 can be formally closed.** No builds, container startup, local test suite, image pull, GKE resources, temporary grants, SDK attempts, redactions, or external LLM calls occurred in this attempt. The worker VM was started for the authorized preflight but not used for a build or test; it was stopped and verified `TERMINATED`. The disposable project's billing remains unlinked. Worker-VM compute cost is pending; the previous cumulative estimate of about USD7.13 was not a settled invoice. This addendum records the outcome of the new authorization; the dated historical handoff below remains intact.
+
 Prepared 2026-10-24 03:56 UTC. **Stop state:** no new cloud execution was started in this follow-up. No new live verdict was earned. The earlier live assessment remains 5 PASS, 2 INCONCLUSIVE, 33 NOT_EXECUTED; F1–F4 are **not formally closed**. The user has directed that no further runs or cloud resources be started after this handoff.
 
 ## Branch and integration boundary
