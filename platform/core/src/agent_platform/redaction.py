@@ -24,6 +24,11 @@ SUPPORTED_CATEGORIES = frozenset(SUPPORTED_ENTITIES)  # the runtime's canonical 
 WINDOW_SECONDS = 900  # the core BoundaryBudget's maximum lifetime
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
 class WindowedBoundaryBudget(BoundaryBudget):
     """The core redaction budget (operations and bytes) per 15-minute window, renewed for a long-lived session.
 
@@ -63,7 +68,7 @@ class RedactorClient:
             raise ValueError('redaction:invalid_client')
         self._url, self._key, self._timeout = base_url.rstrip('/') + '/redact', key, timeout
         self.budget = budget or BoundaryBudget()
-        self._open = opener or urllib.request.build_opener(urllib.request.ProxyHandler({})).open
+        self._open = opener or urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect()).open
         self._supported = supported
 
     def redact(self, value):
