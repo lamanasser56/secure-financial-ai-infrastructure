@@ -610,11 +610,14 @@ class Web(unittest.TestCase):
         cls.names = {'lama': 'lama_' + suffix, 'sara': 'sara_' + suffix}
         cls.users = [{'id': LAMA, 'username': cls.names['lama'], 'display_name': 'Lama', 'password_hash': hash_password('lama-password-1')},
                      {'id': SARA, 'username': cls.names['sara'], 'display_name': 'Sara', 'password_hash': hash_password('sara-password-1')}]
-        secrets = {'web_password': uuid.uuid4().hex, 'agent_password': uuid.uuid4().hex, 'users': cls.users}
+        # Synthetic compatibility fixture: the v2 bootstrap disables legacy
+        # finance_web/finance_agent logins and provisions scoped broker roles.
+        secrets = {'broker_web_password': uuid.uuid4().hex,
+                   'broker_read_password': uuid.uuid4().hex, 'users': cls.users}
         bootstrap.finance({'finance': secrets}, connect=lambda db: psycopg.connect(**dict(info, dbname=db), autocommit=True))
         role_dsn = lambda role, pw: psycopg.conninfo.make_conninfo(**dict(info, dbname='finance', user=role, password=pw))
-        config = {'web_db_url': role_dsn('finance_web', secrets['web_password']),
-                  'agent_db_url': role_dsn('finance_agent', secrets['agent_password']), 'session_key': 'ab' * 32}
+        config = {'web_db_url': role_dsn('finance_frontdoor', secrets['broker_web_password']),
+                  'agent_db_url': role_dsn('finance_data_broker', secrets['broker_read_password']), 'session_key': 'ab' * 32}
         cls.model = Model()
         httpd = server.ThreadingHTTPServer(('127.0.0.1', 0), server.Handler)
         httpd.store, httpd.sessions, httpd.throttle, httpd.agent = server.build(config, redactor=Redactor(), gateway=cls.model)
