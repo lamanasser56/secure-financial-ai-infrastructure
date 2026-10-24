@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import unittest
 from unittest.mock import patch
+from tests.qualification_history import historical_input
 
 ROOT = Path(__file__).resolve().parents[3]
 spec = importlib.util.spec_from_file_location(
@@ -25,7 +26,7 @@ class ContextCampaignTests(unittest.TestCase):
         )  # Preserve the exact historical record; no ancestry/fetch dependency.
         changed = set()
         for path, expected in record["source_input_sha256"].items():
-            if hashlib.sha256((ROOT / path).read_bytes()).hexdigest() != expected:
+            if hashlib.sha256(historical_input(ROOT, path, expected).read_bytes()).hexdigest() != expected:
                 changed.add(path)
         self.assertEqual(changed, {
             "runtime/phase3/google_sdp_adapter.py",

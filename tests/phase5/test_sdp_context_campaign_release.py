@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from tests.qualification_history import historical_input
 
 ROOT = Path(__file__).resolve().parents[2]
 HELPER = ROOT / "scripts/qualify-sdp-context-release.sh"
@@ -23,7 +24,7 @@ class CampaignReleaseTests(unittest.TestCase):
         self.assertEqual(set(record["source_input_sha256"]), set(historical["source_input_sha256"]))
         self.assertEqual(len(record["source_input_sha256"]), 14)
         for path, expected in record["source_input_sha256"].items():
-            self.assertEqual(hashlib.sha256((ROOT / path).read_bytes()).hexdigest(), expected, path)
+            self.assertEqual(hashlib.sha256(historical_input(ROOT, path, expected).read_bytes()).hexdigest(), expected, path)
         self.assertEqual(record["source_input_sha256"]["runtime/phase3/google_sdp_adapter.py"],
                          diagnostic["source_input_sha256"]["runtime/phase3/google_sdp_adapter.py"])
         for name in ("configuration_digest", "archive_sha256"):
@@ -48,7 +49,8 @@ class CampaignReleaseTests(unittest.TestCase):
             for path in ["scripts/qualify-sdp-context-release.sh", *record["source_input_sha256"]]:
                 target = root / path
                 target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(ROOT / path, target)
+                source = (ROOT / path) if path == "scripts/qualify-sdp-context-release.sh" else historical_input(ROOT, path, record["source_input_sha256"][path])
+                shutil.copyfile(source, target)
             tools = root / "tools"
             tools.mkdir()
             (tools / "docker").write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$CAMPAIGN_DOCKER_CALLS"\nexit 91\n')

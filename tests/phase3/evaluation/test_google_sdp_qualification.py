@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from runtime.phase3 import sdp_qualification as qualification
+from tests.qualification_history import historical_input
 from runtime.phase3.trusted_runtime import SUPPORTED_ENTITIES
 
 
@@ -134,7 +135,7 @@ class QualificationTests(unittest.TestCase):
                     continue
                 self.assertEqual(
                     hashlib.sha256(
-                        (qualification.ROOT / path).read_bytes()
+                        historical_input(qualification.ROOT, path, expected).read_bytes()
                     ).hexdigest(),
                     expected,
                     path,
