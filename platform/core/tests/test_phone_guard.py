@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from agent_platform.programs.phone_guard import mask_phones
-from agent_platform.programs.redactor_server import Handler
+from agent_platform.programs.redactor_server import Capacity, Handler
 
 
 class PhoneGuard(unittest.TestCase):
@@ -31,7 +31,7 @@ class PhoneGuard(unittest.TestCase):
         handler = SimpleNamespace(
             path='/redact', headers={'Content-Length': str(len(raw)), 'Content-Type': 'application/json'},
             rfile=io.BytesIO(raw), client=lambda: 'app', request_id=lambda: 'synthetic', reply=response,
-            server=SimpleNamespace(budget=SimpleNamespace(current=lambda: provider)))
+            server=SimpleNamespace(budget=SimpleNamespace(current=lambda: provider), capacity=Capacity(('app',))))
         with patch('agent_platform.programs.redactor_server.audit'):
             Handler.do_POST(handler)
         return response.call_args.args
