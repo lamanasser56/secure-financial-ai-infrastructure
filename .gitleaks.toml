@@ -1,0 +1,23 @@
+title = "Portfolio secret scanning"
+
+[extend]
+useDefault = true
+
+# These eight source_file_sha256 values were verified against their source files on 2026-10-24.
+# Only their exact JSON lines in the evidence lock are exempt from generic-api-key.
+[[allowlists]]
+description = "Verified SHA-256 source-file hashes in the RC1 evidence lock (2026-10-24)"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^assessment_overlay/candidate-inputs\.lock\.json$''']
+regexTarget = "line"
+regexes = [
+  '''^\s*"contracts/phase4/openapi\.yaml": "[a-f0-9]{64}",?\s*$''',
+  '''^\s*"platform/agents/financial/finance_agent/auth\.py": "[a-f0-9]{64}",?\s*$''',
+  '''^\s*"platform/clouds/gke/token_guard\.py": "[a-f0-9]{64}",?\s*$''',
+  '''^\s*"platform/core/kubernetes/agents/platform-access\.yaml": "[a-f0-9]{64}",?\s*$''',
+  '''^\s*"platform/core/src/agent_platform/platform_secrets\.py": "[a-f0-9]{64}",?\s*$''',
+  '''^\s*"platform/core/tests/test_auth_headers_rc1\.py": "[a-f0-9]{64}",?\s*$''',
+  '''^\s*"runtime/agents/credentials\.py": "[a-f0-9]{64}",?\s*$''',
+  '''^\s*"scripts/scan-secrets\.sh": "[a-f0-9]{64}",?\s*$''',
+]
