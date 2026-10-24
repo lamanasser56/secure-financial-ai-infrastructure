@@ -68,7 +68,7 @@ metadata: {name: ops-agent-registry, namespace: ops}
 data:
   platform.gateway.min: "1"
   platform.gateway.max: "1"
-  platform.gateway.health: "http://gateway.platform.svc.cluster.local:4000/health/liveliness"
+  platform.gateway.health: "http://gateway-provider.platform.svc.cluster.local:4001/health/liveliness"
   platform.redactor.min: "1"
   platform.redactor.max: "2"
   platform.redactor.health: "http://redactor.platform.svc.cluster.local:4003/healthz"

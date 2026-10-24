@@ -49,7 +49,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(raw)
 
     def authorized(self):
-        return hmac.compare_digest(self.headers.get('Authorization', ''), 'Bearer ' + self.server.api_key)
+        supplied = self.headers.get('Authorization', '')
+        return supplied.isascii() and hmac.compare_digest(supplied, 'Bearer ' + self.server.api_key)
 
     def do_GET(self):
         if self.path == '/v1/health':
@@ -93,7 +94,7 @@ def scanner(agent, stop):
 
 def build(config_dir=Path('/secrets/ops'), registry_dir=Path('/registry'), observe_dir=Path('/observe')):
     config = json.loads((config_dir / 'ops.json').read_text(), object_pairs_hook=unique)
-    if set(config) != {'api_key', 'approver_public_key', 'gateway_key', 'redactor_key'}:
+    if set(config) != {'api_key', 'approver_public_key', 'gateway_key', 'redactor_key', 'executor_key'}:
         raise SystemExit('ops:config_rejected')
     explainer = None
     if config['gateway_key'] and config['redactor_key']:
@@ -102,7 +103,9 @@ def build(config_dir=Path('/secrets/ops'), registry_dir=Path('/registry'), obser
         explainer = Explainer('http://gateway.platform.svc.cluster.local:4000', config['gateway_key'],
                               RedactorClient('http://redactor.platform.svc.cluster.local:4003', config['redactor_key']))
     targets = dict(registry.load(registry_dir), **registry.load_observe(observe_dir))  # remediation + read-only targets
-    agent = Agent(Client(), targets, Verifier(config['approver_public_key']), explainer=explainer)
+    from agent_platform.ops.executor import ExecutorClient
+    agent = Agent(Client(), targets, Verifier(config['approver_public_key']), explainer=explainer,
+                  executor=ExecutorClient(config['executor_key']))
     return agent, config['api_key']
 
 

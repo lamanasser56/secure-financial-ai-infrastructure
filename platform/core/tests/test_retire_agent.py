@@ -40,17 +40,36 @@ class RetireAgent(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         root = Path(self.tmp.name)
         self.store = root / 'store.json'
-        bootstrap = {'master_key': 'master-' + SECRET_VALUE, 'virtual_keys': [
-            {'alias': 'app-infrastructure', 'key': 'sk-a', 'max_budget': 2.5},
-            {'alias': 'agent-financial', 'key': 'sk-f', 'max_budget': 5.0},
-            {'alias': 'agent-hello', 'key': SECRET_VALUE, 'max_budget': 0.5}]}
+        bootstrap = {'boundary_contract': 2, 'master_key': 'master-' + SECRET_VALUE, 'virtual_keys': [
+            {'alias': 'boundary-app-infrastructure', 'key': 'sk-a', 'max_budget': 2.5},
+            {'alias': 'boundary-agent-financial', 'key': 'sk-f', 'max_budget': 5.0},
+            {'alias': 'boundary-agent-hello', 'key': SECRET_VALUE, 'max_budget': 0.5}]}
         clients = {'app': 'a' * 64, 'ops': 'b' * 64, 'agent-financial': 'c' * 64, 'agent-hello': 'd' * 64}
         self.store.write_text(json.dumps({
             'platform/bootstrap': secret('platform', 'bootstrap', 'bootstrap.json', bootstrap),
-            'platform/redactor': secret('platform', 'redactor', 'clients.json', clients)}))
+            'platform/redactor': secret('platform', 'redactor', 'clients.json', clients),
+            'platform/gateway-boundary': secret('platform','gateway-boundary','boundary.json', {'clients':{'agent-hello':{'external_key':'gw-'+SECRET_VALUE},'agent-financial':{'external_key':'kept'}}}),
+            'apps/financial-frontdoor':secret('apps','financial-frontdoor','frontdoor.json',{'agent_name':'financial','broker_clients':{},'worker_keys':{}})}))
         self.kubectl = root / 'kubectl'
         self.kubectl.write_text(FAKE_KUBECTL.format(python=os.sys.executable, store=str(self.store)))
         self.kubectl.chmod(self.kubectl.stat().st_mode | stat.S_IEXEC)
+
+        # In-process fake kubectl: tests never spawn a command or use a real kubeconfig.
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        def fake_run(command, **kwargs):
+            data=json.loads(self.store.read_text())
+            if 'get' in command:
+                ns=command[command.index('-n')+1];name=command[command.index('secret')+1]
+                return SimpleNamespace(stdout=json.dumps(data[ns+'/'+name]) if ns+'/'+name in data else '',returncode=0)
+            for item in json.loads(kwargs['input'])['items']:
+                data[item['metadata']['namespace']+'/'+item['metadata']['name']]=item
+            self.store.write_text(json.dumps(data))
+            applied=Path(str(self.store)+'.applied')
+            with applied.open('a') as handle:handle.write('1\n')
+            return SimpleNamespace(stdout='',returncode=0)
+        self.fake=patch.object(platform_secrets.subprocess,'run',side_effect=fake_run)
+        self.fake.start();self.addCleanup(self.fake.stop)
 
     def run_retire(self, name='hello'):
         out = io.StringIO()
@@ -71,7 +90,7 @@ class RetireAgent(unittest.TestCase):
         output = self.run_retire()
         boot = self.decode('platform/bootstrap', 'bootstrap.json')
         clients = self.decode('platform/redactor', 'clients.json')
-        self.assertEqual([k['alias'] for k in boot['virtual_keys']], ['app-infrastructure', 'agent-financial'])
+        self.assertEqual([k['alias'] for k in boot['virtual_keys']], ['boundary-app-infrastructure', 'boundary-agent-financial'])
         self.assertEqual(sorted(clients), ['agent-financial', 'app', 'ops'])
         self.assertEqual(boot['master_key'], before_boot['master_key'])  # nothing else is rotated or removed
         self.assertEqual(boot['virtual_keys'][:2], before_boot['virtual_keys'][:2])

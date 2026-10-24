@@ -1,114 +1,243 @@
-# Security & Operations Agent: read-only observation of the registered namespaces, and patch limited by
-# name to the registered Deployments. No secrets, configmaps, exec/attach/port-forward, create/delete,
-# RBAC changes or cluster-scoped writes. The ValidatingAdmissionPolicy in admission.yaml further limits
-# what a patch may change, even if this identity is compromised.
+# RC1: only the independent executor may mutate; both identities can read the named registry.
 apiVersion: v1
+automountServiceAccountToken: false
 kind: ServiceAccount
 metadata:
   name: ops-agent
   namespace: ops
-automountServiceAccountToken: false # mounted only into the agent Pod, as a projected short-lived token
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
-metadata: {name: ops-agent-observe, namespace: platform}
+metadata:
+  name: ops-agent-observe
+  namespace: platform
 rules:
-  - apiGroups: [""]
-    resources: [pods, events, services]
-    verbs: [get, list, watch]
-  - apiGroups: [""]
-    resources: [pods/log]
-    verbs: [get]
-  - apiGroups: [apps]
-    resources: [deployments, replicasets, statefulsets]
-    verbs: [get, list, watch]
-  - apiGroups: [networking.k8s.io]
-    resources: [networkpolicies]
-    verbs: [get, list]
-  - apiGroups: [rbac.authorization.k8s.io]
-    resources: [roles, rolebindings]
-    verbs: [get, list]
-  - apiGroups: [metrics.k8s.io]
-    resources: [pods]
-    verbs: [get, list]
+  - apiGroups:
+      - ''
+    resources:
+      - pods
+      - events
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ''
+    resources:
+      - pods/log
+    verbs:
+      - get
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - networkpolicies
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - roles
+      - rolebindings
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - metrics.k8s.io
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
-metadata: {name: ops-agent-observe, namespace: apps}
+metadata:
+  name: ops-agent-observe
+  namespace: apps
 rules:
-  - apiGroups: [""]
-    resources: [pods, events, services]
-    verbs: [get, list, watch]
-  - apiGroups: [""]
-    resources: [pods/log]
-    verbs: [get]
-  - apiGroups: [apps]
-    resources: [deployments, replicasets, statefulsets]
-    verbs: [get, list, watch]
-  - apiGroups: [networking.k8s.io]
-    resources: [networkpolicies]
-    verbs: [get, list]
-  - apiGroups: [rbac.authorization.k8s.io]
-    resources: [roles, rolebindings]
-    verbs: [get, list]
-  - apiGroups: [metrics.k8s.io]
-    resources: [pods]
-    verbs: [get, list]
+  - apiGroups:
+      - ''
+    resources:
+      - pods
+      - events
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ''
+    resources:
+      - pods/log
+    verbs:
+      - get
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - networkpolicies
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - roles
+      - rolebindings
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - metrics.k8s.io
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
-metadata: {name: ops-agent-remediate, namespace: platform}
+metadata:
+  name: ops-agent-remediate
+  namespace: platform
 rules:
-  - apiGroups: [apps]
-    resources: [deployments]
-    resourceNames: [gateway, redactor]
-    verbs: [patch]
+  - apiGroups:
+      - apps
+    resourceNames:
+      - gateway
+      - redactor
+    resources:
+      - deployments
+    verbs:
+      - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
-metadata: {name: ops-agent-remediate, namespace: apps}
+metadata:
+  name: ops-agent-remediate
+  namespace: apps
 rules:
-  - apiGroups: [apps]
-    resources: [deployments]
-    resourceNames: [app, fault-demo]
-    verbs: [patch]
+  - apiGroups:
+      - apps
+    resourceNames:
+      - app
+      - fault-demo
+    resources:
+      - deployments
+    verbs:
+      - patch
 ---
-# Its own registry (the same ConfigMap is the admission policy's parameter).
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
-metadata: {name: ops-agent-registry, namespace: ops}
+metadata:
+  name: ops-agent-registry
+  namespace: ops
 rules:
-  - apiGroups: [""]
-    resources: [configmaps]
-    resourceNames: [ops-agent-registry]
-    verbs: [get]
+  - apiGroups:
+      - ''
+    resourceNames:
+      - ops-agent-registry
+    resources:
+      - configmaps
+    verbs:
+      - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
-metadata: {name: ops-agent-observe, namespace: platform}
-roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: ops-agent-observe}
-subjects: [{kind: ServiceAccount, name: ops-agent, namespace: ops}]
+metadata:
+  name: ops-agent-observe
+  namespace: platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ops-agent-observe
+subjects:
+  - kind: ServiceAccount
+    name: ops-agent
+    namespace: ops
+  - kind: ServiceAccount
+    name: ops-executor
+    namespace: ops
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
-metadata: {name: ops-agent-observe, namespace: apps}
-roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: ops-agent-observe}
-subjects: [{kind: ServiceAccount, name: ops-agent, namespace: ops}]
+metadata:
+  name: ops-agent-observe
+  namespace: apps
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ops-agent-observe
+subjects:
+  - kind: ServiceAccount
+    name: ops-agent
+    namespace: ops
+  - kind: ServiceAccount
+    name: ops-executor
+    namespace: ops
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
-metadata: {name: ops-agent-remediate, namespace: platform}
-roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: ops-agent-remediate}
-subjects: [{kind: ServiceAccount, name: ops-agent, namespace: ops}]
+metadata:
+  name: ops-agent-remediate
+  namespace: platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ops-agent-remediate
+subjects:
+  - kind: ServiceAccount
+    name: ops-executor
+    namespace: ops
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
-metadata: {name: ops-agent-remediate, namespace: apps}
-roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: ops-agent-remediate}
-subjects: [{kind: ServiceAccount, name: ops-agent, namespace: ops}]
+metadata:
+  name: ops-agent-remediate
+  namespace: apps
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ops-agent-remediate
+subjects:
+  - kind: ServiceAccount
+    name: ops-executor
+    namespace: ops
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
-metadata: {name: ops-agent-registry, namespace: ops}
-roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: ops-agent-registry}
-subjects: [{kind: ServiceAccount, name: ops-agent, namespace: ops}]
+metadata:
+  name: ops-agent-registry
+  namespace: ops
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ops-agent-registry
+subjects:
+  - kind: ServiceAccount
+    name: ops-agent
+    namespace: ops
+  - kind: ServiceAccount
+    name: ops-executor
+    namespace: ops

@@ -191,7 +191,7 @@ spec:
               kubernetes.io/metadata.name: platform
           podSelector:
             matchLabels:
-              app.kubernetes.io/name: gateway
+              app.kubernetes.io/name: gateway-boundary
     - ports:
         - port: 4003
           protocol: TCP

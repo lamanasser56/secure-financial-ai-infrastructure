@@ -5,15 +5,16 @@ the platform decides everything security-relevant (docs/agent-developer-guide.md
 
 - its own namespace `agent-<name>`: Pod Security "restricted", default-deny NetworkPolicies, a quota with no load
   balancers or node ports, no Kubernetes API token, a hardened container;
-- egress only to DNS, the redactor and the LiteLLM gateway (never the internet, never a model provider);
+- egress only to DNS, the redactor and the trusted redacting gateway (never the internet, never a model provider);
 - a scoped gateway key with the declared monthly budget (the platform total stays $10) and a redactor client key,
-  created by `make up` (platform_secrets.onboard) without rotating any existing key;
+  provisioned by the reviewed v2 cutover (legacy `make up` is blocked);
 - tools declared read-only (the agent's code is bound to its manifest by a test);
-- data only through platform roles under row-level security (egress to Postgres only when declared).
+- Financial data only through a trusted, per-user-bound broker; workers have no Postgres path or credential.
 
 Anything outside the closed manifest shape is rejected with a reason, before anything is rendered.
 `check` verifies that the committed generated files match the manifests (run by `make test`).
 """
+import copy
 import json
 from pathlib import Path
 import re
@@ -35,9 +36,10 @@ PLATFORM_IMAGES = {'gateway', 'database', 'redactor', 'app', 'ops-agent'}  # app
 RESERVED = {'platform', 'apps', 'ops', 'default', 'app', 'gateway', 'redactor', 'postgres', 'schema', 'ops-agent',
             'infrastructure', 'kube-system', 'kube-public', 'kube-node-lease'}
 DATABASES = {'finance'}  # platform databases with per-user row-level security (platform/core/database/*.sql)
-GATEWAY = ('platform', 'gateway', 4000)
+GATEWAY = ('platform', 'gateway-boundary', 4000)
 REDACTOR = ('platform', 'redactor', 4003)
-POSTGRES = ('platform', 'postgres', 5432)
+DATA_BROKER = ('apps', 'financial-frontdoor', 8082)
+USER_SLOTS = ('u1', 'u2', 'u3')  # one process/key boundary per synthetic user, never shared user memory
 TOOL_ID = re.compile(r'[a-z][a-z_]{2,40}')
 WRITE_WORDS = re.compile(r'add|create|insert|update|delete|remove|set|write|pay|transfer|send|approve|execute', re.I)
 NAME = re.compile(r'[a-z][a-z0-9-]{1,20}[a-z0-9]')
@@ -152,9 +154,10 @@ def validate(m, name, *, others=None):
         require(isinstance(tool['description'], str) and 0 < len(tool['description']) <= 200, 'tool description: 1-200 characters')
         ids.append(tool['id'])
     require(len(ids) == len(set(ids)), 'tools: distinct ids')
-    # Data: none, or a platform database under per-user row-level security. The agent's tools read only; the agent's
-    # web API may add the signed-in user's own rows. Roles and network paths are created by the platform.
+    # Data: none, or the reviewed Financial broker contract. Only trusted services select SQL identity;
+    # per-user workers receive separate keys and no database/session/signing credential.
     if m['data'] != 'none':
+        require(name == 'financial', 'data: trusted per-user routes currently support the Financial example only; other data agents require a reviewed broker contract')
         closed(m['data'], {'database', 'agent_access', 'user_entry', 'row_level_security'}, 'data')
         require(m['data']['database'] in DATABASES, 'data.database: must be a platform database')
         require(m['data']['agent_access'] == 'read', 'data.agent_access: read only')
@@ -200,8 +203,8 @@ def namespace_agents(manifests):
 
 
 def egress(manifest):
-    """The only destinations an agent's pods may reach (plus DNS): the gateway, the redactor, and Postgres if declared."""
-    return [_peer(*GATEWAY), _peer(*REDACTOR)] + ([_peer(*POSTGRES)] if manifest['data'] != 'none' else [])
+    """The only destinations an agent's pods may reach (plus DNS): the trusted gateway, redactor, and data broker if declared."""
+    return [_peer(*GATEWAY), _peer(*REDACTOR)] + ([_peer(*DATA_BROKER)] if manifest['data'] != 'none' else [])
 
 
 def _peer(namespace, name, port):
@@ -217,7 +220,7 @@ def render_agent(m):
     labels = {'app.kubernetes.io/name': 'agent', 'app.kubernetes.io/part-of': 'agent-platform', 'agent-platform/agent': name}
     meta = lambda kind_name: {'name': kind_name, 'namespace': ns}
     cpu, memory = r['resources']['cpu'], r['resources']['memory']
-    return [
+    rendered = [
         {'apiVersion': 'v1', 'kind': 'Namespace',
          'metadata': {'name': ns, 'labels': {'agent-platform/tier': 'agent', 'agent-platform/agent': name,
                                              'pod-security.kubernetes.io/enforce': 'restricted',
@@ -268,19 +271,49 @@ def render_agent(m):
         {'apiVersion': 'networking.k8s.io/v1', 'kind': 'NetworkPolicy', 'metadata': meta('agent'),
          'spec': {'podSelector': {'matchLabels': {'app.kubernetes.io/name': 'agent'}}, 'policyTypes': ['Egress'],
                   'egress': egress(m)}},
-    ]
+    ] + ([{'apiVersion': 'networking.k8s.io/v1', 'kind': 'NetworkPolicy', 'metadata': meta('trusted-frontdoor'),
+            'spec': {'podSelector': {'matchLabels': {'app.kubernetes.io/name': 'agent'}}, 'policyTypes': ['Ingress'],
+                     'ingress': [{'from': [{'namespaceSelector': {'matchLabels': {'kubernetes.io/metadata.name': 'apps'}},
+                                            'podSelector': {'matchLabels': {'app.kubernetes.io/name': 'financial-frontdoor'}}}],
+                                  'ports': [{'protocol': 'TCP', 'port': r['port']}]}]}}] if m['data'] != 'none' else [])
+
+    if m['data'] != 'none':
+        expanded = []
+        for doc in rendered:
+            if doc['kind'] not in ('Deployment', 'Service'):
+                expanded.append(doc)
+                continue
+            for slot in USER_SLOTS:
+                item = copy.deepcopy(doc)
+                item['metadata']['name'] = 'agent-' + slot
+                if item['kind'] == 'Deployment':
+                    item['spec']['selector']['matchLabels']['agent-platform/user-slot'] = slot
+                    pod = item['spec']['template']
+                    pod['metadata']['labels']['agent-platform/user-slot'] = slot
+                    pod['spec']['volumes'][0]['secret']['secretName'] = 'agent-' + slot
+                else:
+                    item['spec']['selector']['agent-platform/user-slot'] = slot
+                expanded.append(item)
+        rendered = expanded
+        quota = next(d for d in rendered if d['kind'] == 'ResourceQuota')['spec']['hard']
+        count = r['replicas'] * len(USER_SLOTS) + 1
+        quota.update({'pods': str(count), 'requests.cpu': str(int(cpu[:-1]) * count) + 'm',
+                      'limits.cpu': str(int(cpu[:-1]) * count) + 'm',
+                      'requests.memory': str(int(memory[:-2]) * count) + 'Mi',
+                      'limits.memory': str(int(memory[:-2]) * count) + 'Mi'})
+    return rendered
 
 
 def render_platform_access(manifests):
     """Additive NetworkPolicies in `platform`: the gateway and the redactor accept each onboarded agent namespace."""
     docs = []
     for name in namespace_agents(manifests):
-        targets = [('gateway', GATEWAY[2]), ('redactor', REDACTOR[2])]
+        targets = [('gateway-boundary', GATEWAY[2], 'platform'), ('redactor', REDACTOR[2], 'platform')]
         if manifests[name]['data'] != 'none':
-            targets.append(('postgres', POSTGRES[2]))
-        for target, port in targets:
+            targets.append(('financial-frontdoor', DATA_BROKER[2], 'apps'))
+        for target, port, namespace in targets:
             docs.append({'apiVersion': 'networking.k8s.io/v1', 'kind': 'NetworkPolicy',
-                         'metadata': {'name': 'agent-' + name + '-to-' + target, 'namespace': 'platform'},
+                         'metadata': {'name': 'agent-' + name + '-to-' + target, 'namespace': namespace},
                          'spec': {'podSelector': {'matchLabels': {'app.kubernetes.io/name': target}}, 'policyTypes': ['Ingress'],
                                   'ingress': [{'from': [{'namespaceSelector': {'matchLabels': {'kubernetes.io/metadata.name': 'agent-' + name}},
                                                          'podSelector': {'matchLabels': {'app.kubernetes.io/name': 'agent'}}}],
@@ -291,11 +324,12 @@ def render_platform_access(manifests):
 def render_ops_observe(manifests):
     """Read-only monitoring by the Security & Operations Agent: a target list and a read-only Role per agent namespace."""
     docs = [{'apiVersion': 'v1', 'kind': 'ConfigMap', 'metadata': {'name': 'ops-agent-observe', 'namespace': 'ops'},
-             'data': {'agent-' + n + '.agent.observe': 'read-only' for n in namespace_agents(manifests)}}]
+             'data': {'agent-' + n + '.' + worker + '.observe': 'read-only' for n in namespace_agents(manifests)
+                      for worker in (['agent-' + slot for slot in USER_SLOTS] if manifests[n]['data'] != 'none' else ['agent'])}}]
     for name in namespace_agents(manifests):
         ns = 'agent-' + name
         docs += [{'apiVersion': 'rbac.authorization.k8s.io/v1', 'kind': 'Role', 'metadata': {'name': 'ops-agent-observe', 'namespace': ns},
-                  'rules': [{'apiGroups': ['apps'], 'resources': ['deployments'], 'resourceNames': ['agent'], 'verbs': ['get']},
+                  'rules': [{'apiGroups': ['apps'], 'resources': ['deployments'], 'resourceNames': (['agent-' + slot for slot in USER_SLOTS] if manifests[name]['data'] != 'none' else ['agent']), 'verbs': ['get']},
                             {'apiGroups': [''], 'resources': ['pods', 'events'], 'verbs': ['list']},
                             # live proof that default-deny is in place (console); the policies are not secret
                             {'apiGroups': ['networking.k8s.io'], 'resources': ['networkpolicies'], 'verbs': ['get', 'list']}]},
@@ -334,7 +368,7 @@ def outputs():
 
 
 def summary(manifest):
-    reach = 'the redactor and the gateway' + (' and Postgres (row-level security)' if manifest['data'] != 'none' else '')
+    reach = 'the redactor and the gateway' + (' and the capability-checked data broker (no database credentials)'  if manifest['data'] != 'none' else '')
     inherited = ['own namespace agent-' + manifest['agent'] + ' (Pod Security restricted)',
                  'default-deny network; egress only to ' + reach, 'no Kubernetes API token', 'no public Service',
                  'redaction before every model call', 'gateway key only (no provider access)', 'audit',

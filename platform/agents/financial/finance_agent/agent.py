@@ -385,8 +385,9 @@ class FinanceAgent:
             'tool_calls': turn['tool_calls'],
             # Honest scope statement: what the data path was, not a claim that RLS refused anything. Unregistered tools and
             # bad arguments are rejected by the tool design in code before any query runs.
-            'data_access': ({'statement': 'tools_ran_as_read_only_role_under_force_rls_scoped_to_user_ref',
-                             'role': 'finance_agent', 'scoped_to': user_ref} if turn['tool_calls'] else None),
+            'data_access': ({'statement': ('broker_checked_active_user_capability' if hasattr(self._store, 'invoke_tool')
+                                          else 'tools_ran_as_read_only_role_under_force_rls_scoped_to_user_ref'),
+                             'role': 'finance_data_broker' if hasattr(self._store, 'invoke_tool') else 'finance_agent', 'scoped_to': user_ref} if turn['tool_calls'] else None),
             'grounding_result': grounding,
             'redaction': {'calls': turn['redactor_calls'], 'categories': dict(sorted(turn['redaction'].items())),
                           'counted': 'redactor_calls_in_which_the_category_was_found'},
@@ -452,7 +453,10 @@ class FinanceAgent:
             if any(o['tool'] == name and o['args'] == args for o in observations):
                 raise Blocked('repeated_tool_call')
             try:
-                result = TOOLS[name][0](self._store, user_id, args)
+                if hasattr(self._store, 'invoke_tool'):
+                    result = self._store.invoke_tool(name, user_id, args)
+                else:
+                    result = TOOLS[name][0](self._store, user_id, args)
             except ToolRejected:
                 raise Blocked('tool_arguments_rejected') from None
             except Exception:  # database unavailable or any unexpected error: stop safely, show nothing

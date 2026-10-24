@@ -21,7 +21,7 @@ PLATFORM_NAMESPACES = ('platform', 'apps', 'ops')
 
 
 def onboarded():
-    """{namespace: egress the agent may have} from its manifest: gateway + redactor, and Postgres only if declared."""
+    """{namespace: egress the agent may have} from its manifest: gateway + redactor, and the trusted data broker only if declared."""
     sys.path.insert(0, str(HERE.parents[1] / 'core/src'))
     from agent_platform import onboarding
     manifests = onboarding.load_all()
@@ -56,7 +56,8 @@ def substitute(text, *, project_id, control_plane_cidr, gateway_gsa, redactor_gs
     require(network.is_private and network.prefixlen == 28, 'control plane cidr')
     for email in (gateway_gsa, redactor_gsa):
         require(re.fullmatch(r'[a-z][a-z0-9-]{4,29}@' + re.escape(project_id) + r'\.iam\.gserviceaccount\.com', email or ''), 'service account')
-    registry = images['registry'].replace('PROJECT_ID', project_id)
+    registry = images['registry']
+    require('PROJECT_ID' not in registry, 'full immutable source registry required; deployment project must not rewrite image identity')
     require(re.fullmatch(r'us-east1-docker\.pkg\.dev/[a-z0-9-]+/[a-z0-9-]+/', registry), 'registry')
     refs = {}
     for name in IMAGE_NAMES:
@@ -64,7 +65,9 @@ def substitute(text, *, project_id, control_plane_cidr, gateway_gsa, redactor_gs
         if ref == 'PENDING_CI' and allow_pending:
             ref = 'pending-' + name + '@sha256:' + '0' * 64
         require(re.fullmatch(r'[a-z0-9-]+@sha256:[a-f0-9]{64}', ref), 'image not digest-pinned: ' + name)
-        refs[name] = registry + ref
+        refs[name] = images.get('full_refs', {}).get(name, registry + ref)
+        require(refs[name].endswith('/' + ref), 'full image reference must match declared subject: ' + name)
+        require(re.fullmatch(r'us-east1-docker\.pkg\.dev/[a-z0-9-]+/[a-z0-9-]+/[a-z0-9-]+@sha256:[a-f0-9]{64}', refs[name]), 'full digest image reference required: ' + name)
     for name, ref in refs.items():
         text = re.sub(r'(image: )agent-platform/' + re.escape(name) + r'\b(?![-\w])', r'\g<1>' + ref, text)
         text = text.replace('IMAGE:' + name, ref)
@@ -99,7 +102,7 @@ def validate(docs, refs):
                 and quota[0]['spec']['hard'].get('services.nodeports') == '0', 'quota without exposure: ' + name)
     for name in agents:  # onboarded agents: only the generated network paths, nothing else
         policies = {p['metadata']['name']: p['spec'] for p in by_kind['NetworkPolicy'] if p['metadata']['namespace'] == name}
-        require(set(policies) == {'default-deny', 'allow-dns', 'agent'}, 'agent network policies: ' + name)
+        require(set(policies) == ({'default-deny', 'allow-dns', 'agent', 'trusted-frontdoor'} if name == 'agent-financial' else {'default-deny', 'allow-dns', 'agent'}), 'agent network policies: ' + name)
         require(policies['agent']['egress'] == agents[name] and 'ingress' not in policies['agent'], 'agent egress: ' + name)
         rbac = [r for r in by_kind.get('Role', []) + by_kind.get('RoleBinding', []) if r['metadata']['namespace'] == name]
         require(sorted((r['kind'], r['metadata']['name']) for r in rbac) == [('Role', 'ops-agent-observe'), ('RoleBinding', 'ops-agent-observe')],
@@ -128,18 +131,23 @@ def validate(docs, refs):
             for flag in ('hostNetwork', 'hostPID', 'hostIPC'):
                 require(not pod.get(flag), flag + ': ' + where)
             token_mounts = [v for v in pod.get('volumes', []) if 'projected' in v and any('serviceAccountToken' in s for s in v['projected']['sources'])]
-            require(bool(token_mounts) == (where == 'Deployment/ops-agent'), 'API token only for the ops agent: ' + where)
+            require(bool(token_mounts) == (where in ('Deployment/ops-agent', 'Deployment/ops-executor')), 'API token only for read-only Ops and trusted executor: ' + where)
             for c in pod.get('containers', []) + pod.get('initContainers', []):
                 sc = c.get('securityContext') or {}
                 require(sc.get('allowPrivilegeEscalation') is False and sc.get('readOnlyRootFilesystem') is True
                         and sc.get('capabilities') == {'drop': ['ALL']} and not sc.get('privileged'), 'container security: ' + where)
-                require(c['image'] in allowed_images, 'image not signed/registered: ' + where + ' ' + c['image'])
+                require(c['image'] in allowed_images, 'image not present in selected release lock: ' + where + ' ' + c['image'])
                 require(not any('hostPort' in p for p in c.get('ports', [])), 'hostPort: ' + where)
                 require('resources' in c and 'limits' in c['resources'], 'limits: ' + where)
                 images_used.add(c['image'])
     roles = by_kind.get('Role', [])
     bindings = by_kind.get('RoleBinding', [])
-    require(all(s == {'kind': 'ServiceAccount', 'name': 'ops-agent', 'namespace': 'ops'} for b in bindings for s in b['subjects']), 'only the ops agent is bound')
+    require(all(s in ({'kind': 'ServiceAccount', 'name': 'ops-agent', 'namespace': 'ops'}, {'kind': 'ServiceAccount', 'name': 'ops-executor', 'namespace': 'ops'}) for b in bindings for s in b['subjects']), 'only declared Ops and executor service accounts may be bound')
+    for binding in bindings:
+        role = next((r for r in roles if r['metadata']['namespace'] == binding['metadata']['namespace'] and r['metadata']['name'] == binding['roleRef']['name']), None)
+        require(role is not None, 'bound namespaced role required')
+        if any(set(rule['verbs']) & {'patch', 'update'} for rule in role['rules']):
+            require(binding['subjects'] == [{'kind': 'ServiceAccount', 'name': 'ops-executor', 'namespace': 'ops'}], 'mutation credentials belong only to independent executor')
     for role in roles:
         for rule in role['rules']:
             verbs = set(rule['verbs'])
@@ -154,7 +162,11 @@ def validate(docs, refs):
 
 
 def render(args, allow_pending=False):
-    images = json.loads((HERE / 'images.json').read_text())
+    require(args.images_lock is not None, 'new qualified v2 image lock required; historical pins cannot deploy this source')
+    images = json.loads(Path(args.images_lock).read_text())
+    require(images.get('runtime_contract') == 'trusted-boundaries-v2', 'trusted boundary release contract required')
+    historical = json.loads((HERE / 'images.json').read_text())
+    require(all(images.get('full_refs', {}).get(name, images['images'][name]).split('@sha256:')[-1] != historical['images'][name].split('@sha256:')[-1] for name in ('app', 'ops-agent', 'agent-financial', 'platform-guide')), 'changed source requires new image subjects')
     text, refs = substitute(kustomize(args.kubectl), project_id=args.project_id, control_plane_cidr=args.control_plane_cidr,
                             gateway_gsa=args.gateway_gsa, redactor_gsa=args.redactor_gsa, images=images,
                             allow_pending=allow_pending)
@@ -165,6 +177,7 @@ def render(args, allow_pending=False):
 def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('--project-id', required=True)
+    parser.add_argument('--images-lock', help='separately qualified v2 release lock; never overwrites historical images.json')
     parser.add_argument('--control-plane-cidr', default='172.16.0.16/28')
     parser.add_argument('--gateway-gsa', required=True)
     parser.add_argument('--redactor-gsa', required=True)

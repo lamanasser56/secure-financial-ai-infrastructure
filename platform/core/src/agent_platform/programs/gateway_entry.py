@@ -21,7 +21,7 @@ def main():
     prisma_platform.binary_platform = lambda: PRISMA_BINARY_PLATFORM
     import litellm_proxy_extras.prisma_toolchain as prisma_toolchain
     prisma_toolchain.prisma_cli_available = lambda: False
-    sys.argv = ['/app/proxy.py', '--config', '/config/litellm.yaml', '--host', '0.0.0.0', '--port', '4000',
+    sys.argv = ['/app/proxy.py', '--config', '/config/litellm.yaml', '--host', '0.0.0.0', '--port', '4001',
                 '--num_workers', '1']
     from litellm.proxy.proxy_cli import run_server
     run_server()

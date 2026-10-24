@@ -1,214 +1,457 @@
-# platform namespace: gateway (LiteLLM), redactor, Postgres (RLS), and the one-shot bootstrap jobs.
-# Images are logical names; the cloud overlay pins them to signed digests. Programs come from the
-# generated ConfigMaps (repo files, content-hashed by kustomize). Secrets are created by `make secrets`.
+# RC1 trusted boundary migration; source only, requires new qualified artifacts and owner cutover.
 apiVersion: v1
-kind: ServiceAccount
-metadata: {name: gateway, namespace: platform}
 automountServiceAccountToken: false
----
-apiVersion: v1
 kind: ServiceAccount
-metadata: {name: redactor, namespace: platform}
-automountServiceAccountToken: false
----
-apiVersion: v1
-kind: ServiceAccount
-metadata: {name: postgres, namespace: platform}
-automountServiceAccountToken: false
----
-apiVersion: v1
-kind: ServiceAccount
-metadata: {name: schema, namespace: platform}
-automountServiceAccountToken: false
----
-apiVersion: apps/v1
-kind: Deployment
 metadata:
   name: gateway
   namespace: platform
-  labels: {app.kubernetes.io/name: gateway, app.kubernetes.io/part-of: agent-platform}
-spec:
-  replicas: 1
-  revisionHistoryLimit: 3
-  selector: {matchLabels: {app.kubernetes.io/name: gateway}}
-  strategy: {type: Recreate}
-  template:
-    metadata:
-      labels: {app.kubernetes.io/name: gateway, app.kubernetes.io/part-of: agent-platform}
-    spec:
-      serviceAccountName: gateway
-      automountServiceAccountToken: false
-      securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532, seccompProfile: {type: RuntimeDefault}}
-      containers:
-        - name: gateway
-          image: agent-platform/gateway
-          command: [/usr/local/bin/python3.12, /programs/gateway_entry.py]
-          ports: [{name: http, containerPort: 4000}]
-          env:
-            - {name: PORTFOLIO_PROJECT_ID, valueFrom: {configMapKeyRef: {name: platform-settings, key: project_id}}}
-            - {name: LITELLM_MASTER_KEY, valueFrom: {secretKeyRef: {name: gateway, key: master_key}}}
-            - {name: LITELLM_SALT_KEY, valueFrom: {secretKeyRef: {name: gateway, key: salt_key}}}
-            - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: gateway, key: database_url}}}
-          readinessProbe:
-            httpGet: {path: /health/liveliness, port: 4000}
-            periodSeconds: 5
-            failureThreshold: 3
-          startupProbe:
-            httpGet: {path: /health/liveliness, port: 4000}
-            periodSeconds: 5
-            failureThreshold: 36
-          resources:
-            requests: {cpu: 200m, memory: 640Mi}
-            limits: {cpu: "1", memory: 1Gi}
-          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}, seccompProfile: {type: RuntimeDefault}}
-          volumeMounts:
-            - {name: programs, mountPath: /programs, readOnly: true}
-            - {name: config, mountPath: /config, readOnly: true}
-            - {name: tmp, mountPath: /tmp}
-      volumes:
-        - {name: programs, configMap: {name: platform-programs, defaultMode: 0444}}
-        - {name: config, configMap: {name: gateway-config, defaultMode: 0444}}
-        - {name: tmp, emptyDir: {medium: Memory, sizeLimit: 128Mi}}
+---
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  name: redactor
+  namespace: platform
+---
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  name: postgres
+  namespace: platform
+---
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  name: schema
+  namespace: platform
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: redactor
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/part-of: agent-platform
+  name: gateway
   namespace: platform
-  labels: {app.kubernetes.io/name: redactor, app.kubernetes.io/part-of: agent-platform}
 spec:
   replicas: 1
   revisionHistoryLimit: 3
-  selector: {matchLabels: {app.kubernetes.io/name: redactor}}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gateway
+  strategy:
+    type: Recreate
   template:
     metadata:
-      labels: {app.kubernetes.io/name: redactor, app.kubernetes.io/part-of: agent-platform}
+      labels:
+        app.kubernetes.io/name: gateway
+        app.kubernetes.io/part-of: agent-platform
     spec:
-      serviceAccountName: redactor
       automountServiceAccountToken: false
-      securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532, seccompProfile: {type: RuntimeDefault}}
       containers:
-        - name: redactor
-          image: agent-platform/redactor
-          command: [/usr/local/bin/python3.12, /programs/redactor_server.py]
-          ports: [{name: http, containerPort: 4003}]
+        - command:
+            - /usr/local/bin/python3.12
+            - /programs/gateway_entry.py
           env:
-            - {name: PORTFOLIO_PROJECT_ID, valueFrom: {configMapKeyRef: {name: platform-settings, key: project_id}}}
+            - name: PORTFOLIO_PROJECT_ID
+              valueFrom:
+                configMapKeyRef:
+                  key: project_id
+                  name: platform-settings
+            - name: LITELLM_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: master_key
+                  name: gateway
+            - name: LITELLM_SALT_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: salt_key
+                  name: gateway
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: database_url
+                  name: gateway
+          image: agent-platform/gateway
+          name: gateway
+          ports:
+            - containerPort: 4001
+              name: http
           readinessProbe:
-            httpGet: {path: /healthz, port: 4003}
+            failureThreshold: 3
+            httpGet:
+              path: /health/liveliness
+              port: 4001
             periodSeconds: 5
           resources:
-            requests: {cpu: 100m, memory: 256Mi}
-            limits: {cpu: 500m, memory: 512Mi}
-          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}, seccompProfile: {type: RuntimeDefault}}
+            limits:
+              cpu: '1'
+              memory: 1Gi
+            requests:
+              cpu: 200m
+              memory: 640Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
+          startupProbe:
+            failureThreshold: 36
+            httpGet:
+              path: /health/liveliness
+              port: 4001
+            periodSeconds: 5
           volumeMounts:
-            - {name: programs, mountPath: /programs, readOnly: true}
-            - {name: clients, mountPath: /secrets/redactor, readOnly: true}
-            - {name: tmp, mountPath: /tmp}
+            - mountPath: /programs
+              name: programs
+              readOnly: true
+            - mountPath: /config
+              name: config
+              readOnly: true
+            - mountPath: /tmp
+              name: tmp
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: gateway
       volumes:
-        - {name: programs, configMap: {name: platform-programs, defaultMode: 0444}}
-        - {name: clients, secret: {secretName: redactor, defaultMode: 0400}}
-        - {name: tmp, emptyDir: {medium: Memory, sizeLimit: 64Mi}}
+        - configMap:
+            defaultMode: 292
+            name: platform-programs
+          name: programs
+        - configMap:
+            defaultMode: 292
+            name: gateway-config
+          name: config
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 128Mi
+          name: tmp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: redactor
+    app.kubernetes.io/part-of: agent-platform
+  name: redactor
+  namespace: platform
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redactor
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redactor
+        app.kubernetes.io/part-of: agent-platform
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - command:
+            - /usr/local/bin/python3.12
+            - /programs/redactor_server.py
+          env:
+            - name: PORTFOLIO_PROJECT_ID
+              valueFrom:
+                configMapKeyRef:
+                  key: project_id
+                  name: platform-settings
+          image: agent-platform/redactor
+          name: redactor
+          ports:
+            - containerPort: 4003
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 4003
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - mountPath: /programs
+              name: programs
+              readOnly: true
+            - mountPath: /secrets/redactor
+              name: clients
+              readOnly: true
+            - mountPath: /tmp
+              name: tmp
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: redactor
+      volumes:
+        - configMap:
+            defaultMode: 292
+            name: platform-programs
+          name: programs
+        - name: clients
+          secret:
+            defaultMode: 256
+            secretName: redactor
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
+          name: tmp
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: agent-platform
   name: postgres
   namespace: platform
-  labels: {app.kubernetes.io/name: postgres, app.kubernetes.io/part-of: agent-platform}
 spec:
-  serviceName: postgres
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
   replicas: 1
-  selector: {matchLabels: {app.kubernetes.io/name: postgres}}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  serviceName: postgres
   template:
     metadata:
-      labels: {app.kubernetes.io/name: postgres, app.kubernetes.io/part-of: agent-platform}
+      labels:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/part-of: agent-platform
     spec:
-      serviceAccountName: postgres
       automountServiceAccountToken: false
-      securityContext: {runAsNonRoot: true, runAsUser: 70, runAsGroup: 70, fsGroup: 70, seccompProfile: {type: RuntimeDefault}}
       containers:
-        - name: postgres
-          image: agent-platform/database
-          args: [postgres, -c, log_statement=none, -c, log_min_error_statement=panic, -c, password_encryption=scram-sha-256]
-          ports: [{name: postgres, containerPort: 5432}]
+        - args:
+            - postgres
+            - -c
+            - log_statement=none
+            - -c
+            - log_min_error_statement=panic
+            - -c
+            - password_encryption=scram-sha-256
           env:
-            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
-            - {name: POSTGRES_PASSWORD, valueFrom: {secretKeyRef: {name: postgres, key: owner_password}}}
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: owner_password
+                  name: postgres
+          image: agent-platform/database
+          name: postgres
+          ports:
+            - containerPort: 5432
+              name: postgres
           readinessProbe:
-            exec: {command: [pg_isready, -U, postgres, -h, 127.0.0.1]}
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - postgres
+                - -h
+                - 127.0.0.1
             periodSeconds: 5
           resources:
-            requests: {cpu: 100m, memory: 256Mi}
-            limits: {cpu: "1", memory: 768Mi}
-          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}, seccompProfile: {type: RuntimeDefault}}
+            limits:
+              cpu: '1'
+              memory: 768Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
           volumeMounts:
-            - {name: data, mountPath: /var/lib/postgresql/data}
-            - {name: socket, mountPath: /var/run/postgresql}
-            - {name: tmp, mountPath: /tmp}
+            - mountPath: /var/lib/postgresql/data
+              name: data
+            - mountPath: /var/run/postgresql
+              name: socket
+            - mountPath: /tmp
+              name: tmp
+      securityContext:
+        fsGroup: 70
+        runAsGroup: 70
+        runAsNonRoot: true
+        runAsUser: 70
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: postgres
       volumes:
-        - {name: socket, emptyDir: {medium: Memory, sizeLimit: 8Mi}}
-        - {name: tmp, emptyDir: {medium: Memory, sizeLimit: 64Mi}}
-  persistentVolumeClaimRetentionPolicy: {whenDeleted: Retain, whenScaled: Retain}
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 8Mi
+          name: socket
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
+          name: tmp
   volumeClaimTemplates:
-    - metadata: {name: data, labels: {app.kubernetes.io/name: postgres}}
+    - metadata:
+        labels:
+          app.kubernetes.io/name: postgres
+        name: data
       spec:
-        accessModes: [ReadWriteOnce]
-        resources: {requests: {storage: 10Gi}}
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
 ---
-# One-shot, idempotent: roles (non-owner, NOBYPASSRLS), databases, LiteLLM schema, RLS tenant schema,
-# synthetic fixtures, then (once the gateway is ready) the scoped virtual keys with their monthly budgets.
-# Re-running changes nothing that already exists.
 apiVersion: batch/v1
 kind: Job
-metadata: {name: schema, namespace: platform, labels: {app.kubernetes.io/name: schema}}
+metadata:
+  labels:
+    app.kubernetes.io/name: schema
+  name: schema
+  namespace: platform
 spec:
   backoffLimit: 3
-  ttlSecondsAfterFinished: 600
   template:
-    metadata: {labels: {app.kubernetes.io/name: schema}}
+    metadata:
+      labels:
+        app.kubernetes.io/name: schema
     spec:
-      restartPolicy: OnFailure
-      serviceAccountName: schema
       automountServiceAccountToken: false
-      securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532, seccompProfile: {type: RuntimeDefault}}
       containers:
-        - name: schema
+        - command:
+            - /usr/local/bin/python3.12
+            - -m
+            - agent_platform.programs.bootstrap
+            - all
+          env:
+            - name: PYTHONPATH
+              value: /app/platform/src:/app
           image: agent-platform/app
-          command: [/usr/local/bin/python3.12, -m, agent_platform.programs.bootstrap, all]
-          env: [{name: PYTHONPATH, value: /app/platform/src:/app}]
+          name: schema
           resources:
-            requests: {cpu: 50m, memory: 128Mi}
-            limits: {cpu: 500m, memory: 256Mi}
-          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}, seccompProfile: {type: RuntimeDefault}}
+            limits:
+              cpu: 500m
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
           volumeMounts:
-            - {name: bootstrap, mountPath: /secrets/bootstrap, readOnly: true}
-            - {name: sql, mountPath: /sql, readOnly: true}
+            - mountPath: /secrets/bootstrap
+              name: bootstrap
+              readOnly: true
+            - mountPath: /sql
+              name: sql
+              readOnly: true
+      restartPolicy: OnFailure
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: schema
       volumes:
-        - {name: bootstrap, secret: {secretName: bootstrap, defaultMode: 0400}}
-        - {name: sql, configMap: {name: database-sql, defaultMode: 0444}}
+        - name: bootstrap
+          secret:
+            defaultMode: 256
+            secretName: bootstrap
+        - configMap:
+            defaultMode: 292
+            name: database-sql
+          name: sql
+  ttlSecondsAfterFinished: 600
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: gateway, namespace: platform}
+metadata:
+  name: gateway
+  namespace: platform
 spec:
+  ports:
+    - name: http
+      port: 4000
+      targetPort: 4000
+  selector:
+    app.kubernetes.io/name: gateway-boundary
   type: ClusterIP
-  selector: {app.kubernetes.io/name: gateway}
-  ports: [{name: http, port: 4000, targetPort: 4000}]
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: redactor, namespace: platform}
+metadata:
+  name: redactor
+  namespace: platform
 spec:
+  ports:
+    - name: http
+      port: 4003
+      targetPort: 4003
+  selector:
+    app.kubernetes.io/name: redactor
   type: ClusterIP
-  selector: {app.kubernetes.io/name: redactor}
-  ports: [{name: http, port: 4003, targetPort: 4003}]
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: postgres, namespace: platform}
+metadata:
+  name: postgres
+  namespace: platform
 spec:
-  type: ClusterIP
   clusterIP: None
-  selector: {app.kubernetes.io/name: postgres}
-  ports: [{name: postgres, port: 5432, targetPort: 5432}]
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+  selector:
+    app.kubernetes.io/name: postgres
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-provider
+  namespace: platform
+spec:
+  ports:
+    - name: http
+      port: 4001
+      targetPort: 4001
+  selector:
+    app.kubernetes.io/name: gateway
+  type: ClusterIP

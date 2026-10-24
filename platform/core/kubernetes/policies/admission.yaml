@@ -1,89 +1,97 @@
-# Built-in ValidatingAdmissionPolicy (no Kyverno). Applies only to requests made by the ops agent's
-# identity and holds even if that identity is compromised: the API server rejects anything except
-#   - UPDATE of a registered Deployment (main resource; no scale subresource, no other kinds/verbs)
-#   - with selector/strategy/metadata unchanged
-#   - replicas inside the registered [min, max]
-#   - and a Pod template that is unchanged or changed only by the rollout-restart annotation.
-# There is no rollback: a template change could alter command, args, env, resources or labels (for example to
-# print a credential to logs or to join another workload's network path), so the agent never changes a Pod spec.
-# Parameter: ConfigMap ops/ops-agent-registry, keys "<namespace>.<name>.min|max|health".
+# RC1 trusted boundary migration; source only, requires new qualified artifacts and owner cutover.
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: ops-agent-bounded-remediation
 spec:
   failurePolicy: Fail
+  matchConditions:
+    - expression: request.userInfo.username in ['system:serviceaccount:ops:ops-agent',
+        'system:serviceaccount:ops:ops-executor']
+      name: ops-agent-only
+  matchConstraints:
+    resourceRules:
+      - apiGroups:
+          - '*'
+        apiVersions:
+          - '*'
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+          - CONNECT
+        resources:
+          - '*/*'
   paramKind:
     apiVersion: v1
     kind: ConfigMap
-  matchConstraints:
-    resourceRules:
-      - apiGroups: ["*"]
-        apiVersions: ["*"]
-        operations: [CREATE, UPDATE, DELETE, CONNECT]
-        resources: ["*/*"]
-  matchConditions:
-    - name: ops-agent-only
-      expression: request.userInfo.username == 'system:serviceaccount:ops:ops-agent'
-  variables:
-    - name: key
-      expression: request.namespace + '.' + request.name
-    - name: isDeploymentUpdate
-      expression: >-
-        request.operation == 'UPDATE' && request.resource.group == 'apps' &&
-        request.resource.resource == 'deployments' && (!has(request.subResource) || request.subResource == '')
-    - name: registered
-      expression: >-
-        variables.isDeploymentUpdate && (variables.key + '.max') in params.data &&
-        (variables.key + '.min') in params.data
-    - name: oldT
-      expression: 'variables.registered ? oldObject.spec.template : null'
-    - name: newT
-      expression: 'variables.registered ? object.spec.template : null'
-    - name: annOld
-      expression: "variables.registered && has(variables.oldT.metadata.annotations) ? variables.oldT.metadata.annotations : {}"
-    - name: annNew
-      expression: "variables.registered && has(variables.newT.metadata.annotations) ? variables.newT.metadata.annotations : {}"
-    - name: restartKey
-      expression: "'kubectl.kubernetes.io/restartedAt'"
   validations:
+    - expression: request.userInfo.username == 'system:serviceaccount:ops:ops-executor'
+      message: ops-agent is read-only; only the independent approval executor may
+        mutate
+      reason: Forbidden
     - expression: variables.registered
-      message: ops-agent may only UPDATE a registered Deployment (no other kind, verb or subresource)
+      message: ops-agent may only UPDATE a registered Deployment (no other kind, verb
+        or subresource)
       reason: Forbidden
-    - expression: >-
-        !variables.registered || (
-          object.spec.selector == oldObject.spec.selector &&
-          (has(object.spec.strategy) ? object.spec.strategy : {}) == (has(oldObject.spec.strategy) ? oldObject.spec.strategy : {}) &&
-          (has(object.metadata.labels) ? object.metadata.labels : {}) == (has(oldObject.metadata.labels) ? oldObject.metadata.labels : {}) &&
-          (has(object.spec.minReadySeconds) ? object.spec.minReadySeconds : 0) == (has(oldObject.spec.minReadySeconds) ? oldObject.spec.minReadySeconds : 0) &&
-          (has(object.spec.paused) ? object.spec.paused : false) == false)
-      message: ops-agent may not change selector, strategy, labels, minReadySeconds or pause a rollout
+    - expression: "!variables.registered || (\n  object.spec.selector == oldObject.spec.selector\
+        \ &&\n  (has(object.spec.strategy) ? object.spec.strategy : {}) == (has(oldObject.spec.strategy)\
+        \ ? oldObject.spec.strategy : {}) &&\n  (has(object.metadata.labels) ? object.metadata.labels\
+        \ : {}) == (has(oldObject.metadata.labels) ? oldObject.metadata.labels : {})\
+        \ &&\n  (has(object.spec.minReadySeconds) ? object.spec.minReadySeconds :\
+        \ 0) == (has(oldObject.spec.minReadySeconds) ? oldObject.spec.minReadySeconds\
+        \ : 0) &&\n  (has(object.spec.paused) ? object.spec.paused : false) == false)"
+      message: ops-agent may not change selector, strategy, labels, minReadySeconds
+        or pause a rollout
       reason: Forbidden
-    - expression: >-
-        !variables.registered || (
-          int(object.spec.replicas) >= int(params.data[variables.key + '.min']) &&
-          int(object.spec.replicas) <= int(params.data[variables.key + '.max']))
+    - expression: "!variables.registered || (\n  int(object.spec.replicas) >= int(params.data[variables.key\
+        \ + '.min']) &&\n  int(object.spec.replicas) <= int(params.data[variables.key\
+        \ + '.max']))"
       message: replicas outside the registered bounds
       reason: Forbidden
-    - expression: >-
-        !variables.registered ||
-        (variables.newT == variables.oldT) ||
-        (variables.newT.spec == variables.oldT.spec &&
-         (has(variables.newT.metadata.labels) ? variables.newT.metadata.labels : {}) ==
-           (has(variables.oldT.metadata.labels) ? variables.oldT.metadata.labels : {}) &&
-         variables.annNew.all(k, k == variables.restartKey || (k in variables.annOld && variables.annOld[k] == variables.annNew[k])) &&
-         variables.annOld.all(k, k == variables.restartKey || k in variables.annNew))
-      message: the Pod template may only be unchanged or changed by the rollout-restart annotation
+    - expression: "!variables.registered || (variables.newT == variables.oldT) ||\
+        \ (variables.newT.spec == variables.oldT.spec &&\n (has(variables.newT.metadata.labels)\
+        \ ? variables.newT.metadata.labels : {}) ==\n   (has(variables.oldT.metadata.labels)\
+        \ ? variables.oldT.metadata.labels : {}) &&\n variables.annNew.all(k, k ==\
+        \ variables.restartKey || (k in variables.annOld && variables.annOld[k] ==\
+        \ variables.annNew[k])) &&\n variables.annOld.all(k, k == variables.restartKey\
+        \ || k in variables.annNew))"
+      message: the Pod template may only be unchanged or changed by the rollout-restart
+        annotation
       reason: Forbidden
+  variables:
+    - expression: request.namespace + '.' + request.name
+      name: key
+    - expression: request.operation == 'UPDATE' && request.resource.group == 'apps'
+        && request.resource.resource == 'deployments' && (!has(request.subResource)
+        || request.subResource == '')
+      name: isDeploymentUpdate
+    - expression: variables.isDeploymentUpdate && (variables.key + '.max') in params.data
+        && (variables.key + '.min') in params.data
+      name: registered
+    - expression: 'variables.registered ? oldObject.spec.template : null'
+      name: oldT
+    - expression: 'variables.registered ? object.spec.template : null'
+      name: newT
+    - expression: 'variables.registered && has(variables.oldT.metadata.annotations)
+        ? variables.oldT.metadata.annotations : {}'
+      name: annOld
+    - expression: 'variables.registered && has(variables.newT.metadata.annotations)
+        ? variables.newT.metadata.annotations : {}'
+      name: annNew
+    - expression: '''kubectl.kubernetes.io/restartedAt'''
+      name: restartKey
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding
 metadata:
   name: ops-agent-bounded-remediation
 spec:
-  policyName: ops-agent-bounded-remediation
-  validationActions: [Deny, Audit]
   paramRef:
     name: ops-agent-registry
     namespace: ops
     parameterNotFoundAction: Deny
+  policyName: ops-agent-bounded-remediation
+  validationActions:
+    - Deny
+    - Audit
