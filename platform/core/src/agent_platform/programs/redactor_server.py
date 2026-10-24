@@ -5,10 +5,12 @@ Persistent-platform form of the C redaction bridge: the same GoogleSDPContextRed
 (hash-checked), the same request/response contract (POST /redact {"text"} -> {"text","categories"}) and the
 same size limits. Differences: client keys come from the mounted Secret (one per calling namespace) instead
 of a one-window admission file, and the attempt budget renews per hour (174 SDK operations, the adapter's
-maximum) with a daily ceiling. Any failure returns 503 and callers fail closed: no model request is sent.
+maximum) with a daily ceiling. Server-owned per-key/global request and concurrency ceilings protect the
+shared service; failures remain closed, so no model request is sent.
 """
 import hashlib
 import hmac
+from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -27,6 +29,9 @@ APP_ROOT = Path('/app')
 sys.path.insert(0, str(APP_ROOT))
 POLICY_HASH = 'c1b782c6fd051243dec4173f903cb33607893010c7d38a6b35bc1372ddb2d4db'
 WINDOW_SECONDS, WINDOW_OPERATIONS, DAILY_OPERATIONS = 3600, 174, 1740
+CLIENT_REQUESTS_PER_WINDOW = 40
+GLOBAL_REQUESTS_PER_WINDOW = WINDOW_OPERATIONS // 2  # the adapter can spend two SDK operations per request
+CLIENT_INFLIGHT, GLOBAL_INFLIGHT, SERVER_WORKERS = 1, 1, 8  # the adapter itself admits one call at a time
 IDLE_SECONDS = 120  # backstop: rebuild the provider client after this long without a call
 # gRPC keepalive on the Sensitive Data Protection channel. The network path drops a TCP flow that is idle for about
 # 10 minutes without telling either end, so the next call waits out its 3 s deadline and fails closed. A ping every
@@ -54,6 +59,52 @@ def unique(pairs):
 def audit(event, **fields):
     print(json.dumps({'audit_event': event, 'component': 'redactor', 'at': time.time(), **fields},
                      separators=(',', ':')), flush=True)
+
+
+class CapacityExceeded(Exception):
+    """An authenticated request exceeded a server-owned capacity ceiling."""
+
+
+class Capacity:
+    """Atomic per-client and global request/in-flight ceilings, shared by all HTTP workers."""
+
+    def __init__(self, clients, *, per_client=CLIENT_INFLIGHT, global_inflight=GLOBAL_INFLIGHT,
+                 per_client_window=CLIENT_REQUESTS_PER_WINDOW, global_window=GLOBAL_REQUESTS_PER_WINDOW,
+                 window_seconds=WINDOW_SECONDS, clock=time.monotonic):
+        if (not clients or min(per_client, global_inflight, per_client_window, global_window, window_seconds) <= 0):
+            raise ValueError('capacity:limits')
+        self._clients = frozenset(clients)
+        self._per_client, self._global_inflight = per_client, global_inflight
+        self._per_client_window, self._global_window = per_client_window, global_window
+        self._window_seconds, self._clock = window_seconds, clock
+        self._start = clock()
+        self._used = self._active = 0
+        self._client_used = {client: 0 for client in clients}
+        self._client_active = {client: 0 for client in clients}
+        self._lock = threading.Lock()
+
+    @contextmanager
+    def admit(self, client):
+        with self._lock:
+            if client not in self._clients:
+                raise CapacityExceeded()
+            now = self._clock()
+            if now - self._start >= self._window_seconds:
+                self._start, self._used = now, 0
+                self._client_used = {name: 0 for name in self._clients}
+            if (self._active >= self._global_inflight or self._client_active[client] >= self._per_client
+                    or self._used >= self._global_window or self._client_used[client] >= self._per_client_window):
+                raise CapacityExceeded()
+            self._active += 1
+            self._client_active[client] += 1
+            self._used += 1
+            self._client_used[client] += 1
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._active -= 1
+                self._client_active[client] -= 1
 
 
 class Budget:
@@ -173,23 +224,73 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(403, {'code': 'ADMISSION_REJECTED'})
             return
         try:
-            size = int(self.headers.get('Content-Length', '0'))
-            if not 0 < size <= MAX_BODY_BYTES:
-                raise ValueError('size')
-            raw = self.rfile.read(size)
-            value = json.loads(raw.decode('utf-8'), object_pairs_hook=unique)
-            if (type(value) is not dict or set(value) != {'text'} or type(value['text']) is not str
-                    or not 0 < len(value['text'].encode('utf-8')) <= MAX_TEXT_BYTES):
-                raise ValueError('shape')
-            locally_masked, phone_found = mask_phones(value['text'])
-            result = self.server.budget.current().redact(locally_masked)
-            categories = sorted(set(result.categories) | ({'PHONE_NUMBER'} if phone_found else set()))
-            audit('redaction', caller=caller, categories=categories, request_id=rid)
-            self.reply(200, {'text': result.text, 'categories': categories})
+            with self.server.capacity.admit(caller):
+                size = int(self.headers.get('Content-Length', '0'))
+                if not 0 < size <= MAX_BODY_BYTES:
+                    raise ValueError('size')
+                raw = self.rfile.read(size)
+                value = json.loads(raw.decode('utf-8'), object_pairs_hook=unique)
+                if (type(value) is not dict or set(value) != {'text'} or type(value['text']) is not str
+                        or not 0 < len(value['text'].encode('utf-8')) <= MAX_TEXT_BYTES):
+                    raise ValueError('shape')
+                locally_masked, phone_found = mask_phones(value['text'])
+                result = self.server.budget.current().redact(locally_masked)
+                categories = sorted(set(result.categories) | ({'PHONE_NUMBER'} if phone_found else set()))
+                audit('redaction', caller=caller, categories=categories, request_id=rid)
+                self.reply(200, {'text': result.text, 'categories': categories})
+        except CapacityExceeded:
+            audit('redaction_rejected', caller=caller, reason='capacity', request_id=rid)
+            self.reply(429, {'code': 'CAPACITY_EXCEEDED'})
         except Exception as error:  # provider/budget/input failure: fail closed, no content in logs
             audit('redaction_failed', caller=caller, reason=type(error).__name__, request_id=rid,
                   diagnostic=getattr(error, 'diagnostic', None))  # finite constants only (adapter contract)
             self.reply(503, {'code': 'REDACTION_UNAVAILABLE'})
+
+
+class Server(ThreadingHTTPServer):
+    """Bound the number of connection threads, including unauthenticated or stalled clients."""
+
+    daemon_threads = True
+
+    def __init__(self, address, keys, budget, *, capacity=None, workers=SERVER_WORKERS):
+        if workers <= 0:
+            raise ValueError('capacity:workers')
+        super().__init__(address, Handler)
+        self.keys, self.budget = keys, budget
+        self.capacity = capacity or Capacity(keys)
+        self._workers = threading.BoundedSemaphore(workers)
+
+    def process_request(self, request, client_address):
+        if not self._workers.acquire(blocking=False):
+            try:
+                request.settimeout(1)
+                request.sendall(b'HTTP/1.0 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n')
+            except OSError:
+                pass
+            finally:
+                self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except Exception:
+            self._workers.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._workers.release()
+
+
+def valid_client_keys(keys):
+    """Each named client must have its own key for per-client limits to be meaningful."""
+    return (type(keys) is dict and {'app', 'ops'} <= set(keys)
+            and all(type(c) is str and (c in ('app', 'ops', 'gateway-boundary')
+                                        or re.fullmatch(r'agent-[a-z][a-z0-9-]{1,20}[a-z0-9]', c))
+                    for c in keys)
+            and all(type(key) is str and len(key) == 64 for key in keys.values())
+            and len(set(keys.values())) == len(keys))
 
 
 def main():
@@ -202,14 +303,11 @@ def main():
     project = os.environ['PORTFOLIO_PROJECT_ID']
     keys = json.loads(Path('/secrets/redactor/clients.json').read_text(), object_pairs_hook=unique)
     # One key per calling namespace: the front door (app), the ops agent (ops) and each onboarded agent (agent-<name>).
-    if (not {'app', 'ops'} <= set(keys) or not all(c in ('app', 'ops', 'gateway-boundary') or re.fullmatch(r'agent-[a-z][a-z0-9-]{1,20}[a-z0-9]', c) for c in keys)
-            or any(type(k) is not str or len(k) != 64 for k in keys.values())):
+    if not valid_client_keys(keys):
         raise SystemExit('redactor:client_keys')
-    server = ThreadingHTTPServer(('0.0.0.0', 4003), Handler)
-    server.daemon_threads = True
-    server.keys = keys
-    server.budget = Budget(lambda budget: GoogleSDPContextRedactor(project, budget=budget),
-                           lambda: ContentAttemptBudget(WINDOW_OPERATIONS))
+    server = Server(('0.0.0.0', 4003), keys,
+                    Budget(lambda budget: GoogleSDPContextRedactor(project, budget=budget),
+                           lambda: ContentAttemptBudget(WINDOW_OPERATIONS)))
     audit('redactor_started', policy_sha256=POLICY_HASH)
     server.serve_forever()
 
