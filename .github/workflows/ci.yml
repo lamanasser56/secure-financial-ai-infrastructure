@@ -77,9 +77,8 @@ jobs:
         run: node --test platform/agents/platform-guide/test/*.test.js
 
   gitleaks:
-    # Its own job so branch protection can require it: the checked-out commit's
-    # complete ancestry, pinned and checksum-verified gitleaks. Other branches
-    # (including evidence-only assessment_overlay) are outside this PR's tree.
+    # Scan every fetched branch and tag. Only the separate, evidence-only
+    # rc1-live-followup branch is excluded from the local ref set.
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -98,7 +97,10 @@ jobs:
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           printf '%s  %s\n' "$GITLEAKS_ARCHIVE_SHA256" "$RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check
           tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
-          "$RUNNER_TEMP/gitleaks" git --redact --no-banner --log-opts=HEAD .
+          if git show-ref --verify --quiet refs/remotes/origin/rc1-live-followup; then
+            git update-ref -d refs/remotes/origin/rc1-live-followup
+          fi
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner .
 
   google-sdp-offline-evaluation:
     runs-on: ubuntu-24.04
