@@ -1,18 +1,18 @@
 # Repository map
 
-This page sorts the repository into the current product (the Secure AI Agent Platform), the shared code that product
+This page sorts the repository into the current product (the Agent Runtime Platform), the shared code that product
 runs on, and the history behind it. Start with **Product**. The **History** paths are kept as evidence and are not
-part of the running platform.
+part of the historical platform runtime. The proposed RC source is not deployed; see [the trusted-boundary migration](releases/rc1-boundary-migration.md).
 
 The qualification records under `evaluation/` bind files by SHA-256: every file in `runtime/`, `contracts/` and
 `demo/`, 14 files in `evaluation/`, 11 in `docker/`, 11 in `scripts/`, and 8 in the repository root (`.dockerignore`
-and seven `requirements-*` files). None of them is Markdown. Do not move, rename or edit them, and keep the records
+and seven `requirements-*` files). None of them is Markdown. Preserve those historical bytes and records. Any intended replacement must be a separately reviewed, newly qualified artifact with its own hashes and signatures. Keep the original records
 in `evaluation/` in place: a change breaks those records and the image build. Do not add any file, not even a README,
 to `runtime/`, `contracts/` or `demo/`: `https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/scripts/verify-operations-image-qualification.py` lists every file in those
 three folders, and the list must equal the inputs recorded in `evaluation/operations/restoration-qualification.json`
 (the CI `agents` job fails otherwise). This map describes them instead.
 
-## Product: the Secure AI Agent Platform
+## Product: the Agent Runtime Platform
 
 | Path | What it is |
 | --- | --- |
@@ -67,26 +67,19 @@ three folders, and the list must equal the inputs recorded in `evaluation/operat
 
 ## Request flow
 
-User chat (Financial Agent):
+Current proposed source flow (not live verified):
 
 ```text
-browser ──► agent-financial (sign-in, own-rows tools, grounding)
-              │  every question: text ──► redactor (platform/core/src/agent_platform/programs/redactor_server.py)
-              │                              └─► Sensitive Data Protection over Private Service Connect (fail-closed)
-              └─► gateway (LiteLLM, per-agent virtual key + budget) ──► Vertex AI over Private Service Connect
-              └─► Postgres (read-only role, row-level security) for tool data
+browser → trusted Financial frontdoor (sign-in/session)
+        → signed active capability → per-user Financial worker (u1/u2/u3)
+        → trusted broker (fixed worker-key/user binding) → fixed read tools → PostgreSQL FORCE RLS
+worker/app/Guide/Ops → trusted gateway boundary → mandatory redaction → private LiteLLM → provider
+owner approval → trusted app signature → read-only Ops → independent executor → bounded Kubernetes patch
 ```
 
-Infrastructure demo (app): browser ──► `apps/app` (`app.py`, `runtime/agents/web.py`) ──► redactor ──► gateway ──► Vertex.
+Financial workers have no database/session/signing credentials. Only the executor holds mutation RBAC; it independently verifies owner approval and consumes durable replay state. Agent grounding/history remain local code obligations. The Guide searches its build-time documentation index; old release subjects keep their historical index until a new qualified release.
 
-Platform Guide: browser ──► agent-platform-guide (Node.js, `src/server.js`, turn in `src/agent.js`): every model call
-is redacted first (redactor ──► gateway ──► Vertex AI, at most 2 calls); the model may ask for the read-only
-`docs_search` tool, which runs in the process over the docs index bundled at build time. No data, no database path.
-
-Operations flow: `ops-agent` (`ops/`) watches registered workloads read-only → diagnoses a finding → proposes a restart
-→ the owner approves in the operations page with a passphrase → `app` signs the proposal → `ops-agent` executes a
-rollout restart, which the `ops-agent-bounded-remediation` admission policy limits to that one change. Every step emits
-an audit line.
+The earlier claims and historical runbooks remain evidence of their original source and configuration; they do not establish live enforcement of this new source. The stock legacy `make up` path is blocked before cloud calls pending a target-bound reviewed cutover.
 
 ## Where each control lives
 

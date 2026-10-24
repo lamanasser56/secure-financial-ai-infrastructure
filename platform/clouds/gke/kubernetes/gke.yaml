@@ -1,62 +1,122 @@
-# GKE-specific objects. Contract with the base: identities, storage, egress and logging only; no workload logic.
-# PROJECT_ID and CONTROL_PLANE_CIDR are filled by platform/clouds/gke/render.py from the Terraform outputs.
+# RC1 trusted boundary migration; source only, requires new qualified artifacts and owner cutover.
 apiVersion: v1
-kind: ConfigMap
-metadata: {name: platform-settings, namespace: platform}
 data:
   project_id: PROJECT_ID
+kind: ConfigMap
+metadata:
+  name: platform-settings
+  namespace: platform
 ---
-# Postgres disk survives Pod/StatefulSet deletion and node scale-to-0; snapshotted before each `make down`.
+allowVolumeExpansion: false
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
-metadata: {name: agent-platform-retain}
+metadata:
+  name: agent-platform-retain
+parameters:
+  type: pd-balanced
 provisioner: pd.csi.storage.gke.io
-parameters: {type: pd-balanced}
 reclaimPolicy: Retain
 volumeBindingMode: WaitForFirstConsumer
-allowVolumeExpansion: false
 ---
-# Workload Identity tokens come from the GKE metadata server; only gateway and redactor may reach it.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: {name: workload-identity-metadata, namespace: platform}
+metadata:
+  name: workload-identity-metadata
+  namespace: platform
 spec:
-  podSelector:
-    matchExpressions: [{key: app.kubernetes.io/name, operator: In, values: [gateway, redactor]}]
-  policyTypes: [Egress]
   egress:
-    - to: [ipBlock: {cidr: 169.254.169.254/32}]
-      ports: [{protocol: TCP, port: 80}]
+    - ports:
+        - port: 80
+          protocol: TCP
+      to:
+        - ipBlock:
+            cidr: 169.254.169.254/32
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - gateway
+          - redactor
+  policyTypes:
+    - Egress
 ---
-# Redactor: Sensitive Data Protection regional endpoint only (the adapter's fixed endpoint).
 apiVersion: networking.gke.io/v1alpha1
 kind: FQDNNetworkPolicy
 metadata:
+  annotations:
+    policy.network.gke.io/enable-logging: 'true'
   name: redactor-provider
   namespace: platform
-  annotations: {policy.network.gke.io/enable-logging: "true"}
 spec:
-  podSelector: {matchLabels: {app.kubernetes.io/name: redactor}}
   egress:
-    - matches: [name: dlp.us-east1.rep.googleapis.com]
-      ports: [{protocol: TCP, port: 443}]
+    - matches:
+        - name: dlp.us-east1.rep.googleapis.com
+      ports:
+        - port: 443
+          protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redactor
 ---
-# Ops agent -> Kubernetes API server (private control-plane endpoint; Dataplane V2 evaluates post-DNAT).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: {name: ops-agent-apiserver, namespace: ops}
+metadata:
+  name: ops-agent-apiserver
+  namespace: ops
 spec:
-  podSelector: {matchLabels: {app.kubernetes.io/name: ops-agent}}
-  policyTypes: [Egress]
   egress:
-    - to: [ipBlock: {cidr: CONTROL_PLANE_CIDR}]
-      ports: [{protocol: TCP, port: 443}]
+    - ports:
+        - port: 443
+          protocol: TCP
+      to:
+        - ipBlock:
+            cidr: CONTROL_PLANE_CIDR
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ops-agent
+  policyTypes:
+    - Egress
 ---
-# Allow and deny decisions are logged (delegated to annotated policies/namespaces).
 apiVersion: networking.gke.io/v1alpha1
 kind: NetworkLogging
-metadata: {name: default}
+metadata:
+  name: default
 spec:
   cluster:
-    allow: {log: true, delegate: true}
-    deny: {log: true, delegate: true}
+    allow:
+      delegate: true
+      log: true
+    deny:
+      delegate: true
+      log: true
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ops-executor-apiserver
+  namespace: ops
+spec:
+  egress:
+    - ports:
+        - port: 443
+          protocol: TCP
+      to:
+        - ipBlock:
+            cidr: CONTROL_PLANE_CIDR
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ops-executor
+  policyTypes:
+    - Egress
+---
+allowVolumeExpansion: false
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: agent-runtime-disposable
+parameters:
+  type: pd-balanced
+provisioner: pd.csi.storage.gke.io
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer

@@ -238,7 +238,7 @@ class Turn(unittest.TestCase):
     def test_claim_words_from_the_users_own_data_are_allowed(self):
         store = Store({LAMA: [(1, '2026-10-02', 'Office supplies', 'bills', 4000, 'printer invoice')]})
         model = Model({'action': 'tool', 'tool': 'find_transactions', 'args': {'month': '2026-10'}},
-                      {'action': 'answer', 'text': 'On 2026-10-02 you spent 40.00 SAR on bills at Office supplies; your note says printer invoice.'})
+                      {'action': 'answer', 'text': 'On 2026-10-02 you spent 40.00 SAR on bills at Office supplies; your note says "printer invoice".'})
         _, result = run(model, store=store)
         self.assertEqual(result['status'], 'answered')
         arabic = Model({'action': 'tool', 'tool': 'spending_by_category', 'args': {'month': '2026-10'}},

@@ -156,9 +156,20 @@ class Console:
 
     def _finding(self, target):
         snapshot = self._live('/v1/snapshot')
-        finding = ((snapshot or {}).get('findings') or {}).get(target)
+        findings = (snapshot or {}).get('findings') or {}
+        finding = findings.get(target)
         if type(finding) is dict and type(finding.get('facts')) is dict:
             return finding
+        if target == 'agent-financial.agent':
+            from agent_platform.onboarding import USER_SLOTS
+            parts = [findings.get('agent-financial.agent-' + slot) for slot in USER_SLOTS]
+            if all(type(part) is dict and type(part.get('facts')) is dict for part in parts):
+                return {'finding': 'HEALTHY' if all(p['finding'] == 'HEALTHY' for p in parts) else 'DEGRADED',
+                        'desired_replicas': sum(p['desired_replicas'] for p in parts),
+                        'facts': {**{key: sum(p['facts'].get(key, 0) for p in parts)
+                                    for key in ('pods_ready', 'pods_total', 'restarts')},
+                                  'observed_at': min(p['facts'].get('observed_at', 0) for p in parts),
+                                  'image_digests': sorted({image for p in parts for image in p['facts'].get('image_digests', [])})}}
         return None
 
     def _fresh(self, finding):
@@ -200,7 +211,7 @@ class Console:
         data = m['data']
         return {'id': name, 'name': name, 'node': 'agent-' + name, 'kind': 'agent', 'display': display(name), 'namespace': 'agent-' + name, 'team': m['team'], 'description': m['description'],
                 'runtime': runtime, 'model': self._model(), 'budget_usd_month': m['model']['budget_usd_month'],
-                'replicas': m['runtime']['replicas'], 'port': m['runtime']['port'], 'redaction': m['redaction'],
+                'replicas': m['runtime']['replicas'] * (3 if data != 'none' else 1), 'port': m['runtime']['port'], 'redaction': m['redaction'],
                 'tools': [{'id': t['id'], 'access': t['access'], 'description': t['description']} for t in m['tools']],
                 'data': 'none' if data == 'none' else {'database': data['database'], 'user_entry': data['user_entry'],
                                                         'row_level_security': data['row_level_security']},
@@ -260,7 +271,7 @@ class Console:
                g('namespace', 'Its own namespace', 'declared', 'manifest', file, 'Deployment ops-agent in namespace ops')]
         if posture is None:
             out.append(g('network', 'Default-deny network', 'declared', 'manifest', 'platform/core/kubernetes/policies/network.yaml',
-                         'default-deny rendered for ops; ingress only from the front door; egress only to the gateway, the redactor and the API server'))
+                         'default-deny rendered for ops; read-only API access and declared gateway/redactor/executor paths'))
         elif any(p['pods'] == 'all' and p['types'] == ['Egress', 'Ingress'] and not p['ingress'] and not p['egress'] for p in posture):
             out.append(g('network', 'Default-deny network', 'verified', 'observed', 'ops-agent /v1/posture', 'default-deny seen in the live NetworkPolicy list of ops'))
         else:
@@ -274,7 +285,7 @@ class Console:
                    g('redaction', 'Personal data redaction', 'declared', 'manifest', 'platform/core/src/agent_platform/ops/explain.py',
                      'every explanation request is redacted before the model'))
         out.append(g('approval', 'Approval-gated actions', 'declared', 'manifest', 'platform/core/kubernetes/policies/admission.yaml',
-                     'restart or bounded scale of %d registered workloads only, after a one-use owner approval; the admission policy '
+                     'read-only Ops delegates %d registered targets to the separate approval-verifying executor; the admission policy '
                      'ops-agent-bounded-remediation limits every change' % len(o['targets'])))
         out.append(g('image', 'Signed image only', 'declared', 'manifest', 'platform/clouds/gke/images.json',
                      'image pinned by digest and signed by CI; the ops agent does not observe its own pod'))
@@ -337,16 +348,16 @@ class Console:
     def topology(self):
         nodes, edges = [], []
         platform = {}
-        for doc in documents(self.kube / 'platform/workloads.yaml'):
+        for doc in documents(self.kube / 'platform/workloads.yaml') + documents(self.kube / 'platform/boundaries.yaml'):
             if doc.get('kind') in ('Deployment', 'StatefulSet'):
                 platform[doc['metadata']['name']] = doc
         for name in sorted(self._manifests):
             m = self._manifests[name]['manifest']
             nodes.append({'id': 'agent-' + name, 'kind': 'agent', 'name': name, 'namespace': 'agent-' + name,
                           'data': 'none' if m['data'] == 'none' else m['data']['database']})
-        for name in ('gateway', 'redactor', 'postgres'):
+        for name in ('gateway-boundary', 'gateway', 'redactor', 'postgres', 'financial-frontdoor', 'ops-executor'):
             if name in platform:
-                nodes.append({'id': name, 'kind': 'platform', 'name': name, 'namespace': 'platform'})
+                nodes.append({'id': name, 'kind': 'platform', 'name': name, 'namespace': platform[name]['metadata']['namespace']})
         if self._opscfg:
             nodes.append({'id': OPS, 'kind': 'agent', 'tenant': 'platform', 'name': OPS, 'namespace': 'ops', 'data': 'none'})
         nodes.append({'id': 'audit', 'kind': 'platform', 'name': 'audit', 'namespace': 'platform'})
@@ -372,15 +383,23 @@ class Console:
             for ns, app, port in self._egress(self._manifests[name]):
                 if ns == 'ip':
                     ip_egress = True
-                elif ns == 'platform' and app in platform:
+                elif app in platform and ns == platform[app]['metadata']['namespace']:
                     edges.append({'from': 'agent-' + name, 'to': app, 'port': port, 'state': 'allowed',
                                   'source': 'rendered NetworkPolicy agent-' + name + '/agent'})
         tenants = {'agent-' + n: (self._manifests[n], 'agent-' + n) for n in sorted(self._manifests)}
         if self._opscfg:
             tenants[OPS] = (self._opscfg, 'ops')
             for ns, app, port in self._egress(self._opscfg):
-                if ns == 'platform' and app in platform:
+                if app in platform and ns == platform[app]['metadata']['namespace']:
                     edges.append({'from': OPS, 'to': app, 'port': port, 'state': 'allowed', 'source': 'rendered NetworkPolicy ops/ops-agent'})
+        for policy in documents(self.kube / 'policies/network.yaml'):
+            origin = policy.get('spec', {}).get('podSelector', {}).get('matchLabels', {}).get('app.kubernetes.io/name')
+            if origin not in platform:
+                continue
+            for rule in policy['spec'].get('egress', []):
+                for namespace, app, port in peer_names(rule):
+                    if app in platform and namespace == platform[app]['metadata']['namespace']:
+                        edges.append({'from': origin, 'to': app, 'port': port, 'state': 'allowed', 'source': 'declared RC1 NetworkPolicy'})
         reaches_ns = lambda entry: {ns for ns, _, _ in self._egress(entry)}
         denied = [{'from': a, 'to': b, 'why': 'default-deny; no rule allows it'}
                   for a in tenants for b in tenants if a != b and tenants[b][1] not in reaches_ns(tenants[a][0])]
@@ -468,7 +487,7 @@ class Console:
         entry = EXPLAIN.get(topic)
         if entry is None:
             return None
-        return dict(topic=topic, **entry['text'], proof=getattr(self, '_proof_' + topic.replace('-', '_'))(), file=entry['file'])
+        return dict(topic=topic, **entry['text'], proof=getattr(self, '_proof_' + topic.replace('-', '_'), lambda: None)(), file=entry['file'])
 
     def _network(self):
         posture = self._live('/v1/posture')
@@ -552,16 +571,26 @@ EXPLAIN = {
         'how': 'Every model request goes through the redactor first. If it fails, the request is not sent.',
         'without': 'Names, emails and numbers would reach the model.'}},
     'gateway': {'file': 'platform/core/kubernetes/platform/workloads.yaml', 'text': {
-        'title': 'Model gateway',
+        'title': 'Private model provider gateway',
         'plain': 'One key and one budget per agent.',
-        'how': 'Agents call the gateway with their own scoped key. Only the gateway talks to the model provider.',
+        'how': 'The trusted gateway frontend redacts accepted messages and forwards with private upstream credentials. Workers do not receive those keys.',
         'without': 'An agent could spend without limit or use another key.'}},
     'audit': {'file': 'platform/core/src/agent_platform/audit.py', 'text': {
         'title': 'Audit',
-        'plain': 'Every request is recorded.',
-        'how': 'Each component prints one JSON line with bounded fields and no content. The log pipeline stores them.',
+        'plain': 'Bounded component events support investigation.',
+        'how': 'Trusted mediators emit their own events. Worker traces and stdout alone do not prove complete or authentic audit.',
         'without': 'Nothing could be shown or proven afterwards.'}},
 }
+
+
+for _topic, _title, _description, _source in (
+    ('gateway-boundary', 'Mandatory redaction gateway', 'A trusted frontend redacts accepted messages before using private provider credentials.', 'platform/core/src/agent_platform/gateway_boundary.py'),
+    ('financial-frontdoor', 'Trusted user and data boundary', 'Only this boundary holds user-authentication and database credentials; workers use active signed read capabilities.', 'platform/agents/financial/finance_agent/frontdoor.py'),
+    ('ops-executor', 'Independent approval executor', 'Only this identity can patch registered workloads after verifying owner approval and consuming a durable one-use receipt.', 'platform/core/src/agent_platform/ops/executor.py'),
+):
+    EXPLAIN[_topic] = {'file': _source, 'text': {'title': _title, 'plain': _description,
+                      'how': 'Declared RC1 source architecture; live deployment enforcement remains unverified.',
+                      'without': 'A compromised worker could cross a boundary intended to be enforced independently.'}}
 
 
 class Handler(web.Handler):

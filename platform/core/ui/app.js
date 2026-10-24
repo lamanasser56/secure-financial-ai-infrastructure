@@ -37,7 +37,7 @@
     const name = screens.includes(first) ? first : 'map';
     const mine = ++serial;
     document.querySelectorAll('nav.tabs a').forEach(a => { if (a.dataset.tab === name) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
-    document.title = titles[name] + ' · Agent Platform';
+    document.title = titles[name] + ' · Agent Runtime Platform';
     const view = $('view');
     view.replaceChildren();
     Console.screens[name](view, arg ? decodeURIComponent(arg) : null, () => mine === serial);

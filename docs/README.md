@@ -1,6 +1,6 @@
-# Documentation
+# Agent Runtime Platform documentation
 
-The current product is the Secure AI Agent Platform on GKE. Start with the [repository map](REPO-MAP.md).
+The current public identity is Agent Runtime Platform (Infrastructure · Security · Operations). The implementation includes GKE deployment configuration; see the [RC1 scope and limitations](releases/rc1.md) before interpreting historical runtime claims. Start with the [repository map](REPO-MAP.md).
 
 Current platform:
 

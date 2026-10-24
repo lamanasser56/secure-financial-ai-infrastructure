@@ -1,6 +1,6 @@
 # Developer guide: put your agent on the platform
 
-This guide is for engineers on a team that wants to run an AI agent on the Secure AI Agent Platform. You write one
+This guide is for engineers on a team that wants to run an AI agent on the Agent Runtime Platform. You write one
 file. The platform validates it and gives your agent its security controls; you do not build them.
 
 The rules behind each step are in the [agent onboarding contract](agent-onboarding-contract.md).

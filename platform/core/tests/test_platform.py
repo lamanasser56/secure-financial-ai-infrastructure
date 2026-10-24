@@ -270,6 +270,7 @@ class Manifest(unittest.TestCase):
     def setUpClass(cls):
         import yaml
         images = json.loads((REPO / 'platform/clouds/gke/images.json').read_text())
+        images['registry'] = images['registry'].replace('PROJECT_ID', cls.PROJECT)
         text, cls.refs = render.substitute(render.kustomize(KUBECTL), images=images, allow_pending=True, **cls.ARGS)
         cls.docs = [d for d in yaml.safe_load_all(text) if d]
 
@@ -354,14 +355,16 @@ class SecretSeparation(unittest.TestCase):
         self.assertNotIn(boot['master_key'], json.dumps(app) + json.dumps(ops))
         self.assertTrue(all(d['metadata']['namespace'] in ('platform', 'apps', 'ops', 'agent-financial', 'agent-platform-guide') for d in docs.values()))
         # an onboarded agent holds its own gateway key and its own redactor key (and never the master key)
-        financial = json.loads(decode(docs[('agent-financial', 'agent')], 'agent.json'))
+        financial = json.loads(decode(docs[('agent-financial', 'agent-u1')], 'agent.json'))
         clients = json.loads(decode(docs[('platform', 'redactor')], 'clients.json'))
-        keys = {k['alias']: k for k in boot['virtual_keys']}
+        keys = {k['alias'].removeprefix('boundary-'): k for k in boot['virtual_keys']}
+        boundary = json.loads(decode(docs[('platform', 'gateway-boundary')], 'boundary.json'))
         self.assertEqual((financial['gateway_key'], financial['redactor_key']),
-                         (keys['agent-financial']['key'], clients['agent-financial']))
+                         (boundary['clients']['agent-financial']['external_key'], clients['agent-financial']))
         self.assertEqual((keys['agent-financial']['max_budget'], keys['app-infrastructure']['max_budget']), (5.0, 2.5))
         self.assertNotIn(boot['master_key'], json.dumps(financial))
-        self.assertEqual(app['client_keys']['financial'], keys['app-financial']['key'])
+        self.assertEqual(app['client_keys']['financial'], boundary['clients']['app-financial']['external_key'])
+        self.assertNotEqual(financial['gateway_key'], keys['agent-financial']['key'])
 
 
 class FrontDoorApprovals(unittest.TestCase):

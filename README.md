@@ -1,100 +1,58 @@
-# AI Infrastructure and Secure Agent Platform
+# Agent Runtime Platform
 
-A standalone portfolio repository of infrastructure and secure AI runtime work adapted from my contribution to the private MASAR team project. It contains no product frontend or backend, authoritative product schema, customer data, deployment credentials, or original Git history. Its database schema is a synthetic, reference-only RLS fixture. The examples use synthetic requests and an `ai-platform` namespace.
+**Infrastructure · Security · Operations**
 
-The repository demonstrates a fail-closed route from a trusted application boundary through authentication, tenant context, authorization, input validation, policy, Presidio redaction, LiteLLM, and output validation. It also contains Kubernetes isolation templates, a metadata-only API audit policy, schema contracts, and CI validation.
+A Kubernetes-native platform for deploying, isolating, governing and observing AI agents.
 
-The [documentation index](docs/README.md) restores the architecture decisions, phase contracts, security model, and operations runbooks in sanitized form.
+This educational portfolio explores the boundaries between agent code, shared AI services, data access and operational authority. The Financial Agent is an example workload demonstrating controlled access to synthetic expense data. The Security & Operations Agent demonstrates bounded operational automation with application-level owner approvals. The Platform Guide searches a bundled documentation index.
 
-```text
-Application-owned identity and tenant adapters
-    → trusted runtime controls
-    → Presidio Analyzer + Anonymizer
-    → LiteLLM gateway
-    → approved provider integration
-    → structured output validation + sanitized audit event
-```
+## Implementation and evidence
 
-## Status
+The current implementation lives under `platform/`. Kubernetes manifests define namespace isolation, resource quotas, restricted workloads, scoped RBAC and bounded Ops admission. The gateway uses LiteLLM. The current redactor uses Google Sensitive Data Protection with deterministic client masking; references to Presidio in earlier phase material describe historical interfaces and experiments.
 
-### Implemented
+Financial requests pass through sign-in/session validation, tool selection, read-only data access, redaction and model dispatch, then answer validation and a per-turn trace. Some turns request tool data after the first model call. PostgreSQL policies filter rows by transaction identity context. These controls require the identity-setting application to be trusted.
 
-- Two bounded read-only [demo agents](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/agents/README.md), shared canonical runtime/governance composition, separate tenant/profile controls, offline CLIs and a private Arabic RTL / English LTR free-text conversation UI. Authentication, model responses and Presidio service doubles are explicitly simulated; no live provider result is claimed.
+The independent offline assessment demonstrated output-validation and Ops verification defects. The RC source preparation adds regression-tested corrections, including fail-closed handling of malformed responses. Its results do not establish live GKE enforcement or signed-image equivalence. Historical evidence remains unchanged; see [RC1 scope and limitations](docs/releases/rc1.md).
 
-- Python reference runtime with ordered, fail-closed controls, Presidio and LiteLLM HTTP adapters, sanitized trace envelopes, and synthetic qualification tests.
-- Tool registry, invocation, policy, prompt-injection assessment, approval verification, and audit-event contracts. The governance coordinator produces an eligible invocation; it does not execute a product tool.
-- JSON Schema and OpenAPI contracts for runtime and tool boundaries.
-- Kubernetes manifests for namespace quotas, restricted Pod Security Admission, default-deny network policy, DNS allowance, ServiceAccount hardening, Presidio, and LiteLLM. Separate examples cover scoped RBAC, migration credentials, NodeLocal DNS, storage, and backup. The manifests are sanitized templates; repository validation parses them and checks their composition.
-- Kubernetes API audit policy that records metadata without request or response bodies.
-- A reference-only PostgreSQL schema with `FORCE ROW LEVEL SECURITY`, distinct migration and runtime role expectations, and behavioral tests for missing and cross-tenant context.
-- Reusable Trivy, OSV-Scanner, Syft, Cosign, Gitleaks, repository lint, and exact-subject vulnerability-policy qualification. The supply-chain workflow uses a public digest-pinned image and synthetic signing key; it does not release a portfolio image.
-- CI with read-only checkout, runtime and security tests, schema and YAML validation, source-scope and documentation-link checks, repository lint, Git history secret scanning, and a separate supply-chain qualification workflow.
+## Security limits and release status
 
-### Designed
+RC1 is a proposed source candidate, not a published or deployable security certification. The historical runtime had the following HIGH boundaries; the proposed [v2 trusted-boundary source](docs/releases/rc1-boundary-migration.md) addresses them through separate services and identities. They are not fixed in the preserved historical images or live verified:
 
-- Observability requirements and sensitive-data limits in [Observability](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/observability.md). There is no claimed Prometheus or Grafana deployment in this repository.
-- Production image build, registry publication, provenance verification, signing-key custody, and deployment promotion in [Supply chain](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/supply-chain.md).
-- Cloud identity, secret ownership, alert routing, retention, backup, and recovery boundaries in [Operations](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/operations.md).
+- Historical direct gateway access bypassed client redaction; the proposed trusted frontend redacts accepted messages and keeps upstream keys private.
+- Historical workers held shared DB credentials and could choose RLS context; proposed workers receive only request capabilities and per-workload broker credentials.
+- Historical Ops held direct patch authority; proposed Ops is read-only and delegates to an independent approval-verifying executor.
+- Shared-service fairness, durable quotas, audit authenticity, disaster recovery and target-environment isolation still need independent runtime validation.
 
-### Integration-dependent
+Focused local protocol and disposable-PostgreSQL tests qualify parts of the new boundaries; qualified artifacts, coordinated migration and live enforcement checks are still required. The original forty-case live assessment remains pending isolated-environment safety and authorization gates. Use synthetic data only. Do not treat historical cloud lifecycle commands as an isolated local demo.
 
-- Live demo-agent identity, real Presidio qualification and scoped LiteLLM/Gemini integration require the separate [live integration gates](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/agents/live-integration.md). No live model call or provider credential is enabled by the demo.
-
-- A product-owned authenticator, tenant resolver, authorizer, tool executor, and audit sink must be supplied and tested against a real application. The included mocks are only synthetic test fixtures. Product-table RLS coverage must be qualified separately against the authoritative schema.
-- Set an approved provider model, GCP project, region, and Workload Identity binding; inject the LiteLLM master key from an external secret manager. The placeholders deliberately block direct deployment.
-- Requalify image digests and vulnerability state, CNI NetworkPolicy behavior, DNS and egress, namespace quota, probes, monitoring access, and cluster audit configuration in the target environment.
-- Production deployment, live provider use, customer-data processing, alert delivery, and end-to-end tenant isolation require separate integration evidence.
-
-## Repository layout
-
-The [repository map](docs/REPO-MAP.md) sorts every path into the current product (the Secure AI Agent Platform), the shared code it runs on, and the earlier phases kept as history.
+## Repository map
 
 | Path | Purpose |
 | --- | --- |
-| `runtime/phase3/` | Trusted AI path and HTTP adapters |
-| `runtime/phase4/` | Governed tool contracts and audit boundary |
-| `runtime/agents/` | Bounded shared agent coordinator and offline entry points |
-| `demo/` | Own synthetic fixtures and private UI assets |
-| `contracts/` | JSON Schema and OpenAPI definitions |
-| `tests/` | Synthetic runtime and governance qualification |
-| `kubernetes/` | Namespaced security and AI service templates |
-| `database/reference/` | Synthetic, reference-only RLS schema and SQL behavior checks |
-| `policy/` | Empty exception register for fail-closed image policy |
-| `scripts/` | Validation, linting, and portable supply-chain qualification |
-| `k3s/` | Metadata-only Kubernetes API audit policy |
-| `.github/workflows/` | Source validation and public-input supply-chain qualification |
-| `docs/` | Architecture, observability, supply-chain, and operations notes |
+| `platform/core/` | Platform services, Ops implementation, manifests, database SQL and tests |
+| `platform/agents/financial/` | Example Financial Agent, authentication, read-only tools and output checks |
+| `platform/agents/platform-guide/` | Example documentation-search agent |
+| `platform/clouds/gke/` | GKE configuration and historical lifecycle tooling; not automatic deployment authority |
+| `runtime/`, `contracts/`, `demo/`, `evaluation/` | Shared runtime and qualified historical inputs; preserve their integrity contracts |
+| `docs/` | Architecture, security reviews, operations notes and historical evidence |
 
-## Run locally
+The [documentation index](docs/README.md) and [repository map](docs/REPO-MAP.md) provide more detail. Older names, release records and historical claims are retained for traceability; they are not a current verification verdict.
 
-Use Python 3.12 or newer. From the repository root:
+## Local validation
+
+Use Python 3.12 and separately installed hash-locked dependencies. Financial tests use synthetic model/redactor fixtures; database-backed cases need a fresh disposable PostgreSQL instance and must report skips explicitly.
 
 ```bash
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install -r requirements-dev.txt
-bash scripts/check.sh
-kubectl kustomize kubernetes/base
-bash scripts/lint-repository.sh
-bash scripts/scan-secrets.sh  # requires Gitleaks 8.30.1
+PYTHONPATH=platform/core/src:platform/agents/financial:platform/core/tests:. \
+  python3 -B -m unittest discover -s platform/agents/financial/tests -p 'test_*.py'
+PYTHONPATH=platform/core/src:platform/core/tests:. \
+  python3 -B -m unittest discover -s platform/core/tests -p 'test_ops*py'
 ```
 
-The tests use synthetic fixtures and local loopback HTTP servers. They do not need cloud credentials or a running Kubernetes cluster. To run the live RLS behavior checks, provide a disposable PostgreSQL database named `portfolio_rls_test` through `PORTFOLIO_TEST_DATABASE_URL` and install `psql`; `scripts/check.sh` runs them automatically when both are available. The [supply-chain qualification](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/supply-chain.md) requires pinned scanners and network access. Rendering manifests does not configure Workload Identity or authorize deployment; see [Operations](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/operations.md).
+Read each test's prerequisites before broader validation. Do not run deployment, cloud, attack or teardown targets against existing resources as part of local validation.
 
-## Private agent demonstration
+## Artifact integrity and attribution
 
-```bash
-python3 -B scripts/diagnose-infrastructure.py --scenario archive-export
-python3 -B scripts/analyze-demo-expenses.py --period 2026-01
-python3 -B scripts/serve-demo-agents.py
-```
+Existing image references, digests, signatures and attestations are historical release subjects. Source remediation requires separately reviewed new artifacts and qualification before deployment. A signed image does not authenticate executable ConfigMaps or database state. No historical pin or signature is updated by this source preparation.
 
-Open `http://127.0.0.1:8765`. This is an offline synthetic simulation with simulated authentication. The server binds only to loopback; do not expose it publicly or enter real data. See the [agent guide](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/agents/README.md) for startup identity selection, limits and evidence boundaries.
-
-## Security and attribution
-
-Do not commit `.env` files, live keys, tokens, customer data, private endpoints, cloud project IDs, or real service-account addresses. Run `bash scripts/check.sh` and a current secret scanner before every publication. CI runs Gitleaks against Git history. The published history starts with this sanitized extraction and does not import MASAR commits.
-
-The Python runtime, contracts, infrastructure manifests, and qualification fixtures were adapted from my MASAR AI Infrastructure contribution. MASAR was a team project; its product frontend and backend remain with their original contributors. Public third-party images and GitHub Actions retain their upstream names and version or digest references. This repository makes no claim of ownership of those upstream projects.
-
-See [Architecture](docs/architecture.md) for the trust boundary and [Operations](https://github.com/lamanasser56/secure-financial-ai-infrastructure/tree/v1-live-evidence/docs/operations.md) for deployment prerequisites.
+This project continues infrastructure and runtime work adapted from the author's contribution to the private MASAR team project. It makes no ownership claim over third-party software or teammates' product implementations. Do not publish credentials, private assessment evidence or real financial records.

@@ -60,16 +60,17 @@ class Signer:
 
 
 class Verifier:
-    """Ops agent only: verify, bind and consume."""
+    """Trusted executor consumes durably; read-only Ops may pre-verify with no mutation authority."""
 
-    def __init__(self, public_pem, clock=time.time):
+    def __init__(self, public_pem, clock=time.time, nonce_store=None):
         self._key = serialization.load_pem_public_key(public_pem.encode())
         if not isinstance(self._key, Ed25519PublicKey):
             raise ValueError('approval:key_type')
         self._clock, self._started = clock, int(clock())
         self._used, self._lock = set(), threading.Lock()
+        self._nonce_store = nonce_store
 
-    def consume(self, token, proposal):
+    def verify(self, token, proposal):
         try:
             payload, signature = token.split('.')
             raw = unb64(payload)
@@ -85,7 +86,15 @@ class Verifier:
         for field in BOUND:
             if claims[field] != proposal.get(field):
                 raise ApprovalDenied('BINDING_MISMATCH:' + field)
+        return claims
+
+    def consume(self, token, proposal):
+        claims = self.verify(token, proposal)
         with self._lock:
+            if self._nonce_store is not None:
+                if not self._nonce_store.consume(claims['request_id']):
+                    raise ApprovalDenied('ALREADY_USED')
+                return claims
             if claims['request_id'] in self._used:
                 raise ApprovalDenied('ALREADY_USED')
             self._used.add(claims['request_id'])

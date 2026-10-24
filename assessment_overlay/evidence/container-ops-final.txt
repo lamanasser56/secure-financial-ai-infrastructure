@@ -1,0 +1,1 @@
+CONTAINER OPS PASS: fixed stub, real redactor key rejected

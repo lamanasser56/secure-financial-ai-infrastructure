@@ -35,6 +35,7 @@ a { color: var(--ink); }
 .frame { padding: 0 40px 32px; }  /* full width (the ★ screens were drawn at 1440 x 900): 40 px gutters, no centred column */
 .bar { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; min-height: 68px; border-bottom: 1px solid var(--line); }
 .brand { font: 800 22px var(--head); letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none; }
+.brand small { display: block; font: 500 11px var(--body); letter-spacing: 0.02em; text-transform: none; }
 .live { font: 600 13px var(--body); color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
 .live::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
 .live.on { color: var(--allowed); } .live.on::before { background: var(--allowed); }

@@ -1,4 +1,6 @@
-# Agent onboarding contract
+# Agent Runtime Platform onboarding contract
+
+**RC1 source status:** see [the trusted-boundary migration](releases/rc1-boundary-migration.md). The new source is not deployed; historical images and live claims do not verify it. Current Financial UI access moves to the trusted `apps/financial-frontdoor` Service after an authorized cutover. Do not run historical lifecycle commands for assessment provisioning.
 
 The product is the platform. A team brings an agent, and the agent inherits the platform's security controls. The
 team does not rebuild them. This page states what the platform guarantees, what an agent must provide, and what an
@@ -8,43 +10,26 @@ agent must never do. An agent that does not meet the contract is not deployed.
 [claims matrix](agent-platform/claims-matrix.md) says so. Onboarding is implemented by `make onboard`; see the
 [developer guide](agent-developer-guide.md). Three agents are declared today:
 
-- the **Security & Operations Agent** (the flagship, a platform component);
+- the **Security & Operations Agent** (an example of governed operational automation);
 - the **Financial Agent**, tenant #1 (`platform/agents/financial/agent.yaml`, namespace `agent-financial`, its own image);
 - the **Platform Guide**, tenant #2 (`platform/agents/platform-guide/agent.yaml`, namespace `agent-platform-guide`, Node.js, no data).
 
-## 1. What every agent inherits
+## 1. Proposed RC1 platform boundaries
 
-The inherited controls fall into two groups, and they are not equally strong:
+These are the **new source/deployment contract**, not claims about the seven historical images or the original cluster. Focused local tests cover protocols and a disposable PostgreSQL server; GKE admission, packets, deployed credentials and artifact contents remain NOT VERIFIED. The forty-case live assessment is still pending authorization and safety gates.
 
-- **Platform boundaries** hold even if the agent's code is hostile. Kubernetes, the network, admission and the
-  gateway enforce them outside the agent.
-- **Agent obligations** are implemented with the platform libraries and hold only if the agent's code uses them. The
-  platform does not enforce them from outside the agent. The [trust model](security/known-limitations.md#trust-model-the-agents-code-is-trusted)
-  lists what that means.
+| Boundary | Enforced outside a hostile worker in the proposed release | Remaining verification |
+| --- | --- | --- |
+| Mandatory model redaction | `gateway_boundary.py` authenticates each external key, redacts all accepted text messages and forwards using a different private LiteLLM key. Workers cannot select a provider URL, stream or unsupported request surface. | Qualified images, legacy-key revocation and actual CNI/private-port denial before live use. |
+| User/tenant data access | Financial sign-in and session/capability signing live in `apps/financial-frontdoor`. Workers receive public verification material and per-user worker/broker credentials, never DB URLs or signing keys. Broker identity must match both the active signed capability and the fixed user bound to that worker key; caller UUIDs cannot select it. | New DB migration and effective runtime credentials/policies. A compromised trusted broker is outside this worker threat model. |
+| Database least privilege | Fresh `finance_frontdoor` and `finance_data_broker` roles separate login/write and read-tool access. Legacy worker/web roles are disabled and revoked. GUC selection occurs only inside the trusted broker. | PostgreSQL 16.2 local permission tests do not establish production PostgreSQL 17 state. |
+| Tool access | The broker exposes only the three existing read tools with strict arguments and fixed SQL. No SQL/identity override field is accepted. Data-none workloads receive no broker capability. | New data workloads need a separately reviewed trusted user-authentication route; registration alone does not mint capabilities. |
+| Human-approved mutation | `ops-agent` retains read-only API grants. A separate `ops-executor` verifies owner signatures/binding/fresh evidence and consumes nonces durably before a single bounded patch. Admission explicitly denies Ops writes and bounds executor writes. | Real API authorization/CEL, replay-volume lifecycle and qualified executor image. |
+| Network and workloads | Default-deny, DNS and named service/port paths; no direct agent SQL/private-provider egress, provider identity or Kubernetes token. Restricted nonroot workloads, resource quotas and no public Services remain declared. | Live CNI/PSA/egress enforcement. |
+| Supply chain | Historical pins/signatures are preserved. New source requires new qualified subjects and unchanged enforced Binary Authorization. The renderer rejects historical locks for this deployment contract. | New digest/source/scan/SBOM/signature/attestation evidence and actual admission; no builds authorized yet. |
+| Audit | Trusted mediators emit their own bounded request/caller/data/approval events. Worker traces are not an independent authority. | Cloud sink authenticity, completeness and failure/durability still need live testing. |
 
-### 1a. Platform boundaries (hold even if the agent's code is hostile)
-
-| Control | How the platform enforces it | What the agent does about it |
-|---|---|---|
-| No public exposure | Private nodes, no load balancer, Ingress or external IP; a quota of 0 load balancers and 0 node ports. Users reach an agent only through an IAM-gated port-forward. | Nothing. The agent listens on a cluster-internal port only. |
-| Network egress limits | Default-deny NetworkPolicies: egress only to DNS, the redactor and the gateway (and Postgres if the manifest declares data). No NAT and no external IPs; only the gateway (model provider) and the redactor (Sensitive Data Protection) have FQDN egress, through Private Service Connect. | Nothing. Any other outbound connection fails. |
-| No Kubernetes API token | The agent's ServiceAccount and Pod set `automountServiceAccountToken: false` (generated by `onboarding.py`). | Nothing. |
-| Workload hardening | Pod Security "restricted": nonroot, read-only root filesystem, no capabilities. | Builds an image that runs under these settings. |
-| Supply chain | Trivy (HIGH/CRITICAL gate), SBOM, keyless cosign and a KMS attestation in CI. Binary Authorization rejects unattested digests. | Builds through the platform image pipeline and is deployed by digest. |
-| Model access | A per-agent gateway key limited to the one alias (`secure-financial-chat`), with a monthly budget, 20 requests per minute and 2 parallel requests (`programs/bootstrap.py`). Provider credentials stay in the gateway (Workload Identity). | Calls the alias with its own key. Never holds a provider key and never names a provider model. |
-| Human approval for changes | Applies to the Security & Operations Agent: Ed25519 one-use approval tokens signed by the front door after the owner enters their passphrase; the ops agent holds only the verify key, and an admission policy bounds what it can change. | Onboarded agents may register read-only tools only, so they have no state-changing tools to approve. |
-
-### 1b. Agent obligations, implemented with platform libraries (hold only if the agent's code uses them)
-
-| Obligation | Platform library or rule | What the agent must do |
-|---|---|---|
-| Redaction before any model call | The platform client libraries call the redactor first and fail closed: if redaction fails, no model request is sent (Python: `RedactorClient` in `agent_platform/redaction.py` with `DeterministicEmailRedactor`; Node.js: `platform/agents/platform-guide/src/clients.js`). The gateway does **not** enforce it: an agent's NetworkPolicy also allows the gateway on port 4000, and the gateway does not check that text was redacted, so an agent that calls the gateway directly with its own key bypasses redaction. | Sends model text only through the platform redaction client, never straight to the gateway. |
-| User identity | The agent authenticates its own users (the Financial Agent: argon2id sign-in and a signed session cookie). | Takes the user ID only from its verified session. Rejects user or tenant IDs that arrive in the request body or prompt. |
-| Row-level security identity | Postgres FORCE ROW LEVEL SECURITY with non-owner, NOBYPASSRLS roles. The policies compare rows with `finance.user_id` (`platform/core/database/finance.sql`), and the agent's own connection sets that value per transaction (the Financial Agent: `finance_agent/store.py`). RLS trusts the value the caller sets. | Sets `finance.user_id` only from the verified session. Reads through its role only. Never builds SQL from model output. |
-| Tool registry, dispatch and limits | Onboarding accepts only registered, read-only tools. Dispatch, argument checks and per-turn limits run in the agent's core; the model only proposes. | Registers every tool. Ships no tool that reaches outside its registered scope. |
-| Output admission | The platform clients read only the reply text (`message.content`) and ignore every other field, such as tool calls, thought text or images; nothing else is executed or shown (`finance_agent/agent.py`, `clients.js`). The text must then match the agent's closed decision shape. | Defines its decision schema. Treats model text as data, never as instructions. |
-| Per-user token and DLP ceilings | Counted in the agent's process, in memory (the Financial Agent: `Limits` in `finance_agent/agent.py`). The only platform-side cap is the gateway key's budget and request rate. | Enforces its own per-user limits. |
-| Audit | Closed-schema audit events with no prompts, arguments, credentials or raw tenant IDs (`agent_platform/audit.py`, `platform-guide/src/audit.js`), written by the agent to stdout and collected by Cloud Logging. | Emits the platform's audit events. Adds no free-text logging of user or model content. |
+Agent-local model decisions, answer grounding, prompt-injection filters, history and per-user counters remain agent-code obligations. Service-side limits bound keys and workers, but no durable platform-enforced per-user token/DLP ceiling is claimed. Each Financial user has a separate worker Deployment/Secret and broker key. A genuine foreign-user capability is rejected by the broker's fixed key/user mapping. The current three synthetic users use opaque slots u1–u3; provisioning additional data workloads/users requires reviewed routes, credentials and resource bounds.
 
 ## 2. What an agent must provide
 
@@ -52,7 +37,7 @@ The inherited controls fall into two groups, and they are not equally strong:
    - name and namespace;
    - the model alias and the per-agent monthly budget (USD);
    - the tool registry entries: ID, argument and result schemas, risk class, limits, and approval requirement;
-   - its data access: tables, the Postgres role, and the RLS policies the role depends on;
+   - its data access: broker tool scopes and the trusted user-authentication/capability issuer; no worker Postgres role;
    - the per-turn limits: model requests, tool executions, and seconds.
 2. **A decision schema** for model output. The model proposes; the agent's core validates and acts.
 3. **A container image** built by the platform pipeline from this repository.
@@ -65,7 +50,7 @@ The inherited controls fall into two groups, and they are not equally strong:
 ## 3. What an agent must never do
 
 - Call a model provider directly, or hold a provider credential.
-- Send unredacted text to the gateway.
+- Treat local redaction as proof of trusted gateway enforcement. The gateway redacts accepted text independently.
 - Take the tenant or user identity from the prompt, the request body, or model output.
 - Execute model output as code, SQL, a shell command or a tool call that has not been validated.
 - Log prompts, model text, tool arguments or credentials.
@@ -80,7 +65,7 @@ The inherited controls fall into two groups, and they are not equally strong:
 3. Open a PR with the manifest, the generated files and the agent's attack tests. CI runs the unit tests, the
    rejection tests, the render invariants and the policy tests on a real kube-apiserver.
 4. The owner reviews any IAM, network or Terraform change shown as a diff; nothing is applied without approval.
-5. After the merge, `make up` deploys by signed digest and creates the agent's keys without rotating others.
+5. A reviewed v2 cutover bundle must install qualified images, fresh mediator credentials, per-user routes and the DB/RBAC/network migration. Legacy `make up` is blocked before cloud calls; it is not a safe migration.
 6. A live run proves the agent's attack tests and one end-to-end turn. Its claims enter the claims matrix as
    live-tested only after that run passes.
 
@@ -88,8 +73,7 @@ The inherited controls fall into two groups, and they are not equally strong:
 
 - **Person names are not redacted.** The qualified redaction entity set has no person-name category, so a name in a
   question reaches the model provider as written. Agents must not rely on name redaction.
-- **The agent's code is trusted** for the obligations in section 1b, including redaction: see the
-  [trust model](security/known-limitations.md#trust-model-the-agents-code-is-trusted).
+- The [historical trust model](security/known-limitations.md#trust-model-the-agents-code-is-trusted) describes the old runtime. The new source moves model/data/mutation authority out of workers; answer grounding and counters remain agent-local.
 - **Passport numbers are not masked** (INFO-7 in the [known limitations](security/known-limitations.md)).
 - One cluster and one model alias. Portability to other clouds is documented, not tested
   ([porting guide](porting-guide.md)).
@@ -97,16 +81,15 @@ The inherited controls fall into two groups, and they are not equally strong:
 
 ## 6. Reference consumer: the Financial Agent
 
-The Financial Agent (`platform/agents/financial/`, tenant #1) was written from scratch for this repository and proves
-the contract end to end ([claims matrix](agent-platform/claims-matrix.md), live 2026-10-13):
+The Financial Agent (`platform/agents/financial/`, tenant #1) is the reference consumer. The [13 October claims](agent-platform/claims-matrix.md) concern the historical runtime, not this migration. In the proposed source:
 
-- **Data:** users add and list their own expenses through the agent's web API (`user_entry: own-rows` in its
+- **Data:** users add and list their own expenses through the trusted frontdoor's web API (`user_entry: own-rows` in its
   manifest). Rows are protected by RLS keyed to the signed-in user.
 - **Authentication:** three local users, argon2id password hashes, and a signed session cookie.
 - **Agent access:** the assistant is read-only: its three registered tools run read-only queries on the same table,
-  through its own role. Onboarding refuses a tool that is not `access: read` or whose ID looks like a write.
-- **Numeric grounding:** every number in a reply must match a number from this turn's tool results.
+  through the capability-checked broker; workers hold no database role. Onboarding refuses a tool that is not `access: read` or whose ID looks like a write.
+- **Numeric grounding:** syntactic checks cover recorded numeric/monetary cases; arbitrary semantic grounding is not established.
 - **Conversation history:** kept server-side, never supplied by the client.
 - **Limits:** a per-user rate limit and token budget.
-- **Audit:** one audit event per turn.
+- **Audit:** bounded worker turn traces plus independent mediator events; durable completeness is not established.
 - **Attack tests:** cross-user access, "show Sara's expenses", and injection through user-entered expense names.

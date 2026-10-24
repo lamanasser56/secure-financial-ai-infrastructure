@@ -61,7 +61,7 @@ next to the console assets, are served from the same origin, and are never loade
 - Full width, as the ★ screens were drawn (1440 × 900, the recording viewport): 40 px side padding and no centred
   max-width column; 16 px side gutters on small screens. Each screen fills that frame at 1440 × 900 without scrolling
   sideways or cutting anything off.
-- **Header** (68 px tall) on every screen: the wordmark `AGENT-PLATFORM` (Barlow 800, tracked) and a green `● Live` badge on the left;
+- **Header** (68 px tall) on every screen: the wordmark `AGENT RUNTIME PLATFORM` (Barlow 800, tracked) and a green `● Live` badge on the left;
   the tab row in the centre; a 1 px rule under all of it. There is no `Sample data` badge: the console shows no sample data.
 - **Tabs:** `MAP · AGENTS · ONBOARD · OPS · BREAK IT`. The current tab is `--ink` with a 2 px underline; the others are
   `--muted`. `BREAK IT` is always `--denied` (its underline too, when current).
@@ -111,7 +111,7 @@ Message: every agent has an identity, permissions and proof.
   the namespace (mono 12 px, muted).
   The selected row has a `--allowed` left bar and a `--box` fill.
 - **Passport card** (right): a `--box` card (14 px radius, a soft shadow, a faint guilloche from CSS gradients, about
-  368 px tall) with a top strip `AGENT PLATFORM` (left) and `AGENT PASSPORT · P<PLT<01` (right). Left: a framed icon tile
+  368 px tall) with a top strip `AGENT RUNTIME PLATFORM` (left) and `AGENT PASSPORT · P<PLT<01` (right). Left: a framed icon tile
   (about 150 × 176) with the image digest beneath it. The icon is a simple inline line icon chosen from manifest facts,
   never from the name: shield for the platform tenant, bank for an agent over the `finance` database, book for an agent
   whose tool searches the docs, the platform emblem otherwise. The name is 40 px; the MRZ is Plex Mono 15 px, widely tracked

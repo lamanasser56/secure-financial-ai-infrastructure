@@ -116,8 +116,8 @@ class Rejections(unittest.TestCase):
         for role in roles:
             self.assertTrue(all(set(rule['verbs']) <= {'get', 'list'} for rule in role['rules']))
             self.assertNotIn('secrets', json.dumps(role))
-        self.assertEqual(docs[0]['data'], {'agent-financial.agent.observe': 'read-only',
-                                           'agent-platform-guide.agent.observe': 'read-only'})
+        self.assertEqual(docs[0]['data'], dict({'agent-financial.agent-' + slot + '.observe': 'read-only' for slot in onboarding.USER_SLOTS},
+                                                **{'agent-platform-guide.agent.observe': 'read-only'}))
 
     def test_names_and_placement(self):
         for name in ('platform', 'ops', 'kube-system', 'gateway', 'A', 'x'):
@@ -145,15 +145,15 @@ class Inheritance(unittest.TestCase):
         self.assertEqual(self.docs[('NetworkPolicy', 'default-deny')]['spec'], {'podSelector': {}, 'policyTypes': ['Ingress', 'Egress']})
         egress = self.docs[('NetworkPolicy', 'agent')]['spec']['egress']
         targets = {(e['to'][0]['podSelector']['matchLabels']['app.kubernetes.io/name'], e['ports'][0]['port']) for e in egress}
-        self.assertEqual(targets, {('gateway', 4000), ('redactor', 4003)})
+        self.assertEqual(targets, {('gateway-boundary', 4000), ('redactor', 4003)})
         access = onboarding.render_platform_access(onboarding.load_all())
         self.assertEqual(sorted(p['metadata']['name'] for p in access),
-                         ['agent-financial-to-gateway', 'agent-financial-to-postgres', 'agent-financial-to-redactor',
-                          'agent-platform-guide-to-gateway', 'agent-platform-guide-to-redactor'])  # no Postgres path for the guide
+                         ['agent-financial-to-financial-frontdoor', 'agent-financial-to-gateway-boundary', 'agent-financial-to-redactor',
+                          'agent-platform-guide-to-gateway-boundary', 'agent-platform-guide-to-redactor'])  # no Postgres path for the guide
 
     def test_database_path_only_when_declared(self):
         ports = lambda manifest: sorted(e['ports'][0]['port'] for e in onboarding.egress(manifest))
-        self.assertEqual((ports(nodata()), ports(onboarding.load_all()['financial'])), ([4000, 4003], [4000, 4003, 5432]))
+        self.assertEqual((ports(nodata()), ports(onboarding.load_all()['financial'])), ([4000, 4003], [4000, 4003, 8082]))
 
     def test_hardened_pod_without_api_token(self):
         pod = self.docs[('Deployment', 'agent')]['spec']['template']['spec']
@@ -260,11 +260,11 @@ class AgentIsolation(unittest.TestCase):
             policy = next(d for d in docs if d['kind'] == 'NetworkPolicy' and d['metadata']['name'] == 'agent')
             for rule in policy['spec']['egress']:
                 for peer in rule['to']:
-                    self.assertEqual(peer['namespaceSelector']['matchLabels']['kubernetes.io/metadata.name'], 'platform')
+                    self.assertIn(peer['namespaceSelector']['matchLabels']['kubernetes.io/metadata.name'], ('platform', 'apps'))
 
     def test_the_guide_has_no_database_path_and_the_financial_agent_does(self):
         ports = lambda name: sorted(e['ports'][0]['port'] for e in onboarding.egress(self.manifests[name]))
-        self.assertEqual((ports('platform-guide'), ports('financial')), ([4000, 4003], [4000, 4003, 5432]))
+        self.assertEqual((ports('platform-guide'), ports('financial')), ([4000, 4003], [4000, 4003, 8082]))
         names = [d['metadata']['name'] for d in onboarding.render_platform_access(self.manifests)]
         self.assertNotIn('agent-platform-guide-to-postgres', names)
 
@@ -294,10 +294,10 @@ class FinancialTenantOne(unittest.TestCase):
                 for d in platform_secrets.generate('correct horse battery', hasher=FAKE_HASH, users_out=passwords)}
         decode = lambda d, k: json.loads(__import__('base64').b64decode(d['data'][k]))
         boot = decode(docs[('platform', 'bootstrap')], 'bootstrap.json')
-        agent = decode(docs[('agent-financial', 'agent')], 'agent.json')
-        self.assertEqual(set(agent), {'gateway_key', 'redactor_key', 'web_db_url', 'agent_db_url', 'session_key'})
-        self.assertIn('finance_web:' + boot['finance']['web_password'], agent['web_db_url'])
-        self.assertIn('finance_agent:' + boot['finance']['agent_password'], agent['agent_db_url'])
+        agent = decode(docs[('agent-financial', 'agent-u1')], 'agent.json')
+        self.assertEqual(set(agent), {'gateway_key', 'redactor_key', 'user_id', 'agent_name', 'broker_key', 'worker_key', 'capability_public_key'})
+        self.assertNotIn('postgresql://', json.dumps(agent))
+        self.assertNotIn('PRIVATE KEY', json.dumps(agent))
         self.assertEqual(sorted(passwords), ['lama', 'omar', 'sara'])
         self.assertTrue(all(u['password_hash'].startswith('$argon2id$') for u in boot['finance']['users']))
         for password in passwords.values():  # plaintext passwords never enter the cluster

@@ -1,0 +1,26 @@
+{"audit_event":"redaction","component":"redactor","at":1792813535.9085932,"caller":"app","categories":["PHONE_NUMBER"],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813535.9447007,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813535.9776278,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813536.0109973,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813536.0473907,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813536.0840683,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813536.1250236,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813536.1638582,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813536.2036393,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813536.2463007,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813536.2879922,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813536.3261716,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813536.364971,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813536.4022546,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813536.4431517,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813536.4818132,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813536.521211,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813536.5602279,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813536.5991118,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813536.6385202,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction_failed","component":"redactor","at":1792813536.6424341,"caller":"app","reason":"Exhausted","request_id":null,"diagnostic":null}
+{"audit_event":"redaction_failed","component":"redactor","at":1792813537.1462405,"caller":"app","reason":"Exhausted","request_id":null,"diagnostic":null}
+----------------------------------------------------------------------
+Ran 5 tests in 5.645s
+
+OK

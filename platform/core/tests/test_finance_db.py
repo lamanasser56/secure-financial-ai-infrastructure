@@ -1,4 +1,4 @@
-"""Financial Agent database against a real Postgres: row-level security per user, read-only agent role.
+"""Financial Agent database against a real Postgres: row-level security per user, trusted broker roles; untrusted workers hold no database identity.
 
 Needs a Postgres superuser DSN in FINANCE_TEST_DSN (CI: a digest-pinned postgres service) or the `pgserver`
 package (local); skipped otherwise. Runs the real bootstrap code (bootstrap.finance) and finance.sql.
@@ -40,7 +40,7 @@ class FinanceDatabase(unittest.TestCase):
             raise unittest.SkipTest('set FINANCE_TEST_DSN or install pgserver')
         from agent_platform.programs import bootstrap
         bootstrap.SQL = REPO / 'platform/core/database'
-        cls.config = {'finance': {'web_password': 'web-' + uuid.uuid4().hex, 'agent_password': 'agent-' + uuid.uuid4().hex, 'users': USERS}}
+        cls.config = {'finance': {'broker_web_password': 'web-' + uuid.uuid4().hex, 'broker_read_password': 'agent-' + uuid.uuid4().hex, 'users': USERS}}
         info = psycopg.conninfo.conninfo_to_dict(cls.dsn)
 
         def connect(database):
@@ -48,7 +48,7 @@ class FinanceDatabase(unittest.TestCase):
         bootstrap.finance(cls.config, connect=connect)
         bootstrap.finance(cls.config, connect=connect)  # idempotent
         cls.as_role = lambda cls_, role: psycopg.connect(**dict(info, dbname='finance', user=role,
-                                                               password=cls.config['finance'][role.split('_')[1] + '_password']))
+                                                               password=cls.config['finance']['broker_web_password' if role == 'finance_frontdoor' else 'broker_read_password']))
 
     @classmethod
     def tearDownClass(cls):
@@ -56,7 +56,7 @@ class FinanceDatabase(unittest.TestCase):
             cls.server.cleanup()
 
     def add(self, user, merchant, amount):
-        with self.as_role('finance_web') as db:
+        with self.as_role('finance_frontdoor') as db:
             db.execute("SELECT set_config('finance.user_id', %s, true)", (user['id'],))
             db.execute("INSERT INTO finance.expenses(spent_on, merchant, category, amount_minor) VALUES ('2026-10-01', %s, 'food', %s)",
                        (merchant, amount))
@@ -71,15 +71,32 @@ class FinanceDatabase(unittest.TestCase):
         lama, sara = USERS
         self.add(lama, 'Lama cafe', 2400)
         self.add(sara, 'Sara market', 9900)
-        for role in ('finance_web', 'finance_agent'):
+        for role in ('finance_frontdoor', 'finance_data_broker'):
             with self.subTest(role):
                 self.assertIn('Lama cafe', self.rows(role, lama))
                 self.assertNotIn('Sara market', self.rows(role, lama))
                 self.assertEqual(self.rows(role, None), [])  # no user set: nothing visible
 
+    def test_reused_broker_connection_clears_scoped_identity(self):
+        """D06: query the same connection after SET LOCAL's transaction ends."""
+        lama, _ = USERS
+        self.add(lama, 'D06 synthetic expense', 100)
+        info = psycopg.conninfo.conninfo_to_dict(self.dsn)
+        with psycopg.connect(**dict(info, dbname='finance', user='finance_data_broker',
+                                   password=self.config['finance']['broker_read_password']),
+                             autocommit=True) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM finance.expenses').fetchone()[0], 0)
+            with db.transaction():
+                db.execute("SELECT set_config('finance.user_id', %s, true)", (lama['id'],))
+                self.assertGreaterEqual(db.execute('SELECT count(*) FROM finance.expenses').fetchone()[0], 1)
+                db.execute("SELECT set_config('finance.user_id', '', true)")
+                self.assertEqual(db.execute('SELECT count(*) FROM finance.expenses').fetchone()[0], 0)
+            # This is the step omitted from the earlier live D06 probe.
+            self.assertEqual(db.execute('SELECT count(*) FROM finance.expenses').fetchone()[0], 0)
+
     def test_web_cannot_insert_for_another_user(self):
         lama, sara = USERS
-        with self.as_role('finance_web') as db, self.assertRaises(psycopg.Error):
+        with self.as_role('finance_frontdoor') as db, self.assertRaises(psycopg.Error):
             db.execute("SELECT set_config('finance.user_id', %s, true)", (lama['id'],))
             db.execute("INSERT INTO finance.expenses(user_id, spent_on, merchant, category, amount_minor) VALUES (%s, '2026-10-01', 'x', 'food', 100)",
                        (sara['id'],))
@@ -89,29 +106,29 @@ class FinanceDatabase(unittest.TestCase):
         for statement in ("INSERT INTO finance.expenses(spent_on, merchant, category, amount_minor) VALUES ('2026-10-01', 'x', 'food', 100)",
                           'DELETE FROM finance.expenses', "UPDATE finance.expenses SET amount_minor = 1",
                           'SELECT password_hash FROM finance.users'):
-            with self.subTest(statement), self.as_role('finance_agent') as db, self.assertRaises(psycopg.Error):
+            with self.subTest(statement), self.as_role('finance_data_broker') as db, self.assertRaises(psycopg.Error):
                 db.execute("SELECT set_config('finance.user_id', %s, true)", (lama['id'],))
                 db.execute(statement)
 
     def test_web_reads_one_users_hash_only_through_the_lookup_function(self):
         lama, sara = USERS
-        with self.as_role('finance_web') as db, self.assertRaises(psycopg.Error):
+        with self.as_role('finance_frontdoor') as db, self.assertRaises(psycopg.Error):
             db.execute('SELECT password_hash FROM finance.users')  # no table access
-        with self.as_role('finance_web') as db:
+        with self.as_role('finance_frontdoor') as db:
             rows = db.execute('SELECT id::text, password_hash FROM finance.login_lookup(%s)', ('lama',)).fetchall()
             self.assertEqual(rows, [(lama['id'], HASH)])
             self.assertEqual(db.execute('SELECT count(*) FROM finance.login_lookup(%s)', ("' OR '1'='1",)).fetchone()[0], 0)
             self.assertEqual(db.execute("SELECT count(*) FROM finance.login_lookup('%')").fetchone()[0], 0)  # exact match only
-        with self.as_role('finance_agent') as db, self.assertRaises(psycopg.Error):
+        with self.as_role('finance_data_broker') as db, self.assertRaises(psycopg.Error):
             db.execute('SELECT * FROM finance.login_lookup(%s)', ('lama',))  # the agent role cannot call it
 
     def test_lookup_function_contract(self):
-        """Owner is a NOLOGIN, non-superuser role; SECURITY DEFINER; pinned search_path; EXECUTE only for finance_web."""
+        """Owner is a NOLOGIN, non-superuser role; SECURITY DEFINER; pinned search_path; EXECUTE only for trusted finance_frontdoor."""
         info = psycopg.conninfo.conninfo_to_dict(self.dsn)
         with psycopg.connect(**dict(info, dbname='finance')) as db:
             row = db.execute(
                 "SELECT r.rolname, r.rolcanlogin, r.rolsuper, r.rolbypassrls, p.prosecdef, p.proconfig, "
-                "has_function_privilege('finance_web', p.oid, 'EXECUTE'), has_function_privilege('finance_agent', p.oid, 'EXECUTE'), "
+                "has_function_privilege('finance_frontdoor', p.oid, 'EXECUTE'), has_function_privilege('finance_data_broker', p.oid, 'EXECUTE'), "
                 "(SELECT count(*) FROM aclexplode(p.proacl) a WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE'), "
                 "has_table_privilege('finance_owner', 'finance.expenses', 'SELECT') "
                 "FROM pg_proc p JOIN pg_roles r ON r.oid = p.proowner WHERE p.oid = 'finance.login_lookup(text)'::regprocedure").fetchone()
@@ -120,7 +137,7 @@ class FinanceDatabase(unittest.TestCase):
     def test_web_cannot_change_or_delete(self):
         lama, _ = USERS
         for statement in ('DELETE FROM finance.expenses', 'UPDATE finance.expenses SET amount_minor = 1'):
-            with self.subTest(statement), self.as_role('finance_web') as db, self.assertRaises(psycopg.Error):
+            with self.subTest(statement), self.as_role('finance_frontdoor') as db, self.assertRaises(psycopg.Error):
                 db.execute("SELECT set_config('finance.user_id', %s, true)", (lama['id'],))
                 db.execute(statement)
 

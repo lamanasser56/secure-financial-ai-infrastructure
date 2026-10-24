@@ -19,12 +19,12 @@ metadata:
   namespace: agent-financial
 spec:
   hard:
-    limits.cpu: 500m
-    limits.memory: 512Mi
+    limits.cpu: 1000m
+    limits.memory: 1024Mi
     persistentvolumeclaims: '0'
-    pods: '2'
-    requests.cpu: 500m
-    requests.memory: 512Mi
+    pods: '4'
+    requests.cpu: 1000m
+    requests.memory: 1024Mi
     services.loadbalancers: '0'
     services.nodeports: '0'
 ---
@@ -58,15 +58,17 @@ kind: Deployment
 metadata:
   labels: &id001
     agent-platform/agent: financial
+    agent-platform/user-slot: u1
     app.kubernetes.io/name: agent
     app.kubernetes.io/part-of: agent-platform
-  name: agent
+  name: agent-u1
   namespace: agent-financial
 spec:
   replicas: 1
   revisionHistoryLimit: 3
   selector:
     matchLabels:
+      agent-platform/user-slot: u1
       app.kubernetes.io/name: agent
   template:
     metadata:
@@ -77,7 +79,7 @@ spec:
         - command:
             - /usr/local/bin/python3.12
             - -m
-            - finance_agent.server
+            - finance_agent.worker
           env:
             - name: PYTHONPATH
               value: /app/platform/src:/app
@@ -126,12 +128,166 @@ spec:
         - name: keys
           secret:
             defaultMode: 256
-            secretName: agent
+            secretName: agent-u1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels: &id001
+    agent-platform/agent: financial
+    agent-platform/user-slot: u2
+    app.kubernetes.io/name: agent
+    app.kubernetes.io/part-of: agent-platform
+  name: agent-u2
+  namespace: agent-financial
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      agent-platform/user-slot: u2
+      app.kubernetes.io/name: agent
+  template:
+    metadata:
+      labels: *id001
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - command:
+            - /usr/local/bin/python3.12
+            - -m
+            - finance_agent.worker
+          env:
+            - name: PYTHONPATH
+              value: /app/platform/src:/app
+            - name: AGENT_NAME
+              value: financial
+            - name: AGENT_PORT
+              value: '8081'
+          image: agent-platform/agent-financial
+          name: agent
+          ports:
+            - containerPort: 8081
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - mountPath: /secrets/agent
+              name: keys
+              readOnly: true
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: agent
+      volumes:
+        - name: keys
+          secret:
+            defaultMode: 256
+            secretName: agent-u2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels: &id001
+    agent-platform/agent: financial
+    agent-platform/user-slot: u3
+    app.kubernetes.io/name: agent
+    app.kubernetes.io/part-of: agent-platform
+  name: agent-u3
+  namespace: agent-financial
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      agent-platform/user-slot: u3
+      app.kubernetes.io/name: agent
+  template:
+    metadata:
+      labels: *id001
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - command:
+            - /usr/local/bin/python3.12
+            - -m
+            - finance_agent.worker
+          env:
+            - name: PYTHONPATH
+              value: /app/platform/src:/app
+            - name: AGENT_NAME
+              value: financial
+            - name: AGENT_PORT
+              value: '8081'
+          image: agent-platform/agent-financial
+          name: agent
+          ports:
+            - containerPort: 8081
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - mountPath: /secrets/agent
+              name: keys
+              readOnly: true
+      securityContext:
+        fsGroup: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: agent
+      volumes:
+        - name: keys
+          secret:
+            defaultMode: 256
+            secretName: agent-u3
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: agent
+  name: agent-u1
   namespace: agent-financial
 spec:
   ports:
@@ -139,6 +295,37 @@ spec:
       port: 8081
       targetPort: 8081
   selector:
+    agent-platform/user-slot: u1
+    app.kubernetes.io/name: agent
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-u2
+  namespace: agent-financial
+spec:
+  ports:
+    - name: http
+      port: 8081
+      targetPort: 8081
+  selector:
+    agent-platform/user-slot: u2
+    app.kubernetes.io/name: agent
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-u3
+  namespace: agent-financial
+spec:
+  ports:
+    - name: http
+      port: 8081
+      targetPort: 8081
+  selector:
+    agent-platform/user-slot: u3
     app.kubernetes.io/name: agent
   type: ClusterIP
 ---
@@ -192,7 +379,7 @@ spec:
               kubernetes.io/metadata.name: platform
           podSelector:
             matchLabels:
-              app.kubernetes.io/name: gateway
+              app.kubernetes.io/name: gateway-boundary
     - ports:
         - port: 4003
           protocol: TCP
@@ -204,17 +391,40 @@ spec:
             matchLabels:
               app.kubernetes.io/name: redactor
     - ports:
-        - port: 5432
+        - port: 8082
           protocol: TCP
       to:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: platform
+              kubernetes.io/metadata.name: apps
           podSelector:
             matchLabels:
-              app.kubernetes.io/name: postgres
+              app.kubernetes.io/name: financial-frontdoor
   podSelector:
     matchLabels:
       app.kubernetes.io/name: agent
   policyTypes:
     - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: trusted-frontdoor
+  namespace: agent-financial
+spec:
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: apps
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: financial-frontdoor
+      ports:
+        - port: 8081
+          protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: agent
+  policyTypes:
+    - Ingress

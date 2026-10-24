@@ -3,7 +3,7 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: agent-financial-to-gateway
+  name: agent-financial-to-gateway-boundary
   namespace: platform
 spec:
   ingress:
@@ -19,7 +19,7 @@ spec:
           protocol: TCP
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: gateway
+      app.kubernetes.io/name: gateway-boundary
   policyTypes:
     - Ingress
 ---
@@ -49,8 +49,8 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: agent-financial-to-postgres
-  namespace: platform
+  name: agent-financial-to-financial-frontdoor
+  namespace: apps
 spec:
   ingress:
     - from:
@@ -61,18 +61,18 @@ spec:
             matchLabels:
               app.kubernetes.io/name: agent
       ports:
-        - port: 5432
+        - port: 8082
           protocol: TCP
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: postgres
+      app.kubernetes.io/name: financial-frontdoor
   policyTypes:
     - Ingress
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: agent-platform-guide-to-gateway
+  name: agent-platform-guide-to-gateway-boundary
   namespace: platform
 spec:
   ingress:
@@ -88,7 +88,7 @@ spec:
           protocol: TCP
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: gateway
+      app.kubernetes.io/name: gateway-boundary
   policyTypes:
     - Ingress
 ---

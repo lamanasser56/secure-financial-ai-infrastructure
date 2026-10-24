@@ -1,17 +1,17 @@
 # Agent platform images (Phase E, ADR-008): app and ops, plus onboarded agents' own images (agent-financial, platform-guide).
-# Runs only after the CI workflow ("Validate infrastructure portfolio") succeeded on a push to main, and builds that
+# Runs only after the CI workflow ("Validate Agent Runtime Platform") succeeded on a push to main, and builds that
 # exact commit (SC-001). build -> Trivy (HIGH/CRITICAL, fail-closed) -> CycloneDX SBOM -> push by digest -> full-
 # severity Trivy of the pushed digest + CISA KEV gate for every severity, with feed freshness (SC-002) -> keyless
 # cosign (this job's OIDC identity, no device login, no stored key) -> cosign verify (exact workflow identity) ->
 # Binary Authorization attestation with the Cloud KMS attestor key (GKE admission cannot enforce keyless signatures
 # natively). An unsigned, unattested digest left in the registry by a blocked run is never admitted.
 # Credentials: Workload Identity Federation provider agent-platform-ci (repository + ref + workflow bound).
-name: agent-platform-images
+name: Agent Runtime Platform images
 
 on:
   workflow_dispatch: {}
   workflow_run:
-    workflows: ['Validate infrastructure portfolio']
+    workflows: ['Validate Agent Runtime Platform']
     types: [completed]
     branches: [main]
 

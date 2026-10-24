@@ -111,7 +111,7 @@
     if (g('approval')) restricted.push(listItem('no', 'Changes nothing without the owner\'s approval', g('approval'), 'approval', agent));
     if (agent.data !== 'none' && agent.data.user_entry === 'own-rows') restricted.push(listItem('no', "Sees only the signed-in user's rows", null, 'rows', agent));
     const card = el('article', {class: 'passport', 'aria-label': 'Passport of ' + Console.title(agent)},
-      el('div', {class: 'band'}, el('span', {}, 'AGENT PLATFORM'), el('span', {}, 'AGENT PASSPORT · P<PLT<01')),
+      el('div', {class: 'band'}, el('span', {}, 'AGENT RUNTIME PLATFORM'), el('span', {}, 'AGENT PASSPORT · P<PLT<01')),
       el('div', {class: 'page'}, el('div', {}, el('div', {class: 'emblem'}, emblem(agent, 96)), el('div', {class: 'digest'},
           Console.shortDigest(digest) || (agent.kind === 'platform' ? 'own pod not observed' : 'no running image seen'),
           agent.live && agent.live.image_digests.length > 1 ? ' +' + (agent.live.image_digests.length - 1) : '')),

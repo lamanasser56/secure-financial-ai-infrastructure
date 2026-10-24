@@ -1,6 +1,8 @@
-# Architecture and trust boundaries
+# Agent Runtime Platform architecture and trust boundaries
 
-## Agent platform (Phase E, [ADR-008](architecture/decisions/ADR-008-persistent-agent-platform.md))
+The current proposed RC source separates trusted gateway redaction, user/data mediation and approved mutation from hostile workers. See [the RC1 migration](releases/rc1-boundary-migration.md); no live verification is claimed for that source.
+
+## Historical platform reference (Phase E, [ADR-008](architecture/decisions/ADR-008-persistent-agent-platform.md))
 
 One private GKE cluster runs on demand (1 node while working, 0 when idle). Every control is enforced inside the system,
 not by operator procedure.

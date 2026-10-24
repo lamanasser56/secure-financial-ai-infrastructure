@@ -1,9 +1,11 @@
-# How to view the platform
+# How to view Agent Runtime Platform
+
+**RC1 source status:** see [the trusted-boundary migration](releases/rc1-boundary-migration.md). The new source is not deployed; historical images and live claims do not verify it. Current Financial UI access moves to the trusted `apps/financial-frontdoor` Service after an authorized cutover. Do not run historical lifecycle commands for assessment provisioning.
 
 The platform has no public address. You reach every page through a private port-forward on your own computer, and
 only while the platform is up.
 
-## Start
+## Historical startup procedure
 
 1. `make up` scales the cluster from 0 to 1 node and deploys the platform. It takes about 2 minutes.
 2. In one terminal, run `make port-forward` for the front door: the console (Map, Agents, Onboard, Ops, Break it).

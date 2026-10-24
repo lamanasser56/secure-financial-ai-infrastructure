@@ -1,0 +1,22 @@
+{"audit_event":"redaction","component":"redactor","at":1792813331.249005,"caller":"app","categories":["PHONE_NUMBER"],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813331.3384287,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813331.8663228,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813332.2661214,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813332.3056324,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813332.3472064,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813332.3866413,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813332.424217,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813332.463786,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813332.5012975,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813332.5370498,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813332.573925,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813332.6120944,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813332.6510274,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813332.6878552,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813332.727131,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813332.766465,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813332.80529,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813332.8437314,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction","component":"redactor","at":1792813332.8819342,"caller":"app","categories":[],"request_id":null}
+{"audit_event":"redaction_failed","component":"redactor","at":1792813332.8849046,"caller":"app","reason":"Exhausted","request_id":null,"diagnostic":null}
+CONTAINER REDACTOR PASS: inline phone, existing policy hash, 21st denied

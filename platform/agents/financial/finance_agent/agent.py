@@ -25,6 +25,7 @@ import json
 import re
 import threading
 import time
+import unicodedata
 import urllib.request
 
 from agent_platform import audit, request_context
@@ -56,6 +57,8 @@ RULES = ' '.join((
     'You can see only expenses (date, merchant, category, amount, note). Do not state anything about invoices, receipts,',
     'payments, refunds, approvals, balances, transfers or whether something is recorded or registered; if asked, say that',
     'you can only see the expenses the user entered.',
+    'When repeating a stored note that mentions those states, quote the entire note in double quotation marks and',
+    'attribute it to the note; never assert its contents as verified business state.',
 ))
 ARABIC_DIGITS = str.maketrans('٠١٢٣٤٥٦٧٨٩٫٬', '0123456789.,')
 MODEL_NAME = re.compile(r'[A-Za-z0-9._/:-]{1,80}')
@@ -63,7 +66,7 @@ MODEL_NAME = re.compile(r'[A-Za-z0-9._/:-]{1,80}')
 # ("10 000", "1'000", "٥٬٠٠٠" are one value, not two); a decimal point (Arabic ٫ is mapped to "."), or a decimal comma
 # before exactly two digits ("830,49", "٨٣٠،٤٩"); and a multiplier word ("12k", "5 آلاف"). A space-grouped "10 000" used to
 # parse as 10 and 0, both "grounded" by the month and the default allowance.
-NUMBER = re.compile("(?<![\\w.,،])(\\d{1,3}(?:[,   '٬]\\d{3})+|\\d+)"
+NUMBER = re.compile("(?<![\\d.,،])([+−-]?\\d{1,3}(?:[,   '٬]\\d{3})+|[+−-]?\\d+)"
                     "(?:(?:\\.|[,،](?=\\d{2}(?!\\d)))(\\d+))?"
                     "(?:[  ]?(k|thousands?|million|ألف|الف|آلاف|الاف|مليون)(?![A-Za-zء-ي]))?", re.IGNORECASE)
 MULTIPLIER = {'k': 1000, 'thousand': 1000, 'thousands': 1000, 'ألف': 1000, 'الف': 1000, 'آلاف': 1000, 'الاف': 1000,
@@ -78,6 +81,9 @@ NUMBER_WORDS = frozenset((
     'مئتان مائتان مئتين مائتين ثلاثمئة ثلاثمائة اربعمئة اربعمائة خمسمئة خمسمائة ستمئة ستمائة سبعمئة سبعمائة ثمانمئة '
     'ثمانمائة تسعمئة تسعمائة الف الفان الفين الاف مليون ملايين نصف').split())
 CURRENCY_WORDS = frozenset(('sar', 'riyal', 'riyals', 'ريال', 'ريالات', 'ريالا', 'ر.س'))
+CURRENCY = r'(?:SAR|USD|EUR|GBP|AED|\$|€|£|ريالات|ريالا|ريال|riyals?|ر\.س)'
+CURRENCY_BEFORE = re.compile(r'(?<!\w)(' + CURRENCY + r')\s*$', re.IGNORECASE)
+CURRENCY_AFTER = re.compile(r'^\s*(' + CURRENCY + r')(?!\w)', re.IGNORECASE)
 
 
 class Blocked(Exception):
@@ -141,7 +147,10 @@ def ungrounded_claims(text, observations):
     quoted = {normalize(t.get(field)) for o in observations for t in o['result'].get('transactions', [])
               for field in ('merchant', 'note') if t.get(field)}
     for span in sorted((q for q in quoted if len(q) >= 3), key=len, reverse=True):
-        answer = answer.replace(span, ' ')
+        # A stored phrase is data only within an explicit whole-field quotation. Its occurrence elsewhere
+        # must still be checked, even when another occurrence was quoted legitimately.
+        for left, right in (('"', '"'), ("'", "'"), ('“', '”'), ('«', '»')):
+            answer = answer.replace(left + span + right, ' ')
     categories = {c['category'] for o in observations for c in o['result'].get('categories', [])}
     categories |= {t['category'] for o in observations for t in o['result'].get('transactions', [])}
     allowed = {word for category in categories for word in CATEGORY_WORDS.get(category, ())}
@@ -152,13 +161,48 @@ def numbers(text):
     """Every figure in the text, as values. "1.000" is ambiguous (one, or one thousand written with a dot): both readings
     are returned, so both must be grounded."""
     found = set()
-    for whole, fraction, word in NUMBER.findall((text or '').translate(ARABIC_DIGITS)):
+    for whole, fraction, word in NUMBER.findall(numeric_text(text)):
+        negative = whole.startswith('-')
         whole, fraction = _ascii_digits(whole), _ascii_digits(fraction)
         factor = MULTIPLIER.get(word.lower() if word.isascii() else word, 1) if word else 1
-        found.add(round(float(whole + ('.' + fraction if fraction else '')) * factor, 2))
+        if negative:
+            factor = -factor
+        # Do not round an invented higher-precision amount onto a genuine cent value.
+        found.add(float(whole + ('.' + fraction if fraction else '')) * factor)
         if len(fraction) == 3 and len(whole) <= 3 and not word:
             found.add(float(whole + fraction))
     return found
+
+
+def numeric_text(text):
+    """Canonical decimal text for checking: Unicode digits, minus and invisible formatting cannot hide figures."""
+    text = unicodedata.normalize('NFKC', text or '').translate(ARABIC_DIGITS).replace('−', '-')
+    return ''.join(c for c in text if unicodedata.category(c) != 'Cf')
+
+
+def monetary_grounded(text, observations):
+    """Currency-tagged figures must be SAR amounts from money fields, converted from minor units exactly once.
+
+    Dates, limits, row ids and counts remain useful structural numbers, but cannot establish a monetary amount.
+    No exchange-rate data is available, so another currency is unsupported. This is a bounded output check,
+    not a general semantic verifier for arbitrary natural-language financial statements.
+    """
+    allowed = {round(value / 100, 2) for obs in observations if obs['result'].get('currency') == 'SAR'
+               for key, value in _walk(obs['result']) if key in ('total_minor', 'amount_minor') and type(value) is int}
+    text = numeric_text(text)
+    for match in NUMBER.finditer(text):
+        marker = CURRENCY_BEFORE.search(text[:match.start()]) or CURRENCY_AFTER.search(text[match.end():])
+        if marker:
+            if marker.group(1).lower() not in CURRENCY_WORDS or not numbers(match.group()) <= allowed:
+                return False
+    return True
+
+
+def unsupported_numeric_notation(text):
+    """No tool provides sub-cent precision, exponents or percentages. Do not validate rounded values/fragments."""
+    text = numeric_text(text)
+    return (re.search(r'\d[eE][+-]?\d|\d\s*[%٪]', text) is not None
+            or any(fraction[2:].strip('0') for _, fraction, _ in NUMBER.findall(text)))
 
 
 def _ascii_digits(text):
@@ -195,9 +239,10 @@ def grounded_numbers(observations):
     for obs in observations:
         for key, value in [*_walk(obs['result']), *_walk(obs.get('args') or {})]:
             if type(value) is int:
-                allowed.add(float(value))
                 if key in ('total_minor', 'amount_minor'):
                     allowed.add(round(value / 100, 2))
+                else:
+                    allowed.add(float(value))
             elif type(value) is str and re.fullmatch(r'\d{4}-\d{2}(-\d{2})?', value):
                 allowed |= {float(part) for part in value.split('-')}
     return allowed
@@ -250,8 +295,12 @@ class Gateway:
                 cost = response_cost(getattr(response, 'headers', None))
         except Exception:
             raise Blocked('model_unavailable') from None
-        choice = (data.get('choices') or [{}])[0]
-        content = (choice.get('message') or {}).get('content')
+        if type(data) is not dict or type(data.get('choices')) is not list or len(data['choices']) != 1:
+            raise Blocked('model_reply_incomplete')
+        choice = data['choices'][0]
+        if type(choice) is not dict or type(choice.get('message')) is not dict:
+            raise Blocked('model_reply_incomplete')
+        content = choice['message'].get('content')
         if choice.get('finish_reason') != 'stop' or type(content) is not str or not content.strip():
             raise Blocked('model_reply_incomplete')
         resolved = data.get('model')
@@ -352,6 +401,10 @@ class FinanceAgent:
             except Blocked as blocked:
                 result = {'status': 'refused' if blocked.reason in ('rate_limited', 'token_budget_exhausted', 'question_length', 'language')
                           else 'blocked', 'reason': blocked.reason}
+            except Exception:
+                # No untrusted exception text enters the response or the audit record. All turn failures go
+                # through the same trace boundary; malformed provider/tool data cannot skip the turn event.
+                result = {'status': 'blocked', 'reason': 'turn_failed'}
         result['privacy'] = {'masked_before_model': sorted(turn['masked'])}
         result['limits'] = self.limits.remaining(user_id)
         trace = self._trace(request_id, user_id, result, turn)
@@ -385,8 +438,9 @@ class FinanceAgent:
             'tool_calls': turn['tool_calls'],
             # Honest scope statement: what the data path was, not a claim that RLS refused anything. Unregistered tools and
             # bad arguments are rejected by the tool design in code before any query runs.
-            'data_access': ({'statement': 'tools_ran_as_read_only_role_under_force_rls_scoped_to_user_ref',
-                             'role': 'finance_agent', 'scoped_to': user_ref} if turn['tool_calls'] else None),
+            'data_access': ({'statement': ('broker_checked_active_user_capability' if hasattr(self._store, 'invoke_tool')
+                                          else 'tools_ran_as_read_only_role_under_force_rls_scoped_to_user_ref'),
+                             'role': 'finance_data_broker' if hasattr(self._store, 'invoke_tool') else 'finance_agent', 'scoped_to': user_ref} if turn['tool_calls'] else None),
             'grounding_result': grounding,
             'redaction': {'calls': turn['redactor_calls'], 'categories': dict(sorted(turn['redaction'].items())),
                           'counted': 'redactor_calls_in_which_the_category_was_found'},
@@ -425,18 +479,30 @@ class FinanceAgent:
             if len(redacted.text.encode()) > MAX_PROMPT_BYTES:
                 raise Blocked('prompt_too_large')
             turn['model_calls'] += 1
+            # Reserve before dispatch: a transport/parse failure can still have consumed provider tokens.
+            # A valid response reconciles this reservation to reported usage; failures retain the bound.
+            turn['tokens'] += MAX_CALL_TOKENS
+            self.limits.spend(user_id, MAX_CALL_TOKENS)
             completion = self._gateway.complete([{'role': 'system', 'content': RULES}, {'role': 'user', 'content': redacted.text}])
+            if type(completion) not in (tuple, list) or len(completion) not in (2, 3):
+                raise Blocked('model_reply_shape')
             content, tokens = completion[0], completion[1]
+            tokens = charged_tokens({'total_tokens': tokens})
             extra = completion[2] if len(completion) > 2 else {}
-            turn['costs'].append(extra.get('cost_usd'))
-            turn['resolved'] = extra.get('model') or turn['resolved']
-            turn['tokens'] += tokens
-            self.limits.spend(user_id, tokens)
+            if type(content) is not str or type(extra) is not dict:
+                raise Blocked('model_reply_shape')
+            cost, resolved = extra.get('cost_usd'), extra.get('model')
+            turn['costs'].append(cost if type(cost) in (int, float) and 0 <= cost < 1000 else None)
+            turn['resolved'] = resolved if type(resolved) is str and MODEL_NAME.fullmatch(resolved) else turn['resolved']
+            turn['tokens'] += tokens - MAX_CALL_TOKENS
+            self.limits.spend(user_id, tokens - MAX_CALL_TOKENS)
             step = self._step(content, final_only)
             if step['action'] == 'answer':
                 text = step['text']
                 unquoted = without_quoted_fields(text, observations)
-                if not numbers(unquoted) <= grounded_numbers(observations) or spelled_amount(unquoted):
+                if (not numbers(unquoted) <= grounded_numbers(observations) or spelled_amount(unquoted)
+                        or unsupported_numeric_notation(unquoted)
+                        or not monetary_grounded(unquoted, observations)):
                     raise Blocked('ungrounded_numbers')
                 if ungrounded_claims(text, observations):
                     raise Blocked('ungrounded_claim')
@@ -452,14 +518,22 @@ class FinanceAgent:
             if any(o['tool'] == name and o['args'] == args for o in observations):
                 raise Blocked('repeated_tool_call')
             try:
-                result = TOOLS[name][0](self._store, user_id, args)
+                if hasattr(self._store, 'invoke_tool'):
+                    result = self._store.invoke_tool(name, user_id, args)
+                else:
+                    result = TOOLS[name][0](self._store, user_id, args)
+                if (type(result) is not dict or type(result.get('month')) is not str or result.get('currency') != 'SAR'):
+                    raise ValueError('tool result shape')
+                # Reject non-JSON values before they enter history/prompt construction outside this boundary.
+                json.dumps(result, allow_nan=False)
+                count = rows_returned(name, result)
             except ToolRejected:
                 raise Blocked('tool_arguments_rejected') from None
             except Exception:  # database unavailable or any unexpected error: stop safely, show nothing
                 raise Blocked('tool_unavailable') from None
             observations.append({'tool': name, 'args': args, 'result': result})
             turn['tools'].append(name)
-            turn['tool_calls'].append({'tool_id': name, 'rows_returned': rows_returned(name, result)})
+            turn['tool_calls'].append({'tool_id': name, 'rows_returned': count})
             turn['withheld'] += sum(1 for t in result.get('transactions', []) for f in ('merchant', 'note') if t.get(f) == WITHHELD)
         raise Blocked('step_limit')  # unreachable: the last call accepts only an answer
 
@@ -497,7 +571,8 @@ class FinanceAgent:
         if step.get('action') == 'tool':
             if final_only:
                 raise Blocked('step_limit')
-            if set(step) != {'action', 'tool', 'args'} or step['tool'] not in TOOLS or type(step['args']) is not dict:
+            if (set(step) != {'action', 'tool', 'args'} or type(step['tool']) is not str
+                    or step['tool'] not in TOOLS or type(step['args']) is not dict):
                 raise Blocked('tool_not_allowed')
             return step
         raise Blocked('model_reply_shape')

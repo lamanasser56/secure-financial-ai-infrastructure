@@ -152,7 +152,7 @@ class Facts(unittest.TestCase):
         self.assertEqual([t['id'] for t in fin['tools']], ['monthly_total', 'spending_by_category', 'find_transactions'])
         self.assertEqual(fin['live']['image_digests'], [DIGEST])
         self.assertEqual((fin['live']['pods_ready'], fin['live']['restarts']), (1, 0))
-        self.assertIn('platform/gateway:4000', fin['reaches'])
+        self.assertIn('platform/gateway-boundary:4000', fin['reaches'])
         self.assertNotIn('internet', walk(fin))
 
     def test_no_live_state_is_null_not_invented(self):
@@ -192,8 +192,8 @@ class Facts(unittest.TestCase):
         ids = {n['id'] for n in topology['nodes']}
         self.assertTrue({'agent-financial', 'agent-platform-guide', 'gateway', 'redactor', 'audit', 'internet'} <= ids)
         edges = {(e['from'], e['to']) for e in topology['edges']}
-        self.assertTrue({('agent-financial', 'gateway'), ('agent-financial', 'redactor'), ('agent-financial', 'postgres'),
-                         ('agent-platform-guide', 'gateway'), ('agent-platform-guide', 'redactor')} <= edges)
+        self.assertTrue({('agent-financial', 'gateway-boundary'), ('agent-financial', 'redactor'), ('agent-financial', 'financial-frontdoor'),
+                         ('agent-platform-guide', 'gateway-boundary'), ('agent-platform-guide', 'redactor')} <= edges)
         self.assertNotIn(('agent-platform-guide', 'postgres'), edges)  # declared data: none
         self.assertFalse([e for e in edges if e[1] == 'internet'])
         denied = {(d['from'], d['to']) for d in topology['denied']}
@@ -217,7 +217,7 @@ class OpsTenant(unittest.TestCase):
         self.assertEqual({t['target'] for t in o['targets']}, {'platform.gateway', 'platform.redactor', 'apps.app', 'apps.fault-demo'})
         self.assertEqual([t['id'] for t in o['tools']], ['observe', 'restart', 'scale'])
         self.assertEqual([t['access'] for t in o['tools']], ['read', 'approval', 'approval'])
-        self.assertIn('platform/gateway:4000', o['reaches'])
+        self.assertIn('platform/gateway-boundary:4000', o['reaches'])
         self.assertIn('kubernetes API (private control-plane range)', o['reaches'])
         self.assertEqual(o['health']['state'], 'running')
         self.assertEqual(o['live']['image_digests'], [])  # it does not observe its own pod: no digest is claimed
@@ -243,7 +243,7 @@ class OpsTenant(unittest.TestCase):
         t = make().topology()
         self.assertIn('ops-agent', {n['id'] for n in t['nodes']})
         edges = {(e['from'], e['to']) for e in t['edges']}
-        self.assertTrue({('ops-agent', 'gateway'), ('ops-agent', 'redactor')} <= edges)
+        self.assertTrue({('ops-agent', 'gateway-boundary'), ('ops-agent', 'redactor')} <= edges)
         denied = {(d['from'], d['to']) for d in t['denied']}
         for pair in (('agent-financial', 'ops-agent'), ('ops-agent', 'agent-financial'), ('ops-agent', 'internet')):
             self.assertIn(pair, denied)
@@ -505,7 +505,7 @@ class UiRoutes(Http):
     def test_ui_files_are_served_with_a_csp_that_allows_only_own_fonts(self):
         status, body, headers = self.raw('/')
         self.assertEqual((status, headers['Content-Type']), (200, 'text/html; charset=utf-8'))
-        self.assertIn(b'Agent-Platform', body)
+        self.assertIn(b'Agent Runtime Platform', body)
         csp = headers['Content-Security-Policy']
         self.assertIn("font-src 'self'", csp)
         self.assertIn("default-src 'none'", csp)

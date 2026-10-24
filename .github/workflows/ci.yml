@@ -1,4 +1,4 @@
-name: Validate infrastructure portfolio
+name: Validate Agent Runtime Platform
 
 on:
   push:

@@ -1,0 +1,6 @@
+{
+  "engine": "PostgreSQL 16.2 local native binary",
+  "result": "PASS",
+  "case": "same broker connection queries zero rows after scoped transaction",
+  "test_output": "test_reused_broker_connection_clears_scoped_identity (test_finance_db.FinanceDatabase.test_reused_broker_connection_clears_scoped_identity)\nD06: query the same connection after SET LOCAL's transaction ends. ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 2.423s\n\nOK\n"
+}

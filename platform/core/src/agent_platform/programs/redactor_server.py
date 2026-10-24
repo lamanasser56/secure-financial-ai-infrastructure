@@ -18,6 +18,11 @@ import sys
 import threading
 import time
 
+if __package__:
+    from .phone_guard import mask_phones
+else:  # mounted /programs/redactor_server.py entrypoint
+    from phone_guard import mask_phones
+
 APP_ROOT = Path('/app')
 sys.path.insert(0, str(APP_ROOT))
 POLICY_HASH = 'c1b782c6fd051243dec4173f903cb33607893010c7d38a6b35bc1372ddb2d4db'
@@ -148,6 +153,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def client(self):
         supplied = self.headers.get('Authorization', '')
+        if not supplied.isascii():
+            return None
         for name, key in self.server.keys.items():
             if hmac.compare_digest(supplied, 'Bearer ' + key):
                 return name
@@ -174,9 +181,11 @@ class Handler(BaseHTTPRequestHandler):
             if (type(value) is not dict or set(value) != {'text'} or type(value['text']) is not str
                     or not 0 < len(value['text'].encode('utf-8')) <= MAX_TEXT_BYTES):
                 raise ValueError('shape')
-            result = self.server.budget.current().redact(value['text'])
-            audit('redaction', caller=caller, categories=sorted(set(result.categories)), request_id=rid)
-            self.reply(200, {'text': result.text, 'categories': sorted(set(result.categories))})
+            locally_masked, phone_found = mask_phones(value['text'])
+            result = self.server.budget.current().redact(locally_masked)
+            categories = sorted(set(result.categories) | ({'PHONE_NUMBER'} if phone_found else set()))
+            audit('redaction', caller=caller, categories=categories, request_id=rid)
+            self.reply(200, {'text': result.text, 'categories': categories})
         except Exception as error:  # provider/budget/input failure: fail closed, no content in logs
             audit('redaction_failed', caller=caller, reason=type(error).__name__, request_id=rid,
                   diagnostic=getattr(error, 'diagnostic', None))  # finite constants only (adapter contract)
@@ -193,7 +202,7 @@ def main():
     project = os.environ['PORTFOLIO_PROJECT_ID']
     keys = json.loads(Path('/secrets/redactor/clients.json').read_text(), object_pairs_hook=unique)
     # One key per calling namespace: the front door (app), the ops agent (ops) and each onboarded agent (agent-<name>).
-    if (not {'app', 'ops'} <= set(keys) or not all(c in ('app', 'ops') or re.fullmatch(r'agent-[a-z][a-z0-9-]{1,20}[a-z0-9]', c) for c in keys)
+    if (not {'app', 'ops'} <= set(keys) or not all(c in ('app', 'ops', 'gateway-boundary') or re.fullmatch(r'agent-[a-z][a-z0-9-]{1,20}[a-z0-9]', c) for c in keys)
             or any(type(k) is not str or len(k) != 64 for k in keys.values())):
         raise SystemExit('redactor:client_keys')
     server = ThreadingHTTPServer(('0.0.0.0', 4003), Handler)

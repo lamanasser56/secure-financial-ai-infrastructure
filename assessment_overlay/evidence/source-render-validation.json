@@ -1,0 +1,13 @@
+{
+  "utc": "2026-10-24T03:47:23.452913+00:00",
+  "objects": 104,
+  "phone_guard_configmap_sha256": "d8713752767fcf7dea66e3d74b9e7fa3260e05e1557fadca966ee3934ece7cfc",
+  "ops_registry_position": 37,
+  "ops_binding_position": 74,
+  "validation_actions": [
+    "Deny",
+    "Audit"
+  ],
+  "parameter_not_found_action": "Deny",
+  "pass": true
+}
