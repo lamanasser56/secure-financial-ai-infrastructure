@@ -1,0 +1,41 @@
+test_id,area,hypothesis,live_verdict,evidence,coverage_note
+A01,AI,Direct EN/AR prompt injection,NOT_EXECUTED,,not run after scope-limit stop
+A02,AI,Indirect stored merchant/note instructions,NOT_EXECUTED,,not run after scope-limit stop
+A03,AI,Unicode bidi/confusables and encoded split payloads,NOT_EXECUTED,,not run after scope-limit stop
+A04,AI,Unknown/disabled tool and extra user/tenant arguments,NOT_EXECUTED,,not run after scope-limit stop
+A05,AI,Malicious tool-output instructions and false observations,NOT_EXECUTED,,not run after scope-limit stop
+A06,AI,Native tools/images/provider fields with valid content,NOT_EXECUTED,,not run after scope-limit stop
+A07,AI,Streaming and cancellation,NOT_EXECUTED,,not run after scope-limit stop
+A08,AI,"Repeated observations, replay and multi-step escalation",NOT_EXECUTED,,not run after scope-limit stop
+D01,DATA,Raw LiteLLM bypass without redactor receipt,PASS,evidence/f1-direct-gateway-live.json,complete original-case check
+D02,DATA,Standalone synthetic identifier and JSON/multiline DLP canaries,INCONCLUSIVE,evidence/d02-real-sdp-synthetic-canaries.json; evidence/d02-policy-matching-phone-live.json,partial observations; original case not complete
+D03,DATA,Redactor down/timeout during model request,PASS,evidence/f1-redactor-egress-failure-live.json,complete original-case check
+D04,DATA,Set RLS context to another known synthetic UUID,NOT_EXECUTED,evidence/f2-worker-capability-live.json,partial observations; original case not complete
+D05,DATA,Use issued web role with user_entry:none; username lookup,NOT_EXECUTED,evidence/f2-f3-f4-real-boundaries.json,partial observations; original case not complete
+D06,DATA,Missing/cleared context and connection reuse,INCONCLUSIVE,evidence/f2-f3-f4-real-boundaries.json,Initial no-context and two scoped users on one connection checked; post-scope cleared-context read was not recorded
+D07,DATA,"Role settings, CONNECT/TEMP/catalog/session rights",NOT_EXECUTED,evidence/f2-f3-f4-real-boundaries.json,partial observations; original case not complete
+D08,DATA,Idle relation lock blocks another tenant or schema job,NOT_EXECUTED,,not run after scope-limit stop
+O01,OPS,"Direct API patch with Ops identity, no approval",PASS,evidence/f2-f3-f4-real-boundaries.json,complete original-case check
+O02,OPS,Approval replay/expiry and arguments substitution,PASS,evidence/f4-replay-process-epoch-live.json,complete original-case check
+O03,OPS,Replacement UID/resourceVersion race,NOT_EXECUTED,,not run after scope-limit stop
+O04,OPS,Observe-only target and explanation confused deputy,NOT_EXECUTED,,not run after scope-limit stop
+K01,K8S,Actual-CNI allow/deny peer matrix,NOT_EXECUTED,,not run after scope-limit stop
+K02,K8S,RBAC secrets/exec/create/impersonation attempts,NOT_EXECUTED,evidence/f2-f3-f4-real-boundaries.json,partial observations; original case not complete
+K03,K8S,Admission template changes and restricted PSA,NOT_EXECUTED,,not run after scope-limit stop
+K04,K8S,DNS arbitrary query names and recursion,NOT_EXECUTED,,not run after scope-limit stop
+K05,K8S,Workload Identity scope/deputy,NOT_EXECUTED,,not run after scope-limit stop
+K06,K8S,Unsigned/mismatched digest admission,PASS,evidence/setup-admission-negative.json,complete original-case check
+R01,API,"Auth failures, spoofed headers, cookie/CSRF tampering",NOT_EXECUTED,evidence/f2-f3-financial-real-http.json,partial observations; original case not complete
+R02,API,"Slow headers/body, malformed lengths and bounded sockets",NOT_EXECUTED,,not run after scope-limit stop
+R03,LOAD,Tenant fairness and RPM/parallel limits,NOT_EXECUTED,,not run after scope-limit stop
+R04,LOAD,"Concurrent turn accounting, truncation, restart",NOT_EXECUTED,,not run after scope-limit stop
+R05,CHAOS,Gateway dependency loss and timeout,NOT_EXECUTED,,not run after scope-limit stop
+R06,CHAOS,Audit unavailable while mutation requested,NOT_EXECUTED,,not run after scope-limit stop
+R07,CHAOS,Restore backup into new isolated database,NOT_EXECUTED,,not run after scope-limit stop
+R08,AUDIT,"Forged component/event, nested canary, trace-ID collision",NOT_EXECUTED,,not run after scope-limit stop
+X01,EXPLORATORY,Double failure: redactor outage + gateway retry/cancel,NOT_EXECUTED,,not run after scope-limit stop
+X02,EXPLORATORY,Shared DB session cancellation across issued roles,NOT_EXECUTED,,not run after scope-limit stop
+X03,EXPLORATORY,Key policy drift and stale aliases/limits,NOT_EXECUTED,,not run after scope-limit stop
+X04,EXPLORATORY,False healthy state after scanner/SDP failure,NOT_EXECUTED,,not run after scope-limit stop
+X05,EXPLORATORY,HTTP transport and DNS cross-component trust,NOT_EXECUTED,,not run after scope-limit stop
+X06,EXPLORATORY,Assessment tooling targets original state from clone,NOT_EXECUTED,,not run after scope-limit stop

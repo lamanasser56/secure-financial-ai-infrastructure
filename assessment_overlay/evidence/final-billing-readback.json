@@ -1,0 +1,12 @@
+{
+  "checked_at_utc": "2026-10-24T03:55:34.295938+00:00",
+  "project": "sfai-assess-20261022-635651",
+  "read_only_command": "gcloud beta billing projects describe",
+  "response": {
+    "billingAccountName": "",
+    "billingEnabled": false,
+    "name": "projects/sfai-assess-20261022-635651/billingInfo",
+    "projectId": "sfai-assess-20261022-635651"
+  },
+  "interpretation": "billing unlinked; no cloud resource inventory performed in this follow-up"
+}

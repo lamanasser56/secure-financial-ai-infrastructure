@@ -1,5 +1,7 @@
 # RC1 live follow-up — local fixes and next-run gate
 
+Historical local-preparation report. A later twelve-case execution window was authorized, but no new cloud run began before the final stop instruction. See [the final handoff](../CLAUDE_HANDOFF_FINAL.md) for the controlling status.
+
 24 October 2026. **Local fixes pass; no new GKE run or release qualification occurred.** The prior verdict ledger remains **5 PASS, 2 INCONCLUSIVE, 33 NOT EXECUTED**. D01, D03, O01, O02 and K06 and their evidence were not changed. F1–F4 are not formally closed. The disposable project remains unbilled and unprovisioned after the last cleanup; this work used only the new isolated Git worktree.
 
 ## Changes

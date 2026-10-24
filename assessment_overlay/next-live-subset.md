@@ -19,4 +19,4 @@ The earlier **D01, D03, O01, O02 and K06 PASS** evidence is retained unchanged. 
 | Setup reserve | — | One bounded direct redactor startup canary and one legitimate gateway canary after runtime/image/config integrity gates. | 2 | 4 |
 | **Planned maximum** | | | **8** | **19** |
 
-Cases A01–A08, D08, K04, R02, R08 and X01–X06 follow only if F1–F4 gates and both counters leave safe room. **R03–R07 (load, chaos and DR) are excluded** and need separate authorization. No prior PASS is rerun merely for case counting. Each case must retain the actual imageID, external-file hash, identity, timestamp, expected/observed result, audit/API/SQL receipt and PASS/FAIL/INCONCLUSIVE verdict.
+The authorized follow-up window was limited to the twelve listed cases and its setup reserve. A01–A08, D08, K04, R02, R08, X01–X06 and R03–R07 were excluded. No further cloud execution is planned in this handoff. No prior PASS is rerun merely for case counting. Each future authorized case must retain the actual imageID, external-file hash, identity, timestamp, expected/observed result, audit/API/SQL receipt and PASS/FAIL/INCONCLUSIVE verdict.
