@@ -1,4 +1,5 @@
-# RC1: only the independent executor may mutate; both identities can read the named registry.
+# GENERATED from agent_platform/ops/authority.json by python -m agent_platform.ops.authority. Do not edit.
+---
 apiVersion: v1
 automountServiceAccountToken: false
 kind: ServiceAccount

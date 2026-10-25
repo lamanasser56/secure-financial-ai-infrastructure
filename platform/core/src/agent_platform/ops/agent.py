@@ -249,7 +249,10 @@ class Agent:
         return {'result': 'VERIFIED' if outcome['verified'] else 'NOT_VERIFIED', 'code': outcome['code']}
 
     def posture(self):
-        return posture.check(self.client, sorted({t.namespace for t in self.targets.values()}))
+        workloads = {}
+        for target in self.targets.values():
+            workloads.setdefault(target.namespace, []).append(target.name)
+        return posture.check(self.client, sorted(workloads), workloads)
 
     def snapshot(self):
         with self._lock:
