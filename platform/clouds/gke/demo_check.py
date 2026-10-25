@@ -6,8 +6,8 @@ project ID: every line is built from closed text, and anything printed passes a 
 
   gcloud auth and the kubectl context work
   cluster status RUNNING; node pool size (0 = down, which is expected before `make up`)
-  every image in images.json is pinned (no PENDING_CI) and its digest is keyless-signed (cosign .sig tag) and attested
-    by the CI attestor (Binary Authorization)
+  every image in release-rc1.lock.json (what `make up` deploys) is pinned (no PENDING_CI) and its digest is
+    keyless-signed (cosign .sig tag) and attested by the CI attestor (Binary Authorization)
   the platform and agent Secrets exist (names only)
   hello leftovers: namespace agent-hello, NetworkPolicies agent-hello-to-gateway / -to-redactor, key alias agent-hello
     in Secrets platform/bootstrap and platform/redactor (docs/operations/hello-retirement-cleanup.md)
@@ -41,7 +41,7 @@ class Checker:
     def __init__(self, project, *, run=subprocess_runner, kubectl='kubectl', kubeconfig=None, images=None, agents=(), out=print):
         self.project, self.run, self.out = project, run, out
         self.kubectl = [kubectl] + (['--kubeconfig', str(kubeconfig)] if kubeconfig else [])
-        self.images = images if images is not None else json.loads((HERE / 'images.json').read_text())
+        self.images = images if images is not None else json.loads((HERE / 'release-rc1.lock.json').read_text())
         self.agents = tuple(agents)
         self.failed = 0
 
