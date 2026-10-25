@@ -144,31 +144,63 @@ def scale_staged_to_zero():
             kubectl('-n', ns, 'scale', 'deployment/' + name, '--replicas=0')
 
 
+RELEASE_LOCK = HERE / 'release-rc1.lock.json'  # trusted-boundaries-v2 digests; images.json stays the historical pin set
+OPS_POLICY = 'ops-agent-bounded-remediation'
+
+
+def release_lock(project_id):
+    """The RC1 lock with this project's registry filled in, written privately (0600) for render.py --images-lock."""
+    lock = json.loads(RELEASE_LOCK.read_text())
+    lock['registry'] = lock['registry'].replace('PROJECT_ID', project_id)
+    path = STATE / 'release-rc1.lock.json'
+    path.write_text(json.dumps(lock)); os.chmod(path, 0o600)
+    return path
+
+
+def stages(docs):
+    """The apply order proven in the live run: identities, config (the Ops registry ConfigMap among it), the admission
+    policy, its binding (Fail/Deny needs its param first), the database, Jobs, Deployments. Refuses a policy that no
+    longer fails closed."""
+    order = {'Namespace': 0, 'ServiceAccount': 0, 'StorageClass': 0, 'ValidatingAdmissionPolicy': 2,
+             'ValidatingAdmissionPolicyBinding': 3, 'StatefulSet': 4, 'Job': 5, 'Deployment': 6}
+    split = [[] for _ in range(7)]
+    for doc in docs:
+        split[order.get(doc['kind'], 1)].append(doc)
+    named = lambda stage, kind, ns, name: [d for d in split[stage] if d['kind'] == kind and d['metadata']['name'] == name
+                                           and d['metadata'].get('namespace', '') == ns]
+    policy, binding = named(2, 'ValidatingAdmissionPolicy', '', OPS_POLICY), named(3, 'ValidatingAdmissionPolicyBinding', '', OPS_POLICY)
+    if (not named(1, 'ConfigMap', 'ops', 'ops-agent-registry') or len(policy) != 1 or len(binding) != 1
+            or policy[0]['spec'].get('failurePolicy') != 'Fail' or binding[0]['spec'].get('validationActions') != ['Deny', 'Audit']
+            or binding[0]['spec'].get('paramRef') != {'name': 'ops-agent-registry', 'namespace': 'ops', 'parameterNotFoundAction': 'Deny'}):
+        raise SystemExit('lifecycle:ops_policy_must_fail_closed_with_its_registry')
+    return split
+
+
 def up():
-    raise SystemExit('lifecycle:reviewed_v2_cutover_bundle_required_before_any_cloud_call; legacy_up_is_not_a_migration')
-
-
-def _historical_up_not_a_migration():
     started = time.time()
     resize(1)
     kubeconfig()
     scale_staged_to_zero()
     o = outputs()
     rendered = run(sys.executable, '-B', HERE / 'render.py', '--project-id', o['project_id'], '--control-plane-cidr', o['control_plane_cidr'],
-                   '--gateway-gsa', o['gateway_gsa'], '--redactor-gsa', o['redactor_gsa'], '--kubectl', KUBECTL, capture=True).stdout
+                   '--gateway-gsa', o['gateway_gsa'], '--redactor-gsa', o['redactor_gsa'], '--kubectl', KUBECTL,
+                   '--images-lock', release_lock(o['project_id']), capture=True).stdout
     import yaml
     docs = [d for d in yaml.safe_load_all(rendered) if d]
     addon = [d for d in docs if d['kind'] == 'NetworkLogging']  # owned by GKE's addon manager (EnsureExists): client-side apply
     # `make fault` patches fault-demo as the owner (env, image); those faults are temporary, so the declared manifest wins
     # for that one Deployment. Every other object keeps server-side apply's conflict detection.
     is_fault_demo = lambda d: d['kind'] == 'Deployment' and d['metadata'].get('namespace') == 'apps' and d['metadata']['name'] == 'fault-demo'
-    kubectl('apply', '--server-side', '--field-manager=agent-platform', '-f', '-',
-            input=yaml.safe_dump_all([d for d in docs if d['kind'] != 'NetworkLogging' and not is_fault_demo(d)]))
-    kubectl('apply', '--server-side', '--field-manager=agent-platform', '--force-conflicts', '-f', '-',
-            input=yaml.safe_dump_all([d for d in docs if is_fault_demo(d)]))
+    for stage in stages([d for d in docs if d['kind'] != 'NetworkLogging']):
+        if any(not is_fault_demo(d) for d in stage):
+            kubectl('apply', '--server-side', '--field-manager=agent-platform', '-f', '-',
+                    input=yaml.safe_dump_all([d for d in stage if not is_fault_demo(d)]))
+        if any(map(is_fault_demo, stage)):
+            kubectl('apply', '--server-side', '--field-manager=agent-platform', '--force-conflicts', '-f', '-',
+                    input=yaml.safe_dump_all([d for d in stage if is_fault_demo(d)]))
     kubectl('apply', '-f', '-', input=yaml.safe_dump_all(addon))
-    missing = [ns + '/' + name for ns, name in (('platform', 'postgres'), ('platform', 'gateway'), ('platform', 'redactor'),
-                                                 ('platform', 'bootstrap'), ('apps', 'app'), ('ops', 'ops-agent'))
+    from agent_platform.platform_secrets import NAMES
+    missing = [ns + '/' + name for ns, name in NAMES
                if not kubectl('-n', ns, 'get', 'secret', name, '--ignore-not-found', '-o', 'name', capture=True).stdout.strip()]
     if missing:  # the owner types the approval passphrase interactively; Claude never does
         print(json.dumps({'result': 'NEEDS_SECRETS', 'missing': missing, 'next': 'run `make secrets`, then `make up` again'}))
@@ -186,9 +218,9 @@ def _historical_up_not_a_migration():
         kubectl('-n', 'platform', 'rollout', 'restart', 'deployment/redactor')
     kubectl('-n', 'platform', 'rollout', 'status', 'statefulset/postgres', '--timeout=300s')
     kubectl('-n', 'platform', 'wait', '--for=condition=complete', 'job/schema', '--timeout=600s')
-    agents = tuple(('agent-' + n, 'agent') for n in onboarding_namespaces())
-    for ns, name in (('platform', 'gateway'), ('platform', 'redactor'), ('apps', 'app')) + agents:
-        kubectl('-n', ns, 'rollout', 'status', 'deployment/' + name, '--timeout=300s')
+    for d in docs:  # every Deployment the manifest runs (boundaries and per-user workers included); Ops comes last
+        if d['kind'] == 'Deployment' and d['spec'].get('replicas', 1) and d['metadata']['name'] != 'ops-agent':
+            kubectl('-n', d['metadata']['namespace'], 'rollout', 'status', 'deployment/' + d['metadata']['name'], '--timeout=300s')
     kubectl('-n', 'ops', 'scale', 'deployment/ops-agent', '--replicas=1')  # every target is ready now
     kubectl('-n', 'ops', 'rollout', 'status', 'deployment/ops-agent', '--timeout=300s')
     print(json.dumps({'result': 'UP', 'minutes': round((time.time() - started) / 60, 1), 'access': 'make port-forward -> http://127.0.0.1:8080/'}))
@@ -200,12 +232,6 @@ def finance_tools():
     if not python.exists():
         run(sys.executable, '-m', 'venv', REPO / '.cache/finance-tools')
         run(python, '-m', 'pip', 'install', '--quiet', '--require-hashes', '--no-deps', '-r', REPO / 'requirements-financial-agent.txt')
-
-
-def onboarding_namespaces():
-    sys.path.insert(0, str(REPO / 'platform/core/src'))
-    from agent_platform import onboarding
-    return onboarding.namespace_agents(onboarding.load_all())
 
 
 def agent_forward(name):
