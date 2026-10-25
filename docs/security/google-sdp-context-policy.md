@@ -62,7 +62,7 @@ samples this finite policy; it does not measure every combination against Google
 | Stripe official `4242` test card | Existing documented non-production test value and synthetic Arabic-digit representation; no live payment/account. |
 
 Authoritative provenance citations and prior scope decisions remain in the
-[provenance decision](google-sdp-provenance-decision.md). No random valid identifier
+[provenance decision](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/docs/security/google-sdp-provenance-decision.md). No random valid identifier
 or real record was generated. Numeric detection does not require a `TEST` marker.
 
 The [offline report](../../evaluation/google-sdp-context/offline-result.json) contains
@@ -81,7 +81,7 @@ unsupported obfuscation/OCR-like representations stay unqualified.
 
 The completed run stopped at `context-001` after two invocation attempts. Its
 original cause remains unknown; the remaining 85 cases were not executed.
-The [offline diagnostic assessment](google-sdp-context-diagnostics.md) records a
+The [offline diagnostic assessment](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/docs/security/google-sdp-context-diagnostics.md) records a
 documented replacement-format compatibility defect and a proposed first-case-only
 diagnostic bundle. The separately [qualified diagnostic image](../../evaluation/google-sdp-context/diagnostic-qualification.json)
 binds the changed source to fresh offline build/scan evidence for `context-001` only;

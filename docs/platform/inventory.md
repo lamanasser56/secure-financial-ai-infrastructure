@@ -27,7 +27,7 @@ Classes: **L** implemented + live-tested · **I** implemented, not live-tested �
 | Pod Security "restricted" | L | namespace labels in `platform/core/kubernetes/namespaces/namespaces.yaml` and generated `agents/*.yaml` | |
 | RBAC (ops agent read-only roles; restart-only via admission policy) | L / I | `platform/core/kubernetes/policies/ops-agent-rbac.yaml`; `policies/admission.yaml` (ValidatingAdmissionPolicy) | Claims matrix marks the "cannot change what runs" claim as designed, attack suite pending. |
 | Audit log | I | `platform/core/src/agent_platform/audit.py` (JSON lines on stdout) → Cloud Logging sink → 30-day bucket, `terraform/module/audit.tf` | Schema in 1d. Data Access logs are not enabled (known limitation). |
-| Prometheus / Grafana / Alertmanager | **absent** | `main.tf` enables GKE Managed Prometheus collection only | No scrape config, dashboard, rule or alert route in the repo (`docs/observability.md` says so). Grafana and Alertmanager do not exist here. |
+| Prometheus / Grafana / Alertmanager | **absent** | `main.tf` enables GKE Managed Prometheus collection only | No scrape config, dashboard, rule or alert route in the repo (`[v2-live-evidence/docs/observability.md](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/docs/observability.md)` says so). Grafana and Alertmanager do not exist here. |
 | Terraform with Application Default Credentials | I | `platform/clouds/gke/terraform/root`, `module/` | `make plan` / `make apply`; `terraform validate` and `fmt -check` run inside `make test`. |
 
 ## 1b. Current frontend

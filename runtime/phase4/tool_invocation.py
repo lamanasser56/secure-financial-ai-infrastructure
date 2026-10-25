@@ -184,7 +184,7 @@ def _lookup_tool_for_routing(registry: dict[str, ToolMetadata], tool_id: Any) ->
     enabled/schema/approval gates (resolve_tool_preconditions) -- those must
     not be evaluated, and must not be able to leak a tool's enabled or
     approval state, before Authorization succeeds. See
-    docs/phase4/phase-4b-tool-invocation-contract.md's control-order section."""
+    v2-live-evidence/docs/phase4/phase-4b-tool-invocation-contract.md's control-order section."""
     if not _is_valid_tool_id(tool_id):
         raise ControlFailure("structured_input_validation", "invalid_request")
     try:
@@ -287,7 +287,7 @@ def validate_tool_invocation(
     authorization_header: str,
     body: Any,
 ) -> ValidatedToolInvocation:
-    """See docs/phase4/phase-4b-tool-invocation-contract.md's control-order
+    """See v2-live-evidence/docs/phase4/phase-4b-tool-invocation-contract.md's control-order
     section for the exact sequence and why the registry precondition gate
     runs after Authorization, not before.
 

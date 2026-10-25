@@ -1,6 +1,6 @@
 # Dedicated synthetic evaluation cluster: proposed contract
 
-This unapplied root proposes a small Standard GKE cluster with Dataplane V2 and native FQDN enforcement. It imports no existing cluster, VPC, subnet, node identity or workload. It is part of the [single execution proposal](../../../docs/security/google-sdp-synthetic-execution-proposal.md), which is **pending approval**. Presidio remains authoritative; no production or real-data use is authorized.
+This unapplied root proposes a small Standard GKE cluster with Dataplane V2 and native FQDN enforcement. It imports no existing cluster, VPC, subnet, node identity or workload. It is part of the [single execution proposal](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/docs/security/google-sdp-synthetic-execution-proposal.md), which is **pending approval**. Presidio remains authoritative; no production or real-data use is authorized.
 
 ## Resources and lifecycle
 

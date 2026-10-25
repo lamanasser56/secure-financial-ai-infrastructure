@@ -47,7 +47,7 @@ The preserved Presidio fixture/qualification generator has local checksum constr
 passing detector tests or that construction does not certify non-assignment. Its
 Saudi examples are not imported into the new SDP input set as safe provenance.
 
-The [bounded authoritative research decision](google-sdp-provenance-decision.md)
+The [bounded authoritative research decision](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/docs/security/google-sdp-provenance-decision.md)
 now records exactly which format/validation/safety facts were established and which
 remain unresolved, without generating plausible identifiers or repeating a generic
 fixture request. It adds an unwired obfuscated-email candidate for existing safe
@@ -113,5 +113,5 @@ No Saudi residency, real-data privacy approval or production authorization follo
 Future runtime identity must be keyless and least privileged, distinct from operator
 credentials. Reverify content permissions, GKE identity and effective egress before
 any approved run. Regional endpoint pinning does not prove Layer-7/shared-IP/DNS-query
-containment. The [qualification plan](google-sdp-agent-qualification-plan.md) retains
+containment. The [qualification plan](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/docs/security/google-sdp-agent-qualification-plan.md) retains
 all identity, network, privacy, release, audit, cost and cleanup gates.

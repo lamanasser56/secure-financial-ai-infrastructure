@@ -16,4 +16,4 @@ Require independent input/output validation, authorization, capability confineme
 
 The demonstration is runnable without secrets or live providers and reuses the repository's security interfaces. It is not real authentication or production language/model qualification. POSIX/main-thread deadlines constrain execution architecture; the initial UI is single-thread and private. In-memory audit traces need a durable integration before deployment. A separate live integration must qualify real identity, Presidio, LiteLLM client-key restrictions and gateway-owned Gemini/Vertex credentials. Google SDP remains disabled/unwired; Presidio remains authoritative.
 
-See [architecture](architecture.md) and [live prerequisites](live-integration.md).
+See [architecture](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/docs/agents/architecture.md) and [live prerequisites](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/docs/agents/live-integration.md).
