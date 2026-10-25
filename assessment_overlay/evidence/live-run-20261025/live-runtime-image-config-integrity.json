@@ -13,8 +13,8 @@
       "images": [
         {
           "container": "agent",
-          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913",
-          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913"
+          "expected": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913",
+          "running_image_id": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913"
         }
       ]
     },
@@ -27,8 +27,8 @@
       "images": [
         {
           "container": "agent",
-          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913",
-          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913"
+          "expected": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913",
+          "running_image_id": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913"
         }
       ]
     },
@@ -41,8 +41,8 @@
       "images": [
         {
           "container": "agent",
-          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913",
-          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913"
+          "expected": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913",
+          "running_image_id": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913"
         }
       ]
     },
@@ -55,8 +55,8 @@
       "images": [
         {
           "container": "agent",
-          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/platform-guide@sha256:e2f627ca61f38539033590ef8520181101bef8a94ab062ff8e3d573bafa92646",
-          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/platform-guide@sha256:e2f627ca61f38539033590ef8520181101bef8a94ab062ff8e3d573bafa92646"
+          "expected": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/platform-guide@sha256:e2f627ca61f38539033590ef8520181101bef8a94ab062ff8e3d573bafa92646",
+          "running_image_id": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/platform-guide@sha256:e2f627ca61f38539033590ef8520181101bef8a94ab062ff8e3d573bafa92646"
         }
       ]
     },
@@ -69,8 +69,8 @@
       "images": [
         {
           "container": "app",
-          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c",
-          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c"
+          "expected": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c",
+          "running_image_id": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c"
         }
       ]
     },
@@ -83,8 +83,8 @@
       "images": [
         {
           "container": "financial-frontdoor",
-          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913",
-          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913"
+          "expected": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913",
+          "running_image_id": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913"
         }
       ]
     },
@@ -97,8 +97,8 @@
       "images": [
         {
           "container": "ops-executor",
-          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-platform-ops@sha256:5b2b9f981035aabda80abcd5a46f9a5ff6de4b251a4bb815548f25ed24d2d6b3",
-          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-platform-ops@sha256:5b2b9f981035aabda80abcd5a46f9a5ff6de4b251a4bb815548f25ed24d2d6b3"
+          "expected": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-platform-ops@sha256:5b2b9f981035aabda80abcd5a46f9a5ff6de4b251a4bb815548f25ed24d2d6b3",
+          "running_image_id": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-platform-ops@sha256:5b2b9f981035aabda80abcd5a46f9a5ff6de4b251a4bb815548f25ed24d2d6b3"
         }
       ]
     },
@@ -111,8 +111,8 @@
       "images": [
         {
           "container": "gateway",
-          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-demo-gateway@sha256:a3dcf411dc50f7cb4d63dacfbc0b8c6103051a182b27936e703fb798478cd7d4",
-          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-demo-gateway@sha256:a3dcf411dc50f7cb4d63dacfbc0b8c6103051a182b27936e703fb798478cd7d4"
+          "expected": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-demo-gateway@sha256:a3dcf411dc50f7cb4d63dacfbc0b8c6103051a182b27936e703fb798478cd7d4",
+          "running_image_id": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-demo-gateway@sha256:a3dcf411dc50f7cb4d63dacfbc0b8c6103051a182b27936e703fb798478cd7d4"
         }
       ]
     },
@@ -125,8 +125,8 @@
       "images": [
         {
           "container": "gateway-boundary",
-          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c",
-          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c"
+          "expected": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c",
+          "running_image_id": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c"
         }
       ]
     },
@@ -139,8 +139,8 @@
       "images": [
         {
           "container": "redactor",
-          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/google-sdp-context@sha256:667ceec4b8290df1341a91a7685ad140319fca6d23f92b9948dddf9fac64136b",
-          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/google-sdp-context@sha256:667ceec4b8290df1341a91a7685ad140319fca6d23f92b9948dddf9fac64136b"
+          "expected": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/google-sdp-context@sha256:667ceec4b8290df1341a91a7685ad140319fca6d23f92b9948dddf9fac64136b",
+          "running_image_id": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/google-sdp-context@sha256:667ceec4b8290df1341a91a7685ad140319fca6d23f92b9948dddf9fac64136b"
         }
       ]
     },
@@ -153,8 +153,8 @@
       "images": [
         {
           "container": "postgres",
-          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-demo-database@sha256:545d822b1aa7537a177b60bc6d0d72bcd9c68eb6a50512b4bb9403263d25739a",
-          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-demo-database@sha256:545d822b1aa7537a177b60bc6d0d72bcd9c68eb6a50512b4bb9403263d25739a"
+          "expected": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-demo-database@sha256:545d822b1aa7537a177b60bc6d0d72bcd9c68eb6a50512b4bb9403263d25739a",
+          "running_image_id": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-demo-database@sha256:545d822b1aa7537a177b60bc6d0d72bcd9c68eb6a50512b4bb9403263d25739a"
         }
       ]
     },
@@ -167,8 +167,8 @@
       "images": [
         {
           "container": "provider-stub",
-          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c",
-          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c"
+          "expected": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c",
+          "running_image_id": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c"
         }
       ]
     }
