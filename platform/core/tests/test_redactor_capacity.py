@@ -1,7 +1,9 @@
 """Bounded, synthetic loopback requests exercise redactor capacity without a provider or cloud."""
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
+import http.client
 import json
+import socket
 import threading
 import unittest
 import urllib.error
@@ -102,7 +104,13 @@ class RedactorCapacity(unittest.TestCase):
         with serving(provider, capacity=Capacity(KEYS), workers=1) as server, ThreadPoolExecutor(max_workers=1) as pool:
             first = pool.submit(request, server, 'app')
             self.assertTrue(provider.wait_for(1))
-            self.assertEqual(request(server, 'ops')[0], 503)
+            # This gate runs before a request handler exists. Read its refusal without racing a POST body
+            # against the deliberate socket close; even a connection that sends no bytes must be rejected.
+            with socket.create_connection(server.server_address, timeout=10) as connection:
+                response = http.client.HTTPResponse(connection)
+                response.begin()
+                self.assertEqual(response.status, 503)
+                self.assertEqual(response.read(), b'')
             self.assertEqual(provider.count, 1)
             provider.release.set()
             self.assertEqual(first.result(timeout=10)[0], 200)
