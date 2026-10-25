@@ -74,18 +74,14 @@ python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 bash scripts/check.sh
-kubectl kustomize kubernetes/base
 bash scripts/lint-repository.sh
-bash scripts/scan-secrets.sh  # requires Gitleaks 8.30.1
 ```
 
-The tests use synthetic fixtures and local loopback HTTP servers. They do not need cloud credentials or a running Kubernetes cluster. To run the live RLS behavior checks, provide a disposable PostgreSQL database named `portfolio_rls_test` through `PORTFOLIO_TEST_DATABASE_URL` and install `psql`; `scripts/check.sh` runs them automatically when both are available. The [supply-chain qualification](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/docs/supply-chain.md) requires pinned scanners and network access. Rendering manifests does not configure Workload Identity or authorize deployment; see [Operations](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/docs/operations.md).
+The tests use synthetic fixtures and local loopback HTTP servers. They do not need cloud credentials or a running Kubernetes cluster. The [supply-chain qualification](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/docs/supply-chain.md) requires pinned scanners and network access. Rendering manifests does not configure Workload Identity or authorize deployment; see [Operations](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/docs/operations.md).
 
 ## Private agent demonstration
 
 ```bash
-python3 -B scripts/diagnose-infrastructure.py --scenario archive-export
-python3 -B scripts/analyze-demo-expenses.py --period 2026-01
 python3 -B scripts/serve-demo-agents.py
 ```
 
