@@ -1,8 +1,8 @@
 # AI Infrastructure and Secure Agent Platform
 
-A standalone portfolio repository of infrastructure and secure AI runtime work adapted from my contribution to the private MASAR team project. It contains no product frontend or backend, authoritative product schema, customer data, deployment credentials, or original Git history. Its database schema is a synthetic, reference-only RLS fixture. The examples use synthetic requests and an `ai-platform` namespace.
+A standalone portfolio repository of infrastructure and secure AI runtime work adapted from my contribution to the private MASAR team project. It contains no product frontend or backend, authoritative product schema, customer data, deployment credentials, or original Git history. The examples use synthetic requests and an `ai-platform` namespace.
 
-The repository demonstrates a fail-closed route from a trusted application boundary through authentication, tenant context, authorization, input validation, policy, Presidio redaction, LiteLLM, and output validation. It also contains Kubernetes isolation templates, a metadata-only API audit policy, schema contracts, and CI validation.
+The repository demonstrates a fail-closed route from a trusted application boundary through authentication, tenant context, authorization, input validation, policy, Presidio redaction, LiteLLM, and output validation. It also contains schema contracts and CI validation. Earlier-phase material (Kubernetes isolation templates, a metadata-only API audit policy and a reference-only RLS schema) is preserved at the tags `v1-live-evidence` and `v2-live-evidence`.
 
 The [documentation index](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/docs/README.md) restores the architecture decisions, phase contracts, security model, and operations runbooks in sanitized form.
 
@@ -24,9 +24,7 @@ Application-owned identity and tenant adapters
 - Python reference runtime with ordered, fail-closed controls, Presidio and LiteLLM HTTP adapters, sanitized trace envelopes, and synthetic qualification tests.
 - Tool registry, invocation, policy, prompt-injection assessment, approval verification, and audit-event contracts. The governance coordinator produces an eligible invocation; it does not execute a product tool.
 - JSON Schema and OpenAPI contracts for runtime and tool boundaries.
-- Kubernetes manifests for namespace quotas, restricted Pod Security Admission, default-deny network policy, DNS allowance, ServiceAccount hardening, Presidio, and LiteLLM. Separate examples cover scoped RBAC, migration credentials, NodeLocal DNS, storage, and backup. The manifests are sanitized templates; repository validation parses them and checks their composition.
-- Kubernetes API audit policy that records metadata without request or response bodies.
-- A reference-only PostgreSQL schema with `FORCE ROW LEVEL SECURITY`, distinct migration and runtime role expectations, and behavioral tests for missing and cross-tenant context.
+- Earlier-phase Kubernetes templates, the metadata-only API audit policy and the reference-only RLS schema with its behavioral tests, preserved at the tags `v1-live-evidence` and `v2-live-evidence`.
 - Reusable Trivy, OSV-Scanner, Syft, Cosign, Gitleaks, repository lint, and exact-subject vulnerability-policy qualification. The supply-chain workflow uses a public digest-pinned image and synthetic signing key; it does not release a portfolio image.
 - CI with read-only checkout, runtime and security tests, schema and YAML validation, source-scope and documentation-link checks, repository lint, Git history secret scanning, and a separate supply-chain qualification workflow.
 
@@ -51,19 +49,15 @@ The [repository map](docs/REPO-MAP.md) sorts every path into the current product
 
 | Path | Purpose |
 | --- | --- |
-| `runtime/phase3/` | Trusted AI path and HTTP adapters |
-| `runtime/phase4/` | Governed tool contracts and audit boundary |
-| `runtime/agents/` | Bounded shared agent coordinator and offline entry points |
-| `demo/` | Own synthetic fixtures and private UI assets |
-| `contracts/` | JSON Schema and OpenAPI definitions |
-| `tests/` | Synthetic runtime and governance qualification |
-| `kubernetes/` | Namespaced security and AI service templates |
-| `database/reference/` | Synthetic, reference-only RLS schema and SQL behavior checks |
-| `policy/` | Empty exception register for fail-closed image policy |
-| `scripts/` | Validation, linting, and portable supply-chain qualification |
-| `k3s/` | Metadata-only Kubernetes API audit policy |
-| `.github/workflows/` | Source validation and public-input supply-chain qualification |
-| `docs/` | Architecture, observability, supply-chain, and operations notes |
+| `platform/` | The Secure AI Agent Platform: core, the onboarded agents, and the GKE cloud layer |
+| `assessment_overlay/` | Live security assessment tooling and its evidence |
+| `runtime/`, `contracts/`, `demo/` | Shared runtime, contracts and UI assets copied into the images |
+| `tests/` | Tests of the shared runtime and contracts |
+| `policy/` | Reviewed image vulnerability exceptions for the fail-closed image policy |
+| `providers/` | Model provider profiles |
+| `scripts/` | CI checks and portable supply-chain qualification |
+| `docs/` | Current docs and the live evidence in `docs/evidence/` |
+| `.github/workflows/` | CI, supply-chain qualification and the image pipeline |
 
 ## Run locally
 
@@ -91,6 +85,6 @@ Open `http://127.0.0.1:8765`. This is an offline synthetic simulation with simul
 
 Do not commit `.env` files, live keys, tokens, customer data, private endpoints, cloud project IDs, or real service-account addresses. Run `bash scripts/check.sh` and a current secret scanner before every publication. CI runs Gitleaks against Git history. The published history starts with this sanitized extraction and does not import MASAR commits.
 
-The Python runtime, contracts, infrastructure manifests, and qualification fixtures were adapted from my MASAR AI Infrastructure contribution. MASAR was a team project; its product frontend and backend remain with their original contributors. Public third-party images and GitHub Actions retain their upstream names and version or digest references. This repository makes no claim of ownership of those upstream projects.
+The Python runtime, contracts, infrastructure manifests, and qualification fixtures were adapted from my MASAR AI Infrastructure contribution. MASAR was a team project; its product frontend and backend remain with their original contributors. Public third-party images and GitHub Actions retain their upstream names and version or digest references. This repository makes no claim of ownership of those upstream projects. This repository is released under the [MIT License](LICENSE).
 
 See [Architecture](docs/architecture.md) for the trust boundary and [Operations](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/docs/operations.md) for deployment prerequisites.
