@@ -1,0 +1,17 @@
+{
+  "case": "K02",
+  "result": "PASS",
+  "actual_projected_service_account": "system:serviceaccount:ops:ops-agent",
+  "pod_uid": "1f054994-e70c-4859-bc50-a3a0c95cefe9",
+  "api_statuses": {
+    "patch": 403,
+    "secret_read": 403,
+    "pod_exec": 403,
+    "pod_create": 403,
+    "impersonation": 403
+  },
+  "mutating_requests_dry_run": [
+    "patch",
+    "pod_create"
+  ]
+}

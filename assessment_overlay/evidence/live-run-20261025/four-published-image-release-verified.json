@@ -1,0 +1,15 @@
+{
+  "checked_utc": "2026-10-25T01:09:58.518698+00:00",
+  "github_actions_run_id": 40134423332,
+  "source_commit": "41ffbf260a446b5db2292356a8ea23219e58a524",
+  "four_exact_receipts_verified": true,
+  "image_names": [
+    "app",
+    "ops-agent",
+    "agent-financial",
+    "platform-guide"
+  ],
+  "scan_gate_all_pass": true,
+  "cosign_all_verified": true,
+  "binauthz_all_attested": true
+}

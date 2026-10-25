@@ -1,0 +1,31 @@
+{
+  "case": "R01",
+  "result": "PASS",
+  "unauthenticated": 401,
+  "wrong_password": 401,
+  "tampered_cookie": 401,
+  "forged_host": 403,
+  "users": {
+    "lama": {
+      "login": 200,
+      "missing_csrf": 403,
+      "bad_origin": 403,
+      "create": 201,
+      "list": 200,
+      "own_seen": true,
+      "other_seen": false,
+      "expenses": 1
+    },
+    "sara": {
+      "login": 200,
+      "missing_csrf": 403,
+      "bad_origin": 403,
+      "create": 201,
+      "list": 200,
+      "own_seen": true,
+      "other_seen": false,
+      "expenses": 1
+    }
+  },
+  "synthetic_only": true
+}

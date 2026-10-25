@@ -1,0 +1,35 @@
+{
+  "checked_utc": "2026-10-25T01:10:23.634410+00:00",
+  "attestor": "projects/project-b1e55144-cfd4-4fef-89a/attestors/agent-platform-ci",
+  "seven_exact_original_attestations_verified": true,
+  "images": {
+    "gateway": {
+      "exact_digest": "sha256:a3dcf411dc50f7cb4d63dacfbc0b8c6103051a182b27936e703fb798478cd7d4",
+      "attestation_count": 1
+    },
+    "database": {
+      "exact_digest": "sha256:545d822b1aa7537a177b60bc6d0d72bcd9c68eb6a50512b4bb9403263d25739a",
+      "attestation_count": 1
+    },
+    "redactor": {
+      "exact_digest": "sha256:667ceec4b8290df1341a91a7685ad140319fca6d23f92b9948dddf9fac64136b",
+      "attestation_count": 1
+    },
+    "app": {
+      "exact_digest": "sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c",
+      "attestation_count": 1
+    },
+    "ops-agent": {
+      "exact_digest": "sha256:5b2b9f981035aabda80abcd5a46f9a5ff6de4b251a4bb815548f25ed24d2d6b3",
+      "attestation_count": 1
+    },
+    "agent-financial": {
+      "exact_digest": "sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913",
+      "attestation_count": 1
+    },
+    "platform-guide": {
+      "exact_digest": "sha256:e2f627ca61f38539033590ef8520181101bef8a94ab062ff8e3d573bafa92646",
+      "attestation_count": 1
+    }
+  }
+}

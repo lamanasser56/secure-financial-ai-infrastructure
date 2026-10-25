@@ -1,0 +1,14 @@
+{
+  "completed_redactions": 0,
+  "hard_limits": [
+    20,
+    60
+  ],
+  "inflight": 0,
+  "manual_stop": [
+    12,
+    40
+  ],
+  "run_id": "assess-1d95ef0ede5d2f24",
+  "sdk_attempts": 0
+}

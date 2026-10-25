@@ -1,0 +1,15 @@
+{
+  "case": "D04",
+  "result": "PASS",
+  "checks": {
+    "cross_capability": 403,
+    "extra_user_id": 400,
+    "wrong_worker_key": 403,
+    "worker": {
+      "has_db_or_session_key": false,
+      "direct_db_tcp_connected": false
+    }
+  },
+  "frontdoor_pod_uid": "b0ea1eb2-5a69-4cbf-971f-3b3ae32c5ef8",
+  "synthetic_only": true
+}

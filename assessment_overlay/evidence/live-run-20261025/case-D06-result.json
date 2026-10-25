@@ -1,0 +1,18 @@
+{
+  "case": "D06",
+  "result": "PASS",
+  "checks": {
+    "role": "finance_data_broker",
+    "initial_no_context": 0,
+    "lama_own": 1,
+    "lama_cross": 0,
+    "lama_cleared": 0,
+    "lama_setting": null,
+    "sara_own": 1,
+    "sara_cross": 0,
+    "sara_cleared": 0,
+    "sara_setting": null
+  },
+  "frontdoor_pod_uid": "b0ea1eb2-5a69-4cbf-971f-3b3ae32c5ef8",
+  "synthetic_only": true
+}

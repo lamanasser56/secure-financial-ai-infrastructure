@@ -1,0 +1,83 @@
+{
+  "run_id": "assess-1d95ef0ede5d2f24",
+  "platform_commit": "41ffbf260a446b5db2292356a8ea23219e58a524",
+  "cases": {
+    "D02": {
+      "verdict": "PASS",
+      "redactions": 3,
+      "sdk_attempts": 6
+    },
+    "D06": {
+      "verdict": "PASS",
+      "redactions": 0,
+      "sdk_attempts": 0
+    },
+    "D04": {
+      "verdict": "PASS",
+      "redactions": 0,
+      "sdk_attempts": 0
+    },
+    "D05": {
+      "verdict": "PASS",
+      "redactions": 0,
+      "sdk_attempts": 0
+    },
+    "D07": {
+      "verdict": "PASS",
+      "redactions": 0,
+      "sdk_attempts": 0
+    },
+    "O03": {
+      "verdict": "PASS",
+      "redactions": 0,
+      "sdk_attempts": 0
+    },
+    "O04": {
+      "verdict": "PASS",
+      "redactions": 0,
+      "sdk_attempts": 0
+    },
+    "K01": {
+      "verdict": "PASS",
+      "redactions": 0,
+      "sdk_attempts": 0
+    },
+    "K02": {
+      "verdict": "PASS",
+      "redactions": 0,
+      "sdk_attempts": 0
+    },
+    "K03": {
+      "verdict": "PASS",
+      "redactions": 0,
+      "sdk_attempts": 0
+    },
+    "K05": {
+      "verdict": "PASS",
+      "redactions": 0,
+      "sdk_attempts": 0
+    },
+    "R01": {
+      "verdict": "PASS",
+      "redactions": 0,
+      "sdk_attempts": 0
+    }
+  },
+  "new_case_pass": 12,
+  "historical_pass_not_rerun": 5,
+  "ledger_total_completed_redactions": 3,
+  "ledger_total_sdk_attempts": 6,
+  "manual_stop": [
+    12,
+    40
+  ],
+  "hard_limits": [
+    20,
+    60
+  ],
+  "private_stub_dispatches": 1,
+  "stub_raw_canary_seen": false,
+  "external_llm_calls": 0,
+  "modeled_cumulative_safety_upper_usd": 15.321,
+  "elapsed_seconds_at_summary": 4758
+}

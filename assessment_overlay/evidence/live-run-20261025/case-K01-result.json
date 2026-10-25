@@ -1,0 +1,85 @@
+{
+  "case": "K01",
+  "result": "PASS",
+  "actual_cni": true,
+  "connections": [
+    {
+      "source": "financial",
+      "destination": "boundary",
+      "connected": true,
+      "expected": true,
+      "pod_uid": "a3424704-c261-4e16-a187-aecb17c80bdc"
+    },
+    {
+      "source": "financial",
+      "destination": "redactor",
+      "connected": true,
+      "expected": true,
+      "pod_uid": "a3424704-c261-4e16-a187-aecb17c80bdc"
+    },
+    {
+      "source": "financial",
+      "destination": "broker",
+      "connected": true,
+      "expected": true,
+      "pod_uid": "a3424704-c261-4e16-a187-aecb17c80bdc"
+    },
+    {
+      "source": "financial",
+      "destination": "postgres",
+      "connected": false,
+      "expected": false,
+      "pod_uid": "a3424704-c261-4e16-a187-aecb17c80bdc"
+    },
+    {
+      "source": "financial",
+      "destination": "stub",
+      "connected": false,
+      "expected": false,
+      "pod_uid": "a3424704-c261-4e16-a187-aecb17c80bdc"
+    },
+    {
+      "source": "app",
+      "destination": "postgres",
+      "connected": true,
+      "expected": true,
+      "pod_uid": "24a75349-b939-4476-9e96-97169f0fb29a"
+    },
+    {
+      "source": "app",
+      "destination": "stub",
+      "connected": false,
+      "expected": false,
+      "pod_uid": "24a75349-b939-4476-9e96-97169f0fb29a"
+    },
+    {
+      "source": "ops",
+      "destination": "executor",
+      "connected": true,
+      "expected": true,
+      "pod_uid": "1f054994-e70c-4859-bc50-a3a0c95cefe9"
+    },
+    {
+      "source": "ops",
+      "destination": "postgres",
+      "connected": false,
+      "expected": false,
+      "pod_uid": "1f054994-e70c-4859-bc50-a3a0c95cefe9"
+    },
+    {
+      "source": "boundary",
+      "destination": "private_gateway",
+      "connected": true,
+      "expected": true,
+      "pod_uid": "1f2f7186-6fb6-40b1-bdfd-a483530a5e30"
+    },
+    {
+      "source": "boundary",
+      "destination": "postgres",
+      "connected": false,
+      "expected": false,
+      "pod_uid": "1f2f7186-6fb6-40b1-bdfd-a483530a5e30"
+    }
+  ],
+  "external_llm_calls": 0
+}

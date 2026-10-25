@@ -1,0 +1,15 @@
+{
+  "case": "O04",
+  "result": "PASS",
+  "observe_only_finding": "HEALTHY",
+  "observe_only_flag": true,
+  "suggested_actions": [],
+  "agent_pending_proposals": 0,
+  "malicious_explanation_rejected_status": 400,
+  "malicious_explanation_rejected_code": "PROPOSAL_REJECTED",
+  "gateway_unchanged": true,
+  "fault_demo_unchanged": true,
+  "observe_target_unchanged": true,
+  "external_llm_calls": 0,
+  "ops_explanation_keys_blank": true
+}

@@ -1,0 +1,28 @@
+{
+  "case": "K05",
+  "result": "PASS",
+  "identity_and_tcp": {
+    "redactor": {
+      "metadata_email": "assess-redactor@sfai-assess-20261022-635651.iam.gserviceaccount.com",
+      "dlp_tcp": true,
+      "dlp_private_ip": "10.80.0.7",
+      "pod_uid": "7fc7d50b-2792-4acc-96b3-022c88296de5"
+    },
+    "app": {
+      "metadata_email": null,
+      "dlp_tcp": false,
+      "dlp_private_ip": null,
+      "pod_uid": "24a75349-b939-4476-9e96-97169f0fb29a"
+    },
+    "worker": {
+      "metadata_email": null,
+      "dlp_tcp": false,
+      "dlp_private_ip": null,
+      "pod_uid": "a3424704-c261-4e16-a187-aecb17c80bdc"
+    }
+  },
+  "redaction_role_only_redactor": true,
+  "workload_identity_binding_only_platform_redactor": true,
+  "no_dlp_content_api_called": true,
+  "external_llm_calls": 0
+}
