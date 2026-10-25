@@ -349,7 +349,7 @@ class Activity(unittest.TestCase):
 
 
 class Explain(unittest.TestCase):
-    topics = ('network', 'private-link', 'internet', 'redactor', 'gateway', 'audit')
+    topics = tuple(console.EXPLAIN)
 
     def test_shape_and_files(self):
         console_ = make(audit_lines=[{'audit_event': 'app_started', 'component': 'app', 'at': NOW, 'user': 'alpha'}])
@@ -374,6 +374,16 @@ class Explain(unittest.TestCase):
         for topic in self.topics:
             with self.subTest(topic=topic):
                 self.assertIsNone(c.explain(topic)['proof'])
+
+    def test_current_boundary_topics_have_text_without_claiming_independent_live_proof(self):
+        c = make()
+        for topic in ('gateway-boundary','financial-frontdoor','ops-executor'):
+            with self.subTest(topic=topic):
+                result = c.explain(topic)
+                self.assertTrue(all(result[key] for key in ('title','plain','how','without','file')))
+                self.assertIsNone(result['proof'])
+        self.assertIsNone(c.explain('_proof_network'))
+        self.assertIsNone(c.explain('__dict__'))
 
     def test_private_link_has_no_read_only_source(self):
         self.assertIsNone(make().explain('private-link')['proof'])
@@ -442,6 +452,25 @@ class Http(unittest.TestCase):
                 self.assertEqual(status, 200, body)
                 self.assertEqual(headers['Cache-Control'], 'no-store')
                 self.assertIsNone(LEAKS.search(json.dumps(body)))
+
+    def test_every_explain_topic_preserves_the_http_contract_with_or_without_live_sources(self):
+        previous = self.server.console
+        try:
+            for available in (True,False):
+                self.server.console = make(ops_answers() if available else {},audit_lines=[])
+                for topic in console.EXPLAIN:
+                    with self.subTest(topic=topic,available=available):
+                        status,body,headers = self.get('/api/console/explain/'+topic)
+                        self.assertEqual(status,200,body)
+                        self.assertEqual(set(body),{'topic','title','plain','how','proof','without','file'})
+                        self.assertEqual(body['topic'],topic)
+                        self.assertEqual(headers['Cache-Control'],'no-store')
+                        self.assertTrue(all(isinstance(body[key],str) and body[key] for key in ('title','plain','how','without','file')))
+                        self.assertTrue(body['proof'] is None or isinstance(body['proof'],dict))
+                        if not available: self.assertIsNone(body['proof'])
+                        self.assertIsNone(LEAKS.search(json.dumps(body)))
+        finally:
+            self.server.console = previous
 
     def test_source_header_is_exact_and_unknown_is_not_latest_main(self):
         self.assertNotIn('X-Platform-Source-Commit', self.get('/api/console/topology')[2])
