@@ -2,7 +2,7 @@
 """Render the GKE overlay into one manifest and refuse it unless every platform invariant holds.
 
 Inputs (contract with platform/clouds/gke/terraform outputs): project ID, control-plane CIDR, gateway and
-redactor service-account emails, and images.json (signed digests). The same invariant checks run offline in
+redactor service-account emails, and the selected release lock (digest subjects). The same invariant checks run offline in
 `make test` and before every `make up`.
 """
 import argparse
@@ -68,13 +68,22 @@ def substitute(text, *, project_id, control_plane_cidr, gateway_gsa, redactor_gs
         refs[name] = images.get('full_refs', {}).get(name, registry + ref)
         require(refs[name].endswith('/' + ref), 'full image reference must match declared subject: ' + name)
         require(re.fullmatch(r'us-east1-docker\.pkg\.dev/[a-z0-9-]+/[a-z0-9-]+/[a-z0-9-]+@sha256:[a-f0-9]{64}', refs[name]), 'full digest image reference required: ' + name)
-    for name, ref in refs.items():
-        text = re.sub(r'(image: )agent-platform/' + re.escape(name) + r'\b(?![-\w])', r'\g<1>' + ref, text)
-        text = text.replace('IMAGE:' + name, ref)
-    for placeholder, value in (('GATEWAY_GSA', gateway_gsa), ('REDACTOR_GSA', redactor_gsa),
-                               ('CONTROL_PLANE_CIDR', str(network)), ('PROJECT_ID', project_id)):
-        text = text.replace(placeholder, value)
-    return text, refs
+    replacements = {('iam.gke.io/gcp-service-account', 'GATEWAY_GSA'): gateway_gsa,
+                    ('iam.gke.io/gcp-service-account', 'REDACTOR_GSA'): redactor_gsa,
+                    ('cidr', 'CONTROL_PLANE_CIDR'): str(network), ('project_id', 'PROJECT_ID'): project_id}
+    image_refs = {prefix + name: ref for name, ref in refs.items() for prefix in ('agent-platform/', 'IMAGE:')}
+
+    def replace(value, field=None):
+        # Replace complete scalar values, never mapping keys, embedded programs or longer identifiers.
+        if isinstance(value, dict):
+            return {key: replace(item, key) for key, item in value.items()}
+        if isinstance(value, list):
+            return [replace(item) for item in value]
+        if isinstance(value, str):
+            return image_refs.get(value, value) if field == 'image' else replacements.get((field, value), value)
+        return value
+
+    return yaml.safe_dump_all([replace(doc) for doc in yaml.safe_load_all(text) if doc], sort_keys=False), refs
 
 
 def dig(item, path):
@@ -90,9 +99,14 @@ def validate(docs, refs):
     for doc in docs:
         by_kind.setdefault(doc['kind'], []).append(doc)
         require(doc['kind'] not in FORBIDDEN_KINDS, 'forbidden kind: ' + doc['kind'])
-        raw = json.dumps(doc)
-        for token in ('PROJECT_ID', 'CONTROL_PLANE_CIDR', 'GATEWAY_GSA', 'REDACTOR_GSA', 'IMAGE:'):
-            require(token not in raw, 'unrendered placeholder ' + token + ' in ' + doc['kind'] + '/' + doc['metadata']['name'])
+        def resolved(value):
+            if isinstance(value, dict):
+                return all(resolved(key) and resolved(item) for key, item in value.items())
+            if isinstance(value, list):
+                return all(resolved(item) for item in value)
+            return not isinstance(value, str) or (value not in ('PROJECT_ID', 'CONTROL_PLANE_CIDR', 'GATEWAY_GSA', 'REDACTOR_GSA')
+                                                  and not value.startswith('IMAGE:'))
+        require(resolved(doc), 'unrendered placeholder in ' + doc['kind'] + '/' + doc['metadata']['name'])
     namespaces = {d['metadata']['name']: d for d in by_kind.get('Namespace', [])}
     agents = onboarded()
     require(set(namespaces) == set(PLATFORM_NAMESPACES) | set(agents), 'namespaces')
