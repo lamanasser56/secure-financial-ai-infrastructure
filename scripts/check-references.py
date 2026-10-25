@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+from source_files import files as source_files
 
 ROOT = Path(__file__).resolve().parents[1]
 LINK = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
@@ -20,10 +21,7 @@ def main() -> None:
     failures: list[str] = []
     checked_links = 0
     checked_references = 0
-    files = sorted(
-        path for path in ROOT.rglob("*")
-        if path.is_file() and not {".git", ".venv", "__pycache__"}.intersection(path.parts)
-    )
+    files = source_files(ROOT)
     for path in files:
         if path.suffix not in SOURCE_SUFFIXES:
             continue

@@ -1,7 +1,6 @@
 """Static invariants of the console UI (platform/core/ui) and the Financial Agent UI that shares its design.
 
-No JS engine runs offline: behaviour is covered by the screenshots of a local stub run (console_stub.py, ui_stub.py) and by
-the HTTP tests in test_console.py. These checks pin what the design spec and the page's CSP require.
+Browser behaviour is tested under tests/browser; API behaviour is covered in test_console.py. These checks pin what the design spec and the page's CSP require.
 """
 from pathlib import Path
 import re
@@ -179,12 +178,6 @@ class Scripts(unittest.TestCase):
         self.assertIn("title: spec.file}, 'View code →'", core)
         self.assertIn("copy: {label: 'request', value: trace.request_id}", (FIN / 'app.js').read_text())
 
-    def test_break_it_shows_six_then_all_and_the_owner_note(self):
-        attacks = (FRONT / 'attacks.js').read_text()
-        self.assertIn('const FIRST = 6;', attacks)
-        self.assertIn("'Show all ' + rows.length", attacks)
-        self.assertIn('x.note.conclusion', attacks)  # the evidence text, as written
-
     def test_ops_shows_the_explain_step(self):
         ops = (FRONT / 'ops.js').read_text()
         self.assertIn("'Explain'", ops)
@@ -211,16 +204,6 @@ class Scripts(unittest.TestCase):
         self.assertIn("'not seen'", ops)  # an agent the ops agent has not scanned is shown as such, not hidden
         self.assertNotIn("'Financial'", ops)  # agent names come from the API
 
-    def test_result_card_shows_what_was_not_stopped_with_its_evidence(self):
-        attacks = (FRONT / 'attacks.js').read_text()
-        self.assertIn("failed.length + ' not stopped'", attacks)
-        self.assertIn('x.note.conclusion', attacks[attacks.index('function notStopped'):])
-        self.assertIn("'no note in the evidence for this run.'", attacks)
-
-    def test_break_it_says_whether_it_is_a_live_or_a_recorded_run(self):
-        attacks = (FRONT / 'attacks.js').read_text()
-        self.assertIn("d.source === 'live' ? 'Live run ' : 'Recorded run '", attacks)
-
     def test_mrz_is_built_from_real_values_only(self):
         agents = (FRONT / 'agents.js').read_text()
         body = agents[agents.index('function mrz('):agents.index('const emblem')]
@@ -234,8 +217,8 @@ class Scripts(unittest.TestCase):
 
     def test_break_it_has_no_run_button_and_an_empty_state(self):
         attacks = (FRONT / 'attacks.js').read_text()
-        self.assertNotIn('Run the attacks', attacks.replace("The run button comes in a later phase", ''))
-        self.assertIn('No attack results yet.', attacks)
+        self.assertNotIn('Run the attacks', attacks)
+        self.assertIn('No mounted results.', attacks)
         self.assertIn('/api/console/attacks', attacks)
 
     def test_ops_is_minimal_and_has_no_rollback(self):

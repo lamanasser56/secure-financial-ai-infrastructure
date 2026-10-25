@@ -9,6 +9,7 @@ from pathlib import Path
 import yaml
 from jsonschema import Draft202012Validator
 
+from source_files import files as source_files
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVER_MASTER_KEY_ENV_VAR = "PORTFOLIO_LITELLM_MASTER_KEY"
@@ -22,10 +23,7 @@ FORBIDDEN_CONTENT = (
 
 
 def main() -> None:
-    files = [
-        p for p in ROOT.rglob("*")
-        if p.is_file() and not {".git", ".venv", "__pycache__"}.intersection(p.parts)
-    ]
+    files = source_files(ROOT)
     assert files, "empty repository"
     for path in files:
         relative = path.relative_to(ROOT)

@@ -39,11 +39,11 @@ REDACTION_RECENT_SECONDS = 3600  # how recent a redactor event for the agent's o
 
 
 def locate_extras():
-    """(UI dir, evidence dir, examples dir): side by side under /app/platform in the image; under platform/core/ui and docs/ in the repository."""
+    """(UI dir, examples dir): side by side under /app/platform in the image; under platform/core/ui and docs/ in the repository."""
     image = HERE.parents[2]
     if (image / 'agents').is_dir():
-        return image / 'ui', image / 'evidence', image / 'examples'
-    return HERE.parents[2] / 'ui', HERE.parents[4] / 'docs/evidence', HERE.parents[4] / 'docs/examples'
+        return image / 'ui', image / 'examples'
+    return HERE.parents[2] / 'ui', HERE.parents[4] / 'docs/examples'
 
 
 def display(name):
@@ -78,7 +78,7 @@ class Console:
         else:
             self.facts = release_facts.repository()
         self.source_commit = self.facts['source_commit']
-        self.ui_dir, self.evidence_dir, self.examples_dir = extras or locate_extras()
+        self.ui_dir, self.examples_dir = extras or locate_extras()
         self.live_attacks = Path(live_attacks)  # the mounted ConfigMap apps/attack-results (optional)
         self._cache = {}
         self._manifests = self._load_manifests()
@@ -433,42 +433,22 @@ class Console:
         return {'events': events[:limit], 'sources': sources}
 
     # attacks, example ---------------------------------------------------------------------------------------
-    ATTACK_CASE = re.compile(r'[a-z][a-z0-9_]{2,80}')
-
     def attacks(self):
-        """Attack-suite results, case / result / time only. A live run (ConfigMap apps/attack-results, written by `make attack`
-        and mounted read-only) is preferred; otherwise the recorded run committed in the repository. The source is stated."""
+        """Only the mounted owner report. Missing or invalid current evidence cannot fall back to history."""
         from agent_platform import attack_results
-        for source, path, file in (('live', self.live_attacks, 'ConfigMap apps/attack-results'),
-                                   ('recorded', self.evidence_dir / 'attack-suite.json', 'docs/evidence/attack-suite.json')):
-            try:
-                data = attack_results.sanitize(json.loads(path.read_text()))
-            except (OSError, ValueError):
-                continue
-            rows = [r for r in data['results'] if r['case'] != 'financial_setup']  # setup is a precondition, not an attack
-            if not rows:
-                continue
-            note = self._attack_note() if source == 'recorded' else None  # the owner's note is about the recorded run only
-            for r in rows:  # attached only to the failed case it is about (its text, unchanged)
-                if note and r['case'] == note['case'] and r['result'] == 'FAIL':
-                    r['note'] = {'conclusion': note['conclusion'], 'file': note['file']}
-            return {'available': True, 'source': source, 'file': file, 'completed_at': data['completed_at'],
-                    'results': rows, 'stopped': sum(r['result'] == 'PASS' for r in rows), 'total': len(rows)}
-        return {'available': False, 'source': None, 'file': 'docs/evidence/attack-suite.json', 'results': []}
-
-    def _attack_note(self):
-        """The owner's note on the latest run (docs/evidence/attack-suite-run-<n>-note.json with the highest n), or None."""
-        notes = sorted(((int(m.group(1)), p) for p in self.evidence_dir.glob('attack-suite-run-*-note.json')
-                        if (m := re.fullmatch(r'attack-suite-run-([0-9]{1,3})-note\.json', p.name))), reverse=True)
-        if not notes:
-            return None
+        base = {'available': False, 'file': 'ConfigMap apps/attack-results', 'results': []}
         try:
-            value = json.loads(notes[0][1].read_text())
-            if type(value.get('case')) is not str or not self.ATTACK_CASE.fullmatch(value['case']) or type(value.get('conclusion')) is not str:
-                return None
-        except (OSError, ValueError, AttributeError):
-            return None
-        return {'case': value['case'], 'conclusion': value['conclusion'][:800], 'file': 'docs/evidence/' + notes[0][1].name}
+            raw = self.live_attacks.read_text()
+        except FileNotFoundError:
+            return dict(base, status='missing')
+        except OSError:
+            return dict(base, status='unavailable')
+        if len(raw.encode()) > 128_000:
+            return dict(base, status='invalid')
+        try:
+            return attack_results.view(json.loads(raw), release_facts.evidence_binding(self.facts))
+        except (ValueError, TypeError, KeyError):
+            return dict(base, status='invalid')
 
     def example(self):
         path = self.examples_dir / 'rejected-agent/agent.yaml'

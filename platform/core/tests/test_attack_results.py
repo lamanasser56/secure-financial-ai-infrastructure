@@ -1,5 +1,5 @@
-"""Live attack results: one closed shape written by `make attack` into ConfigMap apps/attack-results and read by the console
-from a read-only mount; the bundled recorded run is the fallback. No secret or project ID can pass through."""
+"""Current producer/consumer contract and explicit unbound history, with no historical fallback."""
+from copy import deepcopy
 import io
 import json
 from pathlib import Path
@@ -10,108 +10,183 @@ from unittest import mock
 
 import yaml
 
-from agent_platform import attack_results
+from agent_platform import attack_results, release_facts
 import test_console as t
 
 REPO = Path(__file__).resolve().parents[3]
-PROJECT = 'demo-project-123456'
-RUN = {'suite': 'agent-platform-attacks', 'cluster': 'agent-platform', 'completed_at': '2026-11-01T10:20:30.123456+00:00',
-       'gateway_key_spend_usd': {'before': 0.1, 'after': 0.2}, 'note': 'free text that must not travel',
-       'results': [{'case': 'financial_setup', 'result': 'PASS', 'at': '2026-11-01T10:00:00.000001+00:00', 'evidence': {}},
-                   {'case': 'unsigned_image_rejected', 'result': 'PASS', 'at': '2026-11-01T10:05:00+00:00',
-                    'evidence': {'image': 'us-east1-docker.pkg.dev/' + PROJECT + '/r/x@sha256:' + '0' * 64, 'key': 'sk-' + 'Z' * 40}},
-                   {'case': 'egress_containment', 'result': 'FAIL', 'at': '2026-11-01T10:06:00Z', 'evidence': {'detail': PROJECT}}]}
+PROJECT = 'private-project-fixture'
+AT = '2026-10-25T12:00:00+00:00'
+
+
+def facts():
+    return {'schema_version': 1, 'source_commit': 'a'*40, 'bound_to_release': True,
+            'agents': {}, 'model': 'fixture', 'documents': [{'kind': 'Deployment',
+                'metadata': {'namespace': 'apps', 'name': 'app'}, 'spec': {'template': {'spec': {
+                    'containers': [{'name': 'app', 'image': 'sha256:'+'b'*64}]}}}}]}
+
+
+def report(selected=None):
+    return {'schema_version': attack_results.VERSION, 'suite': attack_results.SUITE, 'run_id': 'c'*32,
+            'runner_commit': 'd'*40, 'release': release_facts.evidence_binding(selected or facts()),
+            'completed_at': AT, 'private': PROJECT, 'results': [
+                {'case': name, 'kind': meta[0], 'result': 'PASS', 'verdict': 'PASS', 'at': AT,
+                 'evidence': {'password': 'sk-'+'Z'*40, 'raw': PROJECT}}
+                for name, meta in attack_results.CASES.items()]}
+
+
+def old_report():
+    return {'suite': attack_results.SUITE, 'completed_at': AT, 'note': PROJECT,
+            'results': [{'case': 'retired_check', 'result': 'PASS', 'at': AT, 'evidence': {'raw': PROJECT}}]}
 
 
 class Shape(unittest.TestCase):
-    def test_only_case_result_and_time_survive(self):
-        clean = attack_results.sanitize(RUN)
-        self.assertEqual(set(clean), {'suite', 'completed_at', 'results'})
-        self.assertTrue(all(set(r) == {'case', 'result', 'at'} for r in clean['results']))
-        text = json.dumps(clean)
-        for leak in (PROJECT, 'sk-', 'pkg.dev', 'free text', 'spend'):
-            self.assertNotIn(leak, text)
+    def test_only_public_binding_closed_cases_and_metadata_survive(self):
+        clean = attack_results.sanitize(report())
+        self.assertEqual(set(clean), {'schema_version', 'suite', 'run_id', 'runner_commit', 'release', 'completed_at', 'results'})
+        self.assertTrue(all(set(r) == {'case', 'kind', 'result', 'verdict', 'at'} for r in clean['results']))
+        for secret in (PROJECT, 'sk-', 'password', 'raw'):
+            self.assertNotIn(secret, json.dumps(clean))
 
-    def test_a_value_that_could_carry_a_project_id_or_secret_is_refused(self):
-        for bad in ({'case': PROJECT, 'result': 'PASS', 'at': '2026-11-01T10:05:00Z'},          # hyphens: not a case id
-                    {'case': 'ok_case', 'result': 'PASS ' + PROJECT, 'at': '2026-11-01T10:05:00Z'},
-                    {'case': 'ok_case', 'result': 'PASS', 'at': '2026-11-01T10:05:00Z ' + PROJECT},
-                    {'case': 'sk_' + 'z' * 90, 'result': 'PASS', 'at': '2026-11-01T10:05:00Z'}):   # too long for a case id
-            with self.subTest(bad=bad), self.assertRaises(ValueError):
-                attack_results.sanitize(dict(RUN, results=[bad]))
-        for bad in (None, {}, {'results': []}, dict(RUN, completed_at=PROJECT), dict(RUN, results=RUN['results'] * 30)):
-            with self.assertRaises(ValueError):
-                attack_results.sanitize(bad)
+    def test_missing_duplicate_unknown_and_misclassified_cases_cannot_qualify(self):
+        original = report()
+        mutations = []
+        missing = deepcopy(original); missing['results'].pop(); mutations.append(missing)
+        duplicate = deepcopy(original); duplicate['results'][-1] = duplicate['results'][0]; mutations.append(duplicate)
+        for key, value in (('case', PROJECT), ('kind', 'attack'), ('verdict', 'BLOCKED'), ('result', 'FAIL'), ('at', '2026-02-30T00:00:00Z')):
+            altered = deepcopy(original); altered['results'][0][key] = value; mutations.append(altered)
+        for key, value in (('run_id', PROJECT), ('runner_commit', PROJECT), ('suite', PROJECT), ('completed_at', 'yesterday'), ('schema_version', 999)):
+            altered = deepcopy(original); altered[key] = value; mutations.append(altered)
+        for bad in mutations:
+            with self.subTest(bad=bad), self.assertRaises(ValueError): attack_results.sanitize(bad)
 
-    def test_the_configmap_holds_the_sanitized_json_and_nothing_else(self):
-        cm = attack_results.configmap(RUN)
-        self.assertEqual((cm['kind'], cm['metadata']['name'], cm['metadata']['namespace']), ('ConfigMap', 'attack-results', 'apps'))
-        self.assertEqual(list(cm['data']), ['attack-suite.json'])
-        self.assertEqual(json.loads(cm['data']['attack-suite.json']), attack_results.sanitize(RUN))
-        self.assertNotIn(PROJECT, json.dumps(cm))
+    def test_private_or_malformed_release_subjects_are_rejected(self):
+        for key, value in (('id', PROJECT), ('source_commit', PROJECT), ('images', ['registry/'+PROJECT+'@sha256:'+'0'*64]), ('images', [])):
+            altered = report(); altered['release'][key] = value
+            with self.assertRaises(ValueError): attack_results.sanitize(altered)
 
-    def test_make_attack_publishes_only_the_configmap(self):
-        sys.path.insert(0, str(REPO / 'platform/clouds/gke'))
+    def test_not_exercised_is_separate_from_a_failed_security_check(self):
+        run = report()
+        run['results'][2].update(result='FAIL', verdict='NOT_EXERCISED')
+        run['results'][3].update(result='FAIL', verdict='FAIL')
+        value = attack_results.view(run, run['release'])
+        self.assertEqual(value['binding'], 'current')
+        self.assertFalse(value['complete'])
+        self.assertEqual((value['summary']['attack']['failed'], value['summary']['attack']['not_exercised']), (1, 1))
+        self.assertEqual(value['summary']['control']['passed'], 6)
+
+    def test_source_image_or_declaration_change_breaks_the_release_match(self):
+        run = report()
+        self.assertEqual(attack_results.view(run, run['release'])['binding'], 'current')
+        for field in ('source', 'image', 'declaration'):
+            selected = facts()
+            if field == 'source': selected['source_commit'] = 'e'*40
+            if field == 'image': selected['documents'][0]['spec']['template']['spec']['containers'][0]['image'] = 'sha256:'+'f'*64
+            if field == 'declaration': selected['documents'][0]['spec']['replicas'] = 2
+            changed = release_facts.evidence_binding(selected)
+            self.assertNotEqual(changed['id'], run['release']['id'])
+            self.assertEqual(attack_results.view(run, changed)['binding'], 'different_release')
+        selected = facts(); selected['bound_to_release'] = False
+        self.assertIsNone(release_facts.evidence_binding(selected))
+        self.assertEqual(attack_results.view(run, None)['binding'], 'unbound')
+
+    def test_unbuilt_images_or_unknown_source_never_qualify_a_release(self):
+        for missing in ('image','source'):
+            selected = facts()
+            if missing == 'image': selected['documents'][0]['spec']['template']['spec']['containers'][0]['image'] = 'unbuilt'
+            else: selected['source_commit'] = None
+            self.assertIsNone(release_facts.evidence_binding(selected))
+
+    def test_historical_outcomes_are_unbound_and_never_relabelled_as_boundary_passes(self):
+        data = attack_results.view(old_report(), report()['release'])
+        self.assertEqual((data['binding'], data['complete']), ('historical', False))
+        self.assertEqual(data['results'][0]['verdict'], 'RECORDED_PASS')
+        self.assertEqual(data['summary']['attack']['passed'], 0)
+        self.assertNotIn(PROJECT, json.dumps(data))
+        self.assertNotIn('retired_check', json.dumps(data))
+
+    def test_make_attack_publishes_the_current_closed_configmap_only(self):
+        sys.path.insert(0, str(REPO/'platform/clouds/gke'))
         import attack_suite
         sent = []
-        with mock.patch.object(attack_suite, 'k', side_effect=lambda *a, input=None: sent.append((a, input)) or mock.Mock(returncode=0)), \
-                mock.patch('sys.stdout', new=io.StringIO()) as out:
-            self.assertTrue(attack_suite.publish(RUN))
+        with mock.patch.object(attack_suite, 'k', side_effect=lambda *a, input=None: sent.append((a,input)) or mock.Mock(returncode=0)):
+            self.assertTrue(attack_suite.publish(report()))
         self.assertEqual(sent[0][0], ('apply', '-f', '-'))
-        self.assertEqual(json.loads(sent[0][1]), attack_results.configmap(RUN))
-        self.assertNotIn(PROJECT, sent[0][1] + out.getvalue())
-        with mock.patch.object(attack_suite, 'k') as k, mock.patch('sys.stdout', new=io.StringIO()) as out:
-            self.assertFalse(attack_suite.publish({'results': 'not a list'}))
-        k.assert_not_called()  # a report that does not fit the shape is not written at all
-        self.assertEqual(out.getvalue(), '')  # main reports publication failure and exits nonzero
+        cm = json.loads(sent[0][1])
+        self.assertEqual(json.loads(cm['data'][attack_results.KEY]), attack_results.sanitize(report()))
+        self.assertNotIn(PROJECT, sent[0][1])
+        with mock.patch.object(attack_suite, 'k') as command, mock.patch('sys.stdout', new=io.StringIO()) as output:
+            self.assertFalse(attack_suite.publish(old_report()))
+        command.assert_not_called()
+        self.assertEqual(output.getvalue(), '')
+
+    def test_writer_inventory_has_one_kind_authority_and_all_required_cases(self):
+        import attack_suite
+        cases = attack_suite.build_cases({})
+        self.assertEqual([(c.name,c.kind) for c in cases], [(name,meta[0]) for name,meta in attack_results.CASES.items()])
 
 
 class Console(unittest.TestCase):
-    def console(self, live_text=None):
-        tmp = tempfile.mkdtemp()
-        path = Path(tmp) / 'attack-suite.json'
-        if live_text is not None:
-            path.write_text(live_text)
-        c = t.make()
-        c.live_attacks = path
-        return c
+    def mounted(self, content=None):
+        temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
+        path = Path(temp.name)/'attack-suite.json'
+        if content is not None: path.write_text(content)
+        console = t.make(); console.live_attacks = path; console.facts = facts()
+        return console
 
-    def test_live_run_is_preferred_and_labelled(self):
-        data = self.console(json.dumps(attack_results.sanitize(RUN))).attacks()
-        self.assertEqual((data['source'], data['file'], data['completed_at']), ('live', 'ConfigMap apps/attack-results', RUN['completed_at']))
-        self.assertEqual([r['case'] for r in data['results']], ['unsigned_image_rejected', 'egress_containment'])
-        self.assertEqual((data['stopped'], data['total']), (1, 2))
-        self.assertFalse([r for r in data['results'] if 'note' in r])  # the owner's note is about the recorded run only
-
-    def test_missing_or_malformed_configmap_falls_back_to_the_recorded_run(self):
-        for live in (None, 'not json', json.dumps({'results': 'x'}), json.dumps(dict(RUN, completed_at='yesterday'))):
-            with self.subTest(live=live):
-                data = self.console(live).attacks()
-                self.assertEqual((data['source'], data['file']), ('recorded', 'docs/evidence/attack-suite.json'))
-                self.assertTrue(data['available'])
-
-    def test_a_full_report_in_the_configmap_is_still_reduced_to_the_closed_shape(self):
-        data = self.console(json.dumps(RUN)).attacks()  # even if someone wrote the raw report, nothing else is served
-        self.assertEqual(data['source'], 'live')
+    def test_mounted_report_is_bound_to_the_actual_selected_facts(self):
+        data = self.mounted(json.dumps(report())).attacks()
+        self.assertTrue(data['available'])
+        self.assertEqual(data['binding'], 'current')
+        self.assertEqual(data['source'], 'mounted')
+        self.assertEqual(data['run_id'], 'c'*32)
+        self.assertEqual(data['results'][0]['kind'], 'control')
         self.assertNotIn(PROJECT, json.dumps(data))
-        self.assertNotIn('sk-', json.dumps(data))
+
+    def test_missing_or_invalid_current_mount_never_falls_back_to_bundled_success(self):
+        for content, status in ((None, 'missing'), ('not json', 'invalid'), ('{}', 'invalid')):
+            data = self.mounted(content).attacks()
+            self.assertFalse(data['available'])
+            self.assertEqual(data['status'], status)
+            self.assertEqual(data['results'], [])
+
+    def test_valid_preversioned_mount_is_explicit_history(self):
+        data = self.mounted(json.dumps(old_report())).attacks()
+        self.assertTrue(data['available'])
+        self.assertEqual(data['binding'], 'historical')
+        self.assertEqual(data['summary']['attack']['total'], 0)
+
+    def test_current_render_all_runtime_subjects_are_bound_without_registry_identity(self):
+        from test_release_facts import ReleaseFacts
+        docs, _ = ReleaseFacts().selected()
+        selected = release_facts.verify(docs)
+        value = release_facts.evidence_binding(selected)
+        def images(value):
+            if isinstance(value,dict):
+                for key,child in value.items():
+                    if key == 'image' and isinstance(child,str): yield child
+                    else: yield from images(child)
+            elif isinstance(value,list):
+                for child in value: yield from images(child)
+        # Include Job and init-container subjects as well, so a future unique image
+        # cannot quietly disappear from the public binding.
+        expected = sorted({image.split('@')[-1] for image in images(docs)})
+        self.assertEqual(value['images'], expected)
+        self.assertNotIn('pkg.dev', json.dumps(value))
 
 
 class Manifest(unittest.TestCase):
-    def test_the_app_mounts_it_read_only_and_optional_with_no_new_rbac(self):
-        docs = [d for d in yaml.safe_load_all((REPO / 'platform/core/kubernetes/apps/workloads.yaml').read_text()) if d]
-        app = next(d for d in docs if d['kind'] == 'Deployment' and d['metadata']['name'] == 'app')['spec']['template']['spec']
-        volume = next(v for v in app['volumes'] if v['name'] == 'attack-results')
-        self.assertEqual(volume['configMap'], {'name': 'attack-results', 'optional': True, 'defaultMode': 0o444})
-        mount = next(m for m in app['containers'][0]['volumeMounts'] if m['name'] == 'attack-results')
-        self.assertEqual((mount['mountPath'], mount['readOnly']), ('/attack-results', True))
+    def test_read_only_optional_mount_does_not_give_the_app_write_rbac(self):
+        docs = [d for d in yaml.safe_load_all((REPO/'platform/core/kubernetes/apps/workloads.yaml').read_text()) if d]
+        app = next(d for d in docs if d['kind']=='Deployment' and d['metadata']['name']=='app')['spec']['template']['spec']
+        volume = next(v for v in app['volumes'] if v['name']=='attack-results')
+        self.assertEqual(volume['configMap'], {'name':attack_results.CONFIGMAP,'optional':True,'defaultMode':0o444})
+        mount = next(m for m in app['containers'][0]['volumeMounts'] if m['name']=='attack-results')
+        self.assertEqual((mount['mountPath'],mount['readOnly']),('/attack-results',True))
         self.assertFalse(app['automountServiceAccountToken'])
-        for path in (REPO / 'platform/core/kubernetes').rglob('*.yaml'):
-            for d in yaml.safe_load_all(path.read_text()):
-                if d and d.get('kind') == 'Role' and d['metadata'].get('namespace') == 'apps':
-                    self.assertFalse(any('configmaps' in r.get('resources', []) for r in d.get('rules', [])), path)
-        self.assertEqual(attack_results.CONFIGMAP, volume['configMap']['name'])
+        for path in (REPO/'platform/core/kubernetes').rglob('*.yaml'):
+            for doc in yaml.safe_load_all(path.read_text()):
+                if doc and doc.get('kind')=='Role' and doc['metadata'].get('namespace')=='apps':
+                    self.assertFalse(any('configmaps' in r.get('resources',[]) for r in doc.get('rules',[])))
 
 
-if __name__ == '__main__':
-    unittest.main()
+if __name__ == '__main__': unittest.main()

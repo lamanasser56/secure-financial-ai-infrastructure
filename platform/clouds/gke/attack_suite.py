@@ -597,10 +597,16 @@ def publish(report):
 
 
 def build_cases(state):
+    def required(name, execute, requires=(), always=False):
+        return Case(name,attack_results.CASES[name][0],execute,requires,always)
     def preflight():
         import demo_check
+        if state.get('runner_commit') is None: raise NotExercised('runner_source_unavailable')
         lifecycle.kubeconfig()
         state['docs']=selected_documents()
+        from agent_platform import release_facts
+        state['release']=release_facts.evidence_binding(release_facts.verify(state['docs']))
+        if state['release'] is None: raise NotExercised('release_binding_unavailable')
         checker=demo_check.Checker(state['settings']['project_id'],kubectl=lifecycle.KUBECTL,
             kubeconfig=lifecycle.STATE/'kubeconfig',docs=state['docs'],out=lambda _:None)
         if checker.all(): raise NotExercised('release_not_ready')
@@ -617,28 +623,28 @@ def build_cases(state):
     def financial(fn,*users):
         return lambda: fn(state['app'],*(state['fixtures'].sessions[name] for name in users))
     ready=('release_preflight',); data=('release_preflight','financial_setup')
-    return [Case('release_preflight','control',preflight), Case('financial_setup','control',setup,ready),
-        Case('financial_broker_database_roles','attack',case_cross_user_database,ready),
-        Case('financial_active_capability_boundary','attack',financial(case_current_broker,'lama','sara'),data),
-        Case('financial_cross_user_api_and_forged_session','attack',lambda:case_cross_user_api(state['app'],state['fixtures'].sessions['lama'],state['fixtures'].sessions['sara'],state['fixtures']),data),
-        Case('financial_show_saras_expenses','attack',financial(case_show_saras_expenses,'lama'),data),
-        Case('financial_prompt_injection_in_question','attack',financial(case_prompt_injection_question,'lama'),data),
-        Case('financial_filter_bypass_merchant_stays_grounded','attack',financial(case_filter_bypass_merchant,'lama'),data),
-        Case('financial_ungrounded_record_claim_feature3','attack',financial(case_ungrounded_claim,'lama'),data),
-        Case('financial_question_figure_not_evidence','attack',financial(case_question_figure_not_evidence,'lama'),data),
-        Case('financial_merchant_with_digits_answers','control',financial(case_merchant_with_digits,'lama'),data),
-        Case('gateway_redaction_failure_rejected','attack',financial(case_redaction_down,'lama'),data),
-        Case('financial_login_lockout_per_username','attack',financial(case_login_lockout_per_username),data),
-        Case('financial_session_epoch_restart','attack',financial(case_session_epoch_restart,'lama'),data),
-        Case('financial_fixture_cleanup','control',cleanup,always=True),
-        Case('financial_transport_cleanup','control',close,always=True),
-        Case('unsigned_image_rejected','attack',case_unsigned_image,ready),
-        Case('no_public_exposure','attack',case_no_public_exposure,ready),
-        Case('egress_containment','attack',case_egress_containment,ready),
-        Case('ops_agent_cannot_change_onboarded_agents','attack',case_ops_agent_cannot_change_agents,ready),
-        Case('ops_stale_approval_refused','attack',case_ops_stale_approval_refused,ready),
-        Case('ops_log_injection_adds_no_action_and_no_text','attack',case_log_planted_injection,ready),
-        Case('known_secret_patterns_absent','control',case_secret_scan,ready)]
+    return [required('release_preflight',preflight), required('financial_setup',setup,ready),
+        required('financial_broker_database_roles',case_cross_user_database,ready),
+        required('financial_active_capability_boundary',financial(case_current_broker,'lama','sara'),data),
+        required('financial_cross_user_api_and_forged_session',lambda:case_cross_user_api(state['app'],state['fixtures'].sessions['lama'],state['fixtures'].sessions['sara'],state['fixtures']),data),
+        required('financial_show_saras_expenses',financial(case_show_saras_expenses,'lama'),data),
+        required('financial_prompt_injection_in_question',financial(case_prompt_injection_question,'lama'),data),
+        required('financial_filter_bypass_merchant_stays_grounded',financial(case_filter_bypass_merchant,'lama'),data),
+        required('financial_ungrounded_record_claim_feature3',financial(case_ungrounded_claim,'lama'),data),
+        required('financial_question_figure_not_evidence',financial(case_question_figure_not_evidence,'lama'),data),
+        required('financial_merchant_with_digits_answers',financial(case_merchant_with_digits,'lama'),data),
+        required('gateway_redaction_failure_rejected',financial(case_redaction_down,'lama'),data),
+        required('financial_login_lockout_per_username',financial(case_login_lockout_per_username),data),
+        required('financial_session_epoch_restart',financial(case_session_epoch_restart,'lama'),data),
+        required('financial_fixture_cleanup',cleanup,always=True),
+        required('financial_transport_cleanup',close,always=True),
+        required('unsigned_image_rejected',case_unsigned_image,ready),
+        required('no_public_exposure',case_no_public_exposure,ready),
+        required('egress_containment',case_egress_containment,ready),
+        required('ops_agent_cannot_change_onboarded_agents',case_ops_agent_cannot_change_agents,ready),
+        required('ops_stale_approval_refused',case_ops_stale_approval_refused,ready),
+        required('ops_log_injection_adds_no_action_and_no_text',case_log_planted_injection,ready),
+        required('known_secret_patterns_absent',case_secret_scan,ready)]
 
 
 def write_report(path,report):
@@ -659,8 +665,15 @@ def main(argv):
         if not isinstance(state['settings'],dict): raise ValueError('settings_shape')
     except Exception: state['settings']={'project_id':''}
     private=tuple(state['settings'].get(k) for k in ('project_id','project_number'))
+    try:
+        runner=subprocess.run(['git','rev-parse','HEAD'],cwd=HERE,capture_output=True,text=True,check=False,timeout=5)
+        runner_commit=runner.stdout.strip() if runner.returncode==0 else None
+    except (OSError,subprocess.TimeoutExpired): runner_commit=None
+    if not isinstance(runner_commit,str) or not re.fullmatch('[0-9a-f]{40}',runner_commit): runner_commit=None
+    state['runner_commit']=runner_commit
     rows=run_cases(build_cases(state),private=private)
-    report={'suite':attack_results.SUITE,'run_id':uuid.uuid4().hex,
+    report={'schema_version':attack_results.VERSION,'suite':attack_results.SUITE,'run_id':uuid.uuid4().hex,
+        'release':state.get('release'),'runner_commit':runner_commit,
         'completed_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),
         'passed':sum(r['result']=='PASS' for r in rows),'total':len(rows),'results':rows}
     safe_evidence(report,private)
@@ -668,7 +681,7 @@ def main(argv):
     report['published']=written
     try: write_report(args.out,report)
     except OSError: raise SystemExit('FAIL  evidence file unavailable') from None
-    ok=written and all(r['verdict']=='PASS' for r in rows)
+    ok=written and runner_commit is not None and all(r['verdict']=='PASS' for r in rows)
     counts={kind:(sum(r['verdict']=='PASS' and r['kind']==kind for r in rows),sum(r['kind']==kind for r in rows)) for kind in ('attack','control')}
     print(('PASS' if ok else 'FAIL')+'  attacks %d/%d; controls %d/%d; evidence %s' %
         (*counts['attack'],*counts['control'],'published' if written else 'not published'))

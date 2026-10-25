@@ -241,6 +241,22 @@ class Orchestration(unittest.TestCase):
         self.assertEqual(len(fixture.rows),2)
         self.assertTrue(all(row['id'] is None for row in fixture.rows))
 
+    def test_missing_git_cannot_skip_fresh_evidence_or_run_live_preflight(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'report.json'
+            path.write_text('{"stale_success":true}')
+            with patch.object(attack_suite.lifecycle,'settings',return_value={}), \
+                    patch.object(attack_suite.subprocess,'run',side_effect=FileNotFoundError('synthetic')), \
+                    patch.object(attack_suite.lifecycle,'kubeconfig') as kubeconfig, \
+                    patch.object(attack_suite,'publish',return_value=False), patch('sys.stdout',new_callable=io.StringIO):
+                with self.assertRaises(SystemExit) as stopped: attack_suite.main(['--out',str(path)])
+                self.assertEqual(stopped.exception.code,1)
+            kubeconfig.assert_not_called()
+            data=json.loads(path.read_text())
+            self.assertIsNone(data['runner_commit'])
+            self.assertNotIn('stale_success',data)
+            self.assertEqual(data['results'][0]['verdict'],'NOT_EXERCISED')
+
     def test_declared_case_inventory_contains_current_mediators_and_separate_cleanup_controls(self):
         cases=attack_suite.build_cases({})
         self.assertEqual(len({c.name for c in cases}),len(cases))

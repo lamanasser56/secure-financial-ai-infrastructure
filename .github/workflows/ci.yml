@@ -84,6 +84,11 @@ jobs:
           PYTHONPATH=platform/core/src:platform/agents/financial:. python -B -m unittest discover -s platform/agents/financial/tests -p 'test_*.py'
       - name: Platform Guide tests (Node.js built-in test runner, no dependencies)
         run: node --test platform/agents/platform-guide/test/*.test.js
+      - name: Console browser behaviour (offline fixtures, no cluster or provider)
+        run: |
+          npm ci --prefix tests/browser --ignore-scripts
+          tests/browser/node_modules/.bin/playwright install --with-deps chromium
+          npm --prefix tests/browser test
 
   gitleaks:
     # Scan every fetched branch and tag, including rc1-live-followup, and the PR merge ref.
