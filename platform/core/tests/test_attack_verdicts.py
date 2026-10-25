@@ -60,7 +60,7 @@ class RT05(unittest.TestCase):
 
 class StaleApproval(unittest.TestCase):
     """RT-01 / T-01: only an OBJECT_CHANGED refusal exercises the resourceVersion binding."""
-    REPLAY, FRESH = {'result': 'DENIED', 'code': 'UNKNOWN_OR_USED_REQUEST'}, {'result': 'VERIFIED'}
+    REPLAY, FRESH = {'result': 'DENIED', 'code': 'ALREADY_USED'}, {'result': 'VERIFIED'}
 
     def test_object_changed_with_replay_refused_and_a_fresh_approval_verified_passes(self):
         self.assertEqual(attack_suite.stale_approval_verdict({'result': 'DENIED', 'code': 'OBJECT_CHANGED'}, self.REPLAY, True, self.FRESH), 'PASS')

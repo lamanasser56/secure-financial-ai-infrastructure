@@ -56,14 +56,14 @@ class Shape(unittest.TestCase):
         sent = []
         with mock.patch.object(attack_suite, 'k', side_effect=lambda *a, input=None: sent.append((a, input)) or mock.Mock(returncode=0)), \
                 mock.patch('sys.stdout', new=io.StringIO()) as out:
-            attack_suite.publish(RUN)
+            self.assertTrue(attack_suite.publish(RUN))
         self.assertEqual(sent[0][0], ('apply', '-f', '-'))
         self.assertEqual(json.loads(sent[0][1]), attack_results.configmap(RUN))
         self.assertNotIn(PROJECT, sent[0][1] + out.getvalue())
         with mock.patch.object(attack_suite, 'k') as k, mock.patch('sys.stdout', new=io.StringIO()) as out:
-            attack_suite.publish({'results': 'not a list'})
+            self.assertFalse(attack_suite.publish({'results': 'not a list'}))
         k.assert_not_called()  # a report that does not fit the shape is not written at all
-        self.assertIn('NOT_WRITTEN', out.getvalue())
+        self.assertEqual(out.getvalue(), '')  # main reports publication failure and exits nonzero
 
 
 class Console(unittest.TestCase):
