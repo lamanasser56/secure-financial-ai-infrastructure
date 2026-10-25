@@ -5,6 +5,7 @@ import datetime
 import http.client
 import json
 from pathlib import Path
+import shutil
 import tempfile
 import threading
 import unittest
@@ -25,6 +26,7 @@ from runtime.phase3.trusted_runtime import RedactionResult
 from fixtures import FakeClient, REGISTRY, deployment, pod
 
 ROOT = Path(__file__).resolve().parents[3]
+KUBECTL = shutil.which('kubectl') or str(Path.home() / 'portfolio-sdp-us-east1-401f097/tools/kubectl')
 ALICE, BOB = '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002'
 
 
@@ -269,14 +271,42 @@ class DeploymentContracts(unittest.TestCase):
         quota=next(d for d in docs if d['kind']=='ResourceQuota')['spec']['hard']
         self.assertEqual(quota['pods'],'4')
 
-    def test_legacy_up_fails_before_any_cloud_or_cluster_call(self):
+    @unittest.skipUnless(Path(KUBECTL).exists(), 'kubectl needed for kustomize')
+    def test_up_renders_the_rc1_lock_and_stages_ops_admission_fail_closed(self):
         import importlib.util
+        from types import SimpleNamespace
         from unittest.mock import patch
-        spec=importlib.util.spec_from_file_location('boundary_lifecycle',ROOT/'platform/clouds/gke/lifecycle.py')
-        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-        with patch.object(module,'run') as run, patch.object(module,'resize') as resize:
-            with self.assertRaisesRegex(SystemExit,'reviewed_v2_cutover_bundle_required'):module.up()
-            run.assert_not_called();resize.assert_not_called()
+        load=lambda name,path:(lambda s:(lambda m:(s.loader.exec_module(m),m)[1])(importlib.util.module_from_spec(s)))(importlib.util.spec_from_file_location(name,path))
+        lifecycle=load('boundary_lifecycle',ROOT/'platform/clouds/gke/lifecycle.py');render=load('boundary_render',ROOT/'platform/clouds/gke/render.py')
+        project='example-project-123'
+        with tempfile.TemporaryDirectory() as tmp, patch.object(lifecycle,'STATE',Path(tmp)):
+            lock=lifecycle.release_lock(project)
+            self.assertEqual(lock.stat().st_mode&0o777,0o600)
+            self.assertEqual(json.loads(lock.read_text())['registry'],f'us-east1-docker.pkg.dev/{project}/sdp-evaluation-images/')
+            text,summary=render.render(SimpleNamespace(images_lock=str(lock),kubectl=KUBECTL,project_id=project,control_plane_cidr='172.16.0.16/28',
+                gateway_gsa=f'agent-platform-gateway@{project}.iam.gserviceaccount.com',redactor_gsa=f'google-sdp-runtime@{project}.iam.gserviceaccount.com'))
+        locked=json.loads(lifecycle.RELEASE_LOCK.read_text())['images']
+        self.assertEqual({i.rsplit('/',1)[1] for i in summary['images']},set(locked.values()))
+        docs=[d for d in yaml.safe_load_all(text) if d and d['kind']!='NetworkLogging']
+        where={(d['kind'],d['metadata'].get('namespace',''),d['metadata']['name']):i for i,stage in enumerate(lifecycle.stages(docs)) for d in stage}
+        policy='ops-agent-bounded-remediation'
+        self.assertLess(where[('ConfigMap','ops','ops-agent-registry')],where[('ValidatingAdmissionPolicy','',policy)])
+        self.assertLess(where[('ValidatingAdmissionPolicy','',policy)],where[('ValidatingAdmissionPolicyBinding','',policy)])
+        self.assertLess(where[('ValidatingAdmissionPolicyBinding','',policy)],min(i for (k,_,_),i in where.items() if k in ('StatefulSet','Job','Deployment')))
+        for boundary in (('platform','gateway-boundary'),('apps','financial-frontdoor'),('ops','ops-executor')):
+            self.assertEqual(where[('Deployment',)+boundary],6)
+        dns=[d for d in docs if d['kind']=='NetworkPolicy' and d['metadata']['name']=='allow-dns']
+        self.assertEqual(len(dns),5)
+        for d in dns:
+            self.assertEqual({p['podSelector']['matchLabels']['k8s-app'] for p in d['spec']['egress'][0]['to']},{'kube-dns','node-local-dns'})
+        find=lambda docs,kind:next(d for d in docs if d['kind']==kind and d['metadata']['name']==policy)
+        def ignore(d): find(d,'ValidatingAdmissionPolicy')['spec']['failurePolicy']='Ignore'
+        def warn(d): find(d,'ValidatingAdmissionPolicyBinding')['spec']['validationActions']=['Warn']
+        def allow_missing(d): find(d,'ValidatingAdmissionPolicyBinding')['spec']['paramRef']['parameterNotFoundAction']='Allow'
+        def no_registry(d): d[:]=[x for x in d if x['metadata']['name']!='ops-agent-registry']
+        for change in (ignore,warn,allow_missing,no_registry):
+            mutated=copy.deepcopy(docs);change(mutated)
+            with self.subTest(change.__name__),self.assertRaisesRegex(SystemExit,'ops_policy_must_fail_closed'):lifecycle.stages(mutated)
 
     def test_ops_identity_has_no_mutation_grants(self):
         docs=list(yaml.safe_load_all((ROOT/'platform/core/kubernetes/policies/ops-agent-rbac.yaml').read_text()))
