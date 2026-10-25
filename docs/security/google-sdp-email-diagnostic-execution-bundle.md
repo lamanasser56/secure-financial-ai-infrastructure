@@ -159,9 +159,9 @@ Existing owner administration is reused; no new grant or least-privilege claim.
    pool removal, existing private IPv4/Pod/service ranges, VPC-native Dataplane V2/
    FQDN, kube-dns/no NodeLocal, DNS-IAM-only control plane, Shielded/GKE_METADATA
    settings remain. No node auto-repair or upgrade authorizes another Job.
-6. Render using the dedicated [renderer](../../scripts/render-sdp-email-diagnostic-job.sh)
+6. Render using the dedicated [renderer](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/scripts/render-sdp-email-diagnostic-job.sh)
    with trusted project/runtime GSA and exact signed digest; run the
-   [validator](../../scripts/validate-sdp-email-diagnostic-deployment.py), native
+   [validator](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/scripts/validate-sdp-email-diagnostic-deployment.py), native
    schema/admission dry-runs and command/program/hash review. Apply only controls
    and scoped logging, then complete genuine zero-SDP network preflight below.
 7. Delete preflight Job/Pod/ConfigMap, verify one-Job/Pod quota free. Create the

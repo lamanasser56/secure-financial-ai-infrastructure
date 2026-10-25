@@ -31,7 +31,7 @@ references are architecture examples, not promoted images or deployed services.
 
 ## Concrete candidate and exact blockers
 
-The [bounded candidate](../../docker/presidio-bounded/README.md) builds on the
+The [bounded candidate](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/docker/presidio-bounded/README.md) builds on the
 pinned Python 3.12.15 Debian 13 base, installs the separate hash lock with normal
 dependency resolution and `pip check`, and runs actual upstream Presidio engines.
 A Docker archive was exported and inspected; linux/amd64 configuration bytes are

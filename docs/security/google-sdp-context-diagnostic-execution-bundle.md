@@ -154,9 +154,9 @@ OIDC/WIF path; no JSON keys or stored access/OIDC tokens.
    kube-dns without NodeLocal, GKE metadata and Shielded settings. Control-plane
    minimum and managed-pool version contracts remain unchanged. No upgrade is
    selected to bypass a gate.
-7. Render with the [dedicated diagnostic renderer](../../scripts/render-sdp-context-diagnostic-job.sh)
+7. Render with the [dedicated diagnostic renderer](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/scripts/render-sdp-context-diagnostic-job.sh)
    using trusted project, exact runtime GSA and verified diagnostic image digest.
-   Run the [diagnostic validator](../../scripts/validate-sdp-context-diagnostic-deployment.py)
+   Run the [diagnostic validator](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/scripts/validate-sdp-context-diagnostic-deployment.py)
    and native API/schema/admission dry-runs. Neither script applies anything;
    the full-campaign renderer is not an acceptable diagnostic execution subject.
 8. Apply only reviewed controls and scoped logging, then complete the genuine

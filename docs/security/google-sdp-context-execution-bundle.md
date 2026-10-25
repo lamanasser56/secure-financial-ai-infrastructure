@@ -125,7 +125,7 @@ private Docker configuration lifecycle remain unchanged.
    native FQDN policy, kube-dns/no NodeLocal, GKE_METADATA and shielded node remain.
    Control-plane minimum version and separate pool version retain the existing
    provider contract; REGULAR upgrades/auto-repair do not authorize more Jobs.
-7. Render only with [context renderer](../../scripts/render-sdp-context-job.sh):
+7. Render only with [context renderer](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/scripts/render-sdp-context-job.sh):
    exact project, dedicated runtime GSA and new signed registry digest. No mutable
    tag, alternate region/image or credential input. Native API/schema/server dry-run
    validation precedes applying the reviewed controls-only file. Validate the
