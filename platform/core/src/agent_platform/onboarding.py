@@ -328,16 +328,10 @@ def render_ops_observe(manifests):
     docs = [{'apiVersion': 'v1', 'kind': 'ConfigMap', 'metadata': {'name': 'ops-agent-observe', 'namespace': 'ops'},
              'data': {'agent-' + n + '.' + worker + '.observe': 'read-only' for n in namespace_agents(manifests)
                       for worker in (['agent-' + slot for slot in USER_SLOTS] if manifests[n]['data'] != 'none' else ['agent'])}}]
+    from agent_platform.ops import authority
     for name in namespace_agents(manifests):
-        ns = 'agent-' + name
-        docs += [{'apiVersion': 'rbac.authorization.k8s.io/v1', 'kind': 'Role', 'metadata': {'name': 'ops-agent-observe', 'namespace': ns},
-                  'rules': [{'apiGroups': ['apps'], 'resources': ['deployments'], 'resourceNames': (['agent-' + slot for slot in USER_SLOTS] if manifests[name]['data'] != 'none' else ['agent']), 'verbs': ['get']},
-                            {'apiGroups': [''], 'resources': ['pods', 'events'], 'verbs': ['list']},
-                            # live proof that default-deny is in place (console); the policies are not secret
-                            {'apiGroups': ['networking.k8s.io'], 'resources': ['networkpolicies'], 'verbs': ['get', 'list']}]},
-                 {'apiVersion': 'rbac.authorization.k8s.io/v1', 'kind': 'RoleBinding', 'metadata': {'name': 'ops-agent-observe', 'namespace': ns},
-                  'roleRef': {'apiGroup': 'rbac.authorization.k8s.io', 'kind': 'Role', 'name': 'ops-agent-observe'},
-                  'subjects': [{'kind': 'ServiceAccount', 'name': 'ops-agent', 'namespace': 'ops'}]}]
+        docs += authority.agent_documents('agent-' + name,
+                                          ['agent-' + slot for slot in USER_SLOTS] if manifests[name]['data'] != 'none' else ['agent'])
     return docs
 
 

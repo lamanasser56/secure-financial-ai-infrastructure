@@ -38,12 +38,26 @@ class KubeStub:
 
     def __init__(self, unreadable=(), forbidden_kinds=()):
         self.policies, self.unreadable, self.forbidden_kinds = netpols(), set(unreadable), set(forbidden_kinds)
+        self.rbac = [d for path in [KUBE / 'policies/ops-agent-rbac.yaml', KUBE / 'agents/ops-observe.yaml']
+                     for d in yaml.safe_load_all(path.read_text()) if d and d['kind'] in ('Role', 'RoleBinding')]
 
     def list(self, kind, namespace, selector=None):
         from agent_platform.k8s import KubeError
         if namespace in self.unreadable or kind in self.forbidden_kinds:
             raise KubeError(403, 'Forbidden')
+        if kind in ('roles', 'rolebindings'):
+            return [d for d in self.rbac if d['kind'] == {'roles': 'Role', 'rolebindings': 'RoleBinding'}[kind]
+                    and d['metadata']['namespace'] == namespace]
         return self.policies.get(namespace, []) if kind == 'networkpolicies' else []
+
+
+def checked_posture(client, namespaces):
+    workloads = {ns: [] for ns in namespaces}
+    for path in (KUBE / 'agents').glob('*.yaml'):
+        for doc in yaml.safe_load_all(path.read_text()):
+            if doc and doc.get('kind') == 'Deployment' and doc['metadata']['namespace'] in workloads:
+                workloads[doc['metadata']['namespace']].append(doc['metadata']['name'])
+    return posture.check(client, namespaces, workloads)
 
 
 def finding(namespace, name, **facts):
@@ -62,7 +76,7 @@ def ops_answers(**override):
                          'agent-platform-guide.agent': finding('agent-platform-guide', 'agent'),
                          'platform.redactor': finding('platform', 'redactor'),
                          'platform.gateway': finding('platform', 'gateway')}},
-        '/v1/posture': posture.check(KubeStub(unreadable=('agent-financial', 'agent-platform-guide')), ['apps', 'platform',
+        '/v1/posture': checked_posture(KubeStub(unreadable=('agent-financial', 'agent-platform-guide')), ['apps', 'platform',
                                                                                                          'agent-financial', 'agent-platform-guide']),
         '/v1/activity': {'available': True, 'events': [
             {'kind': 'masked', 'at': NOW - 10, 'source': 'redactor', 'caller': 'agent-financial', 'categories': ['EMAIL_ADDRESS'], 'reason': None}]}}
@@ -103,7 +117,7 @@ class OpsFacts(unittest.TestCase):
         self.assertEqual(found['evidence_digest'], diagnose.diagnose(client.deployment, [pod()], [])['evidence_digest'])
 
     def test_posture_reports_policy_shapes_and_unreadable_namespaces(self):
-        result = posture.check(KubeStub(unreadable=('agent-financial',)), ['apps', 'agent-financial'])
+        result = checked_posture(KubeStub(unreadable=('agent-financial',)), ['apps', 'agent-financial'])
         self.assertIn('apps', result['network'])
         self.assertEqual(result['unreadable'], ['agent-financial'])
         self.assertNotIn('agent-financial', result['network'])
@@ -111,19 +125,20 @@ class OpsFacts(unittest.TestCase):
         self.assertEqual((default_deny['pods'], default_deny['types'], default_deny['egress']), ('all', ['Egress', 'Ingress'], []))
 
     def test_posture_reads_network_policies_even_when_other_lists_are_forbidden(self):
-        result = posture.check(KubeStub(forbidden_kinds=('rolebindings',)), ['agent-financial'])
+        result = checked_posture(KubeStub(forbidden_kinds=('rolebindings',)), ['agent-financial'])
         self.assertEqual(result['unreadable'], [])
         self.assertIn('default-deny', {p['name'] for p in result['network']['agent-financial']})
         self.assertEqual([f['finding'] for f in result['findings']], ['UNREADABLE'])  # the other lists still report
-        gone = posture.check(KubeStub(forbidden_kinds=('networkpolicies',)), ['agent-financial'])
+        gone = checked_posture(KubeStub(forbidden_kinds=('networkpolicies',)), ['agent-financial'])
         self.assertEqual((gone['unreadable'], gone['network']), (['agent-financial'], {}))
 
-    def test_generated_observe_role_adds_only_read_of_network_policies(self):
+    def test_generated_observe_role_adds_only_read_of_network_and_rbac_policies(self):
         docs = [d for d in yaml.safe_load_all((KUBE / 'agents/ops-observe.yaml').read_text()) if d and d['kind'] == 'Role']
         self.assertEqual(len(docs), 2)
         for role in docs:
             self.assertIn({'apiGroups': ['networking.k8s.io'], 'resources': ['networkpolicies'], 'verbs': ['get', 'list']}, role['rules'])
-            self.assertEqual(len(role['rules']), 3)
+            self.assertIn({'apiGroups': ['rbac.authorization.k8s.io'], 'resources': ['roles', 'rolebindings'], 'verbs': ['get', 'list']}, role['rules'])
+            self.assertEqual(len(role['rules']), 4)
             self.assertFalse({v for r in role['rules'] for v in r['verbs']} - {'get', 'list'})
             self.assertFalse({x for r in role['rules'] for x in r['resources']} & {'secrets', 'pods/log', 'configmaps'})
 
@@ -308,7 +323,7 @@ class Onboarding(unittest.TestCase):
 
     def test_network_is_verified_only_when_the_live_policy_list_shows_default_deny(self):
         answers = ops_answers()
-        answers['/v1/posture'] = posture.check(KubeStub(), ['agent-financial'])
+        answers['/v1/posture'] = checked_posture(KubeStub(), ['agent-financial'])
         network = next(g for g in make(answers).onboarding('financial')['guarantees'] if g['id'] == 'network')
         self.assertEqual((network['state'], network['source']), ('verified', 'ops-agent /v1/posture'))
 
@@ -327,7 +342,7 @@ class Onboarding(unittest.TestCase):
 
     def test_failing_means_a_live_check_ran_and_contradicts_the_manifest(self):
         answers = ops_answers()
-        weak = posture.check(KubeStub(), ['agent-financial'])
+        weak = checked_posture(KubeStub(), ['agent-financial'])
         weak['network']['agent-financial'] = [p for p in weak['network']['agent-financial'] if p['name'] != 'default-deny']
         answers['/v1/posture'] = weak
         result = make(answers).onboarding('financial')
