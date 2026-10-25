@@ -53,15 +53,11 @@ def disposable_changes(docs, run_id):
         if (doc['kind'] == 'NetworkPolicy' and doc['metadata'].get('name') == 'allow-dns'
                 and doc['metadata'].get('namespace') in
                 ('platform', 'apps', 'ops', 'agent-financial', 'agent-platform-guide')):
-            egress = doc['spec']['egress']
-            if (len(egress) != 1 or len(egress[0]['to']) != 1
-                    or egress[0]['to'][0]['namespaceSelector']['matchLabels'] !=
-                    {'kubernetes.io/metadata.name': 'kube-system'}
-                    or egress[0]['to'][0]['podSelector']['matchLabels'] != {'k8s-app': 'kube-dns'}):
+            egress = doc['spec']['egress']  # main ships the node-local-dns peer the live run needed
+            if (len(egress) != 1 or egress[0]['to'] != [
+                    {'namespaceSelector': {'matchLabels': {'kubernetes.io/metadata.name': 'kube-system'}},
+                     'podSelector': {'matchLabels': {'k8s-app': app}}} for app in ('kube-dns', 'node-local-dns')]):
                 raise ValueError('DNS policy drift')
-            egress[0]['to'].append({'namespaceSelector': {'matchLabels':
-                {'kubernetes.io/metadata.name': 'kube-system'}},
-                'podSelector': {'matchLabels': {'k8s-app': 'node-local-dns'}}})
     retained = exact_one(docs, 'StorageClass', '', 'agent-platform-retain')
     disposable = exact_one(docs, 'StorageClass', '', 'agent-runtime-disposable')
     if disposable['reclaimPolicy'] != 'Delete' or retained['reclaimPolicy'] != 'Retain':
