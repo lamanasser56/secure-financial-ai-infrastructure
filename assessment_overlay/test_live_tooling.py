@@ -19,9 +19,8 @@ from stage_live_bundle import split
 
 ROOT = Path(__file__).resolve().parents[1]
 OVERLAY = Path(__file__).resolve().parent
-APP = ('us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/'
-       'sdp-evaluation-images/agent-platform-app@sha256:'
-       'dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c')
+IMAGE_LOCK = json.loads((OVERLAY / 'platform-images.lock.json').read_text())
+APP = IMAGE_LOCK['registry'] + IMAGE_LOCK['images']['app']
 
 
 class LiveToolingTest(unittest.TestCase):
@@ -68,11 +67,12 @@ class LiveToolingTest(unittest.TestCase):
                     ROOT / 'platform/clouds/gke/render.py')
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        args = SimpleNamespace(project_id='sfai-assess-20261022-635651',
+        project = 'sfai-assess-20261022-635651'
+        args = SimpleNamespace(project_id=project,
             images_lock=str(OVERLAY / 'platform-images.lock.json'),
             control_plane_cidr='172.30.0.0/28',
-            gateway_gsa='assess-gateway@sfai-assess-20261022-635651.iam.gserviceaccount.com',
-            redactor_gsa='assess-redactor@sfai-assess-20261022-635651.iam.gserviceaccount.com',
+            gateway_gsa=f'assess-gateway@{project}.iam.gserviceaccount.com',
+            redactor_gsa=f'assess-redactor@{project}.iam.gserviceaccount.com',
             kubectl='kubectl')
         rendered, summary = module.render(args)
         self.assertEqual(summary['objects'], 113)

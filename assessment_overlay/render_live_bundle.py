@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import tempfile
 from types import SimpleNamespace
 
 import yaml
@@ -117,7 +118,8 @@ def repair_rendered_environment_name(docs):
     return corrected
 
 
-def make_bundle(run_id, kubectl='kubectl', *, passphrase=None, hasher=None, users_out=None):
+def make_bundle(run_id, kubectl='kubectl', *, passphrase=None, hasher=None,
+                users_out=None, source_registry=None):
     lock = json.loads(IMAGE_LOCK.read_text())
     if lock['source_commit'] != '41ffbf260a446b5db2292356a8ea23219e58a524':
         raise ValueError('platform source lock drift')
@@ -125,12 +127,21 @@ def make_bundle(run_id, kubectl='kubectl', *, passphrase=None, hasher=None, user
     spec = importlib.util.spec_from_file_location('_assessment_main_gke_render', module_path)
     main_render = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(main_render)
-    args = SimpleNamespace(project_id=PROJECT, images_lock=str(IMAGE_LOCK),
-        control_plane_cidr='172.30.0.0/28',
-        gateway_gsa=f'assess-gateway@{PROJECT}.iam.gserviceaccount.com',
-        redactor_gsa=f'assess-redactor@{PROJECT}.iam.gserviceaccount.com',
-        kubectl=kubectl)
-    source_text, main_summary = main_render.render(args)
+    registry = source_registry or lock['registry']
+    if (not registry.startswith('us-east1-docker.pkg.dev/')
+            or not registry.endswith('/sdp-evaluation-images/')):
+        raise ValueError('source registry must be the reviewed image repository')
+    effective_lock = dict(lock, registry=registry)
+    with tempfile.TemporaryDirectory(prefix='assessment-image-lock-') as temporary:
+        private_lock = Path(temporary) / 'images.json'
+        with os.fdopen(os.open(private_lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as stream:
+            json.dump(effective_lock, stream)
+        args = SimpleNamespace(project_id=PROJECT, images_lock=str(private_lock),
+            control_plane_cidr='172.30.0.0/28',
+            gateway_gsa=f'assess-gateway@{PROJECT}.iam.gserviceaccount.com',
+            redactor_gsa=f'assess-redactor@{PROJECT}.iam.gserviceaccount.com',
+            kubectl=kubectl)
+        source_text, main_summary = main_render.render(args)
     if main_summary['objects'] != 113:
         raise ValueError('main object count drift')
     docs = [doc for doc in yaml.safe_load_all(source_text) if doc]
@@ -146,8 +157,7 @@ def make_bundle(run_id, kubectl='kubectl', *, passphrase=None, hasher=None, user
     platform_programs = next(d for d in docs if d['kind'] == 'ConfigMap'
                              and d['metadata']['name'].startswith('platform-programs-'))
     program_hash = hashlib.sha256(json.dumps(platform_programs['data'], sort_keys=True).encode()).hexdigest()
-    docs, gateway_receipt = patch_gateway(docs, lock['full_refs']['app'] if 'full_refs' in lock
-        else lock['registry'] + lock['images']['app'])
+    docs, gateway_receipt = patch_gateway(docs, registry + lock['images']['app'])
     docs, seed_objects, redactor_deployment = patch_redactor(docs, OVERLAY, run_id)
     docs = patch_ops(docs, OVERLAY / 'ops_server_assessment.py')
     docs = disposable_changes(docs, run_id)
@@ -175,6 +185,7 @@ def make_bundle(run_id, kubectl='kubectl', *, passphrase=None, hasher=None, user
         'seed_objects': [identity(d) for d in seed_objects],
         'redactor_deployment': identity(redactor_deployment),
         'image_digests': lock['images'], 'external_llm_route': False}
+    receipt['source_registry'] = registry
     return docs, receipt
 
 
@@ -184,6 +195,9 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--kubectl', default='kubectl')
     args = parser.parse_args()
+    source_registry = os.environ.get('ASSESSMENT_SOURCE_REGISTRY')
+    if not source_registry or source_registry == json.loads(IMAGE_LOCK.read_text())['registry']:
+        raise SystemExit('exact source registry required in ASSESSMENT_SOURCE_REGISTRY')
     output = args.output.resolve()
     if output.is_relative_to(ROOT.resolve()):
         raise SystemExit('assessment manifest contains credentials; output outside repository required')
@@ -192,7 +206,7 @@ def main():
     passphrase = secrets.token_urlsafe(32)
     users = {}
     docs, receipt = make_bundle(args.run_id, args.kubectl, passphrase=passphrase,
-                                users_out=users)
+                                users_out=users, source_registry=source_registry)
     for name, value in (('operator-passphrase', passphrase),
                         ('financial-users.json', json.dumps(users, sort_keys=True))):
         path = output.parent / name
