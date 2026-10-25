@@ -30,7 +30,11 @@ class LiveToolingTest(unittest.TestCase):
                                       for name in passwords})
         self.assertEqual(receipt['objects'], 143)
         self.assertFalse(receipt['external_llm_route'])
-        self.assertEqual(len(receipt['restored_main_environment_names']), 2)
+        self.assertNotIn('restored_main_environment_names', receipt)
+        env_names = [env['name'] for doc in docs if doc['kind'] == 'Deployment'
+                     for container in doc['spec']['template']['spec']['containers']
+                     for env in container.get('env', [])]
+        self.assertEqual(env_names.count('PORTFOLIO_PROJECT_ID'), 2)
         self.assertEqual([len(s) for s in split(docs)], [22, 103, 1, 1, 1, 2, 13])
         seed = next(d for d in docs if d['kind'] == 'Job' and
             d['metadata']['name'] == 'assessment-sdp-seed')

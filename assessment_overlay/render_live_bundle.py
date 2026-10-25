@@ -21,7 +21,6 @@ import yaml
 from patch_gateway_stub import patch as patch_gateway
 from patch_ops_stub import patch as patch_ops
 from patch_redactor_bundle import patch as patch_redactor
-from patch_redactor_bundle import MAIN_REDACTOR_SHA256, _canonical_source_hash
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -86,34 +85,6 @@ def disposable_changes(docs, run_id):
     return docs
 
 
-def repair_rendered_environment_name(docs):
-    """Restore the exact main source after render's PROJECT_ID substring edit."""
-    wrong = 'PORTFOLIO_' + PROJECT
-    programs = next(d for d in docs if d['kind'] == 'ConfigMap'
-                    and d['metadata']['name'].startswith('platform-programs-'))
-    source = programs['data']['redactor_server.py']
-    if source.count(wrong) != 1:
-        raise ValueError('rendered redactor environment substitution drift')
-    restored = source.replace(wrong, 'PORTFOLIO_PROJECT_ID')
-    if _canonical_source_hash(restored) != MAIN_REDACTOR_SHA256:
-        raise ValueError('rendered redactor differs from exact main source')
-    programs['data']['redactor_server.py'] = restored
-    corrected = []
-    for doc in docs:
-        if doc['kind'] not in ('Deployment', 'StatefulSet', 'Job'):
-            continue
-        pod = doc['spec']['template']['spec']
-        for container in pod.get('containers', []) + pod.get('initContainers', []):
-            for env in container.get('env', []):
-                if env['name'] == wrong:
-                    env['name'] = 'PORTFOLIO_PROJECT_ID'
-                    corrected.append((doc['kind'], doc['metadata'].get('namespace'),
-                                      doc['metadata']['name'], container['name']))
-    if len(corrected) != 2:
-        raise ValueError('rendered pod environment substitution drift: ' + str(corrected))
-    return corrected
-
-
 def make_bundle(run_id, kubectl='kubectl', *, passphrase=None, hasher=None,
                 users_out=None, source_registry=None):
     lock = json.loads(IMAGE_LOCK.read_text())
@@ -141,7 +112,6 @@ def make_bundle(run_id, kubectl='kubectl', *, passphrase=None, hasher=None,
     if main_summary['objects'] != 113:
         raise ValueError('main object count drift')
     docs = [doc for doc in yaml.safe_load_all(source_text) if doc]
-    corrected_env = repair_rendered_environment_name(docs)
     if not passphrase:
         raise ValueError('assessment operator passphrase required')
     from agent_platform import platform_secrets
@@ -176,7 +146,6 @@ def make_bundle(run_id, kubectl='kubectl', *, passphrase=None, hasher=None,
     receipt = {'run_id': run_id, 'platform_commit': lock['source_commit'],
         'main_render_sha256': hashlib.sha256(source_text.encode()).hexdigest(),
         'platform_programs_sha256': program_hash,
-        'restored_main_environment_names': corrected_env,
         'objects': len(docs), 'gateway': gateway_receipt,
         'seed_objects': [identity(d) for d in seed_objects],
         'redactor_deployment': identity(redactor_deployment),
