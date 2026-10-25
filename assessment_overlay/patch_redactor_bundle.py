@@ -13,6 +13,12 @@ MAIN_REDACTOR_SHA256 = 'efc3f73e96ed93c2ff738cdb10bdd85405212d21c80e54c068cce54a
 MAIN_PHONE_SHA256 = 'd8713752767fcf7dea66e3d74b9e7fa3260e05e1557fadca966ee3934ece7cfc'
 
 
+def _canonical_source_hash(source):
+    # A Windows checkout renders CRLF ConfigMap content; the reviewed Git blobs
+    # are LF. Normalize only line endings, never source tokens or whitespace.
+    return hashlib.sha256(source.encode().replace(b'\r\n', b'\n')).hexdigest()
+
+
 def _one(docs, kind, namespace, name):
     found = [d for d in docs if d.get('kind') == kind and d.get('metadata', {}).get('namespace') == namespace
              and d.get('metadata', {}).get('name', '').startswith(name)]
@@ -30,12 +36,12 @@ def patch(docs, overlay_dir, run_id):
     deployment = _one(docs, 'Deployment', 'platform', 'redactor')
     quota = _one(docs, 'ResourceQuota', 'platform', 'bounds')
     phone_source = programs['data'].get('phone_guard.py', '')
-    if hashlib.sha256(phone_source.encode()).hexdigest() != MAIN_PHONE_SHA256:
+    if _canonical_source_hash(phone_source) != MAIN_PHONE_SHA256:
         raise ValueError('qualified main phone guard absent from source render')
     # Never replace the real redactor: F7 admission, bounded workers, key
     # validation and phone masking must stay in the platform source.
     platform_source = programs['data'].get('redactor_server.py', '')
-    if (hashlib.sha256(platform_source.encode()).hexdigest() != MAIN_REDACTOR_SHA256
+    if (_canonical_source_hash(platform_source) != MAIN_REDACTOR_SHA256
             or not all(marker in platform_source for marker in
                ('class Capacity:', 'class Server(ThreadingHTTPServer):',
                 'with self.server.capacity.admit(caller):', 'mask_phones', 'valid_client_keys'))):

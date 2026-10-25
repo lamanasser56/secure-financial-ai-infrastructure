@@ -72,6 +72,9 @@ jobs:
           PATH="$PWD/.cache/envtest-v1.35.0:$PATH" \
             PYTHONPATH=assessment_overlay:platform/core/src/agent_platform/programs:platform/core/src:. \
             python -B -m unittest discover -s assessment_overlay -p 'test_followup.py'
+          PATH="$PWD/.cache/envtest-v1.35.0:$PATH" \
+            PYTHONPATH=assessment_overlay:platform/core/src:. \
+            python -B -m unittest discover -s assessment_overlay -p 'test_live_tooling.py'
       - name: Financial Agent tests (real Postgres service; argon2 from its own hash-locked set)
         env:
           FINANCE_TEST_DSN: postgresql://postgres:ci-only-not-a-secret@127.0.0.1:5432/postgres
