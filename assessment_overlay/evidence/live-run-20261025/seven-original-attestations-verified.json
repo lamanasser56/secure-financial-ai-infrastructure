@@ -1,6 +1,6 @@
 {
   "checked_utc": "2026-10-25T01:10:23.634410+00:00",
-  "attestor": "projects/project-b1e55144-cfd4-4fef-89a/attestors/agent-platform-ci",
+  "attestor": "projects/PROJECT_ID/attestors/agent-platform-ci",
   "seven_exact_original_attestations_verified": true,
   "images": {
     "gateway": {

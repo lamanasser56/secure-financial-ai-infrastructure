@@ -3,7 +3,7 @@
   "result": "PASS",
   "identity_and_tcp": {
     "redactor": {
-      "metadata_email": "assess-redactor@sfai-assess-20261022-635651.iam.gserviceaccount.com",
+      "metadata_email": "assess-redactor (disposable-project service account)",
       "dlp_tcp": true,
       "dlp_private_ip": "10.80.0.7",
       "pod_uid": "7fc7d50b-2792-4acc-96b3-022c88296de5"

@@ -4,7 +4,7 @@
   "janitor_uid": "5793901341913967671",
   "canary_uid": "8000525800521656930",
   "delete_operation": "operation-1792890002038-65e9fbbb15f38-e8583e43-ae454528",
-  "actual_delete_principal": "assess-janitor@sfai-assess-20261022-635651.iam.gserviceaccount.com",
+  "actual_delete_principal": "assess-janitor (disposable-project service account)",
   "vm_absence_http": 404,
   "disk_absence_http": 404,
   "duplicate_delete_operations": 0,
