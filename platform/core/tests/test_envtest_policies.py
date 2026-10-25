@@ -102,6 +102,23 @@ class LivePolicies(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(text, result.stderr)
 
+    def test_attack_worker_transaction_survives_real_api_storage_and_defaulting(self):
+        from types import SimpleNamespace
+        sys.path.insert(0,str(REPO/'platform/clouds/gke'))
+        from attack_runtime import temporary_worker
+        namespace,name='agent-financial','agent-u1'
+        def get():
+            return json.loads(self.kubectl('-n',namespace,'get','deployment',name,'-o','json').stdout)
+        before=get()
+        def command(*args,input=None):
+            # No controllers in envtest: only the rollout wait is simulated. GET/PATCH use the real API.
+            if 'rollout' in args: return SimpleNamespace(returncode=0)
+            return self.kubectl(*args,input=input,check=False)
+        with temporary_worker(command,namespace,name,"print('synthetic probe')"):
+            changed=get()
+            self.assertEqual(changed['spec']['template']['spec']['containers'][0]['image'],before['spec']['template']['spec']['containers'][0]['image'])
+        self.assertEqual(get()['spec']['template'],before['spec']['template'])
+
     def test_untrusted_ops_identity_cannot_patch_even_an_allowed_shape(self):
         result = self.kubectl('-n','apps','patch','deployment','fault-demo','--type','merge',
                               '-p','{"spec":{"replicas":2}}',as_ops=READ_ONLY_OPS,check=False)

@@ -55,6 +55,74 @@ class FinanceDatabase(unittest.TestCase):
         if getattr(cls, 'server', None) is not None:
             cls.server.cleanup()
 
+    def test_current_live_attack_role_probe_uses_the_real_broker_roles(self):
+        import sys
+        sys.path.insert(0, str(REPO / 'platform/clouds/gke'))
+        from attack_probes.database_roles import probe
+        result = probe({'read_db_url': 'read', 'web_db_url': 'web'},
+            connect=lambda role: self.as_role('finance_data_broker' if role == 'read' else 'finance_frontdoor'))
+        self.assertEqual(result, {'rows_without_user': 0, 'rows_unknown_user': 0, 'broker_write': 'DENIED',
+                                 'broker_users': 'DENIED', 'frontdoor_users': 'DENIED'})
+
+    def test_attack_fixture_cleanup_is_exact_idempotent_and_preserves_unowned_rows(self):
+        import sys
+        sys.path.insert(0,str(REPO/'platform/clouds/gke'))
+        from attack_fixtures import FixtureRows
+        fixture=FixtureRows(None,None)
+        info=psycopg.conninfo.conninfo_to_dict(self.dsn)
+        ids=[]
+        with psycopg.connect(**dict(info,dbname='finance'),autocommit=True) as owner:
+            try:
+                for tag in (fixture.tag,'not-owned-by-this-run'):
+                    ids.append(owner.execute("INSERT INTO finance.expenses(user_id,spent_on,merchant,category,amount_minor,note) VALUES (%s,'2035-11-02',%s,'food',2450,%s) RETURNING id",
+                        (USERS[0]['id'],"Owner's Cafe",tag)).fetchone()[0])
+                fixture.rows=[{'user':USERS[0]['id'],'id':ids[0],'entry':{'spent_on':'2035-11-02','merchant':"Owner's Cafe",'category':'food','amount':'24.50'}}]
+                sql='\n'.join(line for line in fixture.cleanup_sql().splitlines() if not line.startswith('\\'))
+                owner.execute(sql)
+                owner.execute(sql)  # A lost response or a repeated cleanup cannot turn success into an orphan.
+                self.assertEqual(owner.execute('SELECT id FROM finance.expenses WHERE id=ANY(%s)',(ids,)).fetchall(),[(ids[1],)])
+            finally:
+                owner.rollback()
+                owner.execute('DELETE FROM finance.expenses WHERE id=ANY(%s)',(ids,))
+
+    def test_attack_fixture_cleanup_owns_unknown_insert_id_after_a_lost_response(self):
+        import sys
+        sys.path.insert(0,str(REPO/'platform/clouds/gke'))
+        from attack_fixtures import FixtureRows
+        fixture=FixtureRows(None,None)
+        info=psycopg.conninfo.conninfo_to_dict(self.dsn)
+        entry={'spent_on':'2035-11-04','merchant':'Owner scope probe','category':'food','amount':'1.00'}
+        # A broken handler could use either identity. Both are explicitly tracked before
+        # the adversarial request, with no assumption that an HTTP response delivered its ID.
+        fixture.rows=[{'user':u['id'],'id':None,'entry':entry} for u in USERS]
+        with psycopg.connect(**dict(info,dbname='finance'),autocommit=True) as owner:
+            try:
+                owner.execute("INSERT INTO finance.expenses(user_id,spent_on,merchant,category,amount_minor,note) VALUES (%s,'2035-11-04','Owner scope probe','food',100,%s)",(USERS[1]['id'],fixture.tag))
+                sql='\n'.join(line for line in fixture.cleanup_sql().splitlines() if not line.startswith('\\'))
+                owner.execute(sql)
+                self.assertEqual(owner.execute('SELECT count(*) FROM finance.expenses WHERE note=%s',(fixture.tag,)).fetchone()[0],0)
+            finally:
+                owner.rollback()
+                owner.execute('DELETE FROM finance.expenses WHERE note=%s',(fixture.tag,))
+
+    def test_attack_fixture_cleanup_refuses_changed_ownership_and_rolls_back(self):
+        import sys
+        sys.path.insert(0,str(REPO/'platform/clouds/gke'))
+        from attack_fixtures import FixtureRows
+        fixture=FixtureRows(None,None)
+        info=psycopg.conninfo.conninfo_to_dict(self.dsn)
+        with psycopg.connect(**dict(info,dbname='finance'),autocommit=True) as owner:
+            expense=owner.execute("INSERT INTO finance.expenses(user_id,spent_on,merchant,category,amount_minor,note) VALUES (%s,'2035-11-02','Cafe Nadia','food',2450,'operator-edited') RETURNING id",(USERS[0]['id'],)).fetchone()[0]
+            try:
+                fixture.rows=[{'user':USERS[0]['id'],'id':expense,'entry':{'spent_on':'2035-11-02','merchant':'Cafe Nadia','category':'food','amount':'24.50'}}]
+                sql='\n'.join(line for line in fixture.cleanup_sql().splitlines() if not line.startswith('\\'))
+                with self.assertRaises(psycopg.Error): owner.execute(sql)
+                owner.rollback()
+                self.assertEqual(owner.execute('SELECT note FROM finance.expenses WHERE id=%s',(expense,)).fetchone()[0],'operator-edited')
+            finally:
+                owner.rollback()
+                owner.execute('DELETE FROM finance.expenses WHERE id=%s',(expense,))
+
     def add(self, user, merchant, amount):
         with self.as_role('finance_frontdoor') as db:
             db.execute("SELECT set_config('finance.user_id', %s, true)", (user['id'],))

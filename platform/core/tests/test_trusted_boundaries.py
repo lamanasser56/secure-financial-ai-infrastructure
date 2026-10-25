@@ -217,6 +217,26 @@ class OpsF4(unittest.TestCase):
         f=diagnose.diagnose(reader.deployment,reader.pods,[])
         self.proposal=self.agent.propose('apps.fault-demo','scale',{'replicas':2},f)
 
+    def test_attack_stale_replay_and_fresh_verdict_at_independent_executor(self):
+        import sys
+        sys.path.insert(0, str(ROOT / 'platform/clouds/gke'))
+        from attack_suite import stale_approval_verdict
+        first = self.proposal
+        signed = approval.Signer(self.private).sign(first)
+        template = copy.deepcopy(self.client.deployment['spec']['template'])
+        self.client.deployment['metadata']['resourceVersion'] = '101'
+        body = {'proposal': first, 'approval': signed}
+        stale, _ = self.executor.handle('/execute', 'Bearer ' + 'e'*64, body)
+        replay, _ = self.executor.handle('/execute', 'Bearer ' + 'e'*64, body)
+        unchanged = self.client.deployment['spec']['template'] == template and not self.client.patches
+        self.agent.client.deployment = copy.deepcopy(self.client.deployment)
+        finding = diagnose.diagnose(self.agent.client.deployment, self.agent.client.pods, [])
+        second = self.agent.propose('apps.fault-demo', 'scale', {'replicas': 2}, finding)
+        fresh, _ = self.executor.handle('/execute', 'Bearer ' + 'e'*64,
+            {'proposal': second, 'approval': approval.Signer(self.private).sign(second)})
+        self.assertEqual(stale_approval_verdict(stale, replay, unchanged, fresh), 'PASS', (stale, replay, fresh))
+        self.assertEqual(len(self.client.patches), 1)
+
     def test_valid_owner_approval_uses_independent_executor_only(self):
         result=self.agent.execute(self.proposal['request_id'],approval.Signer(self.private).sign(self.proposal))
         self.assertEqual(result['result'],'VERIFIED')
