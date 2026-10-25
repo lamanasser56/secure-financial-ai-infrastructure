@@ -100,6 +100,12 @@ class DemoCheck(unittest.TestCase):
         code, lines = check(Fake(api=False))
         self.assertIn('FAIL  secrets and hello leftovers  (skipped: no cluster API access)', lines)
 
+    def test_checks_the_images_make_up_deploys(self):
+        lock = json.loads((demo_check.HERE / 'release-rc1.lock.json').read_text())
+        checker = demo_check.Checker(PROJECT, run=Fake(), out=[].append)
+        self.assertEqual(checker.images, lock)
+        self.assertEqual(lock['runtime_contract'], 'trusted-boundaries-v2')
+
     def test_read_only_commands_only(self):
         fake = Fake(hello=True)
         check(fake)
