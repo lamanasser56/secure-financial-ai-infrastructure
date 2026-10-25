@@ -32,7 +32,7 @@ DEFERRED_SCHEMA_MARKER = "deferred-phase-4b"
 # Frozen for Phase 4A. Widening this enum later to add one approved external
 # value is additive and non-breaking for existing registry data — that is
 # the design answer for future external sources, not a reason to add a
-# second field now. See docs/phase4/phase-4a-tool-registry-contract.md.
+# second field now. See v2-live-evidence/docs/phase4/phase-4a-tool-registry-contract.md.
 SOURCE_SYSTEMS = ("internal",)
 
 ID_MIN_LENGTH, ID_MAX_LENGTH = 3, 64
