@@ -1,0 +1,17 @@
+{
+  "case": "O03",
+  "result": "PASS",
+  "old_uid_differs_from_replacement": true,
+  "uid_race": {
+    "status": 200,
+    "result": "DENIED",
+    "code": "TARGET_REPLACED"
+  },
+  "rv_race": {
+    "status": 200,
+    "result": "DENIED",
+    "code": "OBJECT_CHANGED"
+  },
+  "replacement_spec_unchanged": true,
+  "exact_image_digest_unchanged": true
+}

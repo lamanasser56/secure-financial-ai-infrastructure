@@ -1,0 +1,7 @@
+{
+  "result": "PASS",
+  "unapproved_image_denied": true,
+  "namespace": "apps",
+  "service_account": "app",
+  "policy": "assessment-exact-image-identity"
+}

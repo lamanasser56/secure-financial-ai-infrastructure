@@ -1,0 +1,20 @@
+{
+  "case": "D07",
+  "result": "PASS",
+  "checks": {
+    "role": "finance_data_broker",
+    "read_only": "on",
+    "statement_timeout": "2s",
+    "idle_timeout": "5s",
+    "lock_timeout": "1s",
+    "temp_allowed": false,
+    "create_schema_allowed": false,
+    "users_read_allowed": false,
+    "set_role_allowed": false,
+    "session_authorization_allowed": false,
+    "auth_catalog_allowed": false,
+    "temp_table_allowed": false
+  },
+  "frontdoor_pod_uid": "b0ea1eb2-5a69-4cbf-971f-3b3ae32c5ef8",
+  "synthetic_only": true
+}

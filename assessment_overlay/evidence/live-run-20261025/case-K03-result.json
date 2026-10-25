@@ -1,0 +1,13 @@
+{
+  "case": "K03",
+  "result": "PASS",
+  "ops_executor_projected_token": true,
+  "server_dry_run": {
+    "allowed_restart_dry_run": 200,
+    "template_image_change": 403,
+    "out_of_range_scale": 403
+  },
+  "restricted_psa_denied": true,
+  "deployment_spec_unchanged": true,
+  "executor_pod_uid": "02d6b14f-bc5c-4be5-bbe0-bfeb84983d67"
+}

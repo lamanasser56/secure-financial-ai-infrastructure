@@ -1,0 +1,257 @@
+{
+  "utc": "2026-10-25T01:24:28.964966+00:00",
+  "result": "PASS",
+  "cluster": "sfai-assess-1022",
+  "project": "sfai-assess-20261022-635651",
+  "workloads": [
+    {
+      "namespace": "agent-financial",
+      "name": "agent-u1",
+      "pod_uid": "a3424704-c261-4e16-a187-aecb17c80bdc",
+      "pod_name": "agent-u1-558dbb766f-66snz",
+      "service_account": "agent",
+      "images": [
+        {
+          "container": "agent",
+          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913",
+          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913"
+        }
+      ]
+    },
+    {
+      "namespace": "agent-financial",
+      "name": "agent-u2",
+      "pod_uid": "27d67176-438b-47d7-a4eb-be9412da57d9",
+      "pod_name": "agent-u2-7b8c49cbf9-bmqgw",
+      "service_account": "agent",
+      "images": [
+        {
+          "container": "agent",
+          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913",
+          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913"
+        }
+      ]
+    },
+    {
+      "namespace": "agent-financial",
+      "name": "agent-u3",
+      "pod_uid": "fbd62233-692b-4d0c-b9ea-72c6faa63dba",
+      "pod_name": "agent-u3-5cff9fffd9-skfd7",
+      "service_account": "agent",
+      "images": [
+        {
+          "container": "agent",
+          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913",
+          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913"
+        }
+      ]
+    },
+    {
+      "namespace": "agent-platform-guide",
+      "name": "agent",
+      "pod_uid": "c4dd2839-4045-477a-9ed3-c45b2ed73967",
+      "pod_name": "agent-797b4c7bc6-zstw7",
+      "service_account": "agent",
+      "images": [
+        {
+          "container": "agent",
+          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/platform-guide@sha256:e2f627ca61f38539033590ef8520181101bef8a94ab062ff8e3d573bafa92646",
+          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/platform-guide@sha256:e2f627ca61f38539033590ef8520181101bef8a94ab062ff8e3d573bafa92646"
+        }
+      ]
+    },
+    {
+      "namespace": "apps",
+      "name": "app",
+      "pod_uid": "24a75349-b939-4476-9e96-97169f0fb29a",
+      "pod_name": "app-79648c9f4c-hkfjw",
+      "service_account": "app",
+      "images": [
+        {
+          "container": "app",
+          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c",
+          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c"
+        }
+      ]
+    },
+    {
+      "namespace": "apps",
+      "name": "financial-frontdoor",
+      "pod_uid": "b0ea1eb2-5a69-4cbf-971f-3b3ae32c5ef8",
+      "pod_name": "financial-frontdoor-76547f7c56-c2ghx",
+      "service_account": "financial-frontdoor",
+      "images": [
+        {
+          "container": "financial-frontdoor",
+          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913",
+          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-financial@sha256:88a881675b9ce3e6270d6431da319c9fd48918f87142d4cc766e29bc036c0913"
+        }
+      ]
+    },
+    {
+      "namespace": "ops",
+      "name": "ops-executor",
+      "pod_uid": "02d6b14f-bc5c-4be5-bbe0-bfeb84983d67",
+      "pod_name": "ops-executor-5fb57fb5bb-f6hm7",
+      "service_account": "ops-executor",
+      "images": [
+        {
+          "container": "ops-executor",
+          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-platform-ops@sha256:5b2b9f981035aabda80abcd5a46f9a5ff6de4b251a4bb815548f25ed24d2d6b3",
+          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-platform-ops@sha256:5b2b9f981035aabda80abcd5a46f9a5ff6de4b251a4bb815548f25ed24d2d6b3"
+        }
+      ]
+    },
+    {
+      "namespace": "platform",
+      "name": "gateway",
+      "pod_uid": "039d8965-9160-4ca9-9530-c60f10351ee3",
+      "pod_name": "gateway-59968b5b7f-kq9px",
+      "service_account": "gateway",
+      "images": [
+        {
+          "container": "gateway",
+          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-demo-gateway@sha256:a3dcf411dc50f7cb4d63dacfbc0b8c6103051a182b27936e703fb798478cd7d4",
+          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-demo-gateway@sha256:a3dcf411dc50f7cb4d63dacfbc0b8c6103051a182b27936e703fb798478cd7d4"
+        }
+      ]
+    },
+    {
+      "namespace": "platform",
+      "name": "gateway-boundary",
+      "pod_uid": "1f2f7186-6fb6-40b1-bdfd-a483530a5e30",
+      "pod_name": "gateway-boundary-c7fc9d76d-q5nkm",
+      "service_account": "gateway-boundary",
+      "images": [
+        {
+          "container": "gateway-boundary",
+          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c",
+          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c"
+        }
+      ]
+    },
+    {
+      "namespace": "platform",
+      "name": "redactor",
+      "pod_uid": "7fc7d50b-2792-4acc-96b3-022c88296de5",
+      "pod_name": "redactor-7c6fcb75fb-pkdn2",
+      "service_account": "redactor",
+      "images": [
+        {
+          "container": "redactor",
+          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/google-sdp-context@sha256:667ceec4b8290df1341a91a7685ad140319fca6d23f92b9948dddf9fac64136b",
+          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/google-sdp-context@sha256:667ceec4b8290df1341a91a7685ad140319fca6d23f92b9948dddf9fac64136b"
+        }
+      ]
+    },
+    {
+      "namespace": "platform",
+      "name": "postgres",
+      "pod_uid": "1e67d08c-e0cd-4958-8dfc-bfd7ede9369b",
+      "pod_name": "postgres-0",
+      "service_account": "postgres",
+      "images": [
+        {
+          "container": "postgres",
+          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-demo-database@sha256:545d822b1aa7537a177b60bc6d0d72bcd9c68eb6a50512b4bb9403263d25739a",
+          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-demo-database@sha256:545d822b1aa7537a177b60bc6d0d72bcd9c68eb6a50512b4bb9403263d25739a"
+        }
+      ]
+    },
+    {
+      "namespace": "assess-probes",
+      "name": "provider-stub",
+      "pod_uid": "09e592ea-315b-4033-9491-e6e63d566d82",
+      "pod_name": "provider-stub-bf77d9bb7-jl76x",
+      "service_account": "provider-stub",
+      "images": [
+        {
+          "container": "provider-stub",
+          "expected": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c",
+          "running_image_id": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/agent-platform-app@sha256:dbbe22b5628bda3fd1f9b41f92a69abcdf7a583871fff1615e1708356e4b467c"
+        }
+      ]
+    }
+  ],
+  "configmaps": [
+    {
+      "namespace": "ops",
+      "name": "ops-agent-observe",
+      "uid": "80187cda-1be3-4144-b60e-b783f7b28b12",
+      "data_sha256": "017df36bfebd325183b38d6dde068abbb3a00b5575a5ef41662ad2d8ae36a55a"
+    },
+    {
+      "namespace": "ops",
+      "name": "ops-agent-registry",
+      "uid": "71517cb9-2ee6-4756-9384-31318dd43e35",
+      "data_sha256": "2724eb166bcf95413b5b826ef4cec0333f3dbccb71d285a3ee305830bc5f6548"
+    },
+    {
+      "namespace": "platform",
+      "name": "database-sql-bh74k6gch5",
+      "uid": "5f36caa6-cc91-49b8-bbb4-1a11b747df4d",
+      "data_sha256": "ad8f256100e0ffaf630f2ab0460f8e0df9c5b7f7130aea7345d7946c48be734d"
+    },
+    {
+      "namespace": "platform",
+      "name": "gateway-config-td966f585m",
+      "uid": "cac37241-cd2a-459f-817a-a2c145bcf192",
+      "data_sha256": "ba83821a80bea5ef7080cc7ee867bd177eaffeafe8fefbebb280665e80eaf944"
+    },
+    {
+      "namespace": "platform",
+      "name": "platform-programs-ftk56t6769",
+      "uid": "8a0a576b-42ac-4e9f-bebf-bb1fbad59e87",
+      "data_sha256": "fa93ab52a1a1fa4feee5ea22dec3a8b06678ec00b53f37309dff78973d7094dd"
+    },
+    {
+      "namespace": "platform",
+      "name": "platform-settings",
+      "uid": "73a682e6-d4f2-47d7-9105-ecec2ebb2d6d",
+      "data_sha256": "ea3b84359389eaabfc8974bec462bf920e25ba5a44e0eda143b77dc640025587"
+    },
+    {
+      "namespace": "ops",
+      "name": "assessment-ops-stub",
+      "uid": "1e07bc68-3e06-41c4-b1e7-4a55218e72b7",
+      "data_sha256": "4d95ec06cff1cf8188caf96617e145944ca65c9b5db320846a72a5e0ce2967bc"
+    },
+    {
+      "namespace": "platform",
+      "name": "assessment-sdp-guard",
+      "uid": "8f735f5c-fa98-46b2-9401-8003a7c5dd78",
+      "data_sha256": "91acc5b87c3a4887c24162971a8ddf4be03d8681cb0f3b7b14a457ba99a72f12"
+    },
+    {
+      "namespace": "assess-probes",
+      "name": "provider-stub-code",
+      "uid": "ff9870da-bacb-4efc-aa07-60fe8073c9a9",
+      "data_sha256": "ff5ccaf99f3654fe6296c21486c59effb3134560a2cf0e0d0756df605680fd48"
+    }
+  ],
+  "pvc": [
+    {
+      "namespace": "ops",
+      "name": "ops-approval-replay",
+      "uid": "910a1733-7744-4114-8f50-c77b2dbb3f66",
+      "status": "Bound",
+      "volume": "pvc-910a1733-7744-4114-8f50-c77b2dbb3f66"
+    },
+    {
+      "namespace": "platform",
+      "name": "assessment-sdp-attempts",
+      "uid": "b5b7318d-d4b4-4660-95dd-7e9dc48e5b36",
+      "status": "Bound",
+      "volume": "pvc-b5b7318d-d4b4-4660-95dd-7e9dc48e5b36"
+    },
+    {
+      "namespace": "platform",
+      "name": "data-postgres-0",
+      "uid": "9fefeea7-734c-4716-896e-50ef34e36c3b",
+      "status": "Bound",
+      "volume": "pvc-9fefeea7-734c-4716-896e-50ef34e36c3b"
+    }
+  ],
+  "bundle_sha256": "1ea527edb7762544055708a26245124635d7f0fa254ec17788aa50e5ff12cfa2",
+  "secrets_read": false
+}

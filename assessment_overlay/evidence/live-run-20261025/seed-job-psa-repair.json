@@ -1,0 +1,8 @@
+{
+  "original_bundle_sha256": "1ea527edb7762544055708a26245124635d7f0fa254ec17788aa50e5ff12cfa2",
+  "change": "seed Job pod securityContext.seccompProfile.type=RuntimeDefault only",
+  "source_commit": "eedc5af",
+  "fixed_job_sha256": "5fc13054c5ff89ae9734ec110768a70c42fee59fd9b3eeba4994eedeb1357436",
+  "image_digest_unchanged": true,
+  "platform_code_unchanged": true
+}

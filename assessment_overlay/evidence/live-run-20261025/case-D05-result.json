@@ -1,0 +1,14 @@
+{
+  "case": "D05",
+  "result": "PASS",
+  "checks": {
+    "role": "finance_frontdoor",
+    "known_lookup_one": true,
+    "unknown_lookup_none": true,
+    "legacy_web_login": false,
+    "legacy_web_connect": false,
+    "users_table_read": false
+  },
+  "frontdoor_pod_uid": "b0ea1eb2-5a69-4cbf-971f-3b3ae32c5ef8",
+  "synthetic_only": true
+}

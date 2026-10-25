@@ -1,0 +1,35 @@
+{
+  "case": "D02",
+  "result": "PASS",
+  "direct": [
+    {
+      "kind": "standalone_phone",
+      "status": 200,
+      "raw_canary_present": false,
+      "categories": [
+        "PHONE_NUMBER"
+      ]
+    },
+    {
+      "kind": "json_multiline",
+      "status": 200,
+      "raw_canary_present": false,
+      "categories": [
+        "EMAIL_ADDRESS",
+        "PHONE_NUMBER"
+      ]
+    }
+  ],
+  "gateway": {
+    "direct_provider_reachable": false,
+    "gateway": {
+      "status": 200,
+      "valid_response": true
+    }
+  },
+  "stub_dispatches": 1,
+  "stub_raw_canary_present": false,
+  "external_llm_calls": 0,
+  "app_pod_uid": "24a75349-b939-4476-9e96-97169f0fb29a",
+  "worker_pod_uid": "a3424704-c261-4e16-a187-aecb17c80bdc"
+}
