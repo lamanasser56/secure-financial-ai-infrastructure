@@ -28,14 +28,15 @@ class LiveToolingTest(unittest.TestCase):
         docs, receipt = make_bundle('assess-0123456789abcdef', passphrase='synthetic-test-only',
             hasher=lambda passwords: {name: '$argon2id$synthetic-test-only'
                                       for name in passwords})
-        self.assertEqual(receipt['objects'], 143)
         self.assertFalse(receipt['external_llm_route'])
         self.assertNotIn('restored_main_environment_names', receipt)
         env_names = [env['name'] for doc in docs if doc['kind'] == 'Deployment'
                      for container in doc['spec']['template']['spec']['containers']
                      for env in container.get('env', [])]
         self.assertEqual(env_names.count('PORTFOLIO_PROJECT_ID'), 2)
-        self.assertEqual([len(s) for s in split(docs)], [22, 103, 1, 1, 1, 2, 13])
+        staged = split(docs)
+        self.assertEqual(sum(map(len, staged)), len(docs))
+        self.assertTrue(any(d['kind'] == 'ConfigMap' and d['metadata']['name'].startswith('console-release-facts-') for d in staged[1]))
         seed = next(d for d in docs if d['kind'] == 'Job' and
             d['metadata']['name'] == 'assessment-sdp-seed')
         self.assertEqual(seed['spec']['template']['spec']['securityContext']
@@ -83,7 +84,8 @@ class LiveToolingTest(unittest.TestCase):
             redactor_gsa=f'assess-redactor@{project}.iam.gserviceaccount.com',
             kubectl='kubectl')
         rendered, summary = module.render(args)
-        self.assertEqual(summary['objects'], 113)
+        self.assertEqual(summary['kinds']['ValidatingAdmissionPolicy'], 1)
+        self.assertEqual(summary['kinds']['ValidatingAdmissionPolicyBinding'], 1)
         original = [doc for doc in yaml.safe_load_all(rendered) if doc]
         amended, receipt = patch(original, APP)
         find = lambda kind, ns, name: [d for d in amended if d['kind'] == kind

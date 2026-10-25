@@ -22,6 +22,7 @@
     if (csrf) headers['X-CSRF'] = csrf;
     try {
       const response = await fetch(path, {method, headers, credentials: 'same-origin', body: body === undefined ? undefined : JSON.stringify(body)});
+      Console.captureSource(response);
       const data = await response.json();
       Console.setLive(response.ok || response.status < 500);
       return {ok: response.ok, status: response.status, data};

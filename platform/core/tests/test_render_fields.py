@@ -42,6 +42,8 @@ class RenderFields(unittest.TestCase):
         text, refs = render.substitute(source, project_id='render-fixture', control_plane_cidr='172.16.0.16/28',
                                        gateway_gsa=GATEWAY_GSA, redactor_gsa=REDACTOR_GSA, images=lock)
         before, after = list(yaml.safe_load_all(source)), list(yaml.safe_load_all(text))
+        from agent_platform import onboarding, release_facts
+        release_facts.install(after, onboarding.load_all(), lock, private_values=(PROJECT,))
         render.validate(after, refs)
         original = {d['metadata']['name']: d['data'] for d in before if d['kind'] == 'ConfigMap'
                     and d['metadata']['name'].startswith(('platform-programs-', 'gateway-config-'))}

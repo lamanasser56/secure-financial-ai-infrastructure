@@ -2,10 +2,12 @@
 and the real sign-in still guards every data route. No database: the stub store from ui_stub.py stands in."""
 import http.client
 import json
+import os
 from pathlib import Path
 import sys
 import threading
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from finance_agent import server  # noqa: E402
@@ -46,6 +48,12 @@ class UiAssets(unittest.TestCase):
             self.assertIn("font-src 'self'", csp)
             self.assertIn("default-src 'none'", csp)
             self.assertNotRegex(csp, r'unsafe-inline|https?:')
+
+    def test_source_header_is_known_immutable_version_or_absent(self):
+        for value, expected in (('d' * 40, 'd' * 40), ('main', None), ('', None)):
+            with self.subTest(version=value), patch.dict(os.environ, PLATFORM_SOURCE_COMMIT=value):
+                response = self.get('/')[2]
+                self.assertEqual(response.getheader('X-Platform-Source-Commit'), expected)
 
     def test_only_the_listed_fonts_by_exact_name(self):
         for path in ('/typeface/nope.woff2', '/typeface/', '/typeface/../app.js', '/typeface/LICENSE-barlow.txt', '/typeface/%2e%2e/app.js', '/other.js'):
