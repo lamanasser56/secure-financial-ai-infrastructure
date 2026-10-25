@@ -1,8 +1,9 @@
 """Split the private disposable bundle without relaxing Fail/Deny admission.
 
 The database must start before its schema Job; the redactor's durable counter
-Job must complete before its Deployment. The operator waits for both Jobs
-after stage 5, then reads back both ledgers before applying stage 6.
+Job must complete before its Deployment. The schema Job waits for the gateway,
+so it completes after stage 6 starts the gateway. Read both ledgers through the
+redactor before the first case and before and after every case.
 """
 
 import hashlib
