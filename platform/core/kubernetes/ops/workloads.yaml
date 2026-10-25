@@ -7,9 +7,9 @@ metadata:
   namespace: ops
   labels: {app.kubernetes.io/name: ops-agent, app.kubernetes.io/part-of: agent-platform}
 spec:
-  # Started by `make up` only after every target is ready, and stopped by `make down` before the nodes drain, so
-  # platform warmup or shutdown is never diagnosed (and explained by the model) as a fault.
-  replicas: 0
+  # Final desired state. make up applies a stopped copy until every target is ready;
+  # make down stops observation before draining nodes.
+  replicas: 1
   revisionHistoryLimit: 3
   selector: {matchLabels: {app.kubernetes.io/name: ops-agent}}
   strategy: {type: Recreate}

@@ -14,6 +14,7 @@
 Terraform uses the user-ADC guard (no static token, no metadata dependency). No command prints secrets.
 """
 import argparse
+from copy import deepcopy
 import hashlib
 import json
 import os
@@ -135,11 +136,12 @@ def resize(count):
 
 
 # Started last and stopped first: the ops agent must never see platform warmup or node drain as a fault.
-STAGED = (('ops', 'ops-agent'), ('apps', 'fault-demo'))
+FAULT_TARGET = ('apps', 'fault-demo')
+STAGED = (('ops', 'ops-agent'), FAULT_TARGET)
 
 
 def scale_staged_to_zero():
-    for ns, name in STAGED:  # the manifests declare 0; a session that ended without `make down` may have left 1
+    for ns, name in STAGED:  # stop observation before apply or drain; final replicas come from the selected render
         if kubectl('-n', ns, 'get', 'deployment', name, '--ignore-not-found', '-o', 'name', capture=True).stdout.strip():
             kubectl('-n', ns, 'scale', 'deployment/' + name, '--replicas=0')
 
@@ -185,6 +187,25 @@ def stages(docs):
     return split
 
 
+def is_fault_target(doc):
+    return doc['kind'] == 'Deployment' and (doc['metadata'].get('namespace'), doc['metadata']['name']) == FAULT_TARGET
+
+
+def staged_documents(docs):
+    """Only the apply phase stops staged targets; the selected render declares their final desired state."""
+    result = deepcopy(docs)
+    for doc in result:
+        if doc['kind'] == 'Deployment' and (doc['metadata'].get('namespace'), doc['metadata']['name']) in STAGED:
+            doc['spec']['replicas'] = 0
+    return result
+
+
+def activation_targets(docs):
+    return [d for d in docs if d['kind'] == 'Deployment'
+            and (d['metadata'].get('namespace'), d['metadata']['name']) in STAGED
+            and d['spec'].get('replicas', 1) > 0]
+
+
 def up():
     started = time.time()
     resize(1)
@@ -196,14 +217,13 @@ def up():
     addon = [d for d in docs if d['kind'] == 'NetworkLogging']  # owned by GKE's addon manager (EnsureExists): client-side apply
     # `make fault` patches fault-demo as the owner (env, image); those faults are temporary, so the declared manifest wins
     # for that one Deployment. Every other object keeps server-side apply's conflict detection.
-    is_fault_demo = lambda d: d['kind'] == 'Deployment' and d['metadata'].get('namespace') == 'apps' and d['metadata']['name'] == 'fault-demo'
-    for stage in stages([d for d in docs if d['kind'] != 'NetworkLogging']):
-        if any(not is_fault_demo(d) for d in stage):
+    for stage in stages(staged_documents([d for d in docs if d['kind'] != 'NetworkLogging'])):
+        if any(not is_fault_target(d) for d in stage):
             kubectl('apply', '--server-side', '--field-manager=agent-platform', '-f', '-',
-                    input=yaml.safe_dump_all([d for d in stage if not is_fault_demo(d)]))
-        if any(map(is_fault_demo, stage)):
+                    input=yaml.safe_dump_all([d for d in stage if not is_fault_target(d)]))
+        if any(map(is_fault_target, stage)):
             kubectl('apply', '--server-side', '--field-manager=agent-platform', '--force-conflicts', '-f', '-',
-                    input=yaml.safe_dump_all([d for d in stage if is_fault_demo(d)]))
+                    input=yaml.safe_dump_all([d for d in stage if is_fault_target(d)]))
     kubectl('apply', '-f', '-', input=yaml.safe_dump_all(addon))
     from agent_platform.platform_secrets import NAMES
     missing = [ns + '/' + name for ns, name in NAMES
@@ -227,8 +247,10 @@ def up():
     for d in docs:  # every Deployment the manifest runs (boundaries and per-user workers included); Ops comes last
         if d['kind'] == 'Deployment' and d['spec'].get('replicas', 1) and d['metadata']['name'] != 'ops-agent':
             kubectl('-n', d['metadata']['namespace'], 'rollout', 'status', 'deployment/' + d['metadata']['name'], '--timeout=300s')
-    kubectl('-n', 'ops', 'scale', 'deployment/ops-agent', '--replicas=1')  # every target is ready now
-    kubectl('-n', 'ops', 'rollout', 'status', 'deployment/ops-agent', '--timeout=300s')
+    for doc in activation_targets(docs):  # every required target is ready now
+        namespace, name = doc['metadata']['namespace'], doc['metadata']['name']
+        kubectl('-n', namespace, 'scale', 'deployment/' + name, '--replicas=' + str(doc['spec'].get('replicas', 1)))
+        kubectl('-n', namespace, 'rollout', 'status', 'deployment/' + name, '--timeout=300s')
     print(json.dumps({'result': 'UP', 'minutes': round((time.time() - started) / 60, 1), 'access': 'make port-forward -> http://127.0.0.1:8080/'}))
 
 
