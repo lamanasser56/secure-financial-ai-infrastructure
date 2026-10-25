@@ -273,6 +273,8 @@ class Manifest(unittest.TestCase):
         images['registry'] = images['registry'].replace('PROJECT_ID', cls.PROJECT)
         text, cls.refs = render.substitute(render.kustomize(KUBECTL), images=images, allow_pending=True, **cls.ARGS)
         cls.docs = [d for d in yaml.safe_load_all(text) if d]
+        from agent_platform import onboarding, release_facts
+        release_facts.install(cls.docs, onboarding.load_all(), images, private_values=(cls.PROJECT,))
 
     def mutated(self, change):
         docs = copy.deepcopy(self.docs)

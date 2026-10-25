@@ -56,7 +56,7 @@ class Assets(unittest.TestCase):
                 text = path.read_text()
                 for url in re.findall(r'https?://[^\s\'")<>]+', text):
                     # links only (never fetched; the CSP allows no other origin): this repository's files on GitHub
-                    self.assertRegex(url, r'^(http://(127\.0\.0\.1[:/]|www\.w3\.org/2000/svg)|https://github\.com/lamanasser56/secure-financial-ai-infrastructure/blob/main/$)',
+                    self.assertRegex(url, r'^(http://(127\.0\.0\.1[:/]|www\.w3\.org/2000/svg)|https://github\.com/lamanasser56/secure-financial-ai-infrastructure/blob/$)',
                                      f'{path.name}: {url}')
         for page in PAGES:
             self.assertNotRegex(page.read_text(), r'(src|href)="https?://')

@@ -41,6 +41,7 @@
   async function getJSON(path) {
     try {
       const response = await fetch(path, {credentials: 'same-origin', headers: {Accept: 'application/json'}});
+      captureSource(response);
       const data = await response.json();
       if (path.startsWith('/api/console/')) setLive(response.ok);
       return {ok: response.ok, status: response.status, data};
@@ -107,7 +108,12 @@
     }}, 'Show full proof (' + all.length + ' lines)');
     return el('div', {}, box, toggle);
   }
-  const REPO = 'https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/main/';
+  let sourceRef = null;
+  function captureSource(response) {
+    const ref = response.headers.get('X-Platform-Source-Commit');
+    sourceRef = typeof ref === 'string' && /^[0-9a-f]{40}$/.test(ref) ? ref : null;
+  }
+  const codeURL = file => sourceRef ? 'https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/' + sourceRef + '/' + file : null;
   // A long id shown as first 4 … last 4, with a button that copies the full value.
   function copyable(label, value) {
     const short = value.length > 12 ? value.slice(0, 4) + '…' + value.slice(-4) : value;
@@ -150,7 +156,8 @@
       spec.copy ? copyable(spec.copy.label, spec.copy.value) : null,
       ...spec.blocks.map(b => el('div', {class: 'block ' + (b.cls || '')}, el('div', {class: 'label'}, b.label), b.node || el('p', {}, b.text))),
       spec.file ? el('div', {class: 'file'}, el('div', {class: 'path mono muted'}, spec.file),
-        el('a', {class: 'btn link', href: REPO + spec.file, target: '_blank', rel: 'noopener', title: spec.file}, 'View code →')) : null].filter(Boolean);
+        codeURL(spec.file) ? el('a', {class: 'btn link', href: codeURL(spec.file), target: '_blank', rel: 'noopener', title: spec.file}, 'View code →')
+          : el('span', {class: 'muted'}, 'Source version unavailable')) : null].filter(Boolean);
     if (dock) {
       docked = true;
       dock.show(nodes, spec, opener);
@@ -188,5 +195,5 @@
   }
   const head = (title, sub, action) => el('div', {class: 'head'}, el('div', {}, el('h1', {}, title), sub ? el('p', {class: 'sub'}, sub) : null), action || null);
   const empty = (title, text) => el('div', {class: 'panel empty'}, el('strong', {}, title), text);
-  window.Console = {head, empty, el, $, reduced, setLive, setDegraded, getJSON, clock, ago, shortDigest, proofBox, explain, explainTopic, close, setDock, screens: {}};
+  window.Console = {captureSource, codeURL, head, empty, el, $, reduced, setLive, setDegraded, getJSON, clock, ago, shortDigest, proofBox, explain, explainTopic, close, setDock, screens: {}};
 })();

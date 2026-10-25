@@ -1,6 +1,6 @@
 """Console data API (read-only, front door, loopback :8080): what the platform console screens show.
 
-GET /api/console/topology           what exists and which paths are open or denied (rendered manifests shipped in the image)
+GET /api/console/topology           what exists and which paths are open or denied (sanitized facts from the selected final release render)
 GET /api/console/agents             manifest facts + live state (pods, restarts, running image digest) per agent
 GET /api/console/onboarding/<agent> the eight guarantees, each "verified" (seen live, with its source) or "declared"
 GET /api/console/activity?limit=3   latest blocked / masked / approved events
@@ -14,6 +14,7 @@ Live facts come only from sources the front door already reads: the ops agent's 
 door already holds) and this process's own audit stream. The front door gets no Kubernetes token, no gateway key and no
 new permission. Every value is a bounded closed field; nothing a model or a user wrote is returned.
 """
+import ipaddress
 import json
 from pathlib import Path
 import re
@@ -22,7 +23,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import yaml
 
-from agent_platform import audit
+from agent_platform import audit, release_facts
 from runtime.agents import web
 
 HERE = Path(__file__).resolve()
@@ -37,16 +38,6 @@ OPS_GUARANTEES = ('namespace', 'network', 'model_key', 'budget', 'redaction', 'a
 REDACTION_RECENT_SECONDS = 3600  # how recent a redactor event for the agent's own key must be to count as seen
 
 
-def locate():
-    """(kubernetes dir, agent manifests dir, GKE overlay dir). The image keeps them side by side under /app/platform;
-    the repository keeps them under platform/core, platform/agents and platform/clouds/gke."""
-    image = HERE.parents[2]
-    if (image / 'agents').is_dir():
-        return image / 'kubernetes', image / 'agents', image / 'gke'
-    platform = HERE.parents[3]
-    return platform / 'core/kubernetes', platform / 'agents', platform / 'clouds/gke/kubernetes'
-
-
 def locate_extras():
     """(UI dir, evidence dir, examples dir): side by side under /app/platform in the image; under platform/core/ui and docs/ in the repository."""
     image = HERE.parents[2]
@@ -57,12 +48,6 @@ def locate_extras():
 
 def display(name):
     return ' '.join(w[:1].upper() + w[1:] for w in name.split('-'))
-
-
-def documents(path):
-    if not path.is_file():
-        return []
-    return [d for d in yaml.safe_load_all(path.read_text()) if isinstance(d, dict)]
 
 
 def peer_names(rule):
@@ -80,11 +65,19 @@ def peer_names(rule):
 
 
 class Console:
-    def __init__(self, ops, *, directories=None, extras=None, clock=time.time, recent_audit=audit.recent,
-                 live_attacks=Path('/attack-results/attack-suite.json')):
+    def __init__(self, ops, *, extras=None, clock=time.time, recent_audit=audit.recent,
+                 live_attacks=Path('/attack-results/attack-suite.json'), facts=None, facts_path=release_facts.MOUNT):
         """`ops(path)` GETs the ops agent's read-only API and returns the decoded JSON (raises when it is unreachable)."""
         self._ops, self._clock, self._recent_audit = ops, clock, recent_audit
-        self.kube, self.agent_dir, self.gke = directories or locate()
+        if facts is not None:
+            self.facts = release_facts.validate(facts)
+        elif Path(facts_path).is_file():
+            self.facts = release_facts.load(facts_path)
+        elif (HERE.parents[2] / 'agents').is_dir():
+            raise ValueError('mounted release facts required')
+        else:
+            self.facts = release_facts.repository()
+        self.source_commit = self.facts['source_commit']
         self.ui_dir, self.evidence_dir, self.examples_dir = extras or locate_extras()
         self.live_attacks = Path(live_attacks)  # the mounted ConfigMap apps/attack-results (optional)
         self._cache = {}
@@ -94,34 +87,30 @@ class Console:
     # manifests ---------------------------------------------------------------------------------------------
     def _load_manifests(self):
         found = {}
-        for path in sorted(self.agent_dir.glob('*/agent.yaml')):
-            name = path.parent.name
-            manifest = yaml.safe_load(path.read_text())
-            rendered = documents(self.kube / 'agents' / (name + '.yaml'))
-            if NAME.fullmatch(name) and isinstance(manifest, dict) and rendered:
-                found[name] = {'manifest': manifest, 'rendered': rendered, 'file': f'platform/core/kubernetes/agents/{name}.yaml'}
+        for name, manifest in sorted(self.facts['agents'].items()):
+            ns = 'agent-' + name
+            rendered = [d for d in self.facts['documents'] if d['metadata'].get('namespace') == ns
+                        or (d['kind'] == 'Namespace' and d['metadata']['name'] == ns)]
+            if NAME.fullmatch(name) and rendered:
+                found[name] = {'manifest': manifest, 'rendered': rendered,
+                               'file': f'platform/core/kubernetes/agents/{name}.yaml'}
         return found
 
     def _load_ops(self):
-        """The ops agent's real config: its Deployment, registry, NetworkPolicies (core + GKE overlay) and observed agents."""
         from agent_platform.ops import registry
-        docs = documents(self.kube / 'ops/workloads.yaml')
+        docs = self.facts['documents']
         deployment = self._kind(docs, 'Deployment', OPS)
         config = self._kind(docs, 'ConfigMap', 'ops-agent-registry')
         if deployment is None or config is None:
             return None
-        policies = [d for d in documents(self.kube / 'policies/network.yaml') + documents(self.gke / 'gke.yaml')
-                    if d.get('kind') == 'NetworkPolicy' and d['metadata'].get('namespace') == 'ops']
-        observed = self._kind(documents(self.kube / 'agents/ops-observe.yaml'), 'ConfigMap', 'ops-agent-observe')
+        policies = [d for d in docs if d['kind'] == 'NetworkPolicy' and d['metadata'].get('namespace') == 'ops']
+        observed = self._kind(docs, 'ConfigMap', 'ops-agent-observe')
         return {'deployment': deployment, 'targets': registry.parse(config['data']), 'rendered': policies,
                 'observed': sorted((observed or {}).get('data') or {}), 'policy_names': (OPS, 'ops-agent-apiserver'),
                 'file': 'platform/core/kubernetes/ops/workloads.yaml'}
 
     def _model(self):
-        for doc in documents(self.kube / 'platform/generated/litellm.yaml'):
-            for entry in doc.get('model_list') or []:
-                return str((entry.get('litellm_params') or {}).get('model', '')).rpartition('/')[2] or None
-        return None
+        return self.facts['model']
 
     @staticmethod
     def _kind(rendered, kind, name=None):
@@ -157,20 +146,28 @@ class Console:
     def _finding(self, target):
         snapshot = self._live('/v1/snapshot')
         findings = (snapshot or {}).get('findings') or {}
-        finding = findings.get(target)
-        if type(finding) is dict and type(finding.get('facts')) is dict:
-            return finding
-        if target == 'agent-financial.agent':
-            from agent_platform.onboarding import USER_SLOTS
-            parts = [findings.get('agent-financial.agent-' + slot) for slot in USER_SLOTS]
-            if all(type(part) is dict and type(part.get('facts')) is dict for part in parts):
-                return {'finding': 'HEALTHY' if all(p['finding'] == 'HEALTHY' for p in parts) else 'DEGRADED',
-                        'desired_replicas': sum(p['desired_replicas'] for p in parts),
-                        'facts': {**{key: sum(p['facts'].get(key, 0) for p in parts)
-                                    for key in ('pods_ready', 'pods_total', 'restarts')},
-                                  'observed_at': min(p['facts'].get('observed_at', 0) for p in parts),
-                                  'image_digests': sorted({image for p in parts for image in p['facts'].get('image_digests', [])})}}
-        return None
+        ns, _, workload = target.partition('.')
+        entry = self._manifests.get(ns.removeprefix('agent-')) if ns.startswith('agent-') and workload == 'agent' else None
+        workers = [d for d in (entry or {}).get('rendered', []) if d['kind'] == 'Deployment']
+        if not workers or [d['metadata']['name'] for d in workers] == [workload]:
+            finding = findings.get(target)
+            return finding if type(finding) is dict and type(finding.get('facts')) is dict else None
+        parts, desired = [], 0
+        for worker in workers:
+            part = findings.get(ns + '.' + worker['metadata']['name'])
+            valid = type(part) is dict and type(part.get('facts')) is dict
+            desired += part['desired_replicas'] if valid else max(1, worker['spec'].get('replicas', 1))
+            if valid:
+                parts.append(part)
+        if not parts:
+            return None
+        return {'namespace': ns, 'deployment': 'agent',
+                'finding': 'HEALTHY' if len(parts) == len(workers) and all(p['finding'] == 'HEALTHY' for p in parts) else 'DEGRADED',
+                'desired_replicas': desired,
+                'facts': {**{key: sum(p['facts'].get(key, 0) for p in parts)
+                             for key in ('pods_ready', 'pods_total', 'restarts')},
+                          'observed_at': min(p['facts'].get('observed_at', 0) for p in parts),
+                          'image_digests': sorted({image for p in parts for image in p['facts'].get('image_digests', [])})}}
 
     def _fresh(self, finding):
         return finding is not None and self._clock() - finding['facts'].get('observed_at', 0) <= FRESH_SECONDS
@@ -211,7 +208,7 @@ class Console:
         data = m['data']
         return {'id': name, 'name': name, 'node': 'agent-' + name, 'kind': 'agent', 'display': display(name), 'namespace': 'agent-' + name, 'team': m['team'], 'description': m['description'],
                 'runtime': runtime, 'model': self._model(), 'budget_usd_month': m['model']['budget_usd_month'],
-                'replicas': m['runtime']['replicas'] * (3 if data != 'none' else 1), 'port': m['runtime']['port'], 'redaction': m['redaction'],
+                'replicas': sum(d['spec'].get('replicas', 1) for d in entry['rendered'] if d['kind'] == 'Deployment'), 'port': m['runtime']['port'], 'redaction': m['redaction'],
                 'tools': [{'id': t['id'], 'access': t['access'], 'description': t['description']} for t in m['tools']],
                 'data': 'none' if data == 'none' else {'database': data['database'], 'user_entry': data['user_entry'],
                                                         'row_level_security': data['row_level_security']},
@@ -234,7 +231,7 @@ class Console:
         container = o['deployment']['spec']['template']['spec']['containers'][0]
         targets = o['targets']
         tools = [{'id': 'observe', 'access': 'read', 'description': 'Watch %d registered workloads and %d onboarded agents, read-only.'
-                  % (len(targets), len(o['observed']))}]
+                  % (len(targets), len({key.split('.')[0] for key in o['observed']}))}]
         wording = {'restart': 'Restart a registered workload, once, after the owner approves.',
                    'scale': 'Scale a registered workload within its bounds, after the owner approves.'}
         tools += [{'id': a, 'access': 'approval', 'description': wording.get(a, a)} for a in ACTIONS]
@@ -348,7 +345,7 @@ class Console:
     def topology(self):
         nodes, edges = [], []
         platform = {}
-        for doc in documents(self.kube / 'platform/workloads.yaml') + documents(self.kube / 'platform/boundaries.yaml'):
+        for doc in self.facts['documents']:
             if doc.get('kind') in ('Deployment', 'StatefulSet'):
                 platform[doc['metadata']['name']] = doc
         for name in sorted(self._manifests):
@@ -362,16 +359,15 @@ class Console:
             nodes.append({'id': OPS, 'kind': 'agent', 'tenant': 'platform', 'name': OPS, 'namespace': 'ops', 'data': 'none'})
         nodes.append({'id': 'audit', 'kind': 'platform', 'name': 'audit', 'namespace': 'platform'})
         externals = {}
-        for path in (self.gke / 'generated/provider-egress.yaml', self.gke / 'gke.yaml'):
-            for doc in documents(path):
-                if doc.get('kind') != 'FQDNNetworkPolicy':
-                    continue
-                pod = ((doc['spec'].get('podSelector') or {}).get('matchLabels') or {}).get('app.kubernetes.io/name')
-                for rule in doc['spec'].get('egress') or []:
-                    for match in rule.get('matches') or []:
-                        host = match.get('name')
-                        if pod in platform and re.fullmatch(r'[a-z0-9.-]+\.googleapis\.com', str(host)):
-                            externals[pod] = host
+        for doc in self.facts['documents']:
+            if doc.get('kind') != 'FQDNNetworkPolicy':
+                continue
+            pod = ((doc['spec'].get('podSelector') or {}).get('matchLabels') or {}).get('app.kubernetes.io/name')
+            for rule in doc['spec'].get('egress') or []:
+                for match in rule.get('matches') or []:
+                    host = match.get('name')
+                    if pod in platform and re.fullmatch(r'[a-z0-9.-]+\.googleapis\.com', str(host)):
+                        externals[pod] = host
         labels = {'gateway': ('model-provider', 'model provider'), 'redactor': ('dlp', 'sensitive-data service')}
         for pod, host in sorted(externals.items()):
             ident, label = labels.get(pod, (pod + '-external', pod))
@@ -392,7 +388,7 @@ class Console:
             for ns, app, port in self._egress(self._opscfg):
                 if app in platform and ns == platform[app]['metadata']['namespace']:
                     edges.append({'from': OPS, 'to': app, 'port': port, 'state': 'allowed', 'source': 'rendered NetworkPolicy ops/ops-agent'})
-        for policy in documents(self.kube / 'policies/network.yaml'):
+        for policy in (d for d in self.facts['documents'] if d['kind'] == 'NetworkPolicy'):
             origin = policy.get('spec', {}).get('podSelector', {}).get('matchLabels', {}).get('app.kubernetes.io/name')
             if origin not in platform:
                 continue
@@ -407,10 +403,11 @@ class Console:
             denied += [{'from': a, 'to': 'internet', 'why': 'default-deny; no egress rule to an address'} for a in tenants if a != OPS]
         if self._opscfg:
             blocks = [p for ns, p, _ in self._egress(self._opscfg) if ns == 'ip']
-            if all(b == 'CONTROL_PLANE_CIDR' for b in blocks):  # render.py admits only a private /28 for this placeholder
+            if all(b == 'CONTROL_PLANE_CIDR' or (ipaddress.ip_network(b).is_private and ipaddress.ip_network(b).prefixlen == 28) for b in blocks):
                 denied.append({'from': OPS, 'to': 'internet', 'why': 'default-deny; its only address rule is the private API-server range'})
         return {'nodes': nodes, 'edges': edges, 'denied': denied,
-                'source': 'rendered manifests shipped in the image', 'live': False}
+                'source': ('selected release manifest ' + (self.source_commit or '(source version unavailable)')
+                           if self.facts['bound_to_release'] else 'current source render; not release-qualified'), 'live': False}
 
     # activity -----------------------------------------------------------------------------------------------
     def activity(self, limit=3):
@@ -553,7 +550,7 @@ EXPLAIN = {
     'network': {'file': 'platform/core/kubernetes/policies/network.yaml', 'text': {
         'title': 'Network wall',
         'plain': 'Agents cannot talk to each other. Each one reaches only the platform services it needs.',
-        'how': 'Every namespace is default-deny. Only DNS, the gateway and the redactor are allowed. Every drop is logged.',
+        'how': 'The selected release declares namespace default-deny and explicit paths through trusted services. Live policy lists show configured rules, not a traffic test or complete drop log.',
         'without': "One compromised agent could read another agent's data or borrow its key."}},
     'private-link': {'file': 'platform/clouds/gke/kubernetes/gke.yaml', 'text': {
         'title': 'Private link',
@@ -600,6 +597,12 @@ class Handler(web.Handler):
         if key == 'Content-Security-Policy':  # the console ships its own fonts (same origin); nothing else is widened
             value = value.replace("style-src 'self';", "style-src 'self'; font-src 'self';")
         super().send_header(key, value)
+
+    def end_headers(self):
+        commit = self.server.console.source_commit
+        if commit:
+            self.send_header('X-Platform-Source-Commit', commit)
+        super().end_headers()
 
     def asset(self, path):
         """(bytes, content type) of one fixed UI file, or None. Only files that exist in the UI directory, by exact name."""

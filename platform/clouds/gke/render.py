@@ -17,12 +17,12 @@ import yaml
 
 HERE = Path(__file__).resolve().parent
 OVERLAY = HERE / 'kubernetes'
+sys.path.insert(0, str(HERE.parents[1] / 'core/src'))
 PLATFORM_NAMESPACES = ('platform', 'apps', 'ops')
 
 
 def onboarded():
     """{namespace: egress the agent may have} from its manifest: gateway + redactor, and the trusted data broker only if declared."""
-    sys.path.insert(0, str(HERE.parents[1] / 'core/src'))
     from agent_platform import onboarding
     manifests = onboarding.load_all()
     return {'agent-' + n: onboarding.egress(manifests[n]) for n in onboarding.namespace_agents(manifests)}
@@ -150,7 +150,7 @@ def validate(docs, refs):
                 sc = c.get('securityContext') or {}
                 require(sc.get('allowPrivilegeEscalation') is False and sc.get('readOnlyRootFilesystem') is True
                         and sc.get('capabilities') == {'drop': ['ALL']} and not sc.get('privileged'), 'container security: ' + where)
-                require(c['image'] in allowed_images, 'image not present in selected release lock: ' + where + ' ' + c['image'])
+                require(c['image'] in allowed_images, 'image not present in selected release lock: ' + where)
                 require(not any('hostPort' in p for p in c.get('ports', [])), 'hostPort: ' + where)
                 require('resources' in c and 'limits' in c['resources'], 'limits: ' + where)
                 images_used.add(c['image'])
@@ -172,6 +172,11 @@ def validate(docs, refs):
     fqdn = {(p['metadata']['namespace'], p['metadata']['name']): p for p in by_kind.get('FQDNNetworkPolicy', [])}
     require(set(fqdn) == {('platform', 'gateway-provider'), ('platform', 'redactor-provider')}, 'FQDN egress only for gateway and redactor')
     require(len(by_kind.get('ValidatingAdmissionPolicy', [])) == 1 and len(by_kind.get('ValidatingAdmissionPolicyBinding', [])) == 1, 'admission policy')
+    from agent_platform import release_facts
+    try:
+        release_facts.verify(docs)
+    except (ValueError, KeyError, StopIteration):
+        raise Rejected('release facts must match selected manifests and the read-only app mount') from None
     return {'objects': len(docs), 'kinds': {k: len(v) for k, v in sorted(by_kind.items())}, 'images': sorted(images_used)}
 
 
@@ -185,7 +190,10 @@ def render(args, allow_pending=False):
                             gateway_gsa=args.gateway_gsa, redactor_gsa=args.redactor_gsa, images=images,
                             allow_pending=allow_pending)
     docs = [d for d in yaml.safe_load_all(text) if d]
-    return text, validate(docs, refs)
+    from agent_platform import onboarding, release_facts
+    release_facts.install(docs, onboarding.load_all(), images,
+                          private_values=(args.project_id, args.gateway_gsa, args.redactor_gsa))
+    return yaml.safe_dump_all(docs, sort_keys=False), validate(docs, refs)
 
 
 def main(argv):

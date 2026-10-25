@@ -21,7 +21,7 @@ import signal
 import threading
 from urllib.parse import parse_qs, urlsplit
 
-from agent_platform import audit
+from agent_platform import audit, release_version
 
 UI = Path(__file__).resolve().parent / 'ui'
 ASSETS = {'/': ('index.html', 'text/html; charset=utf-8'), '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
@@ -48,6 +48,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         for name, value in HEADERS.items():
             self.send_header(name, value)
+        commit = release_version.source_commit()
+        if commit:
+            self.send_header('X-Platform-Source-Commit', commit)
         self.send_header('Content-Type', kind)
         self.send_header('Content-Length', str(len(data)))
         if cookie is not None:

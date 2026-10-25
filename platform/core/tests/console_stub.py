@@ -34,7 +34,8 @@ class StubOperations:
             return {'board': [{'target_id': 'apps.fault-demo', 'finding': 'READINESS_FAILING', 'desired': 1, 'available': 0, 'observe_only': False,
                                'explanation': '[stub] The pod is running but its readiness check keeps failing, so it receives no traffic. A restart is proposed.'},
                               {'target_id': 'platform.gateway', 'finding': 'HEALTHY', 'desired': 1, 'available': 1, 'observe_only': False},
-                              {'target_id': 'agent-financial.agent', 'finding': 'HEALTHY', 'desired': 1, 'available': 1, 'observe_only': True}],
+                              *({'target_id': 'agent-financial.' + worker, 'finding': 'HEALTHY', 'desired': 1, 'available': 1, 'observe_only': True}
+                                for worker in ('agent-u1', 'agent-u2', 'agent-u3'))],
                     'timeline': [{'stage': 'observed', 'target': 'apps.fault-demo', 'at': n - 240}, {'stage': 'diagnosed', 'target': 'apps.fault-demo', 'finding': 'READINESS_FAILING', 'at': n - 238},
                                  {'stage': 'proposed', 'target': 'apps.fault-demo', 'action': 'restart', 'at': n - 236}],
                     'pending': [{'request_id': 'r-1', 'target': 'apps.fault-demo', 'action': 'restart', 'finding': 'READINESS_FAILING'}], 'denials': []}

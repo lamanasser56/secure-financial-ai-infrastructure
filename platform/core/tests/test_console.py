@@ -72,7 +72,7 @@ def ops_answers(**override):
             {'stage': 'observed', 'target': 'apps.app', 'at': NOW - 90},
             {'stage': 'denied', 'target': 'apps.fault-demo', 'at': NOW - 60, 'code': 'APPROVAL_DENIED', 'request_id': 'r1'},
             {'stage': 'approved', 'target': 'apps.fault-demo', 'at': NOW - 30, 'request_id': 'r2', 'approver': 'owner'}],
-            'findings': {'agent-financial.agent': finding('agent-financial', 'agent'),
+            'findings': {**{'agent-financial.agent-u' + str(i): finding('agent-financial', 'agent-u' + str(i)) for i in range(1, 4)},
                          'agent-platform-guide.agent': finding('agent-platform-guide', 'agent'),
                          'platform.redactor': finding('platform', 'redactor'),
                          'platform.gateway': finding('platform', 'gateway')}},
@@ -166,7 +166,7 @@ class Facts(unittest.TestCase):
         self.assertEqual(fin['model'], 'gemini-3.5-flash')
         self.assertEqual([t['id'] for t in fin['tools']], ['monthly_total', 'spending_by_category', 'find_transactions'])
         self.assertEqual(fin['live']['image_digests'], [DIGEST])
-        self.assertEqual((fin['live']['pods_ready'], fin['live']['restarts']), (1, 0))
+        self.assertEqual((fin['live']['pods_ready'], fin['live']['restarts']), (3, 0))
         self.assertIn('platform/gateway-boundary:4000', fin['reaches'])
         self.assertNotIn('internet', walk(fin))
 
@@ -181,19 +181,21 @@ class Facts(unittest.TestCase):
     def test_live_health_is_running_not_ready_or_absent(self):
         self.assertEqual(self.health(None)['state'], 'running')
         notready = ops_answers()
-        notready['/v1/snapshot']['findings']['agent-financial.agent']['facts'].update(pods_ready=0)
+        notready['/v1/snapshot']['findings']['agent-financial.agent-u1']['facts'].update(pods_ready=0)
         self.assertEqual(self.health(notready)['state'], 'not_ready')
         gone = ops_answers()
-        del gone['/v1/snapshot']['findings']['agent-financial.agent']
+        for i in range(1, 4):
+            del gone['/v1/snapshot']['findings']['agent-financial.agent-u' + str(i)]
         self.assertEqual(self.health(gone)['state'], 'absent')
         empty = ops_answers()
-        empty['/v1/snapshot']['findings']['agent-financial.agent']['facts'].update(pods_ready=0, pods_total=0)
+        for i in range(1, 4):
+            empty['/v1/snapshot']['findings']['agent-financial.agent-u' + str(i)]['facts'].update(pods_ready=0, pods_total=0)
         self.assertEqual(self.health(empty)['state'], 'absent')
 
     def test_health_is_unknown_not_absent_when_the_source_cannot_say(self):
         self.assertIsNone(self.health({}))
         stale = ops_answers()
-        stale['/v1/snapshot']['findings']['agent-financial.agent']['facts']['observed_at'] = NOW - 3600
+        stale['/v1/snapshot']['findings']['agent-financial.agent-u1']['facts']['observed_at'] = NOW - 3600
         self.assertIsNone(self.health(stale))
 
     def test_stale_live_state_is_not_live(self):
@@ -350,8 +352,8 @@ class Onboarding(unittest.TestCase):
         self.assertEqual((network['state'], network['source']), ('failing', 'ops-agent /v1/posture'))
         self.assertEqual(result['counts']['failing'], 1)
         notready = ops_answers()
-        notready['/v1/snapshot']['findings']['agent-financial.agent']['facts'].update(pods_ready=0)
-        notready['/v1/snapshot']['findings']['agent-financial.agent']['finding'] = 'READINESS_FAILING'
+        notready['/v1/snapshot']['findings']['agent-financial.agent-u1']['facts'].update(pods_ready=0)
+        notready['/v1/snapshot']['findings']['agent-financial.agent-u1']['finding'] = 'READINESS_FAILING'
         result = make(notready).onboarding('financial')
         image = next(g for g in result['guarantees'] if g['id'] == 'image')
         self.assertEqual(image['state'], 'declared')  # a not-ready pod says nothing about the signature
@@ -477,6 +479,15 @@ class Http(unittest.TestCase):
                 self.assertEqual(status, 200, body)
                 self.assertEqual(headers['Cache-Control'], 'no-store')
                 self.assertIsNone(LEAKS.search(json.dumps(body)))
+
+    def test_source_header_is_exact_and_unknown_is_not_latest_main(self):
+        self.assertNotIn('X-Platform-Source-Commit', self.get('/api/console/topology')[2])
+        self.server.console.source_commit = 'd' * 40
+        try:
+            headers = self.get('/api/console/topology')[2]
+            self.assertEqual(headers['X-Platform-Source-Commit'], 'd' * 40)
+        finally:
+            self.server.console.source_commit = None
 
     def test_unknown_names_are_404(self):
         for path in ('/api/console/onboarding/nope', '/api/console/onboarding/Financial', '/api/console/onboarding/..%2f..%2fetc',
@@ -615,9 +626,11 @@ class Packaging(unittest.TestCase):
             self.assertIn(allowed, ignore)
         self.assertNotIn('!platform/agents/**', ignore)  # agent code and node_modules stay out of the app image
 
-    def test_locate_resolves_the_repository_layout(self):
-        kube, agents, gke = console.locate()
-        self.assertEqual((kube, agents, gke), (KUBE, REPO / 'platform/agents', REPO / 'platform/clouds/gke/kubernetes'))
+    def test_source_layout_uses_current_composition_and_self_hosted_ui(self):
+        c = make()
+        self.assertFalse(c.facts['bound_to_release'])
+        self.assertEqual(c.ui_dir, REPO / 'platform/core/ui')
+        self.assertTrue(c.facts['documents'])
 
 
 if __name__ == '__main__':

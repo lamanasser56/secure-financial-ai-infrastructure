@@ -26,12 +26,16 @@
   };
 
   // Every attack that was not stopped, in the result card: its evidence note in the evidence's own words, or "no note".
-  const REPO_URL = 'https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/main/';
+  function evidenceLink(file) {
+    const url = Console.codeURL(file);
+    return url ? el('a', {href: url, target: '_blank', rel: 'noopener', title: file}, 'Evidence →')
+      : el('span', {class: 'muted'}, 'Source version unavailable');
+  }
   function notStopped(results) {
     const failed = results.filter(x => x.result !== 'PASS');
     if (!failed.length) return null;
     return el('div', {class: 'note'}, el('b', {}, failed.length + ' not stopped'), failed.map(x => el('p', {},
-      (CASES[x.case] || [x.case])[0] + ' — ', x.note ? [x.note.conclusion, ' ', el('a', {href: REPO_URL + x.note.file, target: '_blank', rel: 'noopener', title: x.note.file}, 'Evidence →')]
+      (CASES[x.case] || [x.case])[0] + ' — ', x.note ? [x.note.conclusion, ' ', evidenceLink(x.note.file)]
         : 'no note in the evidence for this run.')));
   }
 
@@ -47,12 +51,11 @@
       body.replaceChildren(Console.empty('No attack results yet.', 'Run make attack to produce ' + d.file + '. The run button comes in a later phase.'));
       return;
     }
-    const REPO = 'https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/main/';
     const rows = d.results.map((x, i) => {
       const [name, by] = CASES[x.case] || [x.case, null], stopped = x.result === 'PASS';
       // The owner's note on this run, shown as written in the evidence file (only attached by the API to the failed case it is about).
       const note = x.note ? el('div', {class: 'note'}, el('b', {}, 'Owner\'s note on this run: '), x.note.conclusion, ' ',
-        el('a', {href: REPO + x.note.file, target: '_blank', rel: 'noopener', title: x.note.file}, 'Evidence →')) : null;
+        evidenceLink(x.note.file)) : null;
       return el('div', {class: 'atk'}, el('span', {class: 'ring plain', 'aria-hidden': 'true'}, String(i + 1)),
         el('div', {}, el('b', {}, name), el('span', {class: 'by'}, (stopped ? (by ? 'stopped by ' + by : 'stopped') : 'not stopped in this run') + ' · ',
           el('time', {datetime: x.at}, new Date(x.at).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'})))),

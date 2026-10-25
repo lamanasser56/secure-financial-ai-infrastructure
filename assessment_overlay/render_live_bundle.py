@@ -109,8 +109,6 @@ def make_bundle(run_id, kubectl='kubectl', *, passphrase=None, hasher=None,
             redactor_gsa=f'assess-redactor@{PROJECT}.iam.gserviceaccount.com',
             kubectl=kubectl)
         source_text, main_summary = main_render.render(args)
-    if main_summary['objects'] != 113:
-        raise ValueError('main object count drift')
     docs = [doc for doc in yaml.safe_load_all(source_text) if doc]
     if not passphrase:
         raise ValueError('assessment operator passphrase required')
@@ -127,6 +125,9 @@ def make_bundle(run_id, kubectl='kubectl', *, passphrase=None, hasher=None,
     docs, seed_objects, redactor_deployment = patch_redactor(docs, OVERLAY, run_id)
     docs = patch_ops(docs, OVERLAY / 'ops_server_assessment.py')
     docs = disposable_changes(docs, run_id)
+    from agent_platform import onboarding, release_facts
+    release_facts.install(docs, onboarding.load_all(), lock, private_values=(PROJECT,))
+    release_facts.verify(docs)
     patched_programs = next(d for d in docs if d['kind'] == 'ConfigMap'
                             and d['metadata']['name'].startswith('platform-programs-'))
     if hashlib.sha256(json.dumps(patched_programs['data'], sort_keys=True).encode()).hexdigest() != program_hash:
