@@ -94,6 +94,24 @@ def validate(value):
     return value
 
 
+
+def evidence_binding(facts):
+    """Public identity of the selected declarations, including exact runtime image digests.
+
+    A content match does not authenticate who ran a test. Unknown source or unbuilt
+    images cannot qualify any mounted result as belonging to a released version.
+    """
+    facts = validate(facts)
+    if not facts['bound_to_release'] or not facts['source_commit']:
+        return None
+    images = sorted({c['image'] for d in facts['documents'] if d['kind'] in ('Deployment', 'StatefulSet')
+                     for c in d['spec']['template']['spec']['containers']})
+    if not images or any(not re.fullmatch(r'sha256:[0-9a-f]{64}', image) for image in images):
+        return None
+    return {'id': hashlib.sha256(encode(facts).encode()).hexdigest(),
+            'source_commit': facts['source_commit'], 'images': images}
+
+
 def load(path=MOUNT):
     return validate(json.loads(Path(path).read_text()))
 

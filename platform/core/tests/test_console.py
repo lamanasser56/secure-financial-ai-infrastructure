@@ -266,43 +266,6 @@ class OpsTenant(unittest.TestCase):
             self.assertIn(pair, denied)
 
 
-class AttackNotes(unittest.TestCase):
-    def test_the_latest_note_is_attached_verbatim_to_its_failed_case(self):
-        # The run-3 note against a copy of the results in which its case failed, as it did in run 3.
-        import tempfile
-        with tempfile.TemporaryDirectory() as tmp:
-            results = json.loads((REPO / 'docs/evidence/attack-suite.json').read_text())
-            for r in results['results']:
-                if r['case'] == 'financial_redaction_down_no_model_call':
-                    r['result'] = 'FAIL'
-            (Path(tmp) / 'attack-suite.json').write_text(json.dumps(results))
-            (Path(tmp) / 'attack-suite-run-3-note.json').write_text((REPO / 'docs/evidence/attack-suite-run-3-note.json').read_text())
-            c = make()
-            c.evidence_dir = Path(tmp)
-            noted = [r for r in c.attacks()['results'] if 'note' in r]
-        self.assertEqual([r['case'] for r in noted], ['financial_redaction_down_no_model_call'])
-        evidence = json.loads((REPO / 'docs/evidence/attack-suite-run-3-note.json').read_text())
-        self.assertEqual(noted[0]['note'], {'conclusion': evidence['conclusion'], 'file': 'docs/evidence/attack-suite-run-3-note.json'})
-        self.assertEqual(noted[0]['result'], 'FAIL')  # not relabelled
-
-    def test_the_recorded_run_5_has_no_failed_case_and_no_note_attached(self):
-        data = make().attacks()
-        self.assertEqual((data['source'], data['stopped'], data['total']), ('recorded', 18, 18))  # 19 suite cases minus the setup step
-        self.assertFalse([r for r in data['results'] if 'note' in r])
-        note = json.loads((REPO / 'docs/evidence/attack-suite-run-5-note.json').read_text())
-        self.assertNotIn('case', note)  # the run-5 note is about passes that did not exercise their control, not a failure
-        self.assertEqual(note['run_5_result'], '19/19')
-
-    def test_without_a_note_file_nothing_is_attached(self):
-        import shutil
-        import tempfile
-        with tempfile.TemporaryDirectory() as tmp:
-            shutil.copy(REPO / 'docs/evidence/attack-suite.json', tmp)
-            c = make()
-            c.evidence_dir = Path(tmp)
-            self.assertFalse([r for r in c.attacks()['results'] if 'note' in r])
-
-
 class Onboarding(unittest.TestCase):
     def test_eight_guarantees_verified_or_declared_with_sources(self):
         result = make().onboarding('financial')
@@ -553,17 +516,11 @@ class UiRoutes(Http):
         self.assertEqual(self.raw('/', {'X-Forwarded-For': '1.2.3.4'})[0], 403)
         self.assertEqual(self.raw('/core.js', {'Authorization': 'Bearer x'})[0], 403)
 
-    def test_attacks_lists_closed_fields_from_the_results_file(self):
+    def test_missing_mounted_attack_report_is_explicit_even_when_the_repository_has_history(self):
         status, body, _ = self.raw('/api/console/attacks')
         data = json.loads(body)
         self.assertEqual(status, 200)
-        self.assertTrue(data['available'])
-        self.assertEqual(data['stopped'], sum(r['result'] == 'PASS' for r in data['results']))
-        self.assertEqual(data['total'], len(data['results']))
-        self.assertTrue(all(set(r) - {'note'} == {'case', 'result', 'at'} for r in data['results']))
-        noted = [r for r in data['results'] if 'note' in r]
-        self.assertTrue(all(r['result'] == 'FAIL' for r in noted))  # a note is attached only to the failed case it is about
-        self.assertNotIn('financial_setup', {r['case'] for r in data['results']})  # a precondition, not an attack
+        self.assertEqual(data, {'available':False,'status':'missing','file':'ConfigMap apps/attack-results','results':[]})
         self.assertIsNone(LEAKS.search(body.decode()))
 
     def test_example_returns_the_shipped_manifest_and_its_command(self):
@@ -574,32 +531,34 @@ class UiRoutes(Http):
 
 
 class FileBackedRoutes(unittest.TestCase):
-    def console_with(self, evidence, examples):
+    def console_with(self, directory):
         c = make()
-        c.evidence_dir, c.examples_dir = Path(evidence), Path(examples)
+        c.examples_dir = Path(directory)
+        c.live_attacks = Path(directory)/'attack-suite.json'
         return c
 
-    def test_missing_or_malformed_results_file_is_an_honest_empty_state(self):
+    def test_missing_or_malformed_mount_is_an_honest_empty_state(self):
         import tempfile
         with tempfile.TemporaryDirectory() as tmp:
-            c = self.console_with(tmp, tmp)
-            c.live_attacks = Path(tmp) / 'absent.json'
-            self.assertEqual(c.attacks(), {'available': False, 'source': None, 'file': 'docs/evidence/attack-suite.json', 'results': []})
-            self.assertEqual(c.example(), {'available': False, 'file': 'docs/examples/rejected-agent/agent.yaml'})
-            for bad in ('not json', '{}', json.dumps({'completed_at': 'x', 'results': [{'case': 'Bad Case!', 'result': 'PASS', 'at': 'x'}]}),
-                        json.dumps({'completed_at': 'x', 'results': [{'case': 'ok_case', 'result': 'MAYBE', 'at': 'x'}]})):
-                (Path(tmp) / 'attack-suite.json').write_text(bad)
-                self.assertFalse(c.attacks()['available'], bad)
+            c = self.console_with(tmp)
+            self.assertEqual(c.attacks()['status'],'missing')
+            self.assertEqual(c.example(), {'available':False,'file':'docs/examples/rejected-agent/agent.yaml'})
+            for bad in ('not json','{}','{"schema_version":999}'):
+                c.live_attacks.write_text(bad)
+                self.assertEqual(c.attacks()['status'],'invalid')
 
-    def test_results_file_text_other_than_closed_fields_is_dropped(self):
+    def test_historical_mount_free_text_is_dropped_and_cannot_claim_this_release(self):
         import tempfile
+        from test_attack_results import old_report
         with tempfile.TemporaryDirectory() as tmp:
-            (Path(tmp) / 'attack-suite.json').write_text(json.dumps({'completed_at': '2026-10-13T12:50:43+00:00', 'cluster': 'secret-name', 'results': [
-                {'case': 'ok_case', 'result': 'PASS', 'at': '2026-10-13T12:00:00+00:00', 'evidence': {'password': 'hunter2'}}]}))
-            data = self.console_with(tmp, tmp).attacks()
-            self.assertEqual(data['results'], [{'case': 'ok_case', 'result': 'PASS', 'at': '2026-10-13T12:00:00+00:00'}])
-            self.assertNotIn('hunter2', json.dumps(data))
-            self.assertNotIn('secret-name', json.dumps(data))
+            c = self.console_with(tmp)
+            value = old_report(); value['cluster']='secret-name'; value['password']='hunter2'
+            c.live_attacks.write_text(json.dumps(value))
+            data = c.attacks()
+            self.assertEqual(data['binding'],'historical')
+            self.assertEqual(data['results'][0]['verdict'],'RECORDED_PASS')
+            self.assertNotIn('hunter2',json.dumps(data))
+            self.assertNotIn('secret-name',json.dumps(data))
 
     def test_agents_carry_the_port_and_redaction_the_ui_shows(self):
         by = {a['name']: a for a in make().agents()['agents']}
@@ -615,12 +574,13 @@ class Packaging(unittest.TestCase):
             self.assertIn('COPY --chown=65532:65532 ' + copy, app)
         ops = dockerfile.split('FROM runtime AS ops')[1]
         self.assertNotIn('platform/core/kubernetes', ops)  # the ops image does not carry the console data
-        for copy in ('platform/core/ui/ /app/platform/ui/', 'docs/evidence/attack-suite*.json /app/platform/evidence/',
+        for copy in ('platform/core/ui/ /app/platform/ui/',
                      'docs/examples/rejected-agent/agent.yaml /app/platform/examples/rejected-agent/agent.yaml'):
             self.assertIn('COPY --chown=65532:65532 ' + copy, app)
         self.assertNotIn('/app/demo/ui', dockerfile)  # the qualified demo UI is no longer overlaid
-        for allowed in ('!docs/evidence/attack-suite*.json', '!docs/examples/rejected-agent/agent.yaml', '!platform/core/ui/**'):
+        for allowed in ('!docs/examples/rejected-agent/agent.yaml', '!platform/core/ui/**'):
             self.assertIn(allowed, ignore)
+        self.assertNotIn('docs/evidence', app + ignore)
         self.assertNotIn('!docs/**', ignore)
         for allowed in ('!platform/core/kubernetes/**', '!platform/agents/*/agent.yaml', '!platform/clouds/gke/kubernetes/gke.yaml'):
             self.assertIn(allowed, ignore)
