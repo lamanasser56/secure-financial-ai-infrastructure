@@ -464,7 +464,8 @@ class Console:
         entry = EXPLAIN.get(topic)
         if entry is None:
             return None
-        return dict(topic=topic, **entry['text'], proof=getattr(self, '_proof_' + topic.replace('-', '_'))(), file=entry['file'])
+        proof = entry['proof'](self) if entry['proof'] is not None else None
+        return dict(topic=topic, **entry['text'], proof=proof, file=entry['file'])
 
     def _network(self):
         posture = self._live('/v1/posture')
@@ -489,9 +490,6 @@ class Console:
                                 for p in policies) for ns, policies in network.items()}
         return {'source': 'ops-agent /v1/posture (live NetworkPolicy list)', 'observed_at': round(self._clock(), 3),
                 'default_deny': default_deny, 'egress_to_addresses': blocks, 'unreadable': posture.get('unreadable', [])}
-
-    def _proof_private_link(self):
-        return None  # Private Service Connect is a cloud resource; no read-only source exists for it in the cluster
 
     def _service_proof(self, name):
         finding = self._finding('platform.' + name)
@@ -527,32 +525,32 @@ class Console:
 
 
 EXPLAIN = {
-    'network': {'file': 'platform/core/kubernetes/policies/network.yaml', 'text': {
+    'network': {'proof': Console._proof_network, 'file': 'platform/core/kubernetes/policies/network.yaml', 'text': {
         'title': 'Network wall',
         'plain': 'Agents cannot talk to each other. Each one reaches only the platform services it needs.',
         'how': 'The selected release declares namespace default-deny and explicit paths through trusted services. Live policy lists show configured rules, not a traffic test or complete drop log.',
         'without': "One compromised agent could read another agent's data or borrow its key."}},
-    'private-link': {'file': 'platform/clouds/gke/kubernetes/gke.yaml', 'text': {
+    'private-link': {'proof': None, 'file': 'platform/clouds/gke/kubernetes/gke.yaml', 'text': {
         'title': 'Private link',
         'plain': 'Calls to Google services use a private route, not the public internet.',
         'how': 'Egress is allowed only to the named Google API hostnames, resolved to private endpoints.',
         'without': 'Model and sensitive-data traffic would cross the public internet.'}},
-    'internet': {'file': 'platform/core/kubernetes/policies/network.yaml', 'text': {
+    'internet': {'proof': Console._proof_internet, 'file': 'platform/core/kubernetes/policies/network.yaml', 'text': {
         'title': 'No way out',
         'plain': 'Agents cannot reach the internet.',
         'how': 'No egress rule points at an address range. The only exits are DNS and the platform services.',
         'without': 'A tricked agent could send data to any server.'}},
-    'redactor': {'file': 'platform/core/src/agent_platform/programs/redactor_server.py', 'text': {
+    'redactor': {'proof': Console._proof_redactor, 'file': 'platform/core/src/agent_platform/programs/redactor_server.py', 'text': {
         'title': 'Redactor',
         'plain': 'Personal data is hidden from the model.',
         'how': 'Every model request goes through the redactor first. If it fails, the request is not sent.',
         'without': 'Names, emails and numbers would reach the model.'}},
-    'gateway': {'file': 'platform/core/kubernetes/platform/workloads.yaml', 'text': {
+    'gateway': {'proof': Console._proof_gateway, 'file': 'platform/core/kubernetes/platform/workloads.yaml', 'text': {
         'title': 'Private model provider gateway',
         'plain': 'One key and one budget per agent.',
         'how': 'The trusted gateway frontend redacts accepted messages and forwards with private upstream credentials. Workers do not receive those keys.',
         'without': 'An agent could spend without limit or use another key.'}},
-    'audit': {'file': 'platform/core/src/agent_platform/audit.py', 'text': {
+    'audit': {'proof': Console._proof_audit, 'file': 'platform/core/src/agent_platform/audit.py', 'text': {
         'title': 'Audit',
         'plain': 'Bounded component events support investigation.',
         'how': 'Trusted mediators emit their own events. Worker traces and stdout alone do not prove complete or authentic audit.',
@@ -565,7 +563,8 @@ for _topic, _title, _description, _source in (
     ('financial-frontdoor', 'Trusted user and data boundary', 'Only this boundary holds user-authentication and database credentials; workers use active signed read capabilities.', 'platform/agents/financial/finance_agent/frontdoor.py'),
     ('ops-executor', 'Independent approval executor', 'Only this identity can patch registered workloads after verifying owner approval and consuming a durable one-use receipt.', 'platform/core/src/agent_platform/ops/executor.py'),
 ):
-    EXPLAIN[_topic] = {'file': _source, 'text': {'title': _title, 'plain': _description,
+    # These declarations have no independent read-only proof source in this API.
+    EXPLAIN[_topic] = {'proof': None, 'file': _source, 'text': {'title': _title, 'plain': _description,
                       'how': 'Declared RC1 source architecture; live deployment enforcement remains unverified.',
                       'without': 'A compromised worker could cross a boundary intended to be enforced independently.'}}
 
