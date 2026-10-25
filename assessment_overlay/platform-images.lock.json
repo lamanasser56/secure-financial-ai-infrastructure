@@ -1,7 +1,7 @@
 {
   "source_commit": "41ffbf260a446b5db2292356a8ea23219e58a524",
   "runtime_contract": "trusted-boundaries-v2",
-  "registry": "us-east1-docker.pkg.dev/project-b1e55144-cfd4-4fef-89a/sdp-evaluation-images/",
+  "registry": "us-east1-docker.pkg.dev/synthetic-source-20261025/sdp-evaluation-images/",
   "images": {
     "gateway": "agent-demo-gateway@sha256:a3dcf411dc50f7cb4d63dacfbc0b8c6103051a182b27936e703fb798478cd7d4",
     "database": "agent-demo-database@sha256:545d822b1aa7537a177b60bc6d0d72bcd9c68eb6a50512b4bb9403263d25739a",
