@@ -32,6 +32,10 @@ class LiveToolingTest(unittest.TestCase):
         self.assertFalse(receipt['external_llm_route'])
         self.assertEqual(len(receipt['restored_main_environment_names']), 2)
         self.assertEqual([len(s) for s in split(docs)], [22, 103, 1, 1, 1, 2, 13])
+        seed = next(d for d in docs if d['kind'] == 'Job' and
+            d['metadata']['name'] == 'assessment-sdp-seed')
+        self.assertEqual(seed['spec']['template']['spec']['securityContext']
+                         ['seccompProfile']['type'], 'RuntimeDefault')
         programs = next(d for d in docs if d['kind'] == 'ConfigMap' and
             d['metadata']['name'].startswith('platform-programs-'))['data']
         expected = (ROOT / 'platform/core/src/agent_platform/programs/redactor_server.py').read_text()
