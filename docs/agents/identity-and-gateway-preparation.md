@@ -105,7 +105,7 @@ and explicitly locks gateway-only `google-auth` for the
 Both candidates/evidence are retained; no third design or tag-update loop follows.
 Candidate dependencies are not installed in the existing UI environment.
 
-[Dockerfile](../../docker/litellm-candidate/Dockerfile) uses the already assessed
+[Dockerfile](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/docker/litellm-candidate/Dockerfile) uses the already assessed
 immutable Python 3.12.15/Distroless Debian 13 bases, nonroot 65532, immutable locks;
 read-only/no-network smoke tests and fresh SBOM/Trivy/KEV/policy evidence are required.
 The upstream [proxy installation](https://docs.litellm.ai/docs/simple_proxy) supports

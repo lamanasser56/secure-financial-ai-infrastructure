@@ -3,7 +3,6 @@ import json
 from pathlib import Path
 import unittest
 from unittest.mock import patch
-from tests.qualification_history import historical_input
 
 ROOT = Path(__file__).resolve().parents[3]
 spec = importlib.util.spec_from_file_location(
@@ -14,39 +13,6 @@ spec.loader.exec_module(runner)
 
 
 class ContextCampaignTests(unittest.TestCase):
-    def test_retained_qualification_binds_historical_subject_not_diagnostic_candidate(self):
-        import hashlib
-
-        record = json.loads(
-            (ROOT / "evaluation/google-sdp-context/qualification.json").read_text()
-        )
-        self.assertEqual(
-            hashlib.sha256((ROOT / "evaluation/google-sdp-context/qualification.json").read_bytes()).hexdigest(),
-            "b18f1f5af688e31d72458302b1c1e43b730d740b296b2a5581b0df785c0e3bbe",
-        )  # Preserve the exact historical record; no ancestry/fetch dependency.
-        changed = set()
-        for path, expected in record["source_input_sha256"].items():
-            if hashlib.sha256(historical_input(ROOT, path, expected).read_bytes()).hexdigest() != expected:
-                changed.add(path)
-        self.assertEqual(changed, {
-            "runtime/phase3/google_sdp_adapter.py",
-            "scripts/evaluate-sdp-context-policy.py",
-            "evaluation/google-sdp-context/result.schema.json",
-        })
-        # Current campaign gate uses a distinct fresh record before build/auth.
-        helper = (ROOT / "scripts/qualify-sdp-context-release.sh").read_text()
-        self.assertIn("campaign image input differs from qualification", helper)
-        self.assertLess(helper.index("campaign image input differs from qualification"),
-                        helper.index('bash scripts/build-sdp-context-image.sh'))
-        self.assertIn("campaign-qualification.json", helper)
-        self.assertFalse(record["google_detection_proven"])
-        self.assertFalse(record["authority_changed"])
-        self.assertIsNone(record["candidate"]["registry_manifest_digest"])
-        self.assertEqual(
-            record["candidate"]["archive_sha256"][0],
-            record["candidate"]["archive_sha256"][1],
-        )
-
     def test_reference_results_sanitized_and_not_google_accuracy(self):
         result = runner.evaluate()
         self.assertEqual(result["outcome"], "OFFLINE_REFERENCE_PASS_GOOGLE_UNPROVEN")

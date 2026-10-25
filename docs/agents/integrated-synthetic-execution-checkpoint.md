@@ -43,7 +43,7 @@ No browser input, upload, alternate month, text/case/file selector or tenant ove
 
 Prepared alias `secure-financial-chat` routes only to
 `vertex_ai/gemini-2.5-flash`, us-east1, in the exact existing project. The
-[route configuration](../../deploy/local-agents/litellm-vertex.yaml) disables
+[route configuration](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/deploy/local-agents/litellm-vertex.yaml) disables
 retries, fallbacks, telemetry and raw message/spend logging. The official
 [lifecycle table](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions)
 currently lists retirement on 20 October 2026. Reverify exact regional availability,
@@ -91,8 +91,8 @@ mount or environment contains master/salt, issuer private key, ADC or model key.
 The application has no cloud GSA and no metadata/provider egress.
 
 Separate non-superuser/non-bypass gateway and tenant-read database roles use the
-[locked official generated DDL](../../deploy/local-agents/litellm-schema.sql) and
-[synthetic tenant schema](../../deploy/local-agents/tenant.sql). FORCE RLS,
+[locked official generated DDL](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/deploy/local-agents/litellm-schema.sql) and
+[synthetic tenant schema](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/deploy/local-agents/tenant.sql). FORCE RLS,
 transaction-local server tenant settings, parameterized SQL, rollback before
 lease delivery and close/discard behavior remain. No production records, financial
 write tool, `documents.read` grant or invented production table.

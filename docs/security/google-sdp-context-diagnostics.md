@@ -145,11 +145,11 @@ handoff outside Git.
 | Output | Fixed case/policy identity, neutral outcome, finite diagnostic values and operation counts only; source provenance is separate image evidence. No raw text, findings, spans or provider detail. |
 | Decision | Diagnose the first failure only. A pass permits review of the next qualification proposal; it does not authorize that campaign or replacement. |
 
-The [diagnostic renderer](../../scripts/render-sdp-context-diagnostic-job.sh) fixes
+The [diagnostic renderer](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/scripts/render-sdp-context-diagnostic-job.sh) fixes
 `--live --diagnostic-first-case`, both exact acknowledgement controls and the
-120-second suspended Job. Its [validator](../../scripts/validate-sdp-context-diagnostic-deployment.py)
+120-second suspended Job. Its [validator](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/scripts/validate-sdp-context-diagnostic-deployment.py)
 rejects full-campaign execution, arbitrary selectors and changes to the inherited
-security contract. The original [context renderer](../../scripts/render-sdp-context-job.sh)
+security contract. The original [context renderer](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/v2-live-evidence/scripts/render-sdp-context-job.sh)
 is a full-campaign contract and must not be used unchanged for this run.
 
 Fresh deterministic archive/configuration qualification, SBOM, Trivy and unchanged

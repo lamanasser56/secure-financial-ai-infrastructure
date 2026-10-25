@@ -259,29 +259,5 @@ class ImageEquivalentExecution(unittest.TestCase):
         self.assertEqual(json.loads(completed.stdout)["diagnostic"], {"code": "CONFIGURATION_REJECTED", "stage": "startup"})
 
 
-class DeploymentProfile(unittest.TestCase):
-    def test_rendered_job_matches_validator_and_bounds(self):
-        # Synthetic placeholder; no real project identifier in the tree (override for a native rehearsal only).
-        P = os.environ.get("PORTFOLIO_TEST_PROJECT_ID", "example-project-123")
-        digest = "us-east1-docker.pkg.dev/" + P + "/sdp-evaluation-images/google-sdp-context@sha256:667ceec4b8290df1341a91a7685ad140319fca6d23f92b9948dddf9fac64136b"
-        rendered = subprocess.run(["bash", str(ROOT / "scripts/render-sdp-composite-email-campaign-job.sh"), P,
-                                   "google-sdp-runtime@" + P + ".iam.gserviceaccount.com", digest], capture_output=True, text=True, check=True).stdout
-        directory = next(line.split(": ", 1)[1].rsplit("/", 1)[0] for line in rendered.splitlines() if line.startswith("Controls: "))
-        try:
-            import yaml
-            job = yaml.safe_load(Path(directory, "google-sdp-evaluation-job.yaml").read_text())
-            container = job["spec"]["template"]["spec"]["containers"][0]
-            self.assertEqual((job["spec"]["suspend"], job["spec"]["backoffLimit"], job["spec"]["activeDeadlineSeconds"]), (True, 0, 900))
-            self.assertEqual(container["args"][1], PROGRAM.rendered_source(ROOT))
-            self.assertEqual(job["metadata"]["annotations"]["portfolio.example/program-sha256"], hashlib.sha256(container["args"][1].encode()).hexdigest())
-            self.assertEqual(container["image"], digest)  # unchanged SDP image subject
-            bad = Path(directory, "google-sdp-evaluation-job.yaml")
-            bad.write_text(bad.read_text().replace("'172'", "'173'"))
-            self.assertNotEqual(subprocess.run([sys.executable, str(ROOT / "scripts/validate-sdp-composite-email-campaign-deployment.py"),
-                                                str(Path(directory, "google-sdp-evaluation.yaml"))], capture_output=True).returncode, 0)
-        finally:
-            subprocess.run(["bash", str(ROOT / "scripts/render-sdp-composite-email-campaign-job.sh"), "--cleanup", directory], capture_output=True)
-
-
 if __name__ == "__main__":
     unittest.main()

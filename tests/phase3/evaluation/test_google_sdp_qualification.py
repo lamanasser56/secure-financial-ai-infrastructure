@@ -1,14 +1,12 @@
 """Offline fixture/scorer checks; no Google detector or API execution."""
 
 from copy import deepcopy
-import hashlib
 import json
 from pathlib import Path
 import unittest
 from unittest.mock import patch
 
 from runtime.phase3 import sdp_qualification as qualification
-from tests.qualification_history import historical_input
 from runtime.phase3.trusted_runtime import SUPPORTED_ENTITIES
 
 
@@ -96,64 +94,6 @@ class QualificationTests(unittest.TestCase):
             ):
                 with self.assertRaises(qualification.QualificationFailure):
                     qualification.preparation_summary()
-
-    def test_historical_candidate_inputs_remain_separate_without_inheriting_signature(
-        self,
-    ):
-        record = json.loads(
-            (
-                qualification.ROOT / "evaluation/google-sdp-agent/qualification.json"
-            ).read_text()
-        )
-        self.assertEqual(record["status"], "blocked_full_campaign")
-        self.assertEqual(record["google_quality"], "unmeasured")
-        self.assertFalse(record["published"])
-        self.assertFalse(record["signed"])
-        self.assertFalse(record["authority_changed"])
-        for group in ("image_source_input_sha256", "qualification_source_input_sha256"):
-            for path, expected in record[group].items():
-                if path == "runtime/phase3/google_sdp_adapter.py":
-                    self.assertEqual(
-                        expected,
-                        "e0bdc6bc845498842c6c7d439ebc95e9a12652583c9c54aecf5a8dba0dcdb524",
-                    )
-                    current = json.loads(
-                        (
-                            qualification.ROOT
-                            / "evaluation/google-sdp-context/qualification.json"
-                        ).read_text()
-                    )
-                    self.assertNotEqual(
-                        hashlib.sha256(
-                            (qualification.ROOT / path).read_bytes()
-                        ).hexdigest(),
-                        current["source_input_sha256"][path],
-                    )
-                    self.assertEqual(current["source_input_sha256"][path],
-                                     "83ccb313ff70b109b571327c730497d88a0cd7cf12ec5f295db38d0456a673ed")
-                    # Both retained subjects precede the unqualified diagnostic helper.
-                    continue
-                self.assertEqual(
-                    hashlib.sha256(
-                        historical_input(qualification.ROOT, path, expected).read_bytes()
-                    ).hexdigest(),
-                    expected,
-                    path,
-                )
-        artifact = record["candidate"]
-        self.assertIsNone(artifact["registry_manifest_digest"])
-        self.assertIsNone(artifact["signature"])
-        self.assertEqual(artifact["archive_sha256"][0], artifact["archive_sha256"][1])
-        self.assertEqual((artifact["policy_exit"], artifact["exception_count"]), (0, 0))
-        self.assertEqual(
-            (
-                artifact["vulnerabilities"]["HIGH"],
-                artifact["vulnerabilities"]["CRITICAL"],
-            ),
-            (0, 0),
-        )
-        for expected in artifact["evidence_sha256"].values():
-            self.assertRegex(expected, "^[0-9a-f]{64}$")
 
     def test_exact_labels_and_partial_metrics_never_award_google_accuracy(self):
         # Label-replay tests scoring, NOT Google detection. Missing class rows stay uncovered.

@@ -33,8 +33,8 @@ from .trusted_runtime import (
 DEFAULT_ANALYZER_URL = "http://presidio-analyzer.ai-platform.svc.cluster.local:3000/analyze"
 DEFAULT_ANONYMIZER_URL = "http://presidio-anonymizer.ai-platform.svc.cluster.local:3000/anonymize"
 DEFAULT_PRESIDIO_TIMEOUT_SECONDS = 10.0
-# LiteLLM's configured provider timeout is 30s in
-# kubernetes/apps/litellm/configmap.yaml. Stay above that so LiteLLM can
+# LiteLLM's configured provider timeout is 30s in the LiteLLM ConfigMap
+# (v2-live-evidence/kubernetes/apps/litellm/configmap.yaml). Stay above that so LiteLLM can
 # report its own timeout before this adapter cuts the connection.
 DEFAULT_LITELLM_TIMEOUT_SECONDS = 35.0
 CLIENT_KEY_ENV_VAR = "PORTFOLIO_LITELLM_CLIENT_KEY"
