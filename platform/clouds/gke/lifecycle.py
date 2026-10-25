@@ -157,6 +157,15 @@ def release_lock(project_id):
     return path
 
 
+def render_release(o=None):
+    """Render and validate the selected release once, identically for up and demo-reset."""
+    o = outputs() if o is None else o
+    return run(sys.executable, '-B', HERE / 'render.py', '--project-id', o['project_id'],
+               '--control-plane-cidr', o['control_plane_cidr'], '--gateway-gsa', o['gateway_gsa'],
+               '--redactor-gsa', o['redactor_gsa'], '--kubectl', KUBECTL,
+               '--images-lock', release_lock(o['project_id']), capture=True).stdout
+
+
 def stages(docs):
     """The apply order proven in the live run: identities, config (the Ops registry ConfigMap among it), the admission
     policy, its binding (Fail/Deny needs its param first), the database, Jobs, Deployments. Refuses a policy that no
@@ -181,10 +190,7 @@ def up():
     resize(1)
     kubeconfig()
     scale_staged_to_zero()
-    o = outputs()
-    rendered = run(sys.executable, '-B', HERE / 'render.py', '--project-id', o['project_id'], '--control-plane-cidr', o['control_plane_cidr'],
-                   '--gateway-gsa', o['gateway_gsa'], '--redactor-gsa', o['redactor_gsa'], '--kubectl', KUBECTL,
-                   '--images-lock', release_lock(o['project_id']), capture=True).stdout
+    rendered = render_release()
     import yaml
     docs = [d for d in yaml.safe_load_all(rendered) if d]
     addon = [d for d in docs if d['kind'] == 'NetworkLogging']  # owned by GKE's addon manager (EnsureExists): client-side apply
