@@ -51,8 +51,15 @@ class ReviewedExceptionGateTest(unittest.TestCase):
                     self.assertEqual(raw["Results"][0]["Vulnerabilities"], [finding()])
 
     def test_other_images_are_never_exempted(self):
-        for image in ("agent-financial", "platform-guide"):
+        for image in ("agent-financial", "platform-guide", "agent-platform-gateway",
+                      "agent-platform-redactor", "agent-platform-database"):
             self.assertFalse(self.check(image, [finding()])[0])
+
+    def test_declared_release_images_are_the_gate_inventory(self):
+        catalog = json.loads((ROOT / "platform/image-targets.json").read_text())
+        self.assertEqual(GATE.IMAGES, {entry["image"] for entry in catalog["images"]})
+        with self.assertRaisesRegex(ValueError, "unknown image"):
+            self.check("unlisted-service", [])
 
     def test_any_other_high_or_critical_still_blocks(self):
         for severity in ("HIGH", "CRITICAL"):

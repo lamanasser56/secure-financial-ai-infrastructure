@@ -1,6 +1,6 @@
 # Image build inputs
 
-`platform/image-targets.json` owns first-party build names, Dockerfiles, stages and the optional source argument. It is not a second set of deployment digests. The selected release lock owns deployment selection; changing that lock alone does not change image content inputs. A build definition does not by itself prove that every pinned deployment service has a current source recipe.
+`platform/image-targets.json` owns first-party build names, Dockerfiles, stages and the optional source argument. It is not a second set of deployment digests. The selected release lock owns deployment selection; changing that lock alone does not change image content inputs. The inventory declares all seven first-party release subjects: App, Ops, Financial, Guide, gateway, redactor and database. The current-source recipes are checked against the workload image names; the lock still selects only verified deployment digests.
 
 ## Derived ownership
 
@@ -18,11 +18,11 @@ The image workflow builds only a source commit with successful main-push CI. It 
 
 The sole target inventory produces the workflow matrix. There is no separate workflow image list or blanket docs skip expression. Documentation changes rebuild their actual consumer; lock/evidence-only promotion outside all copied inputs and controls yields an empty matrix. Manual dispatch forces every target, including the final source freeze build. Source metadata such as the selected commit changes when an image is built; reusing unchanged inputs retains that image's original build source and requires its original evidence.
 
-Every build receives a fresh export of the exact Git source snapshot. Untracked files and later checkout edits are not an overlay on that context. The Guide receives the validated commit as its declared source argument. Before any push/signing, the existing all-severity scan and HIGH/CRITICAL-or-any-KEV gate still run with the existing reviewed exception policy; planning does not waive qualification.
+Every build receives a fresh export of the exact Git source snapshot. Untracked files and later checkout edits are not an overlay on that context. The Guide receives the validated commit as its declared source argument. Docker builds run only on `secure-infra-worker`; the trusted workflow reaches it through instance-scoped OS Login and IAP using a pinned SSH host key. The worker verifies the source archive hash, uses a digest-pinned BuildKit image, scans the resulting image and returns a hashed image archive plus build receipt. The GitHub job verifies that receipt, imports the archive, repeats the pre-push scan and runs the same post-push gate. The existing all-severity scan and HIGH/CRITICAL-or-any-KEV policy stay unchanged; planning does not waive qualification.
 
 ## Evidence boundaries
 
-An input plan records the snapshot compared and content ownership. It is not an image receipt and does not prove that an image was built, signed or deployed from that snapshot. Release evidence must separately bind actual build source/materials to each exact subject digest and verify signatures, attestations and source provenance cryptographically.
+An input plan records the snapshot compared and content ownership. It is not an image receipt and does not prove that an image was built, signed or deployed from that snapshot. Release evidence separately binds the worker receipt, exact Git source and archive hash, input fingerprint, pinned external materials and exact subject digest in a signed custom source predicate. The release verifier checks that predicate against the exact digest, along with the signature and KMS attestation. The build and post-push gates inspect every severity and block HIGH/CRITICAL or any KEV match under the existing policy. Release evidence separately lists remaining findings without available fixes for each image.
 
 The final release sequence still freezes source S, force-builds all first-party images from S on the designated worker, verifies exact subjects, and promotes only lock/evidence metadata in R. Deploy those same digests. A changed content input after S requires another freeze and build; a successful planning skip is not permission to relabel an earlier image as built from S.
 

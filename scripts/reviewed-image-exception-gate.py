@@ -15,7 +15,7 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-IMAGES = {"agent-platform-app", "agent-platform-ops", "agent-financial", "platform-guide"}
+IMAGES = {entry["image"] for entry in json.loads((ROOT / "platform/image-targets.json").read_text())["images"]}
 EXCEPTION_IMAGES = {"agent-platform-app", "agent-platform-ops"}
 ADVISORY = "CVE-2026-112940"
 PACKAGE = "filelock"
