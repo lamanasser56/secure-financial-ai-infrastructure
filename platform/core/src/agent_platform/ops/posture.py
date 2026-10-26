@@ -42,6 +42,7 @@ def check(client, namespaces, workloads):
             roles = client.list('roles', ns)
             events = client.list('events', ns)
         except KubeError as error:
+            unreadable.append(ns)
             if policies is not None:  # (a namespace already reported unreadable above is not reported twice)
                 findings.append({'namespace': ns, 'finding': 'UNREADABLE', 'detail': str(error.status)})
             continue
@@ -78,4 +79,4 @@ def check(client, namespaces, workloads):
                 findings.append({'namespace': ns, 'finding': 'IMAGE_REJECTED',
                                  'object': (event.get('involvedObject') or {}).get('name')})
     return {'findings': findings, 'namespaces': list(namespaces), 'clean': not findings, 'network': network,
-            'unreadable': sorted(unreadable)}
+            'unreadable': sorted(set(unreadable)), 'complete': not unreadable}

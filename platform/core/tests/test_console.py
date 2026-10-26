@@ -126,7 +126,8 @@ class OpsFacts(unittest.TestCase):
 
     def test_posture_reads_network_policies_even_when_other_lists_are_forbidden(self):
         result = checked_posture(KubeStub(forbidden_kinds=('rolebindings',)), ['agent-financial'])
-        self.assertEqual(result['unreadable'], [])
+        self.assertEqual(result['unreadable'], ['agent-financial'])
+        self.assertIs(result['complete'], False)
         self.assertIn('default-deny', {p['name'] for p in result['network']['agent-financial']})
         self.assertEqual([f['finding'] for f in result['findings']], ['UNREADABLE'])  # the other lists still report
         gone = checked_posture(KubeStub(forbidden_kinds=('networkpolicies',)), ['agent-financial'])

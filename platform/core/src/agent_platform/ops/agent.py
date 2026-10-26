@@ -17,6 +17,7 @@ import time
 import uuid
 
 from agent_platform import audit
+from agent_platform.observations import FRESH_SECONDS
 from agent_platform.k8s import KubeError
 from agent_platform.ops import actions, activity, approval, diagnose, posture
 from agent_platform.ops.registry import ACTIONS
@@ -74,7 +75,8 @@ class Agent:
             self.findings[key] = finding
             if self.targets[key].observe_only:  # read-only monitoring: no proposal, no explanation, no change
                 finding['suggested_actions'], finding['automated_fix'] = [], False
-                finding['owner_action'] = None if finding['finding'] == 'HEALTHY' else 'NOTIFY_AGENT_TEAM'
+                finding['owner_action'] = None if finding['finding'] == 'HEALTHY' else (
+                    'NOTIFY_AGENT_TEAM' if self.targets[key].namespace.startswith('agent-') else 'NOTIFY_PLATFORM_OWNER')
                 finding['observe_only'] = True
             changed = previous is None or previous['evidence_digest'] != finding['evidence_digest']
             if (not changed and not self.targets[key].observe_only and finding['suggested_actions']
@@ -249,10 +251,12 @@ class Agent:
         return {'result': 'VERIFIED' if outcome['verified'] else 'NOT_VERIFIED', 'code': outcome['code']}
 
     def posture(self):
+        started_at = round(self.clock(), 3)
         workloads = {}
         for target in self.targets.values():
             workloads.setdefault(target.namespace, []).append(target.name)
-        return posture.check(self.client, sorted(workloads), workloads)
+        return dict(posture.check(self.client, sorted(workloads), workloads), checked_at=round(self.clock(), 3), started_at=started_at,
+                    source='ops-agent /v1/posture', max_age_seconds=FRESH_SECONDS)
 
     def snapshot(self):
         with self._lock:
