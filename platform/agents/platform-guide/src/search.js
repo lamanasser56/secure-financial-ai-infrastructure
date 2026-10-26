@@ -1,18 +1,21 @@
 'use strict';
 // docs_search: BM25 over the chunks bundled at build time. Read-only, in-process, no network.
 const fs = require('node:fs');
-const {validate} = require('./index-format');
+const {validate, MAX_CHUNK} = require('./index-format');
 
 const K1 = 1.5;
 const B = 0.75;
 const TOP = 3;
-const EXCERPT = 450;
+const EXCERPT = MAX_CHUNK;
 const STOP = new Set(['the', 'a', 'an', 'and', 'or', 'of', 'to', 'in', 'is', 'it', 'on', 'for', 'how', 'what', 'does', 'do', 'with',
-  'this', 'that', 'are', 'be', 'by', 'as', 'at', 'from', 'can', 'i', 'my', 'me']);
+  'this', 'that', 'are', 'be', 'by', 'as', 'at', 'from', 'can', 'i', 'my', 'me',
+  'ما', 'هي', 'هو', 'كيف', 'عن', 'هذا', 'هذه', 'هل', 'في', 'من', 'علي', 'الي', 'مع', 'او', 'التي', 'الذي', 'ان', 'لا']);
 
 function tokens(text) {
   const out = [];
-  for (const t of String(text).toLowerCase().normalize('NFKC').split(/[^\p{L}\p{N}_]+/u)) {
+  const normalized = String(text).toLowerCase().normalize('NFKC').replace(/[\u064b-\u065f\u0670\u0640]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي');
+  for (let t of normalized.split(/[^\p{L}\p{N}_]+/u)) {
+    if (/^ال[\u0621-\u064a]{3,}$/.test(t)) t = t.slice(2);
     if (t.length > 1 && !STOP.has(t)) out.push(t);
   }
   return out;
@@ -59,7 +62,7 @@ class DocsIndex {
       id: this.chunks[i].id,
       path: this.chunks[i].path,
       heading: this.chunks[i].heading,
-      excerpt: this.chunks[i].text.slice(0, EXCERPT),
+      excerpt: this.chunks[i].text,
       score: Math.round(score * 100) / 100,
     }));
   }

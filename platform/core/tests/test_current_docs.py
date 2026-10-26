@@ -16,3 +16,9 @@ class CurrentDocs(unittest.TestCase):
         self.assertEqual(listed, {item['code'] for item in current['supported']})
         self.assertIn('Person names and passport numbers are not masked.', text)
         self.assertIn(current['limits'], text)
+
+    def test_arabic_guide_reference_lists_the_same_supported_types(self):
+        text = (ROOT / 'docs/platform/guide.ar.md').read_text()
+        listed = set(re.findall(r'`([A-Z_]+)`', text))
+        self.assertEqual(listed, {item['code'] for item in scope()['supported']})
+        self.assertIn('لا تُخفى أسماء الأشخاص أو أرقام جوازات السفر', text)

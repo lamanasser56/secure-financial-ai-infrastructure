@@ -1,7 +1,28 @@
-/* Guide layout over the canonical blueprint shell. */
-.guide-form.panel, .guide-out.panel { padding: 24px; min-width: 0; }
+/* Guide content over the shared blueprint shell; all long details open in its drawer. */
+.guide-form.panel, .guide-out.panel { padding: 24px; min-width: 0; align-self: start; }
 .guide-form { display: grid; gap: 12px; align-content: start; }
-.guide-form textarea { min-height: 120px; resize: vertical; }
+.guide-form textarea { min-height: 128px; resize: vertical; }
 .guide-form .btn { justify-self: start; }
-.guide-out h2 { margin-bottom: 12px; }
-.guide-out pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.guide-language { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.guide-language select { width: auto; max-width: 60%; }
+.guide-examples { display: flex; flex-wrap: wrap; gap: 8px; }
+.guide-examples button { text-align: start; white-space: normal; }
+.guide-out h2 { margin-bottom: 16px; }
+.guide-out p { overflow-wrap: anywhere; }
+.guide-excerpt { padding-inline-start: 14px; border-inline-start: 2px solid var(--declared); white-space: pre-wrap; }
+.guide-sources { padding: 0; list-style: none; display: grid; gap: 8px; margin: 20px 0; }
+.guide-sources button { text-align: start; width: 100%; white-space: normal; }
+.guide-source-name { display: block; overflow-wrap: anywhere; }
+.guide-out .guide-state { min-height: 120px; }
+.guide-tools { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.guide-code { white-space: pre-wrap; overflow-wrap: anywhere; direction: ltr; text-align: left; unicode-bidi: isolate; }
+.guide-note { font-size: 14px; margin-top: 12px; }
+html[dir="rtl"] body, html[dir="rtl"] button, html[dir="rtl"] input, html[dir="rtl"] select, html[dir="rtl"] textarea { font-family: 'IBM Plex Sans Arabic', sans-serif; }
+@media (max-width: 600px) {
+  .guide-form.panel, .guide-out.panel { padding: 16px; }
+  .guide-form textarea { min-height: 140px; }
+  .guide-language { flex-wrap: wrap; }
+}
+
+/* The screen shows an explicitly labelled preview; the source drawer contains the full indexed passage. */
+.guide-out .guide-excerpt { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }

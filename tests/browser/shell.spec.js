@@ -8,6 +8,7 @@ import {assets} from './server.js';
 const here = dirname(fileURLToPath(import.meta.url)), root = join(here, '../..');
 const projection = name => JSON.parse(execFileSync(process.env.PYTHON || 'python3', [join(here, name)], {encoding: 'utf8'}));
 const data = projection('presentation_payloads.py'), ops = projection('ops_payloads.py');
+const guideData = JSON.parse(execFileSync(process.execPath, [join(here, 'guide_payloads.cjs')], {encoding: 'utf8'}));
 const sharedRoot = join(root, 'platform/core/ui');
 const shared = JSON.parse(await readFile(join(sharedRoot, 'shared-assets.json'), 'utf8')).assets;
 let consoleServer, financial, guide, errors;
@@ -18,7 +19,9 @@ test.beforeAll(async () => {
   guide = await assets('platform/agents/platform-guide/public');
 });
 test.afterAll(async () => { await consoleServer.close(); await financial.close(); await guide.close(); });
-test.beforeEach(({page}) => { errors = []; page.on('pageerror', error => errors.push(error.message)); });
+test.beforeEach(async ({page}) => { errors = []; page.on('pageerror', error => errors.push(error.message));
+  await page.route('**/api/info', route => route.fulfill({json: guideData.info}));
+});
 test.afterEach(() => { expect(errors).toEqual([]); });
 
 async function finance(page, handle = () => false) {
@@ -91,7 +94,7 @@ test('Guide uses the shared blueprint shell and skip preserves its draft without
   await expect(page.getByLabel('Question', {exact: true})).toHaveValue('Synthetic Guide draft');
   await expect(page.getByRole('link', {name: 'Agent passport', exact: true})).toHaveAttribute('href', 'http://127.0.0.1:8080/#/agents/platform-guide');
   expect(await page.locator('body').evaluate(node => getComputedStyle(node).getPropertyValue('--bg').trim())).toBe('#0C2745');
-  await expect(page.locator('#connection')).toHaveText('Not checked');
+  await expect(page.locator('#connection')).toHaveText('API answered');
   await page.screenshot({path: info.outputPath('guide-shared-shell.png')});
 });
 

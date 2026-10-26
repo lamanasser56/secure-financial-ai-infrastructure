@@ -21,6 +21,7 @@
     "security/threat-model.md",
     "security/container-vulnerability-release-policy.md",
     "security/realistic-data-corpus.md",
-    "platform/guide-corpus.md"
+    "platform/guide-corpus.md",
+    "platform/guide.ar.md"
   ]
 }
