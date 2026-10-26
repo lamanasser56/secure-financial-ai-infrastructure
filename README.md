@@ -22,7 +22,7 @@ The selected `platform/clouds/gke/release-rc1.lock.json` is the deployment image
 | `make agent-forward A=financial` | Trusted Financial UI at `http://127.0.0.1:8081/` |
 | `make agent-forward A=platform-guide` | Guide at `http://127.0.0.1:8082/` |
 
-See [how to view](docs/HOW-TO-VIEW.md) and the [recording runbook](docs/operations/demo-runbook.md). Deployment/live commands require the approved operator environment. Code and offline tests belong on the engineering worker; the all-image build runs on `secure-infra-worker`. Persistent VMs/disks are retained until an explicit owner deletion request.
+See [how to view](docs/HOW-TO-VIEW.md) and the [recording runbook](docs/operations/demo-runbook.md). Deployment/live commands require the approved operator environment. Code and offline tests run on the engineering VM; release images build on GitHub-hosted runners. Persistent VMs/disks are retained until an explicit owner deletion request.
 
 The final release sequence is source freeze **S** → first-party builds from **S** → cryptographic subject/source verification → lock/evidence-only promotion **R** → deploy the same digests → readiness → the approved exact-image disposable assessment → reset/onboarding/attack checks → full screen walkthrough. Historical evidence cannot replace this sequence for new source.
 

@@ -11,7 +11,6 @@
     "policy/empty-exceptions.json",
     "scripts/plan-image-builds.py",
     "requirements-*.in",
-    "scripts/remote-image-build.py",
     "scripts/image-provenance.py"
   ],
   "images": [

@@ -40,4 +40,4 @@ There is no “wait until teardown” justification for misdescribing current co
 
 ## Persistent engineering VMs
 
-`secure-infra-worker` is retained for engineering and the all-image build theme. `sfai-engineering` is the current isolated test VM. **Neither VM nor its retained disk is to be deleted without an explicit owner request.** They are outside disposable assessment cleanup and outside the GKE workload boundary. A historical teardown date does not authorize deleting them. See [retention and teardown](../agent-platform/teardown-plan.md).
+`secure-infra-worker` is retained as an engineering resource; release builds use GitHub-hosted runners. `sfai-engineering` is the current isolated test VM. **Neither VM nor its retained disk is to be deleted without an explicit owner request.** They are outside disposable assessment cleanup and the GKE workload boundary. A historical teardown date does not authorize deleting them. See [retention and teardown](../agent-platform/teardown-plan.md).

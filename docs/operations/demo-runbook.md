@@ -1,10 +1,10 @@
 # Release and recording runbook
 
-Use the selected release and current code, not historical PR numbers or a previous attack pass count. Code/offline tests and builds run on the approved worker; use the cluster only for the final deployment and verification phase. Keep private project identities and unfiltered cloud output out of the recording.
+Use the selected release and current code, not historical PR numbers or a previous attack pass count. Code/offline tests run on the engineering VM; release builds run on GitHub-hosted runners. Use the cluster only for the final deployment and verification phase. Keep private project identities and unfiltered cloud output out of the recording.
 
 ## Release qualification
 
-1. Freeze source **S** after the approved fixes and checks. Build every first-party image from **S** on `secure-infra-worker`.
+1. Freeze source **S** after the approved fixes and checks. Build every first-party image from **S** in the GitHub-hosted image matrix.
 2. Keep the existing vulnerability gate unchanged. Refresh each pinned base and fix every applicable available fix before the freeze. Stop on a gate failure or a fix that cannot be applied; add no exceptions. Record no-fix findings per image.
 3. Verify cryptographic signatures, KMS attestations and source provenance for exact image subjects. A tag, receipt or workflow certificate alone is not checkout-source proof.
 4. Promote digests in lock/evidence-only commit **R**. Deploy those same digests with staged `make up`; do not rebuild a different source during promotion.

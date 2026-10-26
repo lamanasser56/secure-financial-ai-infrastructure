@@ -79,8 +79,9 @@ class Verifier:
             if not isinstance(values, list):
                 return False
             repo, digest = ref.rsplit('@', 1)
-            expected = {'schema': 1, 'source_commit': self.source, 'image': image,
-                        'worker': 'secure-infra-worker', 'input_fingerprint': input_fingerprint,
+            expected = {'schema': 2, 'source_commit': self.source, 'image': image,
+                        'build_environment': 'github-hosted:ubuntu-24.04',
+                        'input_fingerprint': input_fingerprint,
                         'git_archive_sha256': archive_sha256,
                         'materials': materials, 'platform': 'linux/amd64',
                         'builder': 'moby/buildkit@sha256:99368f3e46177c6405b9740e4461d91cee004128daeecca78d4ceac50ec1da5c'}

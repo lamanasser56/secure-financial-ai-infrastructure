@@ -295,13 +295,13 @@ class SignedSourcePredicate(unittest.TestCase):
     MATERIAL = 'moby/buildkit@sha256:99368f3e46177c6405b9740e4461d91cee004128daeecca78d4ceac50ec1da5c'
 
     def statement(self, *, source=SOURCE, archive='a' * 64, fingerprint='c' * 64,
-                  materials=None, worker='secure-infra-worker', digest='b' * 64):
+                  materials=None, build_environment='github-hosted:ubuntu-24.04', digest='b' * 64):
         repo = self.REF.split('@', 1)[0]
         return {'_type': 'https://in-toto.io/Statement/v0.1',
                 'predicateType': 'https://cosign.sigstore.dev/attestation/v1',
                 'subject': [{'name': repo, 'digest': {'sha256': digest}}],
-                'predicate': {'Data': {'schema': 1, 'source_commit': source, 'image': 'app',
-                    'worker': worker, 'git_archive_sha256': archive,
+                'predicate': {'Data': {'schema': 2, 'source_commit': source, 'image': 'app',
+                    'build_environment': build_environment, 'git_archive_sha256': archive,
                     'input_fingerprint': fingerprint, 'materials': [self.MATERIAL] if materials is None else materials,
                     'platform': 'linux/amd64', 'builder': self.MATERIAL}}}
 
@@ -322,9 +322,9 @@ class SignedSourcePredicate(unittest.TestCase):
     def test_exact_verified_statement_passes(self):
         self.assertTrue(self.run_with(self.statement()))
 
-    def test_source_material_worker_archive_and_subject_mutations_fail(self):
+    def test_source_material_build_environment_archive_and_subject_mutations_fail(self):
         for change in ({'source':'e'*40},{'archive':'d'*64},{'fingerprint':'e'*64},
-                       {'materials':[]},{'worker':'elsewhere'},{'digest':'e'*64}):
+                       {'materials':[]},{'build_environment':'elsewhere'},{'digest':'e'*64}):
             with self.subTest(change=change):
                 self.assertFalse(self.run_with(self.statement(**change)))
 
