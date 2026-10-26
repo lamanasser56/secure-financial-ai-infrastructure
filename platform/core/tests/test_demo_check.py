@@ -15,7 +15,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'clouds/gke'))
 import demo_check  # noqa: E402
 import lifecycle  # noqa: E402
-from agent_platform.release_verify import IDENTITY, ISSUER, Verifier  # noqa: E402
+from agent_platform.release_verify import IDENTITY, ISSUER, KMS_RESOURCE, Verifier  # noqa: E402
 from test_render_fields import render  # noqa: E402
 
 PROJECT, SOURCE = 'render-fixture', 'd' * 40
@@ -29,9 +29,11 @@ def signed_occurrence(ref, *, key=KEY):
     repo, digest = ref.rsplit('@', 1)
     raw = json.dumps({'critical': {'identity': {'docker-reference': repo},
         'image': {'docker-manifest-digest': digest}, 'type': 'Google cloud binauthz container signature'}}).encode()
-    return {'kind': 'ATTESTATION', 'resourceUri': 'https://' + ref, 'noteName': NOTE,
-            'attestation': {'serializedPayload': base64.b64encode(raw).decode(), 'signatures': [
-                {'publicKeyId': KEY_ID, 'signature': base64.b64encode(key.sign(raw, ec.ECDSA(hashes.SHA256()))).decode()}]}}
+    # gcloud's shape: bare resource URI, full KMS resource name, padded base64url bytes fields.
+    return {'kind': 'ATTESTATION', 'resourceUri': ref, 'noteName': NOTE,
+            'attestation': {'serializedPayload': base64.urlsafe_b64encode(raw).decode(), 'signatures': [
+                {'publicKeyId': KMS_RESOURCE + KEY_ID,
+                 'signature': base64.urlsafe_b64encode(key.sign(raw, ec.ECDSA(hashes.SHA256()))).decode()}]}}
 
 
 def live_items(docs):
@@ -69,9 +71,10 @@ class Fake:
         self.present, self.api, self.calls = secrets_present, api, []
         self.groups = live_items(docs)
         self.authority = {'name': 'projects/' + PROJECT + '/attestors/agent-platform-ci',
-            'userOwnedGrafeasNote': {'noteReference': NOTE, 'publicKeys': [{'id': KEY_ID,
-                'pkixPublicKey': {'publicKeyPem': PEM, 'signatureAlgorithm': 'EC_SIGN_P256_SHA256'}}]}}
-        self.kms = {'name': KEY_ID, 'pem': PEM, 'algorithm': 'EC_SIGN_P256_SHA256'}
+            'userOwnedGrafeasNote': {'noteReference': NOTE, 'publicKeys': [{'id': KMS_RESOURCE + KEY_ID,
+                'pkixPublicKey': {'publicKeyPem': PEM, 'signatureAlgorithm': 'ECDSA_P256_SHA256'}}]}}
+        self.kms = {'name': KEY_ID, 'algorithm': 'EC_SIGN_P256_SHA256', 'state': 'ENABLED'}
+        self.public_key = PEM
         self.change_occurrence = lambda value: value
 
     def __call__(self, args, input=None):
@@ -94,8 +97,10 @@ class Fake:
             return 0, str(self.capacity)
         if 'attestors describe' in a:
             return 0, json.dumps(self.authority)
-        if 'get-public-key' in args:
+        if 'versions describe' in a:
             return 0, json.dumps(self.kms)
+        if 'get-public-key' in args:
+            return 0, self.public_key
         if 'attestations list' in a:
             ref = args[args.index('--artifact-url') + 1]
             return 0, json.dumps([self.change_occurrence(signed_occurrence(ref))] if self.attested else [])
@@ -253,10 +258,10 @@ class CryptographicAttestation(unittest.TestCase):
 
     def test_presence_metadata_is_not_sufficient(self):
         def changed_payload(o):
-            o['attestation']['serializedPayload'] = base64.b64encode(b'{}').decode()
+            o['attestation']['serializedPayload'] = base64.urlsafe_b64encode(b'{}').decode()
             return o
         def changed_signature(o):
-            o['attestation']['signatures'][0]['signature'] = base64.b64encode(b'x' * 64).decode()
+            o['attestation']['signatures'][0]['signature'] = base64.urlsafe_b64encode(b'x' * 64).decode()
             return o
         def changed_note(o):
             o['noteName'] = NOTE + '-other'
@@ -277,13 +282,14 @@ class CryptographicAttestation(unittest.TestCase):
                 self.assertFalse(Verifier(PROJECT, SOURCE, fake).attestation(self.REF))
 
     def test_changed_authority_kms_key_or_unreviewed_algorithm_is_rejected(self):
-        for target in ('attestor', 'extra-key', 'pem', 'kms-key', 'algorithm', 'key-id'):
+        for target in ('attestor', 'extra-key', 'pem', 'kms-pem', 'kms-key', 'algorithm', 'key-id'):
             with self.subTest(target=target):
                 fake = Fake()
                 keys = fake.authority['userOwnedGrafeasNote']['publicKeys']
                 if target == 'attestor': fake.authority['name'] += '-other'
                 if target == 'extra-key': keys.append(deepcopy(keys[0]))
                 if target == 'pem': keys[0]['pkixPublicKey']['publicKeyPem'] = 'different'
+                if target == 'kms-pem': fake.public_key = 'different'
                 if target == 'kms-key': fake.kms['name'] += '0'
                 if target == 'algorithm': keys[0]['pkixPublicKey']['signatureAlgorithm'] = 'RSA_SIGN_PKCS1_2048_SHA256'
                 if target == 'key-id': keys[0]['id'] += '0'
