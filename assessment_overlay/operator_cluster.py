@@ -92,11 +92,14 @@ def create_cluster(manifest, run_dir, *, gke_version, terraform='terraform',
     outputs = json.loads(runner(base + ['output', '-json', '-state=' + str(state)],
                                 data_dir=data_dir))
     platform = outputs.get('platform', {}).get('value', {})
-    if not platform.get('node_service_account') or not platform.get('attestor'):
+    if (not platform.get('node_service_account') or not platform.get('attestor')
+            or not platform.get('cluster_name') or not platform.get('cluster_location')):
         raise RuntimeError('assessment:terraform_outputs_incomplete')
     receipt = {'run_id': run_id, 'source_commit': manifest['source_commit'],
                'terraform_plan_sha256': hashlib.sha256(plan.read_bytes()).hexdigest(),
                'created_resource_count': resources, 'gke_version': gke_version,
+               'cluster_name': platform['cluster_name'],
+               'cluster_location': platform['cluster_location'],
                'node_service_account': platform['node_service_account'],
                'attestor': platform['attestor'],
                'attestor_key_version': platform['attestor_key_version'],

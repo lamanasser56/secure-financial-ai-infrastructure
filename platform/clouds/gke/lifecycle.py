@@ -118,24 +118,29 @@ def apply():
     tf('apply', '-input=false', str(out), env=env)
 
 
-def kubeconfig():
-    s = settings()
-    STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
-    described = json.loads(run('gcloud', 'container', 'clusters', 'describe', NAME, '--location', ZONE, '--project', s['project_id'],
+def kubeconfig_for(project, name, zone, state):
+    """Write a private, refreshable DNS-endpoint config for a declared cluster."""
+    state = Path(state)
+    state.mkdir(mode=0o700, parents=True, exist_ok=True)
+    described = json.loads(run('gcloud', 'container', 'clusters', 'describe', name, '--location', zone, '--project', project,
                                '--format=json', capture=True).stdout)
     endpoint = described['controlPlaneEndpointsConfig']['dnsEndpointConfig']['endpoint']
-    helper = STATE / 'gcloud-token-exec.sh'
+    helper = state / 'gcloud-token-exec.sh'
     helper.write_text('#!/bin/sh\nt=$(gcloud auth application-default print-access-token) || exit 1\n'
                       'printf \'{"apiVersion":"client.authentication.k8s.io/v1beta1","kind":"ExecCredential","status":{"token":"%s"}}\' "$t"\n')
     os.chmod(helper, 0o700)
-    config = {'apiVersion': 'v1', 'kind': 'Config', 'current-context': NAME,
-              'clusters': [{'name': NAME, 'cluster': {'server': 'https://' + endpoint}}],
-              'users': [{'name': NAME, 'user': {'exec': {'apiVersion': 'client.authentication.k8s.io/v1beta1', 'command': str(helper),
+    config = {'apiVersion': 'v1', 'kind': 'Config', 'current-context': name,
+              'clusters': [{'name': name, 'cluster': {'server': 'https://' + endpoint}}],
+              'users': [{'name': name, 'user': {'exec': {'apiVersion': 'client.authentication.k8s.io/v1beta1', 'command': str(helper),
                                                          'interactiveMode': 'Never'}}}],
-              'contexts': [{'name': NAME, 'context': {'cluster': NAME, 'user': NAME}}]}
-    path = STATE / 'kubeconfig'
+              'contexts': [{'name': name, 'context': {'cluster': name, 'user': name}}]}
+    path = state / 'kubeconfig'
     path.write_text(json.dumps(config)); os.chmod(path, 0o600)
     return path
+
+
+def kubeconfig():
+    return kubeconfig_for(settings()['project_id'], NAME, ZONE, STATE)
 
 
 def kubectl(*args, **kw):
