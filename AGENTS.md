@@ -1,1 +1,3 @@
+# Repository rule
+
 Keep this platform reusable and portable. Builds, releases, deployments, tests, and assessments must not depend on a personal laptop, `secure-infra-worker`, or hand-installed state; declare all required tools, inputs, and setup in the repository so each process can be reproduced from a fresh GitHub-hosted runner or another cloud environment. Engineering VMs are for interactive development only, never hidden release infrastructure.
