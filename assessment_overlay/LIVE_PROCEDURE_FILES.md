@@ -1,8 +1,7 @@
-# Current-source disposable assessment procedure (draft)
+# Current-source disposable assessment procedure
 
-This procedure is **not executable yet**. PR #170 remains draft until all twelve
-current-source probes, their guard and cleanup integration, and offline checks
-are complete. The historical operator scripts are read-only behavioral reference;
+The twelve current-source probes are bound by `live_case_runner.py`. The
+historical operator scripts are read-only behavioral reference;
 no runtime step imports them or depends on their location.
 
 The assessed source is the final frozen commit S and its seven-image lock.
@@ -30,9 +29,12 @@ no external LLM calls are allowed. The independent janitor must remain active
 before each case, and the run has a 180-minute deadline and $50 cost ceiling.
 Every case reads both durable ledgers immediately before and after its probe.
 
-The current code has probes for D02, D04-D07, O04, K01-K03, K05 and R01.
-O03 and final command binding are outstanding. K03 still needs its restricted
-Pod Security Admission check. D04's live portion tests wrong worker key,
+O03 sends a signed approval to the independent executor for a zero-replica,
+disposable `fault-demo` Deployment after UID and resourceVersion changes. It
+checks exact `TARGET_REPLACED` and `OBJECT_CHANGED` denials and unchanged spec
+and image digest. K03 checks restricted Pod Security Admission with a
+server-side dry run, separately from the executor's projected-token RBAC.
+D04's live portion tests wrong worker key,
 unexpected user field, worker secret inventory and direct database denial.
 An active cross-user capability is covered by the current-source integration
 test in platform/core/tests/test_trusted_boundaries.py; the production
@@ -44,3 +46,37 @@ outside Git. Receipts contain counters, digests and booleans only. Any failed
 security check, unreadable ledger, lost janitor, deadline or ceiling stops the
 run; cleanup remains mandatory and a PASS requires resource absence, billing
 unlink and a confirmed project deletion request.
+
+Run this only after final release S/R evidence and the original deployment's
+readiness pass. All commands below run from the repository root in an
+ephemeral cloud operator environment with Python 3.12, the pinned repository
+tools, authenticated operator identity, and `GH_TOKEN` scoped to workflow
+dispatch/read. The private `ASSESSMENT_RUN_DIR` must be outside the checkout.
+Values for project, registry, billing account and GKE version are supplied
+privately; never print them in transcripts or evidence. No command here is
+authorized during code/offline testing.
+
+```bash
+make tools operator-env
+bash scripts/install-assessment-crane.sh "$PWD/.cache/platform-tools"
+bash scripts/install-qualification-tools.sh "$PWD/.cache/platform-tools"
+export PATH="$PWD/.cache/platform-tools:$PATH"
+PYTHONPATH=assessment_overlay:platform/core/src:. .cache/operator-venv/bin/python -B assessment_overlay/live_session.py --images-lock platform/clouds/gke/release-rc1.lock.json --output "$ASSESSMENT_RUN_DIR" --kubectl .cache/platform-tools/kubectl
+PYTHONPATH=assessment_overlay:platform/core/src:. .cache/operator-venv/bin/python -B assessment_overlay/operator_setup.py --run-dir "$ASSESSMENT_RUN_DIR" --execute
+PYTHONPATH=assessment_overlay:platform/core/src:. .cache/operator-venv/bin/python -B assessment_overlay/operator_janitor.py --run-dir "$ASSESSMENT_RUN_DIR" --execute
+PYTHONPATH=assessment_overlay:platform/core/src:. .cache/operator-venv/bin/python -B assessment_overlay/operator_cluster.py --run-dir "$ASSESSMENT_RUN_DIR" --gke-version "$ASSESSMENT_GKE_VERSION" --terraform .cache/platform-tools/terraform --execute
+PYTHONPATH=assessment_overlay:platform/core/src:. .cache/operator-venv/bin/python -B assessment_overlay/operator_images.py --run-dir "$ASSESSMENT_RUN_DIR" --images-lock platform/clouds/gke/release-rc1.lock.json --execute
+PYTHONPATH=assessment_overlay:platform/core/src:. .cache/operator-venv/bin/python -B assessment_overlay/operator_admission.py --run-dir "$ASSESSMENT_RUN_DIR" --execute
+PYTHONPATH=assessment_overlay:platform/core/src:. .cache/operator-venv/bin/python -B assessment_overlay/operator_apply.py --run-dir "$ASSESSMENT_RUN_DIR" --kubectl .cache/platform-tools/kubectl --execute
+PYTHONPATH=assessment_overlay:platform/core/src:. .cache/operator-venv/bin/python -B assessment_overlay/live_case_runner.py --run-dir "$ASSESSMENT_RUN_DIR" --execute
+```
+
+The runner executes the exact twelve-case order, reads both durable ledgers
+around each case, checks the independent janitor before every case, and invokes
+cleanup even after a case failure. On an earlier setup/apply failure, invoke
+`operator_cleanup.py --run-dir "$ASSESSMENT_RUN_DIR" --execute` immediately;
+the independent janitor remains the fallback. The 180-minute deadline and
+20/60 durable ceilings are enforced in code. The $50 ceiling is a spending
+limit for the operator, not a real-time GCP billing claim: billing data may
+lag, so the operator must track it and abort/clean up if its conservative
+upper-bound estimate reaches $50. A receipt alone cannot prove final spend.
