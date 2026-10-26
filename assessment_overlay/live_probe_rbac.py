@@ -1,5 +1,7 @@
 """K02: the current ops observer's projected token cannot mutate or read secrets."""
+import json
 import re
+import subprocess
 
 from live_probe_kube import one_pod, python_probe
 
@@ -93,6 +95,23 @@ print(json.dumps({'projected_token_present':bool(token), 'allowed_restart_dry_ru
 '''
 
 
-def probe_k03(kubeconfig, *, executable='kubectl', pod=one_pod, execute=python_probe):
+def restricted_psa(kubeconfig, *, executable='kubectl', run=subprocess.run):
+    """Prove restricted PSA itself rejects a privileged Pod, without creating it."""
+    pod = {'apiVersion': 'v1', 'kind': 'Pod',
+           'metadata': {'name': 'assessment-psa-denied', 'namespace': 'ops'},
+           'spec': {'containers': [{'name': 'probe', 'image': 'invalid.example/never-pulled',
+                                    'securityContext': {'privileged': True}}]}}
+    result = run([str(executable), '--kubeconfig=' + str(kubeconfig), '-n', 'ops',
+                  'create', '--dry-run=server', '-f', '-'], input=json.dumps(pod),
+                 capture_output=True, text=True, timeout=45)
+    message = result.stderr + result.stdout
+    return result.returncode != 0 and bool(re.search(
+        r'violates PodSecurity "restricted(?::[^"\n]+)?"', message))
+
+
+def probe_k03(kubeconfig, *, executable='kubectl', pod=one_pod, execute=python_probe,
+              psa=restricted_psa):
     executor = pod(kubeconfig, 'ops', 'app.kubernetes.io/name=ops-executor', executable=executable)
-    return execute(kubeconfig, 'ops', executor, K03, executable=executable)
+    checks = execute(kubeconfig, 'ops', executor, K03, executable=executable)
+    checks['restricted_psa_denied_privileged_pod'] = psa(kubeconfig, executable=executable)
+    return checks

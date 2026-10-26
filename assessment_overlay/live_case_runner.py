@@ -4,8 +4,10 @@ Probe implementations receive a private context and return only named boolean
 checks. The runner records no raw request, response, credential, or canary.
 """
 
+import argparse
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 
 from janitor import write_receipt
@@ -89,3 +91,107 @@ def run_case(manifest, run_dir, case, probe, *, kubeconfig, ledger_reader,
     if receipt['result'] != 'PASS':
         raise RuntimeError('assessment:case_' + receipt['result'].lower())
     return receipt
+
+
+def case_probes(manifest, run_dir, kubeconfig):
+    """Bind each historical case name to its current repository implementation."""
+    from live_probe_finance import probe as finance
+    from live_probe_identity import probe_k05
+    from live_probe_model import probe as model
+    from live_probe_network import probe_k01
+    from live_probe_ops import probe_o04
+    from live_probe_ops_race import probe_o03
+    from live_probe_rbac import probe_k02, probe_k03
+    from live_probe_session import probe_r01
+    from live_probe_worker import probe_d04
+
+    probes = {
+        'D02': lambda: model(kubeconfig),
+        'D06': lambda: finance('D06', kubeconfig),
+        'D04': lambda: probe_d04(kubeconfig),
+        'D05': lambda: finance('D05', kubeconfig),
+        'D07': lambda: finance('D07', kubeconfig),
+        'O03': lambda: probe_o03(kubeconfig, run_dir, manifest),
+        'O04': lambda: probe_o04(kubeconfig),
+        'K01': lambda: probe_k01(kubeconfig),
+        'K02': lambda: probe_k02(kubeconfig),
+        'K03': lambda: probe_k03(kubeconfig),
+        'K05': lambda: probe_k05(kubeconfig, manifest['disposable_project_id']),
+        'R01': lambda: probe_r01(kubeconfig, run_dir, manifest['run_id']),
+    }
+    if set(probes) != set(CASE_ORDER):
+        raise RuntimeError('assessment:case_binding_incomplete')
+    return probes
+
+
+def run_all(manifest, run_dir, *, kubeconfig, probes, ledger_reader,
+            janitor_status, cleanup):
+    """Run all cases in order and require confirmed cleanup even after failure."""
+    if set(probes) != set(CASE_ORDER):
+        raise RuntimeError('assessment:case_binding_incomplete')
+    if manifest.get('cost_ceiling_usd') != 50:
+        raise RuntimeError('assessment:cost_ceiling_changed')
+    run_dir = Path(run_dir)
+    failure = None
+    try:
+        for case in CASE_ORDER:
+            run_case(manifest, run_dir, case, probes[case], kubeconfig=kubeconfig,
+                     ledger_reader=ledger_reader, janitor_status=janitor_status)
+    except Exception as exc:
+        failure = type(exc).__name__
+    finally:
+        outcome = cleanup(manifest, run_dir)
+        write_receipt(run_dir / 'evidence' / 'operator-cleanup.json', outcome)
+    passed = failure is None and outcome.get('result') == 'PASS'
+    summary = {'run_id': manifest['run_id'], 'source_commit': manifest['source_commit'],
+               'result': 'PASS' if passed else 'INCONCLUSIVE',
+               'cases_passed': sum(json.loads((run_dir / 'evidence' /
+                   ('case-' + case + '-result.json')).read_text()).get('result') == 'PASS'
+                   for case in CASE_ORDER if (run_dir / 'evidence' /
+                   ('case-' + case + '-result.json')).is_file()),
+               'cleanup_passed': outcome.get('result') == 'PASS',
+               'failure_type': failure}
+    write_receipt(run_dir / 'evidence' / 'final-summary.json', summary)
+    if not passed:
+        raise RuntimeError('assessment:live_run_inconclusive')
+    return summary
+
+
+def cleanup_disposable(manifest, run_dir):
+    from janitor import cleanup, write_receipt
+    from operator_cleanup import destroy
+    try:
+        return destroy(manifest, run_dir)
+    except Exception:
+        fallback = cleanup(manifest)
+        write_receipt(Path(run_dir) / 'evidence' / 'operator-cleanup-fallback.json', fallback)
+        return fallback
+
+
+def main():
+    from janitor import load_manifest
+    from live_case_guard import read as read_ledgers
+    from operator_janitor import github_api, watch_running
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--run-dir', type=Path, required=True)
+    parser.add_argument('--execute', action='store_true')
+    args = parser.parse_args()
+    token = os.environ.get('GITHUB_TOKEN') or os.environ.get('GH_TOKEN')
+    if not args.execute or not token:
+        raise SystemExit('assessment:explicit_execute_and_github_token_required')
+    manifest = load_manifest(args.run_dir / 'initial-manifest.json')
+    kubeconfig = args.run_dir / 'kube' / 'kubeconfig'
+    if not kubeconfig.is_file():
+        raise SystemExit('assessment:private_kubeconfig_required')
+    probes = case_probes(manifest, args.run_dir, kubeconfig)
+    result = run_all(manifest, args.run_dir, kubeconfig=kubeconfig, probes=probes,
+                     ledger_reader=read_ledgers,
+                     janitor_status=lambda run: watch_running(manifest['run_id'], run,
+                         api=lambda method, path, payload=None: github_api(token, method, path, payload)),
+                     cleanup=cleanup_disposable)
+    print(json.dumps(result, sort_keys=True))
+
+
+if __name__ == '__main__':
+    main()
