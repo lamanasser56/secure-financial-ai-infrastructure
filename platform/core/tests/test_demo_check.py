@@ -322,6 +322,15 @@ class SignedSourcePredicate(unittest.TestCase):
     def test_exact_verified_statement_passes(self):
         self.assertTrue(self.run_with(self.statement()))
 
+    def test_provenance_mismatch_reports_only_field_names(self):
+        statement = self.statement()
+        statement['predicate']['Data']['source_commit'] = 'e' * 40
+        payload = base64.b64encode(json.dumps(statement).encode()).decode()
+        verifier = Verifier(PROJECT, SOURCE, lambda _: (0, json.dumps([{'payload': payload}])))
+        self.assertFalse(verifier.provenance(self.REF, image='app', archive_sha256='a' * 64,
+                                             input_fingerprint='c' * 64, materials=[self.MATERIAL]))
+        self.assertEqual(verifier.provenance_issue, 'predicate_values:source_commit')
+
     def test_source_material_build_environment_archive_and_subject_mutations_fail(self):
         for change in ({'source':'e'*40},{'archive':'d'*64},{'fingerprint':'e'*64},
                        {'materials':[]},{'build_environment':'elsewhere'},{'digest':'e'*64}):

@@ -62,6 +62,7 @@ class Verifier:
         Cosign checks Fulcio identity, issuer and the transparency log before any payload is read.
         The signed predicate binds the source archive, current input graph and pinned materials.
         """
+        self.provenance_issue = 'invalid_input'
         if (not isinstance(self.source, str) or not re.fullmatch('[0-9a-f]{40}', self.source)
                 or not re.fullmatch('[0-9a-f]{64}', archive_sha256 or '')
                 or not re.fullmatch('[0-9a-f]{64}', input_fingerprint or '')
@@ -71,12 +72,14 @@ class Verifier:
             '--certificate-identity=' + IDENTITY, '--certificate-oidc-issuer=' + ISSUER,
             '--certificate-github-workflow-sha=' + self.source])
         if rc:
+            self.provenance_issue = 'cosign_verification_failed'
             return False
         try:
             values = decode(raw)
             if isinstance(values, dict):
                 values = [values]
             if not isinstance(values, list):
+                self.provenance_issue = 'cosign_output_shape'
                 return False
             repo, digest = ref.rsplit('@', 1)
             expected = {'schema': 2, 'source_commit': self.source, 'image': image,
@@ -88,18 +91,25 @@ class Verifier:
             for value in values:
                 payload = base64.b64decode(value['payload'], validate=True)
                 if len(payload) > 65536:
+                    self.provenance_issue = 'payload_size'
                     continue
                 statement = decode(payload)
                 if (statement.get('_type') != 'https://in-toto.io/Statement/v0.1'
                         or statement.get('predicateType') != 'https://cosign.sigstore.dev/attestation/v1'
                         or statement.get('subject') != [{'name': repo, 'digest': {'sha256': digest.removeprefix('sha256:')}}]):
+                    self.provenance_issue = 'statement_envelope'
                     continue
                 declared = statement['predicate']['Data']
                 if not isinstance(declared, dict) or set(declared) != set(expected):
+                    self.provenance_issue = 'predicate_shape'
                     continue
                 if all(declared[k] == v for k, v in expected.items()):
+                    self.provenance_issue = None
                     return True
+                self.provenance_issue = 'predicate_values:' + ','.join(
+                    sorted(k for k, v in expected.items() if declared[k] != v))
         except (KeyError, TypeError, ValueError):
+            self.provenance_issue = 'malformed_cosign_output'
             return False
         return False
 
