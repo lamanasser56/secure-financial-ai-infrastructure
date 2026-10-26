@@ -24,7 +24,7 @@
 | agent-platform-redactor | yes | pass | 23 | yes | yes |
 | agent-platform-database | yes | pass | 0 | yes | yes |
 
-Later [run 40327178150](https://github.com/lamanasser56/secure-financial-ai-infrastructure/actions/runs/40327178150) for main `c485905e7159a2bf03785a1e36091169b6615f7d`: App, Ops and Financial built, passed gate, signed and attested (23 no-fix each). Guide **failed** at step `Push by digest, keyless sign, verify, KMS attest`; Redactor was cancelled by fail-fast; Gateway/Database were skipped as unchanged. The job log was unavailable through CLI, so the narrower failing command is unknown. After #170, inspect the automatic main-push image workflow per image. At most **two** fix/retry attempts; no gate/policy change.
+Later [run 40327178150](https://github.com/lamanasser56/secure-financial-ai-infrastructure/actions/runs/40327178150) for main `c485905e7159a2bf03785a1e36091169b6615f7d`: App, Ops and Financial built, passed gate, signed and attested (23 no-fix each). Guide's local **and post-push Trivy/KEV gates passed**, then `cosign sign` failed while fetching Fulcio ambient OIDC credentials (`invalid character 'u' looking for beginning of value`); it is **not signed or attested** in that run. Redactor was cancelled by fail-fast; Gateway/Database were skipped as unchanged. After #170, inspect the automatic main-push image workflow per image. At most **two** fix/retry attempts; no gate/policy change.
 
 ## Read-only VM inventory
 
