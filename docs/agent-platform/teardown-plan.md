@@ -4,7 +4,7 @@ There is no automatic teardown authorization in this document. A historical targ
 
 ## Persistent engineering resources
 
-**Keep `secure-infra-worker`, `sfai-engineering` and their retained disks until the owner explicitly requests deletion.** The all-image build theme runs on `secure-infra-worker`; current offline tests use `sfai-engineering`. These VMs are outside the platform workload boundary and outside disposable assessment cleanup. Stopping a VM and retaining its disk is distinct from deleting it.
+**Keep `secure-infra-worker`, `sfai-engineering` and their retained disks until the owner explicitly requests deletion.** Release images build on GitHub-hosted runners; current offline tests use `sfai-engineering`. These VMs are outside the platform workload boundary and outside disposable assessment cleanup. Stopping a VM and retaining its disk is distinct from deleting it.
 
 ## Disposable assessment
 
