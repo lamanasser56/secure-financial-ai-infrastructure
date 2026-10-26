@@ -5,6 +5,8 @@ import http.client
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
+import tempfile
 import threading
 import unittest
 from types import SimpleNamespace
@@ -19,16 +21,48 @@ from stage_live_bundle import split
 
 ROOT = Path(__file__).resolve().parents[1]
 OVERLAY = Path(__file__).resolve().parent
-IMAGE_LOCK = json.loads((OVERLAY / 'platform-images.lock.json').read_text())
-APP = IMAGE_LOCK['registry'] + IMAGE_LOCK['images']['app']
+PROJECT = 'sfai-assess-test123'
+SOURCE = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+IMAGES = {name: image + '@sha256:' + hashlib.sha256(name.encode()).hexdigest() for name, image in (
+    ('gateway', 'agent-platform-gateway'), ('database', 'agent-platform-database'),
+    ('redactor', 'agent-platform-redactor'), ('app', 'agent-platform-app'),
+    ('ops-agent', 'agent-platform-ops'), ('agent-financial', 'agent-financial'),
+    ('platform-guide', 'platform-guide'))}
+IMAGE_LOCK = {'schema_version': 2, 'source_commit': SOURCE,
+              'runtime_contract': 'trusted-boundaries-v2',
+              'registry': 'us-east1-docker.pkg.dev/sfai-source-test123/sdp-evaluation-images/',
+              'images': IMAGES}
+APP = IMAGE_LOCK['registry'] + IMAGES['app']
+
+
+def lock_file(directory):
+    path = Path(directory) / 'current-images.json'
+    path.write_text(json.dumps(IMAGE_LOCK))
+    return path
 
 
 class LiveToolingTest(unittest.TestCase):
     def test_historical_bundle_refuses_current_image_owned_redactor(self):
-        with self.assertRaisesRegex(ValueError, 'image-owned redactor'):
-            make_bundle('assess-0123456789abcdef', passphrase='synthetic-test-only',
+        with self.assertRaisesRegex(ValueError, 'current qualified image lock'):
+            make_bundle('assess-0123456789abcdef', project=PROJECT,
+                        images_lock=OVERLAY / 'platform-images.lock.json', passphrase='synthetic-test-only',
                         hasher=lambda passwords: {name: '$argon2id$synthetic-test-only'
                                                   for name in passwords})
+
+    def test_full_current_bundle_stages_durable_limits_and_private_provider(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            docs, receipt = make_bundle('assess-0123456789abcdef', project=PROJECT,
+                images_lock=lock_file(temporary), passphrase='synthetic-test-only',
+                hasher=lambda passwords: {name: '$argon2id$synthetic-test-only'
+                                          for name in passwords})
+        self.assertFalse(receipt['external_llm_route'])
+        self.assertEqual(receipt['platform_commit'], SOURCE)
+        self.assertEqual(receipt['image_digests'], IMAGES)
+        staged = split(docs)
+        self.assertEqual(sum(map(len, staged)), len(docs))
+        self.assertTrue(any(d['kind'] == 'Job' and d['metadata']['name'] == 'assessment-sdp-seed'
+                            for d in docs))
+        self.assertFalse(any('vertex_ai/' in json.dumps(d) for d in docs))
 
     def test_provider_is_fixed_and_counts_raw_canary_without_echoing_it(self):
         server = make_server('127.0.0.1', 0)
@@ -58,14 +92,14 @@ class LiveToolingTest(unittest.TestCase):
                     ROOT / 'platform/clouds/gke/render.py')
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        project = 'sfai-assess-20261022-635651'
-        args = SimpleNamespace(project_id=project,
-            images_lock=str(OVERLAY / 'platform-images.lock.json'),
-            control_plane_cidr='172.30.0.0/28',
-            gateway_gsa=f'assess-gateway@{project}.iam.gserviceaccount.com',
-            redactor_gsa=f'assess-redactor@{project}.iam.gserviceaccount.com',
-            kubectl='kubectl')
-        rendered, summary = module.render(args)
+        with tempfile.TemporaryDirectory() as temporary:
+            args = SimpleNamespace(project_id=PROJECT,
+                images_lock=str(lock_file(temporary)),
+                control_plane_cidr='172.30.0.0/28',
+                gateway_gsa=f'assess-gateway@{PROJECT}.iam.gserviceaccount.com',
+                redactor_gsa=f'assess-redactor@{PROJECT}.iam.gserviceaccount.com',
+                kubectl='kubectl')
+            rendered, summary = module.render(args)
         self.assertEqual(summary['kinds']['ValidatingAdmissionPolicy'], 1)
         self.assertEqual(summary['kinds']['ValidatingAdmissionPolicyBinding'], 1)
         original = [doc for doc in yaml.safe_load_all(rendered) if doc]

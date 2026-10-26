@@ -1,7 +1,7 @@
-"""Assessment-only global actual-SDK-attempt cap. No initialization/reset fallback or request logging.
+"""Assessment-only global SDK-dispatch cap. No initialization/reset fallback or request logging.
 
 A trusted setup Job seeds the fresh registered persistent volume once. Reserve is committed and fsynced
-before calling the SDK; failed SDK calls consume quota. The worker has no access to this volume or identity.
+before calling the SDK; failed SDK calls consume quota. Untrusted workloads cannot access this volume.
 """
 import fcntl
 import json
@@ -38,20 +38,6 @@ class Ledger:
    finally:
     if temporary.exists():temporary.unlink()
    return state['used']
-
-class LimitedClient:
- def __init__(self,client,path):self.client,self.ledger=client,Ledger(path)
- @property
- def api_endpoint(self):return self.client.api_endpoint
- @property
- def transport(self):return self.client.transport
- def _call(self,name,*,request,retry,timeout):
-  if retry is not None:raise Exhausted('SDK retries forbidden')
-  self.ledger.reserve()
-  return getattr(self.client,name)(request=request,retry=None,timeout=timeout)
- def inspect_content(self,*,request,retry=None,timeout):return self._call('inspect_content',request=request,retry=retry,timeout=timeout)
- def deidentify_content(self,*,request,retry=None,timeout):return self._call('deidentify_content',request=request,retry=retry,timeout=timeout)
-
 
 class CompletedLedger:
  """Durable 20-response ceiling, separate from the 60 SDK-attempt ceiling.

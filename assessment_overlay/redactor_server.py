@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assessment entrypoint: use the mounted platform redactor, adding only durable caps.
+"""Assessment entrypoint: use the image-owned platform redactor with durable caps.
 
 The platform's Handler, Server, Capacity, Budget, phone guard, key validation,
 policy check and gRPC transport remain the sole implementations of those rules.
@@ -12,22 +12,15 @@ from pathlib import Path
 import sys
 
 
-PLATFORM_SOURCE = Path('/programs/redactor_server.py')
 GUARD_SOURCE = Path('/assessment/sdp_guard.py')
 ATTEMPTS = '/assessment-state/sdp-attempts.json'
 COMPLETIONS = '/assessment-state/sdp-completions.json'
 
 
-def load_platform(source=PLATFORM_SOURCE):
-    """Import the actual mounted platform source; never import this entrypoint."""
-    source = Path(source).resolve()
-    if source == Path(__file__).resolve():
-        raise RuntimeError('assessment redactor cannot replace platform source')
-    sys.path.insert(0, str(source.parent))  # platform's sibling phone_guard
-    spec = importlib.util.spec_from_file_location('_assessment_platform_redactor', source)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def load_platform():
+    """Import the signed image's regular package entrypoint, not an assessment copy."""
+    from agent_platform.programs import redactor_server
+    return redactor_server
 
 
 def load_guard(source=GUARD_SOURCE, expected_hash=None):
@@ -67,26 +60,13 @@ class CompletionBudget:
         return CompletionRedactor(self.budget.current(), self.ledger)
 
 
-def configure(platform, guard, *, attempts=ATTEMPTS, completions=COMPLETIONS):
-    """Decorate only platform extension points; its HTTP and SDP logic is unchanged."""
-    original_client = platform.keepalive_client
-    original_budget = platform.Budget
-    ledger = guard.CompletedLedger(completions)
-
-    def capped_client():
-        return guard.LimitedClient(original_client(), attempts)
-
-    def capped_budget(*args, **kwargs):
-        return CompletionBudget(original_budget(*args, **kwargs), ledger)
-
-    platform.keepalive_client = capped_client
-    platform.Budget = capped_budget
-    return platform
-
-
 def main():
-    platform = configure(load_platform(), load_guard())
-    platform.main()
+    guard = load_guard()
+    attempts = guard.Ledger(ATTEMPTS)
+    completions = guard.CompletedLedger(COMPLETIONS)
+    load_platform().main(
+        attempt_hook=lambda _operation: attempts.reserve(),
+        budget_wrapper=lambda budget: CompletionBudget(budget, completions))
 
 
 if __name__ == '__main__':

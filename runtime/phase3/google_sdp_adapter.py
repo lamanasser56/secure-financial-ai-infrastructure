@@ -384,6 +384,7 @@ class GoogleSDPRedactor:
         client: Any = None,
         budget: ContentAttemptBudget | None = None,
         grpc_options: tuple = (),
+        attempt_hook = None,
     ):
         if (
             type(project_id) is not str
@@ -397,7 +398,10 @@ class GoogleSDPRedactor:
         self._parent = f"projects/{project_id}/locations/{REGION}"
         if budget is not None and type(budget) is not ContentAttemptBudget:
             raise GoogleSDPFailure("CONFIGURATION_REJECTED", "startup")
+        if attempt_hook is not None and not callable(attempt_hook):
+            raise GoogleSDPFailure("CONFIGURATION_REJECTED", "startup")
         self._budget = budget if budget is not None else ContentAttemptBudget()
+        self._attempt_hook = attempt_hook
         self._operation_counts = {"inspect_attempted": 0, "deidentify_attempted": 0}
         self._test_counts = dict(self._operation_counts)
         self._real_sdk = client is None
@@ -466,6 +470,10 @@ class GoogleSDPRedactor:
         timeout = min(RPC_TIMEOUT_SECONDS, self._remaining(deadline))
         started = time.monotonic()
         reservation.attempt()
+        if self._attempt_hook is not None:
+            # A caller may persist a stricter global ceiling before each SDK dispatch.
+            # The hook sees only the operation name, never request content.
+            _guarded(lambda: self._attempt_hook(name), code="BUDGET_EXHAUSTED", stage="budget")
         counts = self._operation_counts if self._real_sdk else self._test_counts
         counts[name + "_attempted"] += 1
         result = _rpc_guarded(
