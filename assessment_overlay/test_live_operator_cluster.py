@@ -47,7 +47,10 @@ class OperatorClusterTest(unittest.TestCase):
             run_dir = Path(temp)
             (run_dir / 'initial-manifest.json').write_text(json.dumps(MANIFEST))
             (run_dir / 'evidence').mkdir()
-            (run_dir / 'evidence/project-setup.json').write_text('{}')
+            (run_dir / 'evidence/project-setup.json').write_text(json.dumps({
+                'run_id': RUN, 'billing_linked': True}))
+            (run_dir / 'evidence/janitor-armed.json').write_text(json.dumps({
+                'run_id': RUN, 'watch_step_in_progress': True}))
             runner = TerraformFixture()
             receipt = create_cluster(MANIFEST, run_dir, gke_version='1.35.1-gke.100',
                                      cloud=cloud, runner=runner,

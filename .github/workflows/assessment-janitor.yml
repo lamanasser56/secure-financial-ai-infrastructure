@@ -1,4 +1,5 @@
 name: Disposable assessment janitor
+run-name: Janitor ${{ inputs.run_id }}
 
 on:
   workflow_dispatch:

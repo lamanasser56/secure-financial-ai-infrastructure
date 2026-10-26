@@ -1,0 +1,58 @@
+"""Only a janitor actively waiting on an independent runner arms a live run."""
+from datetime import datetime, timezone
+import unittest
+
+from operator_janitor import WAIT_STEP, arm
+
+
+PROJECT = 'sfai-assess-fixture01'
+RUN = 'assess-0123456789abcdef'
+MANIFEST = {'disposable_project_id': PROJECT, 'run_id': RUN,
+            'deadline_at': '2026-10-27T00:00:00+00:00'}
+SETUP = {'janitor': {
+    'workload_identity_provider': ('projects/123456789012/locations/global/'
+                                   'workloadIdentityPools/assessment-janitor/'
+                                   'providers/assessment-janitor'),
+    'service_account': 'assessment-janitor@' + PROJECT + '.iam.gserviceaccount.com'}}
+
+
+class GithubFixture:
+    def __init__(self, *, step='in_progress'):
+        self.dispatched = False
+        self.calls = []
+        self.step = step
+
+    def __call__(self, method, path, payload=None):
+        self.calls.append((method, path, payload))
+        if method == 'POST':
+            self.dispatched = True
+            self.payload = payload
+            return None
+        if '/jobs?' in path:
+            return {'jobs': [{'steps': [{'name': WAIT_STEP, 'status': self.step}]}]}
+        if '/runs?' in path:
+            return {'workflow_runs': [] if not self.dispatched else [
+                {'id': 42, 'display_title': 'Janitor ' + RUN, 'status': 'in_progress'}]}
+        raise AssertionError(path)
+
+
+class OperatorJanitorTest(unittest.TestCase):
+    def test_dispatch_then_confirm_watch_step(self):
+        api = GithubFixture()
+        receipt = arm(MANIFEST, SETUP, api=api,
+                      now=datetime(2026, 10, 26, tzinfo=timezone.utc))
+        self.assertEqual(receipt['workflow_run_id'], 42)
+        self.assertTrue(receipt['watch_step_in_progress'])
+        self.assertEqual(api.payload['inputs']['project_id'], PROJECT)
+        self.assertEqual(api.payload['ref'], 'main')
+
+    def test_invalid_identity_refuses_dispatch(self):
+        api = GithubFixture()
+        wrong = {'janitor': dict(SETUP['janitor'], service_account='other@example.com')}
+        with self.assertRaisesRegex(ValueError, 'identity_missing'):
+            arm(MANIFEST, wrong, api=api, now=datetime(2026, 10, 26, tzinfo=timezone.utc))
+        self.assertEqual(api.calls, [])
+
+
+if __name__ == '__main__':
+    unittest.main()

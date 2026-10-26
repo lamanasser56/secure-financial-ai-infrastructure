@@ -52,7 +52,15 @@ def create_cluster(manifest, run_dir, *, gke_version, terraform='terraform',
     run_dir = Path(run_dir).resolve()
     if run_dir.is_relative_to(ROOT.resolve()) or not (run_dir / 'initial-manifest.json').is_file():
         raise ValueError('assessment:private_run_directory_required')
-    if not (run_dir / 'evidence/project-setup.json').is_file():
+    setup_path = run_dir / 'evidence/project-setup.json'
+    janitor_path = run_dir / 'evidence/janitor-armed.json'
+    if not setup_path.is_file() or not janitor_path.is_file():
+        raise ValueError('assessment:independent_janitor_must_be_armed')
+    setup = json.loads(setup_path.read_text())
+    armed = json.loads(janitor_path.read_text())
+    if (setup.get('run_id') != manifest['run_id'] or setup.get('billing_linked') is not True
+            or armed.get('run_id') != manifest['run_id']
+            or armed.get('watch_step_in_progress') is not True):
         raise ValueError('assessment:independent_janitor_must_be_armed')
     project, run_id = manifest['disposable_project_id'], manifest['run_id']
     described = inspect_project(project, run_id, cloud)
