@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 import unittest
 
-from operator_janitor import WAIT_STEP, arm
+from operator_janitor import WAIT_STEP, arm, watch_running
 
 
 PROJECT = 'sfai-assess-fixture01'
@@ -33,6 +33,9 @@ class GithubFixture:
         if '/runs?' in path:
             return {'workflow_runs': [] if not self.dispatched else [
                 {'id': 42, 'display_title': 'Janitor ' + RUN, 'status': 'in_progress'}]}
+        if path == '/actions/runs/42':
+            return {'id': 42, 'display_title': 'Janitor ' + RUN,
+                    'event': 'workflow_dispatch', 'status': 'in_progress'}
         raise AssertionError(path)
 
 
@@ -52,6 +55,11 @@ class OperatorJanitorTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'identity_missing'):
             arm(MANIFEST, wrong, api=api, now=datetime(2026, 10, 26, tzinfo=timezone.utc))
         self.assertEqual(api.calls, [])
+
+    def test_watch_must_still_be_running_before_case(self):
+        self.assertTrue(watch_running(RUN, 42, api=GithubFixture()))
+        self.assertFalse(watch_running(RUN, 42, api=GithubFixture(step='completed')))
+        self.assertFalse(watch_running('assess-different', 42, api=GithubFixture()))
 
 
 if __name__ == '__main__':

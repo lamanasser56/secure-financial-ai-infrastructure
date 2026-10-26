@@ -75,6 +75,17 @@ def arm(manifest, setup, *, api, now=None, sleep=time.sleep, timeout_seconds=300
     raise RuntimeError('assessment:janitor_watch_not_confirmed')
 
 
+def watch_running(run_id, workflow_run_id, *, api):
+    """Recheck the independent janitor immediately before each live case."""
+    run = api('GET', '/actions/runs/' + str(workflow_run_id))
+    if (run.get('id') != workflow_run_id or run.get('display_title') != 'Janitor ' + run_id
+            or run.get('event') != 'workflow_dispatch' or run.get('status') != 'in_progress'):
+        return False
+    jobs = api('GET', '/actions/runs/' + str(workflow_run_id) + '/jobs?per_page=100')
+    return sum(step.get('name') == WAIT_STEP and step.get('status') == 'in_progress'
+               for job in jobs.get('jobs', []) for step in job.get('steps', [])) == 1
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--run-dir', type=Path, required=True)
