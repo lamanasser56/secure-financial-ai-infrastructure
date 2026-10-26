@@ -109,13 +109,13 @@ async function openConsole(page, hash = '#/map') {
   await page.goto(consoleAssets.origin + '/' + hash);
 }
 
-test('the Map redactor explanation uses observed source scope and the same supported masking description', async ({page}) => {
+test('the grouped model path exposes the same supported redaction scope', async ({page}) => {
   await openConsole(page);
-  await page.getByRole('button', {name: 'Redactor — how it works', exact: true}).click();
+  await page.getByRole('button', {name: 'Model gateway — how it works', exact: true}).click();
   const explain = page.locator('#view'); // The Map docks its explanation in the right column.
   await expect(explain.getByText(data.profile.masking_scope.summary, {exact: true})).toBeVisible();
   for (const row of data.profile.masking_scope.supported) await expect(explain.getByText(row.label, {exact: false})).toBeVisible();
-  await expect(explain.getByText('EXPLAIN · OBSERVED', {exact: true})).toBeVisible();
+  await expect(explain.getByText('EXPLAIN · MODEL PATH', {exact: true})).toBeVisible();
   expect(await page.evaluate(() => Console.plainCategories(['UNKNOWN_CATEGORY']))).toBe('an unspecified identifier');
 });
 
