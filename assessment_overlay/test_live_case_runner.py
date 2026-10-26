@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from live_case_runner import CASE_ORDER, run_case
+from live_case_runner import CASE_ORDER, run_all, run_case
 
 
 class LiveCaseRunnerTest(unittest.TestCase):
@@ -17,6 +17,7 @@ class LiveCaseRunnerTest(unittest.TestCase):
         evidence.mkdir()
         self.manifest = {'run_id': 'assess-0123456789abcdef', 'source_commit': 'a' * 40,
                          'bundle_sha256': 'b' * 64, 'image_digests': {'app': 'app@sha256:' + 'c' * 64},
+                         'cost_ceiling_usd': 50,
                          'deadline_at': (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()}
         (evidence / 'bundle-applied.json').write_text(json.dumps({
             'run_id': self.manifest['run_id'], 'source_commit': self.manifest['source_commit'],
@@ -66,6 +67,31 @@ class LiveCaseRunnerTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'manual_stop_or_inflight'):
             self.run_one(ledger={'completed_redactions': 0, 'sdk_attempts': 0, 'inflight': 1})
         self.assertNotIn('probe', self.calls)
+
+    def test_all_cases_are_bound_and_cleanup_is_required(self):
+        probes = {case: lambda: {'checked': True} for case in CASE_ORDER}
+        result = run_all(self.manifest, self.run_dir, kubeconfig='/private/kubeconfig',
+                         probes=probes,
+                         ledger_reader=lambda *_: {'run_id': self.manifest['run_id'],
+                             'completed_redactions': 0, 'sdk_attempts': 0, 'inflight': 0},
+                         janitor_status=lambda *_: True,
+                         cleanup=lambda *_: {'result': 'PASS'})
+        self.assertEqual(result['cases_passed'], 12)
+        self.assertEqual(result['result'], 'PASS')
+        self.assertTrue((self.run_dir / 'evidence/final-summary.json').exists())
+
+    def test_failed_case_still_cleans_up(self):
+        cleaned = []
+        probes = {case: lambda: {'checked': True} for case in CASE_ORDER}
+        probes['D02'] = lambda: {'checked': False}
+        with self.assertRaisesRegex(RuntimeError, 'live_run_inconclusive'):
+            run_all(self.manifest, self.run_dir, kubeconfig='/private/kubeconfig',
+                    probes=probes,
+                    ledger_reader=lambda *_: {'run_id': self.manifest['run_id'],
+                        'completed_redactions': 0, 'sdk_attempts': 0, 'inflight': 0},
+                    janitor_status=lambda *_: True,
+                    cleanup=lambda *_: cleaned.append(True) or {'result': 'PASS'})
+        self.assertEqual(cleaned, [True])
 
 
 if __name__ == '__main__':
