@@ -9,7 +9,7 @@ python3 -c 'from importlib.metadata import version; assert version("pip-tools") 
 
 temporary_directory=$(mktemp -d)
 trap 'rm -rf "$temporary_directory"' EXIT
-cp requirements-google-sdp-runtime.in requirements-google-sdp-runtime.txt "$temporary_directory/"
+cp requirements-security.in requirements-google-sdp-runtime.in requirements-google-sdp-runtime.txt "$temporary_directory/"
 
 (
   cd "$temporary_directory"
