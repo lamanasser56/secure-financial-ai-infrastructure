@@ -38,12 +38,12 @@ resource "google_project_service" "iap" {
   disable_on_destroy = false
 }
 
-# gcloud SSH needs project metadata read even when login is bound only to an instance.
+# gcloud SSH/SCP also need project metadata and instance-list read; login and IAP stay worker-scoped.
 resource "google_project_iam_custom_role" "worker_project_read" {
   project     = var.project_id
   role_id     = "sfaiWorkerCIProjectRead"
   title       = "Secure infrastructure worker project metadata read"
-  permissions = ["compute.projects.get", "resourcemanager.projects.get"]
+  permissions = ["compute.instances.list", "compute.projects.get", "resourcemanager.projects.get"]
 }
 
 resource "google_project_iam_member" "worker_project_read" {
