@@ -29,7 +29,7 @@ a { color: var(--ink); }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .mono { font-family: var(--mono); font-size: 13px; }
 .muted { color: var(--muted); }
-.skip { position: absolute; left: -999px; } .skip:focus { left: 16px; top: 8px; background: var(--ink); color: var(--bg); padding: 6px 10px; z-index: 20; }
+.skip { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } .skip:focus { width: auto; height: auto; clip-path: none; left: 16px; top: 8px; background: var(--ink); color: var(--bg); padding: 6px 10px; z-index: 20; }
 
 /* frame */
 .frame { padding: 0 40px 32px; }  /* full width (the ★ screens were drawn at 1440 x 900): 40 px gutters, no centred column */
@@ -234,3 +234,20 @@ table.x { width: 100%; border-collapse: collapse; } table.x th, table.x td { tex
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 @media (forced-colors: active) { body { background-image: none; } }
+
+/* Financial language support. Arabic fonts are self-hosted under the same blueprint tokens. */
+@font-face { font-family: 'IBM Plex Sans Arabic'; font-weight: 400; font-display: swap; src: url('/typeface/ibm-plex-sans-arabic-arabic-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'IBM Plex Sans Arabic'; font-weight: 500; font-display: swap; src: url('/typeface/ibm-plex-sans-arabic-arabic-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'IBM Plex Sans Arabic'; font-weight: 600; font-display: swap; src: url('/typeface/ibm-plex-sans-arabic-arabic-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'IBM Plex Sans Arabic'; font-weight: 700; font-display: swap; src: url('/typeface/ibm-plex-sans-arabic-arabic-700-normal.woff2') format('woff2'); }
+html[lang='ar'] { --head: 'IBM Plex Sans Arabic', sans-serif; --body: 'IBM Plex Sans Arabic', sans-serif; }
+html[lang='ar'] h1 { line-height: 1.4; font-size: clamp(36px, 6vw, 56px); }
+html[lang='ar'] .brand, html[lang='ar'] nav.tabs a, html[lang='ar'] .label { letter-spacing: 0; }
+html[dir='rtl'] table.x th, html[dir='rtl'] table.x td { text-align: right; }
+html[dir='rtl'] .code, html[dir='rtl'] .path, html[dir='rtl'] .sub-id { direction: ltr; text-align: left; unicode-bidi: isolate; }
+html[dir='rtl'] .drawer .close { float: left; }
+.expense-table { overflow-x: auto; max-width: 100%; }
+.msgbox { unicode-bidi: plaintext; }
+@media (max-width: 600px) { .send { padding: 12px; gap: 8px; } .send > div { min-width: 0; } .send .btn { padding: 14px; } .did footer { flex-wrap: wrap; gap: 8px; } }
+
+#language { width: auto; min-width: 92px; padding: 6px 8px; font-size: 14px; }

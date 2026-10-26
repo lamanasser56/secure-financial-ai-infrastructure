@@ -16,6 +16,8 @@ import time
 import urllib.error
 import urllib.request
 
+from agent_platform.financial_schema import CATEGORY_CONSTRAINT
+
 TENANTS = {'fixture-a': '7d5bba9e-0f6f-4f3e-9b6c-2b8f2f0a1a01', 'fixture-b': 'c4a1f3de-5b2e-4d8f-8a7c-91e0b6d2c302'}
 SQL = Path('/sql')
 GATEWAY = 'http://gateway-provider.platform.svc.cluster.local:4001'
@@ -72,10 +74,6 @@ def database(config):
 
 
 FINANCE_ROLES = ('finance_web', 'finance_agent')
-FINANCE_CATEGORIES = ('food', 'transport', 'shopping', 'bills', 'subscriptions', 'health', 'travel', 'other')
-CATEGORY_CONSTRAINT = ('ALTER TABLE finance.expenses DROP CONSTRAINT IF EXISTS expenses_category_check, '
-                       'ADD CONSTRAINT expenses_category_check CHECK (category IN ('
-                       + ', '.join(f"'{c}'" for c in FINANCE_CATEGORIES) + '))')
 # Owner of the SECURITY DEFINER sign-in lookup: cannot log in, reads finance.users only (idempotent; also for existing DBs).
 LOOKUP_OWNERSHIP = (
     'GRANT USAGE ON SCHEMA finance TO finance_owner',
@@ -108,13 +106,13 @@ def finance(config, connect=None):
             db.execute('CREATE DATABASE finance')
         db.execute('REVOKE CONNECT ON DATABASE finance FROM PUBLIC')
         db.execute('GRANT CONNECT ON DATABASE finance TO finance_web, finance_agent')
-    with connect('finance') as db:
+    with connect('finance') as db, db.transaction():
         if not db.execute("SELECT to_regclass('finance.expenses')").fetchone()[0]:
             db.execute((SQL / 'finance.sql').read_text())
             log(step='finance_schema', created=True)
         # The legacy roles are NOLOGIN throughout migration. Their grants are revoked below.
-        # Category list (keep equal to finance_agent.store.CATEGORIES): re-applied so an existing database gains new
-        # categories. A CHECK constraint only; no role, grant or RLS change.
+        # Install the canonical category constraint for new and existing databases in this transaction.
+        # The schema and its constraint become visible together; role and RLS reconciliation remains unchanged.
         db.execute(CATEGORY_CONSTRAINT)
         for statement in LOOKUP_OWNERSHIP:
             db.execute(statement)

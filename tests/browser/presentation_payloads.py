@@ -6,6 +6,7 @@ import sys
 root=Path(__file__).resolve().parents[2]
 sys.path[:0]=[str(root),str(root/'platform/core/src'),str(root/'platform/core/tests'),str(root/'platform/agents/financial')]
 from agent_platform.masking_scope import scope
+from agent_platform.financial_schema import metadata
 from test_console import make
 
 console=make()
@@ -16,7 +17,7 @@ for agent in agents['agents']:
     endpoints['/api/console/onboarding/'+agent['name']]=console.onboarding(agent['name'])
 for topic in ('redactor','gateway-boundary','gateway','audit','network','private-link','internet','financial-frontdoor','ops-executor'):
     endpoints['/api/console/explain/'+topic]=console.explain(topic)
-profile={'name':'Demo','csrf':'fixture','expires_at':1893456000,'limits':{},'masking_scope':scope()}
+profile={'name':'Demo','csrf':'fixture','expires_at':1893456000,'limits':{},'masking_scope':scope(),'masking_scope_ar':scope('ar'),'schema':metadata()}
 request='00000000-0000-4000-8000-000000000001'
 trace={'request_id':request,'user_ref':'a'*16,'outcome':'answered','reason':None,'model_calls':1,'tokens':100,
        'model':{'alias':'secure-financial-chat','resolved':None},'cost_usd':None,'cost_source':'unavailable',

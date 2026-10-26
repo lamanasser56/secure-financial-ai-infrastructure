@@ -162,6 +162,22 @@ class FinanceDatabase(unittest.TestCase):
             # This is the step omitted from the earlier live D06 probe.
             self.assertEqual(db.execute('SELECT count(*) FROM finance.expenses').fetchone()[0], 0)
 
+    def test_current_form_categories_are_enforced_by_the_actual_database(self):
+        from agent_platform.financial_schema import metadata
+        from finance_agent.store import validate_expense
+        user = USERS[0]['id']
+        for item in metadata()['categories']:
+            with self.subTest(category=item['code']), self.as_role('finance_frontdoor') as db:
+                entry = validate_expense({'spent_on': '2026-10-01', 'merchant': 'Category contract test',
+                                          'category': item['code'], 'amount': '0.01'})
+                db.execute("SELECT set_config('finance.user_id', %s, true)", (user,))
+                db.execute("INSERT INTO finance.expenses(spent_on,merchant,category,amount_minor) VALUES (%s,%s,%s,%s)",
+                           (entry['spent_on'], entry['merchant'], entry['category'], entry['amount_minor']))
+                db.rollback()
+        with self.as_role('finance_frontdoor') as db, self.assertRaises(psycopg.errors.CheckViolation):
+            db.execute("SELECT set_config('finance.user_id', %s, true)", (user,))
+            db.execute("INSERT INTO finance.expenses(spent_on,merchant,category,amount_minor) VALUES ('2026-10-01','Invalid','not_a_category',1)")
+
     def test_web_cannot_insert_for_another_user(self):
         lama, sara = USERS
         with self.as_role('finance_frontdoor') as db, self.assertRaises(psycopg.Error):

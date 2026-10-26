@@ -18,6 +18,9 @@
     kids.forEach(add);
     return node;
   }
+  let language = 'en';
+  const L = (en, ar) => language === 'ar' ? ar : en;
+  function setLanguage(value) { language = value === 'ar' ? 'ar' : 'en'; paintLive(); }
   const $ = id => document.getElementById(id);
   const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -29,7 +32,7 @@
     if (!badge) return;
     const on = reachable && !degraded;
     badge.classList.toggle('on', on);
-    badge.textContent = on ? 'Live' : reachable ? 'Not live' : 'Offline';
+    badge.textContent = on ? L('Live', 'متصل') : reachable ? L('Not live', 'المصادر غير متاحة') : L('Offline', 'غير متصل');
   }
   function setLive(ok) {
     reachable = ok;
@@ -117,10 +120,10 @@
   // A long id shown as first 4 … last 4, with a button that copies the full value.
   function copyable(label, value) {
     const short = value.length > 12 ? value.slice(0, 4) + '…' + value.slice(-4) : value;
-    const button = el('button', {type: 'button', class: 'btn link', 'aria-label': 'Copy the full ' + label, onclick: async () => {
-      try { await navigator.clipboard.writeText(value); button.textContent = 'Copied'; } catch (e) { button.textContent = 'Copy failed'; }
-      setTimeout(() => { button.textContent = 'Copy'; }, 1500);
-    }}, 'Copy');
+    const button = el('button', {type: 'button', class: 'btn link', 'aria-label': L('Copy the full ', 'انسخ القيمة الكاملة: ') + label, onclick: async () => {
+      try { await navigator.clipboard.writeText(value); button.textContent = L('Copied', 'نُسخت'); } catch (e) { button.textContent = L('Copy failed', 'تعذر النسخ'); }
+      setTimeout(() => { button.textContent = L('Copy', 'نسخ'); }, 1500);
+    }}, L('Copy', 'نسخ'));
     return el('div', {class: 'sub-id mono muted'}, label + ' ', el('span', {title: value}, short), ' ', button);
   }
 
@@ -149,15 +152,15 @@
     const drawer = $('explain');
     opener = from || document.activeElement;
     const nodes = [
-      el('button', {class: 'btn link close', type: 'button', 'aria-label': 'Close', onclick: close}, 'Close ✕'),
+      el('button', {class: 'btn link close', type: 'button', 'aria-label': L('Close', 'إغلاق'), onclick: close}, L('Close ✕', 'إغلاق ✕')),
       el('div', {class: 'eyebrow' + (spec.live ? ' live-proof' : '')}, spec.eyebrow),
       el('h2', {id: 'ex-title'}, spec.title),
       spec.sub ? el('div', {class: 'sub-id mono muted'}, spec.sub) : null,
       spec.copy ? copyable(spec.copy.label, spec.copy.value) : null,
       ...spec.blocks.map(b => el('div', {class: 'block ' + (b.cls || '')}, el('div', {class: 'label'}, b.label), b.node || el('p', {}, b.text))),
       spec.file ? el('div', {class: 'file'}, el('div', {class: 'path mono muted'}, spec.file),
-        codeURL(spec.file) ? el('a', {class: 'btn link', href: codeURL(spec.file), target: '_blank', rel: 'noopener', title: spec.file}, 'View code →')
-          : el('span', {class: 'muted'}, 'Source version unavailable')) : null].filter(Boolean);
+        codeURL(spec.file) ? el('a', {class: 'btn link', href: codeURL(spec.file), target: '_blank', rel: 'noopener', title: spec.file}, L('View code →', 'عرض الشيفرة ←'))
+          : el('span', {class: 'muted'}, L('Source version unavailable', 'نسخة المصدر غير متاحة'))) : null].filter(Boolean);
     if (dock) {
       docked = true;
       dock.show(nodes, spec, opener);
@@ -195,5 +198,5 @@
   }
   const head = (title, sub, action) => el('div', {class: 'head'}, el('div', {}, el('h1', {}, title), sub ? el('p', {class: 'sub'}, sub) : null), action || null);
   const empty = (title, text) => el('div', {class: 'panel empty'}, el('strong', {}, title), text);
-  window.Console = {captureSource, codeURL, head, empty, el, $, reduced, setLive, setDegraded, getJSON, clock, ago, shortDigest, proofBox, explain, explainTopic, close, setDock, screens: {}};
+  window.Console = {setLanguage, captureSource, codeURL, head, empty, el, $, reduced, setLive, setDegraded, getJSON, clock, ago, shortDigest, proofBox, explain, explainTopic, close, setDock, screens: {}};
 })();

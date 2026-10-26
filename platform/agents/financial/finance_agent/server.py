@@ -23,6 +23,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from agent_platform import audit, release_version
 from agent_platform.masking_scope import scope as masking_scope
+from agent_platform.financial_schema import metadata as financial_metadata
 
 UI = Path(__file__).resolve().parent / 'ui'
 ASSETS = {'/': ('index.html', 'text/html; charset=utf-8'), '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
@@ -81,7 +82,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def identity(self, user):
         return {'name':user['n'],'csrf':user['c'],'expires_at':user['exp'],
-                'limits':self.server.agent.limits.remaining(user['u']),'masking_scope':masking_scope()}
+                'limits':self.server.agent.limits.remaining(user['u']), 'schema':financial_metadata(),
+                'masking_scope':masking_scope(), 'masking_scope_ar':masking_scope('ar')}
 
     def do_GET(self):
         path = urlsplit(self.path)

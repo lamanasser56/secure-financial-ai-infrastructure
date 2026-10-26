@@ -8,15 +8,16 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <a class="skip" href="#view">Skip to content</a>
+  <a id="skip" class="skip" href="#view">Skip to content</a>
   <div class="frame">
     <header class="bar">
-      <span class="brand">Agent Runtime Platform</span>
+      <span id="brand" class="brand">Agent Runtime Platform</span>
       <span id="live" class="live" role="status"></span>
       <nav class="tabs" aria-label="Screens" id="tabs" hidden>
         <a href="#/ask" data-tab="ask">Ask</a>
         <a href="#/expenses" data-tab="expenses">Expenses</a>
       </nav>
+      <select id="language" aria-label="Language"><option value="en">English</option><option value="ar">العربية</option></select>
       <span id="who" class="hint" hidden></span>
       <button type="button" id="logout" class="btn link" hidden>Sign out</button>
     </header>
