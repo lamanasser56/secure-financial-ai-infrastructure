@@ -275,9 +275,12 @@ def valid_client_keys(keys):
             and len(set(keys.values())) == len(keys))
 
 
-def main():
+def main(*, attempt_hook=None, budget_wrapper=None):
     from runtime.phase3.google_sdp_adapter import ContentAttemptBudget
     from runtime.phase3.sdp_context_policy import GoogleSDPContextRedactor
+    if ((attempt_hook is not None and not callable(attempt_hook))
+            or (budget_wrapper is not None and not callable(budget_wrapper))):
+        raise SystemExit('redactor:invalid_extension')
     if hashlib.sha256((POLICY_DIRECTORY / 'policy.json').read_bytes()).hexdigest() != POLICY_HASH:
         raise SystemExit('redactor:policy_hash')
     project = os.environ['PORTFOLIO_PROJECT_ID']
@@ -285,9 +288,10 @@ def main():
     # One key per calling namespace: the front door (app), the ops agent (ops) and each onboarded agent (agent-<name>).
     if not valid_client_keys(keys):
         raise SystemExit('redactor:client_keys')
-    server = Server(('0.0.0.0', 4003), keys,
-                    Budget(lambda budget: GoogleSDPContextRedactor(project, budget=budget, grpc_options=KEEPALIVE_OPTIONS),
-                           lambda: ContentAttemptBudget(WINDOW_OPERATIONS)))
+    budget = Budget(lambda window: GoogleSDPContextRedactor(
+        project, budget=window, grpc_options=KEEPALIVE_OPTIONS, attempt_hook=attempt_hook),
+        lambda: ContentAttemptBudget(WINDOW_OPERATIONS))
+    server = Server(('0.0.0.0', 4003), keys, budget_wrapper(budget) if budget_wrapper else budget)
     audit('redactor_started', policy_sha256=POLICY_HASH)
     server.serve_forever()
 

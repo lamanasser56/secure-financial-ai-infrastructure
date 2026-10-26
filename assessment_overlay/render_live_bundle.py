@@ -1,4 +1,4 @@
-"""Render a disposable assessment bundle from unmodified main platform source.
+"""Render a disposable assessment bundle from a selected current release lock.
 
 This is a pure file transform. It never contacts Kubernetes or GCP and never
 generates or stores credentials. The caller supplies a fresh run ID and keeps
@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import subprocess
 import tempfile
 from types import SimpleNamespace
 
@@ -25,8 +26,23 @@ from patch_redactor_bundle import patch as patch_redactor
 
 ROOT = Path(__file__).resolve().parents[1]
 OVERLAY = Path(__file__).resolve().parent
-PROJECT = 'sfai-assess-20261022-635651'
-IMAGE_LOCK = OVERLAY / 'platform-images.lock.json'
+
+
+def selected_source(lock):
+    source = lock.get('source_commit')
+    if (lock.get('schema_version') != 2 or lock.get('runtime_contract') != 'trusted-boundaries-v2'
+            or not isinstance(source, str) or not re.fullmatch(r'[0-9a-f]{40}', source)):
+        raise ValueError('current qualified image lock required')
+    exists = subprocess.run(['git', 'cat-file', '-e', source + '^{commit}'], cwd=ROOT,
+                            capture_output=True, check=False)
+    if exists.returncode:
+        raise ValueError('selected source commit unavailable')
+    changed = subprocess.run(['git', 'diff', '--name-only', source, 'HEAD'], cwd=ROOT,
+                             capture_output=True, text=True, check=True).stdout.splitlines()
+    if any(path != 'platform/clouds/gke/release-rc1.lock.json'
+           and not path.startswith('docs/evidence/') for path in changed):
+        raise ValueError('assessment source differs from qualified release')
+    return source
 
 
 def identity(doc):
@@ -85,13 +101,14 @@ def disposable_changes(docs, run_id):
     return docs
 
 
-def make_bundle(run_id, kubectl='kubectl', *, passphrase=None, hasher=None,
+def make_bundle(run_id, kubectl='kubectl', *, project, images_lock, passphrase=None, hasher=None,
                 users_out=None, source_registry=None):
-    lock = json.loads(IMAGE_LOCK.read_text())
+    if not re.fullmatch(r'sfai-assess-[a-z0-9-]{6,32}', project or ''):
+        raise ValueError('fresh disposable assessment project required')
+    lock = json.loads(Path(images_lock).read_text())
+    selected_source(lock)
     if not lock['images']['redactor'].startswith('agent-platform-redactor@sha256:'):
-        raise ValueError('assessment image lock predates image-owned redactor')
-    if lock['source_commit'] != '41ffbf260a446b5db2292356a8ea23219e58a524':
-        raise ValueError('platform source lock drift')
+        raise ValueError('image-owned redactor required')
     module_path = ROOT / 'platform/clouds/gke/render.py'
     spec = importlib.util.spec_from_file_location('_assessment_main_gke_render', module_path)
     main_render = importlib.util.module_from_spec(spec)
@@ -105,10 +122,10 @@ def make_bundle(run_id, kubectl='kubectl', *, passphrase=None, hasher=None,
         private_lock = Path(temporary) / 'images.json'
         with os.fdopen(os.open(private_lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as stream:
             json.dump(effective_lock, stream)
-        args = SimpleNamespace(project_id=PROJECT, images_lock=str(private_lock),
+        args = SimpleNamespace(project_id=project, images_lock=str(private_lock),
             control_plane_cidr='172.30.0.0/28',
-            gateway_gsa=f'assess-gateway@{PROJECT}.iam.gserviceaccount.com',
-            redactor_gsa=f'assess-redactor@{PROJECT}.iam.gserviceaccount.com',
+            gateway_gsa=f'assess-gateway@{project}.iam.gserviceaccount.com',
+            redactor_gsa=f'assess-redactor@{project}.iam.gserviceaccount.com',
             kubectl=kubectl)
         source_text, main_summary = main_render.render(args)
     docs = [doc for doc in yaml.safe_load_all(source_text) if doc]
@@ -120,20 +137,16 @@ def make_bundle(run_id, kubectl='kubectl', *, passphrase=None, hasher=None,
         secret_options['hasher'] = hasher
     secret_docs = platform_secrets.generate(passphrase, **secret_options)
     docs.extend(secret_docs)
-    platform_programs = next(d for d in docs if d['kind'] == 'ConfigMap'
-                             and d['metadata']['name'].startswith('platform-programs-'))
-    program_hash = hashlib.sha256(json.dumps(platform_programs['data'], sort_keys=True).encode()).hexdigest()
+    if any(d['kind'] == 'ConfigMap' and d['metadata'].get('namespace') == 'platform'
+           and d['metadata']['name'].startswith('platform-programs-') for d in docs):
+        raise ValueError('executable platform ConfigMap retained')
     docs, gateway_receipt = patch_gateway(docs, registry + lock['images']['app'])
     docs, seed_objects, redactor_deployment = patch_redactor(docs, OVERLAY, run_id)
     docs = patch_ops(docs, OVERLAY / 'ops_server_assessment.py')
     docs = disposable_changes(docs, run_id)
     from agent_platform import onboarding, release_facts
-    release_facts.install(docs, onboarding.load_all(), lock, private_values=(PROJECT,))
+    release_facts.install(docs, onboarding.load_all(), lock, private_values=(project,))
     release_facts.verify(docs)
-    patched_programs = next(d for d in docs if d['kind'] == 'ConfigMap'
-                            and d['metadata']['name'].startswith('platform-programs-'))
-    if hashlib.sha256(json.dumps(patched_programs['data'], sort_keys=True).encode()).hexdigest() != program_hash:
-        raise ValueError('platform program bytes changed')
     keys = [identity(doc) for doc in docs]
     if len(keys) != len(set(keys)):
         raise ValueError('duplicate Kubernetes object')
@@ -141,14 +154,13 @@ def make_bundle(run_id, kubectl='kubectl', *, passphrase=None, hasher=None,
                  and d['metadata']['name'].startswith('gateway-config-'))
     if 'vertex_ai/' in json.dumps(docs) or 'vertex_ai/' in route['data']['litellm.yaml']:
         raise ValueError('external LLM route retained')
-    if 'PORTFOLIO_' + PROJECT in json.dumps(docs):
+    if 'PORTFOLIO_' + project in json.dumps(docs):
         raise ValueError('rendered environment corruption retained')
     if any(d['kind'] == 'FQDNNetworkPolicy' and d['metadata']['name'] == 'gateway-provider'
            for d in docs):
         raise ValueError('external gateway egress retained')
     receipt = {'run_id': run_id, 'platform_commit': lock['source_commit'],
         'main_render_sha256': hashlib.sha256(source_text.encode()).hexdigest(),
-        'platform_programs_sha256': program_hash,
         'objects': len(docs), 'gateway': gateway_receipt,
         'seed_objects': [identity(d) for d in seed_objects],
         'redactor_deployment': identity(redactor_deployment),
@@ -162,9 +174,11 @@ def main():
     parser.add_argument('--run-id', required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--kubectl', default='kubectl')
+    parser.add_argument('--images-lock', type=Path, required=True)
+    parser.add_argument('--project-id', default=os.environ.get('ASSESSMENT_PROJECT_ID'))
     args = parser.parse_args()
     source_registry = os.environ.get('ASSESSMENT_SOURCE_REGISTRY')
-    if not source_registry or source_registry == json.loads(IMAGE_LOCK.read_text())['registry']:
+    if not source_registry:
         raise SystemExit('exact source registry required in ASSESSMENT_SOURCE_REGISTRY')
     output = args.output.resolve()
     if output.is_relative_to(ROOT.resolve()):
@@ -173,7 +187,8 @@ def main():
     os.chmod(args.output.parent, 0o700)
     passphrase = secrets.token_urlsafe(32)
     users = {}
-    docs, receipt = make_bundle(args.run_id, args.kubectl, passphrase=passphrase,
+    docs, receipt = make_bundle(args.run_id, args.kubectl, project=args.project_id,
+                                images_lock=args.images_lock, passphrase=passphrase,
                                 users_out=users, source_registry=source_registry)
     for name, value in (('operator-passphrase', passphrase),
                         ('financial-users.json', json.dumps(users, sort_keys=True))):
@@ -186,7 +201,9 @@ def main():
     with os.fdopen(os.open(output.with_suffix('.lock.json'),
                            os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as stream:
         stream.write(json.dumps(receipt, indent=2) + '\n')
-    print(json.dumps(receipt, sort_keys=True))
+    print(json.dumps({key: receipt[key] for key in
+                      ('run_id', 'platform_commit', 'bundle_sha256', 'objects', 'external_llm_route')},
+                     sort_keys=True))
 
 
 if __name__ == '__main__':

@@ -222,6 +222,24 @@ class GoogleSDPAdapterTests(unittest.TestCase):
         self.assertEqual(redactor.injected_client_counts["inspect_attempted"], 1)
         self.assertEqual(len(client.events), 1)
 
+    def test_attempt_hook_reserves_before_each_dispatch_and_fails_closed(self):
+        names = []
+        client = FakeClient()
+
+        def reserve(name):
+            names.append(name)
+            if name == "deidentify":
+                raise RuntimeError("raw-provider-marker")
+
+        redactor = adapter.GoogleSDPRedactor(PROJECT, client=client, attempt_hook=reserve)
+        self.assert_sanitized(lambda: redactor.redact(TEXT))
+        self.assertEqual(names, ["inspect", "deidentify"])
+        self.assertEqual([event[0] for event in client.events], ["inspect"])
+        self.assertEqual(redactor.injected_client_counts,
+                         {"inspect_attempted": 1, "deidentify_attempted": 0})
+        self.assertEqual(redactor.operation_counts,
+                         {"inspect_attempted": 0, "deidentify_attempted": 0})
+
     def test_categories_are_normalized_and_sorted(self):
         text = "x y"
         client = FakeClient(

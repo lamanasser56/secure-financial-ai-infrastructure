@@ -17,7 +17,7 @@ os.environ.setdefault('ASSESSMENT_RUN_ID', 'assess-0000000000000001')
 
 from phone_guard import mask_phones
 from redactor_server import CompletionBudget
-from sdp_guard import CompletedLedger, Exhausted, Ledger, LimitedClient
+from sdp_guard import CompletedLedger, Exhausted, Ledger
 from seed_sdp import seed
 from patch_ops_stub import patch as patch_ops_stub, assert_order
 from patch_redactor_bundle import patch as patch_redactor_bundle
@@ -51,18 +51,6 @@ class _Budget:
 
     def current(self):
         return self.redactor
-
-
-class _Client:
-    api_endpoint = 'synthetic-only'
-    transport = None
-
-    def __init__(self):
-        self.calls = 0
-
-    def inspect_content(self, *, request, retry, timeout):
-        self.calls += 1
-        return {}
 
 
 class FollowupTests(unittest.TestCase):
@@ -141,13 +129,25 @@ class FollowupTests(unittest.TestCase):
             self.assertEqual(json.loads((root / 'sdp-completions.json').read_text())['completed'], 20)
             self.assertEqual(json.loads((root / 'sdp-attempts.json').read_text())['used'], 0)
 
-            client = _Client()
-            limited = LimitedClient(client, root / 'sdp-attempts.json')
-            for _ in range(60):
-                limited.inspect_content(request={}, retry=None, timeout=1)
-            with self.assertRaises(Exhausted):
-                LimitedClient(client, root / 'sdp-attempts.json').inspect_content(
-                    request={}, retry=None, timeout=1)
+            from runtime.phase3.google_sdp_adapter import (
+                ContentAttemptBudget, GoogleSDPFailure, GoogleSDPRedactor)
+
+            class FailingClient:
+                api_endpoint = 'dlp.us-east1.rep.googleapis.com'
+                calls = 0
+
+                def inspect_content(self, *, request, retry, timeout):
+                    self.calls += 1
+                    raise RuntimeError('synthetic provider failure')
+
+            client = FailingClient()
+            attempts = Ledger(root / 'sdp-attempts.json')
+            redactor = GoogleSDPRedactor('synthetic-assessment', client=client,
+                budget=ContentAttemptBudget(100),
+                attempt_hook=lambda _operation: attempts.reserve())
+            for _ in range(61):
+                with self.assertRaises(GoogleSDPFailure):
+                    redactor.redact('synthetic text')
             self.assertEqual(client.calls, 60)
             self.assertEqual(json.loads((root / 'sdp-attempts.json').read_text())['used'], 60)
 
@@ -298,7 +298,7 @@ class FollowupTests(unittest.TestCase):
         finally:
             server.shutdown();server.server_close();thread.join(timeout=3)
 
-    def test_image_owned_redactor_rejects_the_historical_assessment_overlay(self):
+    def test_current_image_owned_redactor_receives_only_assessment_guard(self):
         import yaml
         rendered = subprocess.run(['kubectl', 'kustomize', '--load-restrictor=LoadRestrictionsNone',
                                    'platform/core/kubernetes'], cwd=ROOT, capture_output=True, text=True,
@@ -309,8 +309,15 @@ class FollowupTests(unittest.TestCase):
         redactor = next(d for d in docs if d['kind'] == 'Deployment'
                         and (d['metadata']['namespace'], d['metadata']['name']) == ('platform', 'redactor'))
         self.assertNotIn('command', redactor['spec']['template']['spec']['containers'][0])
-        with self.assertRaisesRegex(ValueError, 'image-owned redactor'):
-            patch_redactor_bundle(docs, Path(__file__).parent, 'assess-0000000000000001')
+        redactor['spec']['template']['spec']['containers'][0]['image'] = (
+            'us-east1-docker.pkg.dev/sfai-assess-test123/images/agent-platform-redactor@sha256:' + 'a' * 64)
+        amended, seed, selected = patch_redactor_bundle(
+            docs, Path(__file__).parent, 'assess-0000000000000001')
+        self.assertIs(selected, redactor)
+        self.assertEqual([d['kind'] for d in seed], ['ConfigMap', 'PersistentVolumeClaim', 'Job'])
+        self.assertEqual(redactor['spec']['template']['spec']['containers'][0]['command'],
+                         ['/usr/local/bin/python3.12', '/assessment/redactor_server.py'])
+        self.assertLess(amended.index(seed[2]), amended.index(redactor))
         import hashlib
         policy = ROOT / 'evaluation/google-sdp-context/policy.json'
         self.assertEqual(hashlib.sha256(policy.read_bytes()).hexdigest(),

@@ -1,6 +1,6 @@
 """Assessment-only LiteLLM route to a private, fixed in-cluster provider.
 
-The gateway image and gateway_entry.py remain unchanged. This transform changes
+The image-owned gateway program remains unchanged. This transform changes
 only the generated route ConfigMap, removes its Vertex egress policy, and adds
 the minimum stub workload and mutual network policies in the disposable bundle.
 """

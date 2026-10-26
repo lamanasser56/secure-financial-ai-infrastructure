@@ -9,16 +9,6 @@ import hashlib
 from pathlib import Path
 import re
 
-MAIN_REDACTOR_SHA256 = 'efc3f73e96ed93c2ff738cdb10bdd85405212d21c80e54c068cce54abed81731'
-MAIN_PHONE_SHA256 = 'd8713752767fcf7dea66e3d74b9e7fa3260e05e1557fadca966ee3934ece7cfc'
-
-
-def _canonical_source_hash(source):
-    # A Windows checkout renders CRLF ConfigMap content; the reviewed Git blobs
-    # are LF. Normalize only line endings, never source tokens or whitespace.
-    return hashlib.sha256(source.encode().replace(b'\r\n', b'\n')).hexdigest()
-
-
 def _one(docs, kind, namespace, name):
     found = [d for d in docs if d.get('kind') == kind and d.get('metadata', {}).get('namespace') == namespace
              and d.get('metadata', {}).get('name', '').startswith(name)]
@@ -31,24 +21,12 @@ def patch(docs, overlay_dir, run_id):
     if not re.fullmatch(r'assess-[0-9a-f]{16}', run_id):
         raise ValueError('fresh exact assessment run ID required')
     docs = list(docs)
-    if not any(d.get('kind') == 'ConfigMap' and d.get('metadata', {}).get('namespace') == 'platform'
-               and d.get('metadata', {}).get('name', '').startswith('platform-programs-') for d in docs):
-        raise ValueError('historical overlay cannot instrument image-owned redactor')
     overlay = Path(overlay_dir)
-    programs = _one(docs, 'ConfigMap', 'platform', 'platform-programs-')
     deployment = _one(docs, 'Deployment', 'platform', 'redactor')
     quota = _one(docs, 'ResourceQuota', 'platform', 'bounds')
-    phone_source = programs['data'].get('phone_guard.py', '')
-    if _canonical_source_hash(phone_source) != MAIN_PHONE_SHA256:
-        raise ValueError('qualified main phone guard absent from source render')
-    # Never replace the real redactor: F7 admission, bounded workers, key
-    # validation and phone masking must stay in the platform source.
-    platform_source = programs['data'].get('redactor_server.py', '')
-    if (_canonical_source_hash(platform_source) != MAIN_REDACTOR_SHA256
-            or not all(marker in platform_source for marker in
-               ('class Capacity:', 'class Server(ThreadingHTTPServer):',
-                'with self.server.capacity.admit(caller):', 'mask_phones', 'valid_client_keys'))):
-        raise ValueError('main redactor capacity/phone/key controls absent')
+    if any(d.get('kind') == 'ConfigMap' and d.get('metadata', {}).get('namespace') == 'platform'
+           and d.get('metadata', {}).get('name', '').startswith('platform-programs-') for d in docs):
+        raise ValueError('unexpected executable platform ConfigMap')
 
     hard = quota['spec']['hard']
     if (hard['persistentvolumeclaims'], hard['requests.storage']) == ('1', '10Gi'):
@@ -58,10 +36,12 @@ def patch(docs, overlay_dir, run_id):
 
     container = deployment['spec']['template']['spec']['containers'][0]
     if (container['name'] != 'redactor'
-            or container.get('command') != ['/usr/local/bin/python3.12', '/programs/redactor_server.py']
+            or 'command' in container
             or any(v['name'] == 'assessment-state' for v in container.get('volumeMounts', []))):
         raise ValueError('unexpected redactor Deployment')
     image = container['image']
+    if not re.fullmatch(r'us-east1-docker\.pkg\.dev/[a-z0-9-]+/[a-z0-9-]+/agent-platform-redactor@sha256:[a-f0-9]{64}', image):
+        raise ValueError('image-owned redactor digest required')
     container['command'] = ['/usr/local/bin/python3.12', '/assessment/redactor_server.py']
     if any(v['name'] == 'ASSESSMENT_RUN_ID' for v in container.get('env', [])):
         raise ValueError('assessment run ID already set')
