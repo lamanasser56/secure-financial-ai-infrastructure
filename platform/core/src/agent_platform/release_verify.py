@@ -15,6 +15,19 @@ IDENTITY = 'https://github.com/lamanasser56/secure-financial-ai-infrastructure/.
 ISSUER = 'https://token.actions.githubusercontent.com'
 ATTESTOR = 'agent-platform-ci'
 ALGORITHMS = {'EC_SIGN_P256_SHA256', 'ECDSA_P256_SHA256'}
+# Binary Authorization names a KMS key version by its full resource name (attestor key id, occurrence publicKeyId);
+# Cloud KMS itself returns the relative name.
+KMS_RESOURCE = '//cloudkms.googleapis.com/v1/'
+# gcloud emits the occurrence's bytes fields (payload, signature) base64url-encoded with padding.
+BASE64URL = re.compile(r'(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2}==|[A-Za-z0-9_-]{3}=)?')
+# `gcloud kms keys versions get-public-key` prints exactly one PEM block, not JSON.
+PEM = re.compile(r'-----BEGIN PUBLIC KEY-----\n(?:[A-Za-z0-9+/=]{1,64}\n)+-----END PUBLIC KEY-----\n')
+
+
+def decode_bytes(value):
+    if not isinstance(value, str) or not value or not BASE64URL.fullmatch(value):
+        raise ValueError('not padded base64url')
+    return base64.urlsafe_b64decode(value)
 
 
 def decode(raw):
@@ -128,13 +141,17 @@ class Verifier:
                     or keys['noteReference'] != self.note or len(keys['publicKeys']) != 1):
                 return False
             key = keys['publicKeys'][0]
-            if key['id'] != self.key_id or key['pkixPublicKey']['signatureAlgorithm'] not in ALGORITHMS:
+            if (key['id'] != KMS_RESOURCE + self.key_id
+                    or key['pkixPublicKey']['signatureAlgorithm'] not in ALGORITHMS):
                 return False
-            kms = self.cloud('kms', 'keys', 'versions', 'get-public-key', '1', '--location', 'us-east1',
-                             '--keyring', 'agent-platform', '--key', 'binauthz-attestor')
-            pem = kms['pem']
+            version = ('1', '--location', 'us-east1', '--keyring', 'agent-platform', '--key', 'binauthz-attestor')
+            kms = self.cloud('kms', 'keys', 'versions', 'describe', *version)
             if (kms['name'] != self.key_id or kms['algorithm'] != 'EC_SIGN_P256_SHA256'
-                    or pem.strip() != key['pkixPublicKey']['publicKeyPem'].strip()):
+                    or kms['state'] != 'ENABLED'):
+                return False
+            rc, pem = self.run(['gcloud', 'kms', 'keys', 'versions', 'get-public-key', *version,
+                                '--project', self.project])
+            if rc or not PEM.fullmatch(pem) or pem != key['pkixPublicKey']['publicKeyPem']:
                 return False
             occurrences = self.cloud('container', 'binauthz', 'attestations', 'list',
                                       '--attestor', ATTESTOR, '--artifact-url', ref)
@@ -148,7 +165,7 @@ class Verifier:
                     or occurrence['resourceUri'] not in (ref, 'https://' + ref)):
                 return False
             attestation = occurrence['attestation']
-            payload = base64.b64decode(attestation['serializedPayload'], validate=True)
+            payload = decode_bytes(attestation['serializedPayload'])
             if len(payload) > 65536:
                 return False
             value = decode(payload)
@@ -158,9 +175,9 @@ class Verifier:
                                      'type': 'Google cloud binauthz container signature'}:
                 return False
             for signed in attestation['signatures']:
-                if signed['publicKeyId'] != self.key_id:
+                if signed['publicKeyId'] != KMS_RESOURCE + self.key_id:
                     continue
-                signature = base64.b64decode(signed['signature'], validate=True)
+                signature = decode_bytes(signed['signature'])
                 if not signature or len(signature) > 1024:
                     continue
                 with tempfile.TemporaryDirectory(prefix='release-verification-') as directory:
