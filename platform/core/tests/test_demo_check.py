@@ -1,4 +1,4 @@
-"""Readiness uses the current full render; attestation fixtures carry real P-256 signatures."""
+"""Readiness uses the current full render of the test's own schema-v2 lock; attestation fixtures carry real P-256 signatures."""
 import base64
 from copy import deepcopy
 import json
@@ -23,6 +23,35 @@ KEY = ec.generate_private_key(ec.SECP256R1())
 PEM = KEY.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo).decode()
 KEY_ID = 'projects/' + PROJECT + '/locations/us-east1/keyRings/agent-platform/cryptoKeys/binauthz-attestor/cryptoKeyVersions/1'
 NOTE = 'projects/' + PROJECT + '/notes/agent-platform-attestor'
+BUILDER = 'moby/buildkit@sha256:99368f3e46177c6405b9740e4461d91cee004128daeecca78d4ceac50ec1da5c'
+IMAGE_NAMES = {'gateway': 'agent-platform-gateway', 'database': 'agent-platform-database',
+               'redactor': 'agent-platform-redactor', 'app': 'agent-platform-app', 'ops-agent': 'agent-platform-ops',
+               'agent-financial': 'agent-financial', 'platform-guide': 'platform-guide'}
+# The test's own schema-v2 release lock (placeholder digests and provenance), so promoting the committed lock
+# cannot change what this test exercises. The committed lock is still rendered by test_render_fields/test_release_facts.
+FIXTURE_LOCK = {
+    'schema_version': 2, 'source_commit': SOURCE, 'runtime_contract': 'trusted-boundaries-v2',
+    'registry': 'us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/',
+    'images': {key: name + '@sha256:' + str(i + 1) * 64 for i, (key, name) in enumerate(IMAGE_NAMES.items())},
+    'provenance': {key: {'git_archive_sha256': 'a' * 64, 'input_fingerprint': format(i + 1, 'x') * 64,
+                         'materials': sorted([BUILDER, 'base/' + key + '@sha256:' + 'f' * 64])}
+                   for i, key in enumerate(IMAGE_NAMES)}}
+
+
+def signed_predicate_envelope(ref, image, entry, *, source=SOURCE):
+    """One `cosign verify-attestation --type=custom --output=json` line: a DSSE envelope of the in-toto statement."""
+    repo, digest = ref.rsplit('@', 1)
+    data = {'schema': 2, 'source_commit': source, 'image': image, 'build_environment': 'github-hosted:ubuntu-24.04',
+            'git_archive_sha256': entry['git_archive_sha256'], 'input_fingerprint': entry['input_fingerprint'],
+            'materials': entry['materials'], 'platform': 'linux/amd64', 'builder': BUILDER}
+    statement = {'_type': 'https://in-toto.io/Statement/v0.1',
+                 'predicateType': 'https://cosign.sigstore.dev/attestation/v1',
+                 'subject': [{'name': repo, 'digest': {'sha256': digest.removeprefix('sha256:')}}],
+                 'predicate': {'Data': json.dumps(data, sort_keys=True, separators=(',', ':')) + '\n',
+                               'Timestamp': '2026-10-26T18:00:00Z'}}
+    return json.dumps({'payloadType': 'application/vnd.in-toto+json',
+                       'payload': base64.b64encode(json.dumps(statement).encode()).decode(),
+                       'signatures': [{'keyid': '', 'sig': 'MEUCIQ=='}]})
 
 
 def signed_occurrence(ref, *, key=KEY):
@@ -76,6 +105,7 @@ class Fake:
         self.kms = {'name': KEY_ID, 'algorithm': 'EC_SIGN_P256_SHA256', 'state': 'ENABLED'}
         self.public_key = PEM
         self.change_occurrence = lambda value: value
+        self.predicates = {name: FIXTURE_LOCK['provenance'][key] for key, name in IMAGE_NAMES.items()}
 
     def __call__(self, args, input=None):
         args = list(map(str, args))
@@ -86,6 +116,11 @@ class Fake:
             if not self.signed or '--certificate-github-workflow-sha=' + SOURCE not in args:
                 return 1, ''
             repo, digest = args[2].rsplit('@', 1)
+            if args[1] == 'verify-attestation':
+                image = repo.rsplit('/', 1)[1]
+                if image not in self.predicates:
+                    return 1, ''
+                return 0, signed_predicate_envelope(args[2], image, self.predicates[image]) + '\n'
             return 0, json.dumps([{'critical': {'identity': {'docker-reference': repo},
                 'image': {'docker-manifest-digest': digest}, 'type': 'cosign container image signature'}}])
         a = ' '.join(args)
@@ -119,8 +154,7 @@ class Fake:
 class DemoCheck(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.images = json.loads((demo_check.HERE / 'release-rc1.lock.json').read_text())
-        cls.images['source_commit'] = SOURCE
+        cls.images = deepcopy(FIXTURE_LOCK)
         cls.images['registry'] = cls.images['registry'].replace('PROJECT_ID', PROJECT)
         import tempfile
         with tempfile.TemporaryDirectory() as directory:
@@ -221,6 +255,27 @@ class DemoCheck(unittest.TestCase):
         images = deepcopy(self.images)
         images['images']['app'] = 'PENDING_CI'
         self.assertEqual(self.check(images=images)[0], 1)
+
+    def test_schema_v2_lock_requires_the_signed_source_and_material_predicate(self):
+        code, lines = self.check()
+        self.assertEqual(code, 0, lines)
+        for key in IMAGE_NAMES:
+            self.assertIn('PASS  image ' + key + ' source and materials cryptographically attested', lines)
+        for target in ('lock-archive', 'lock-fingerprint', 'lock-materials', 'missing-declaration', 'signed-other'):
+            with self.subTest(target=target):
+                fake, images = Fake(self.docs), deepcopy(self.images)
+                entry = images['provenance']['platform-guide']
+                if target == 'lock-archive': entry['git_archive_sha256'] = 'e' * 64
+                if target == 'lock-fingerprint': entry['input_fingerprint'] = 'e' * 64
+                if target == 'lock-materials': entry['materials'] = [BUILDER]
+                if target == 'missing-declaration': del images['provenance']['platform-guide']
+                if target == 'signed-other': fake.predicates['platform-guide'] = FIXTURE_LOCK['provenance']['app']
+                code, lines = self.check(fake, images=images)
+                self.assertEqual(code, 1)
+                self.assertIn('FAIL  image platform-guide source and materials cryptographically attested', lines)
+        fake = Fake(self.docs)
+        fake.predicates.clear()
+        self.assertEqual(self.check(fake)[0], 1)
 
     def test_runtime_digest_forms_match_only_the_exact_pinned_subject(self):
         digest, other = 'sha256:' + 'b' * 64, 'sha256:' + 'e' * 64
