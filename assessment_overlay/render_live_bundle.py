@@ -62,6 +62,19 @@ def disposable_changes(docs, run_id):
     if not re.fullmatch(r'assess-[0-9a-f]{16}', run_id):
         raise ValueError('fresh assessment run ID required')
     docs = list(docs)
+    # The assessed gateway has a private fixed provider only; do not grant it
+    # the production Vertex Workload Identity in this disposable project.
+    gateway_sa = exact_one(docs, 'ServiceAccount', 'platform', 'gateway')
+    annotations = gateway_sa['metadata'].get('annotations', {})
+    if set(annotations) != {'iam.gke.io/gcp-service-account'}:
+        raise ValueError('gateway Workload Identity drift')
+    del gateway_sa['metadata']['annotations']
+    metadata_policy = exact_one(docs, 'NetworkPolicy', 'platform', 'workload-identity-metadata')
+    expressions = metadata_policy['spec']['podSelector']['matchExpressions']
+    if expressions != [{'key': 'app.kubernetes.io/name', 'operator': 'In',
+                        'values': ['gateway', 'redactor']}]:
+        raise ValueError('metadata egress policy drift')
+    expressions[0]['values'] = ['redactor']
     for doc in docs:
         if doc['kind'] == 'Namespace':
             doc['metadata'].setdefault('labels', {})['assessment.run'] = run_id
