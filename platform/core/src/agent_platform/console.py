@@ -25,11 +25,11 @@ import yaml
 
 from agent_platform import audit, release_facts, masking_scope
 from runtime.agents import web
+from agent_platform.observations import FRESH_SECONDS
 
 HERE = Path(__file__).resolve()
 NAME = re.compile(r'[a-z][a-z0-9-]{1,20}[a-z0-9]')
 GUARANTEES = ('namespace', 'network', 'model_key', 'budget', 'redaction', 'tools', 'image', 'ops')
-FRESH_SECONDS = 120  # the ops agent scans every 15 s; a finding older than this is not "live"
 MAX_EVENTS = 20
 ASSET_TYPES = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
                '.woff2': 'font/woff2'}
@@ -152,17 +152,19 @@ class Console:
         if not workers or [d['metadata']['name'] for d in workers] == [workload]:
             finding = findings.get(target)
             return finding if type(finding) is dict and type(finding.get('facts')) is dict else None
-        parts, desired = [], 0
+        parts, desired, healthy = [], 0, True
         for worker in workers:
             part = findings.get(ns + '.' + worker['metadata']['name'])
             valid = type(part) is dict and type(part.get('facts')) is dict
-            desired += part['desired_replicas'] if valid else max(1, worker['spec'].get('replicas', 1))
+            required = max(worker['spec'].get('replicas', 1), part['desired_replicas'] if valid else 0)
+            desired += required
+            healthy = healthy and valid and part['finding'] == 'HEALTHY' and part['facts'].get('pods_ready', 0) >= required
             if valid:
                 parts.append(part)
         if not parts:
             return None
         return {'namespace': ns, 'deployment': 'agent',
-                'finding': 'HEALTHY' if len(parts) == len(workers) and all(p['finding'] == 'HEALTHY' for p in parts) else 'DEGRADED',
+                'finding': 'HEALTHY' if healthy else 'DEGRADED',
                 'desired_replicas': desired,
                 'facts': {**{key: sum(p['facts'].get(key, 0) for p in parts)
                              for key in ('pods_ready', 'pods_total', 'restarts')},
@@ -170,7 +172,7 @@ class Console:
                           'image_digests': sorted({image for p in parts for image in p['facts'].get('image_digests', [])})}}
 
     def _fresh(self, finding):
-        return finding is not None and self._clock() - finding['facts'].get('observed_at', 0) <= FRESH_SECONDS
+        return finding is not None and -5 <= self._clock() - finding['facts'].get('observed_at', 0) <= FRESH_SECONDS
 
     def _live_block(self, name):
         finding = self._finding(f'agent-{name}.agent')
@@ -208,7 +210,10 @@ class Console:
         data = m['data']
         return {'id': name, 'name': name, 'node': 'agent-' + name, 'kind': 'agent', 'display': display(name), 'namespace': 'agent-' + name, 'team': m['team'], 'description': m['description'],
                 'runtime': runtime, 'model': self._model(), 'budget_usd_month': m['model']['budget_usd_month'],
-                'replicas': sum(d['spec'].get('replicas', 1) for d in entry['rendered'] if d['kind'] == 'Deployment'), 'port': m['runtime']['port'], 'redaction': m['redaction'],
+                'replicas': sum(d['spec'].get('replicas', 1) for d in entry['rendered'] if d['kind'] == 'Deployment'),
+                'workloads': [{'target_id': 'agent-' + name + '.' + d['metadata']['name'], 'replicas': d['spec'].get('replicas', 1)}
+                              for d in entry['rendered'] if d['kind'] == 'Deployment'],
+                'port': m['runtime']['port'], 'redaction': m['redaction'],
                 'tools': [{'id': t['id'], 'access': t['access'], 'description': t['description']} for t in m['tools']],
                 'data': 'none' if data == 'none' else {'database': data['database'], 'user_entry': data['user_entry'],
                                                         'row_level_security': data['row_level_security']},
@@ -246,7 +251,12 @@ class Console:
                 'runtime': self._runtime(container['command'][0]), 'model': self._model(), 'budget_usd_month': PLATFORM_KEYS['ops-explain'],
                 'replicas': o['deployment']['spec'].get('replicas'), 'port': container['ports'][0]['containerPort'], 'redaction': 'required',
                 'tools': tools, 'data': 'none', 'reaches': reaches,
-                'targets': [{'target': k, 'min': t.min_replicas, 'max': t.max_replicas} for k, t in sorted(targets.items())],
+                'targets': [{'target': k, 'min': t.min_replicas, 'max': t.max_replicas} for k, t in sorted(targets.items()) if not t.observe_only],
+                'watched_targets': [{'target_id': k, 'observe_only': t.observe_only,
+                                     'replicas': next((d['spec'].get('replicas', 1) for d in self.facts['documents']
+                                                       if d['kind'] == 'Deployment' and d['metadata']['namespace'] == t.namespace
+                                                       and d['metadata']['name'] == t.name), None)}
+                                    for k, t in sorted(targets.items())],
                 'manifest_source': o['file'], 'live': live,
                 'health': {'state': 'running', 'source': 'ops-agent API answered (only ready pods receive traffic)'} if live else None}
 
@@ -283,7 +293,7 @@ class Console:
                      'every explanation request is redacted before the model'))
         out.append(g('approval', 'Separate approval executor', 'declared', 'manifest', 'platform/core/src/agent_platform/ops/authority.json',
                      'read-only Ops delegates %d registered targets to the separate approval-verifying executor; the admission policy '
-                     'ops-agent-bounded-remediation limits every change' % len(o['targets'])))
+                     'ops-agent-bounded-remediation limits every change' % sum(not t.observe_only for t in o['targets'].values())))
         out.append(g('image', 'Image admission', 'declared', 'manifest', o['file'],
                      'image declared by the selected release; Ops does not observe its own pod digest and this console does not verify signatures'))
         counts = {state: sum(x['state'] == state for x in out) for state in ('verified', 'declared', 'failing')}
@@ -477,7 +487,7 @@ class Console:
         if network is None:
             return None
         return {'source': 'ops-agent /v1/posture (live NetworkPolicy list)', 'observed_at': round(self._clock(), 3),
-                'namespaces': network, 'unreadable': posture.get('unreadable', [])}
+                'namespaces': network, 'unreadable': sorted(set(posture['namespaces']) - set(network))}
 
     def _proof_internet(self):
         posture, network = self._network()
@@ -489,7 +499,7 @@ class Console:
         default_deny = {ns: any(p['pods'] == 'all' and p['types'] == ['Egress', 'Ingress'] and not p['egress'] and not p['ingress']
                                 for p in policies) for ns, policies in network.items()}
         return {'source': 'ops-agent /v1/posture (live NetworkPolicy list)', 'observed_at': round(self._clock(), 3),
-                'default_deny': default_deny, 'egress_to_addresses': blocks, 'unreadable': posture.get('unreadable', [])}
+                'default_deny': default_deny, 'egress_to_addresses': blocks, 'unreadable': sorted(set(posture['namespaces']) - set(network))}
 
     def _service_proof(self, name):
         finding = self._finding('platform.' + name)

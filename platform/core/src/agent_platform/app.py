@@ -18,6 +18,8 @@ import time
 import urllib.request
 import uuid
 
+from agent_platform.observations import FRESH_SECONDS
+
 from agent_platform import audit, console, request_context
 from agent_platform.identity_fixture import mint
 from agent_platform.ops.approval import Signer
@@ -264,11 +266,12 @@ class ClusterOperations:
         operation = request.get('operation')
         snapshot = self._call('GET', '/v1/snapshot') if operation not in ('security', 'execute') else None
         if operation == 'overview':
-            return {'targets': [{'target_id': k, 'mutable': not v.get('observe_only', False), 'kind': 'deployment'}
+            return {'max_age_seconds': FRESH_SECONDS, 'targets': [{'target_id': k, 'mutable': not v.get('observe_only', False), 'kind': 'deployment'}
                                 for k, v in sorted(snapshot['findings'].items())],
                     # status board: closed finding codes and counts only (no explanation text, no log content)
                     'board': [{'target_id': k, 'finding': v['finding'], 'desired': v['desired_replicas'],
                                'available': v['available_replicas'], 'observe_only': v.get('observe_only', False),
+                               'observed_at': (v.get('facts') or {}).get('observed_at'),
                                'automated_fix': v.get('automated_fix', False), 'owner_action': v.get('owner_action'),
                                'evidence': v.get('evidence', []),
                                # the ops agent's explanation: model text, redacted, untrusted and display-only (never an input)

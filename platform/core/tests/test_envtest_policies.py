@@ -124,6 +124,16 @@ class LivePolicies(unittest.TestCase):
                               '-p','{"spec":{"replicas":2}}',as_ops=READ_ONLY_OPS,check=False)
         self.assertDenied(result, 'forbidden')
 
+    def test_new_core_observations_are_read_only_in_the_current_rendered_rbac(self):
+        self.assertAllowed(self.kubectl('-n','ops','get','deployment','ops-executor',as_ops=READ_ONLY_OPS))
+        for resource in ('roles','rolebindings','networkpolicies','pods','events'):
+            self.assertAllowed(self.kubectl('-n','ops','get',resource,as_ops=READ_ONLY_OPS))
+        self.assertDenied(self.kubectl('-n','ops','get','secrets',as_ops=READ_ONLY_OPS,check=False),'Forbidden')
+        for ns, name in (('platform','gateway-boundary'),('apps','financial-frontdoor'),('ops','ops-executor')):
+            for identity in (READ_ONLY_OPS, OPS):
+                self.assertDenied(self.kubectl('-n',ns,'patch','deployment',name,'--type','merge',
+                                  '-p',json.dumps({'spec':{'replicas':0}}),as_ops=identity,check=False),'Forbidden')
+
     def test_executor_allowed_remediations(self):
         restart = {'spec': {'template': {'metadata': {'annotations': {'kubectl.kubernetes.io/restartedAt': '2026-10-10T00:00:00Z'}}}}}
         self.assertAllowed(self.ops_patch('apps', 'fault-demo', restart))

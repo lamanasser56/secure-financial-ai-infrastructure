@@ -1,7 +1,8 @@
 """Registered targets, read from the same ConfigMap that parameterises the admission policy.
 
-Keys: "<namespace>.<deployment>.min|max|health". Only targets with all three keys exist; the agent can
-neither observe nor change anything else (RBAC and the admission policy enforce the same set server-side).
+Mutable targets have "<namespace>.<deployment>.min|max|health". Read-only core targets have only
+"<namespace>.<deployment>.observe" = "read-only". Mixed declarations are refused. Observation never
+grants proposal or execution authority; the executor and admission policy enforce that separation.
 """
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,7 +19,7 @@ class Target:
     min_replicas: int
     max_replicas: int
     health: str | None
-    observe_only: bool = False  # onboarded agents: health on the status board, never a proposal or a change
+    observe_only: bool = False  # health observation only, never a proposal or a change
 
     @property
     def key(self):
@@ -29,12 +30,19 @@ def parse(data):
     groups = {}
     for key, value in data.items():
         parts = key.split('.')
-        if len(parts) != 3 or parts[2] not in ('min', 'max', 'health'):
+        if len(parts) != 3 or parts[2] not in ('min', 'max', 'health', 'observe'):
             raise ValueError('registry:key ' + key)
         groups.setdefault((parts[0], parts[1]), {})[parts[2]] = value
     targets = {}
     for (namespace, name), fields in sorted(groups.items()):
-        if set(fields) != {'min', 'max', 'health'} or not NAME.fullmatch(namespace) or not NAME.fullmatch(name):
+        if not NAME.fullmatch(namespace) or not NAME.fullmatch(name):
+            raise ValueError('registry:incomplete ' + namespace + '.' + name)
+        if set(fields) == {'observe'}:
+            if fields['observe'] != 'read-only':
+                raise ValueError('registry:observe ' + namespace + '.' + name)
+            targets[namespace + '.' + name] = Target(namespace, name, 0, 0, None, observe_only=True)
+            continue
+        if set(fields) != {'min', 'max', 'health'}:
             raise ValueError('registry:incomplete ' + namespace + '.' + name)
         low, high = int(fields['min']), int(fields['max'])
         if not 0 <= low <= high <= 5:
