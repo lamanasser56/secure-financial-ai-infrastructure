@@ -12,7 +12,7 @@ from pathlib import Path
 import re
 import subprocess
 
-from janitor import gcloud_json, inspect_project, load_manifest, write_receipt
+from janitor import cleanup, gcloud_json, inspect_project, load_manifest, write_receipt
 from render_live_bundle import ROOT
 
 
@@ -115,8 +115,13 @@ def main():
     if not args.execute:
         raise SystemExit('assessment:explicit_execute_required')
     manifest = load_manifest(args.run_dir / 'initial-manifest.json')
-    receipt = create_cluster(manifest, args.run_dir, gke_version=args.gke_version,
-                             terraform=args.terraform)
+    try:
+        receipt = create_cluster(manifest, args.run_dir, gke_version=args.gke_version,
+                                 terraform=args.terraform)
+    except Exception:
+        fallback = cleanup(manifest)
+        write_receipt(args.run_dir / 'evidence/cluster-setup-fallback.json', fallback)
+        raise
     print(json.dumps({'run_id': receipt['run_id'],
                       'created_resource_count': receipt['created_resource_count'],
                       'state_private': True}))
