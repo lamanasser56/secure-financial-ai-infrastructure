@@ -1,86 +1,60 @@
-# Architecture and trust boundaries
+# Current platform architecture
 
-## Agent platform (Phase E, [ADR-008](architecture/decisions/ADR-008-persistent-agent-platform.md))
+This page describes the boundary-v2 source composition. A running release is identified by its selected `platform/clouds/gke/release-rc1.lock.json` and observed digests, not by the current branch name. Historical live reports qualify their recorded images and scope; they do not automatically qualify later source changes. Current evidence rules are in the [claims matrix](agent-platform/claims-matrix.md).
 
-One private GKE cluster runs on demand (1 node while working, 0 when idle). Every control is enforced inside the system,
-not by operator procedure.
+## Trust boundaries
 
 ```mermaid
 flowchart LR
-  owner([Owner laptop]) -- "kubectl port-forward 8080<br/>(IAM-gated DNS endpoint)" --> ui
-  subgraph cluster [GKE agent-platform: private nodes, no LB/Ingress/external IP, no NAT, no internet egress]
-    subgraph apps [ns apps: PSS restricted, default deny]
-      ui[Front door: console + ops approval<br/>loopback only]
-      fault[fault-demo target]
-    end
-    subgraph agents [ns agent-financial, agent-platform-guide: PSS restricted, default deny]
-      fin[Financial Agent<br/>sign-in, read-only tools]
-      guide[Platform Guide<br/>bundled docs, no data]
-    end
-    subgraph ops [ns ops]
-      agent[Security & Operations Agent<br/>verify-only approval key]
-    end
-    subgraph platform [ns platform]
-      redactor[Redactor<br/>SDP + deterministic email]
-      gateway[LiteLLM gateway<br/>stable alias, per-agent keys, $10/month total]
-      pg[(Postgres<br/>FORCE RLS, non-owner role)]
-    end
-    ui -- redact first --> redactor
-    ui -- redacted text only --> gateway
-    ui -- tenant-pinned read --> pg
-    ui -- signed one-use approval --> agent
-    owner -- "make agent-forward 8081 / 8082" --> agents
-    fin -- redact first --> redactor
-    fin -- redacted text only --> gateway
-    fin -- "read-only role, FORCE RLS" --> pg
-    guide -- redact first --> redactor
-    guide -- redacted text only --> gateway
-    agent -- "RBAC: read + patch named deployments<br/>VAP: rollout restart / bounded scale only" --> api[(kube-apiserver)]
-    agent --> redactor
-    agent --> gateway
-    gateway --> pg
-  end
-  gateway -- "Workload Identity, FQDN allowlist<br/>PSC regional endpoint (private DNS)" --> vertex[[Vertex AI gemini-3.5-flash<br/>us multi-region]]
-  redactor -- "Workload Identity, FQDN allowlist<br/>PSC regional endpoint (private DNS)" --> dlp[[Sensitive Data Protection]]
-  ci[[GitHub Actions: Trivy, SBOM,<br/>keyless cosign, KMS attestation]] -. signed digests .-> ar[(Artifact Registry)]
-  ar -. Binary Authorization .-> cluster
+  operator[Authenticated operator] --> console[Console and approval signer]
+  user[Financial user] --> frontdoor[Trusted Financial frontdoor]
+  frontdoor --> worker[User-bound Financial worker]
+  worker --> broker[Trusted data broker]
+  broker --> database[(Postgres with forced RLS)]
+  worker --> boundary[Mandatory model boundary]
+  guide[Platform Guide] --> boundary
+  observer[Ops observer] --> boundary
+  boundary --> redactor[Redactor]
+  boundary --> gateway[Private LiteLLM gateway]
+  redactor --> dlp[Sensitive Data Protection]
+  gateway --> provider[Approved model provider]
+  observer --> proposal[Bounded proposal]
+  console --> approval[Signed owner approval]
+  approval --> executor[Independent approval executor]
+  proposal --> executor
+  executor --> kube[Kubernetes API and admission]
 ```
 
-| Boundary | Enforced by | Evidence |
-|---|---|---|
-| No public exposure | private nodes and endpoint; no LB/Ingress; quota `services.loadbalancers: 0` | render invariants (`make test`), live attack suite |
-| No internet egress | no Cloud NAT and no external IPs; Google APIs via Private Google Access, and the two `rep.googleapis.com` endpoints (Vertex `us`, SDP `us-east1`), which Private Google Access does not serve, via Private Service Connect regional endpoints with private DNS zones (`private_endpoints.tf`) | Terraform plan; live chain check pending (see [claims matrix](agent-platform/claims-matrix.md)) |
-| Namespace isolation | default-deny NetworkPolicies + explicit paths; FQDN egress only for gateway (Vertex) and redactor (DLP) | render invariants, live attack suite (direct egress blocked) |
-| Workload hardening | Pod Security "restricted" in every namespace; nonroot, read-only root, no capabilities | `make test-policies` (real kube-apiserver), render invariants |
-| Tenant isolation | Postgres FORCE ROW LEVEL SECURITY; app role non-owner, NOBYPASSRLS; tenant set server-side | bootstrap contract check, live attack suite (cross-tenant read) |
-| Redaction before any model call | the platform client libraries (`RedactorClient`; `clients.js` in the Platform Guide) raise on any redaction failure, so they never call the gateway. Not enforced at the gateway: an agent's NetworkPolicy also allows the gateway, and the gateway does not check redaction ([known limitations](security/known-limitations.md)) | unit tests, live attack suite (redactor down → 0 spend) |
-| Ops agent authority | RBAC (read + patch named deployments) and a ValidatingAdmissionPolicy (rollout restart and bounded scale only; the Pod template may change only by the restart annotation, so no command, args, env, envFrom, resources, probes, image or label change, even if the agent identity is compromised; no rollback) | `make test-policies`: allowed and denied cases on a real API server |
-| Human approval | Ed25519 one-use tokens signed only by the front door (owner passphrase); the agent holds only the public key | unit tests (binding, expiry, replay, forgery, restart) |
-| Supply chain | Trivy + SBOM + keyless cosign in CI; Binary Authorization with a KMS attestor rejects unattested digests | CI receipts, live attack suite (unsigned image rejected) |
-| Model text and logs | treated as data: diagnosis is deterministic; explanations are redacted, display-only and cannot change targets or actions | unit tests (log-planted instruction), live attack suite |
+### Model gateway
 
-Cloud specifics live behind a contract in `platform/clouds/gke`. See the [porting guide](porting-guide.md); portability is
-documented, not tested.
+The Map's **Model gateway** cell groups three parts: `gateway-boundary` accepts bounded requests and authenticates the caller; `redactor` masks supported identifier patterns; the private `gateway`/LiteLLM provider path uses the scoped upstream credential. The subtitle is **identifiers masked first**.
 
-## Reference control path (unchanged, reused by the platform)
+Workers' public gateway credentials do not authenticate directly to the private LiteLLM service. `agent_platform.gateway_boundary.GatewayBoundary` validates the alias and message shape, redacts each accepted message, discards caller-supplied request metadata and generates its own request ID before dispatch. Failure refuses the affected call. Client-side masking is additional protection, not the enforcement authority for a hostile worker.
 
-The reference runtime enforces the sequence in `runtime/phase3/trusted_runtime.py`:
+The redactor uses the existing qualified pattern set and Sensitive Data Protection adapter. **Person names and passport numbers are not masked.** Supported patterns cover email, supported phone/card/IBAN formats, labelled bank accounts and supported Saudi national-ID, residence-ID and VAT/tax-ID formats. Matching depends on format and context. `agent_platform.masking_scope` supplies the exact eight categories and limitations to the Financial UI. This is not a promise to hide every kind of personal information.
 
-- Authentication derives identity, and the tenant resolver derives tenant context from trusted claims. Caller-supplied tenant fields are rejected.
-- Authorization and policy must succeed before redaction or LiteLLM is called.
-- The runtime consumes a provider-neutral redaction result.
-- The sole concrete Presidio adapter validates Analyzer spans and verifies protected fragments are absent from Anonymizer output before returning that result.
-- Provider output must satisfy the closed structured result shape.
-- Any failed control stops the sequence and emits a sanitized failure category.
+### Data broker
 
-Phase 4 provides a registry and a governance coordinator for tool requests:
+`finance_agent.frontdoor` runs as the trusted `apps/financial-frontdoor` service. It owns sign-in, signed sessions, CSRF checking, user expense entry and per-user worker routing. It issues a short-lived capability for an authenticated user's bound worker and revokes it after the turn.
 
-- Tool metadata binds an action, risk class, schemas, limits and approval requirement.
-- Unknown or disabled tools fail closed.
-- Prompt-injection assessment, policy and verified human approval are explicit boundaries before any execution.
-- Audit events use a closed schema and exclude raw prompts, arguments, credentials and tenant identifiers.
+The broker endpoint checks caller identity, capability signature, active status, expiry, agent binding and user binding before running registered read-only tools. Workers hold neither database credentials nor session/signing keys. They have no direct Postgres network path. The broker selects `finance.user_id` in a transaction; forced row-level security and non-owner, NOBYPASSRLS roles provide the database layer. The trusted web role can insert the authenticated user's expenses; the worker's tools cannot write. Arbitrary additional data agents require a reviewed broker contract, rather than receiving shared database credentials.
 
-The platform composes these unchanged agent cores (`IntegratedCore`, `TenantDatabaseTools`, `DeterministicEmailRedactor`) with in-cluster transports.
+### Approval executor
 
-This repository is a portfolio reference implementation with synthetic data only. Each claim is classified in the [claims
-matrix](agent-platform/claims-matrix.md); the [claims inventory](security/claims-inventory.md) grades the test behind each claim.
+The Ops agent reads observations and proposes actions. It has no workload mutation authority. The trusted app signs the owner's approval; the independent `ops-executor` authenticates and verifies it, checks the registered action/target and current evidence, and performs the bounded patch. RBAC and admission restrict this identity to declared targets and allowed restart/scale changes. Model explanations are display-only and do not grant authority.
+
+`platform/core/src/agent_platform/ops/authority.json` declares managed roles, exact bindings and subjects. Generated RBAC and posture comparison use this inventory. Unexpected subjects are findings. Read-only targets, including Financial workers and the executor itself, cannot become remediation targets merely because a finding exists.
+
+### Request events
+
+The Map strip reads **Audit · request events**. Components emit bounded events and worker-produced trace metadata. These are not a complete, independently joined or durable audit of every request. Worker trace fields do not prove enforcement by the broker or model boundary. [Request trace](platform/request-trace.md) describes their actual scope.
+
+## Infrastructure and release
+
+The GKE workload network uses private nodes, default-deny policies and explicit paths. Model-provider and DLP connectivity use declared Google/private endpoint routes. DNS, including the declared node-local DNS path, is part of the rendered policy. Resolver access is not proof that DNS exfiltration is impossible. Engineering VMs are outside this workload boundary.
+
+Onboarding renders platform-owned namespace, quota, policy, service account and workload controls. `make up` selects the release lock, renders typed release values and applies the reviewed stages; it does not repair rendered YAML with text substitutions. Readiness compares desired and running image digests and requires actual ready resources. A down cluster is not ready.
+
+Image signatures, KMS attestations, source provenance and live qualification have distinct meanings. The [release policy](security/container-vulnerability-release-policy.md) defines the unchanged vulnerability gate. The final release procedure freezes source, builds its first-party images, verifies their evidence, promotes a metadata-only lock and deploys those exact digests. A new live assessment must identify those same images.
+
+See [known limitations](security/known-limitations.md), [onboarding](agent-developer-guide.md), [Ops](console/operations.md) and the [recording runbook](operations/demo-runbook.md).

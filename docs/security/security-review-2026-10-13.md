@@ -1,5 +1,7 @@
 # Security review, 13 October 2026
 
+**Historical record/procedure.** This retains its recorded scope, not the current platform contract or deletion authorization. References to documents rewritten in the current refresh are pinned to their pre-refresh snapshot. Use the [current architecture](../architecture.md), [limitations](../security/known-limitations.md) and [claims matrix](../agent-platform/claims-matrix.md) for current guidance. This record is excluded from the Guide current corpus.
+
 This review covers the Secure AI Agent Platform at commit `aa8fac7`. It is published now that every finding is either
 fixed or documented as an accepted limitation. Each finding below gives its status and the evidence for it.
 
@@ -66,7 +68,7 @@ fixed or documented as an accepted limitation. Each finding below gives its stat
 - the DLP client budget is process-wide: one budget for all users of the agent, not one per user.
 
 For a hostile agent the finding is re-graded **MEDIUM**. See the
-[trust model](known-limitations.md#trust-model-the-agents-code-is-trusted).
+[trust model](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/4f5ed25defb6ab84941f9421ef46c7559e786447/docs/security/known-limitations.md#trust-model-the-agents-code-is-trusted).
 
 ## Evidence
 

@@ -1,10 +1,12 @@
 # Security claims inventory (2026-10-19)
 
+**Historical record/procedure.** This retains its recorded scope, not the current platform contract or deletion authorization. References to documents rewritten in the current refresh are pinned to their pre-refresh snapshot. Use the [current architecture](../architecture.md), [limitations](../security/known-limitations.md) and [claims matrix](../agent-platform/claims-matrix.md) for current guidance. This record is excluded from the Guide current corpus.
+
 Every security claim the platform makes, the control behind it, the test that proves it, and two questions about that
 test: **is the input realistic**, and **does it run on the real end-to-end path**? The answers decide how much the
 claim is worth. This page grades the tests; it does not repeat the claims matrix
-([agent-platform/claims-matrix.md](../agent-platform/claims-matrix.md)) or the limitations
-([known-limitations.md](known-limitations.md)).
+([agent-platform/claims-matrix.md](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/4f5ed25defb6ab84941f9421ef46c7559e786447/docs/agent-platform/claims-matrix.md)) or the limitations
+([known-limitations.md](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/4f5ed25defb6ab84941f9421ef46c7559e786447/docs/security/known-limitations.md)).
 
 Grades used below:
 
@@ -14,7 +16,7 @@ Grades used below:
   cluster, but through a shortcut or with one leg replaced), *offline real* (real components, no cluster: real
   Postgres, real kube-apiserver), or *offline fake* (fakes for the redactor, model or database).
 - **Gap:** what the test does not prove. The realistic-data review
-  ([realistic-data-review-2026-10.md](realistic-data-review-2026-10.md)) runs the synthetic Saudi/bilingual corpus
+  ([realistic-data-review-2026-10.md](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/4f5ed25defb6ab84941f9421ef46c7559e786447/docs/security/realistic-data-review-2026-10.md)) runs the synthetic Saudi/bilingual corpus
   (`platform/core/tests/corpus/`) against the gaps marked *corpus*.
 
 ## 1. The eight platform guarantees (console `GUARANTEES`)
@@ -82,4 +84,4 @@ and `docs/evidence/attack-suite-run-6-note.json`).
 - G5 (redaction) had the narrowest test input. The realistic-data review found one HIGH and five lower findings there
   (fixed in #118), and `make corpus-live` (#120) measures the live redactor with the same corpus.
 
-The findings and their fixes are in [realistic-data-review-2026-10.md](realistic-data-review-2026-10.md).
+The findings and their fixes are in [realistic-data-review-2026-10.md](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/4f5ed25defb6ab84941f9421ef46c7559e786447/docs/security/realistic-data-review-2026-10.md).

@@ -3,11 +3,26 @@ const { DocsIndex } = require('../src/search');
 const { Guide } = require('../src/agent');
 const { Redactor, Gateway } = require('../src/clients');
 
-const INDEX = new DocsIndex({ schema: 1, built_from: 'docs/', chunks: [
-  { path: 'docs/architecture.md', heading: 'Network isolation', text: 'Every namespace has a default-deny NetworkPolicy. Agents reach only the redactor and the gateway. The request limit is 20 per hour.' },
-  { path: 'docs/agent-developer-guide.md', heading: 'Onboarding', text: 'Run make onboard A=my-agent to validate the manifest. The budget is at most 5.00 dollars per month.' },
-  { path: 'docs/security/threat-model.md', heading: 'Secrets', text: 'Keys live in Kubernetes Secrets that are mounted read-only into the pod of the agent that owns them.' },
-] });
+// Hermetic source fixtures for turn/transport tests. Real current-corpus retrieval is tested separately.
+const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
+const {build} = require('../tools/build-index');
+const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'guide-fixture-'));
+let INDEX;
+try {
+  const documents = [
+    ['architecture.md', 'Network isolation', 'Every managed namespace has a default-deny NetworkPolicy. Workers use the trusted model boundary. The Financial request limit is 20 per hour.'],
+    ['agent-developer-guide.md', 'Onboarding', 'Run make onboard A=my-agent to validate the manifest. This synthetic fixture permits a budget of at most 5.00 dollars per month.'],
+    ['security/threat-model.md', 'Secrets', 'Keys live in Kubernetes Secrets mounted read-only into the workload that owns them. Workers do not hold private provider credentials.']
+  ];
+  for (const [name, heading, text] of documents) {
+    fs.mkdirSync(path.dirname(path.join(temporary, name)), {recursive: true});
+    fs.writeFileSync(path.join(temporary, name), '# ' + heading + '\n\n' + text);
+  }
+  const manifest = path.join(temporary, 'current-docs.json');
+  fs.writeFileSync(manifest, JSON.stringify({schema: 1, id: 'synthetic-agent-fixture', reviewed_at: '2026-10-26', files: documents.map(row => row[0])}));
+  INDEX = new DocsIndex(build(temporary, manifest));
+} finally { fs.rmSync(temporary, {recursive: true, force: true}); }
+
 
 // Scripted fakes for the two platform clients' transports. `redactorStatus` etc. let a test break one hop.
 function fakes({ replies, cost = '0.0005', redactorFail = false, categories = [] } = {}) {

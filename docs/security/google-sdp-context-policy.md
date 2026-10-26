@@ -1,5 +1,7 @@
 # Context-pattern-v1 rule matrix and coverage
 
+**Historical record/procedure.** This retains its recorded scope, not the current platform contract or deletion authorization. References to documents rewritten in the current refresh are pinned to their pre-refresh snapshot. Use the [current architecture](../architecture.md), [limitations](../security/known-limitations.md) and [claims matrix](../agent-platform/claims-matrix.md) for current guidance. This record is excluded from the Guide current corpus.
+
 **Prepared and unwired.** Google detection is unmeasured. The
 [ADR](../architecture/decisions/ADR-007-context-pattern-redaction-candidate.md)
 defines the distinction between context masking, validation and comprehensive

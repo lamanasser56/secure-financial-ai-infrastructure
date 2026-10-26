@@ -1,5 +1,7 @@
 # Frozen context-pattern-v1 campaign continuation proposal
 
+**Historical record/procedure.** This retains its recorded scope, not the current platform contract or deletion authorization. References to documents rewritten in the current refresh are pinned to their pre-refresh snapshot. Use the [current architecture](../architecture.md), [limitations](../security/known-limitations.md) and [claims matrix](../agent-platform/claims-matrix.md) for current guidance. This record is excluded from the Guide current corpus.
+
 **Preparation only; new campaign execution approval is required.** This is one SDP-only campaign,
 not a live-agent/Vertex bundle or Presidio replacement decision. Exact source SHA,
 private project/account identifiers and state bucket are bound in the final owner

@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "id": "platform-current-v2",
+  "reviewed_at": "2026-10-26",
+  "files": [
+    "architecture.md",
+    "agent-developer-guide.md",
+    "agent-onboarding-contract.md",
+    "agent-platform/claims-matrix.md",
+    "console/design-spec.md",
+    "console/financial.md",
+    "console/onboarding-review.md",
+    "console/operations.md",
+    "console/shared-assets.md",
+    "operations/demo-runbook.md",
+    "platform/inventory.md",
+    "platform/overview.ar.md",
+    "platform/request-trace.md",
+    "security/known-limitations.md",
+    "security/masking-scope.md",
+    "security/threat-model.md",
+    "security/container-vulnerability-release-policy.md",
+    "security/realistic-data-corpus.md",
+    "platform/guide-corpus.md"
+  ]
+}

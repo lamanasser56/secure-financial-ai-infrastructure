@@ -1,6 +1,7 @@
 'use strict';
 // docs_search: BM25 over the chunks bundled at build time. Read-only, in-process, no network.
 const fs = require('node:fs');
+const {validate} = require('./index-format');
 
 const K1 = 1.5;
 const B = 0.75;
@@ -19,8 +20,9 @@ function tokens(text) {
 
 class DocsIndex {
   constructor(index) {
-    if (!index || index.schema !== 1 || !Array.isArray(index.chunks)) throw new Error('index:shape');
-    this.chunks = index.chunks.map((c) => ({ path: c.path, heading: c.heading, text: c.text }));
+    validate(index);
+    this.source = {source_commit: index.source_commit, corpus: {...index.corpus}, documents: index.documents.map(doc => ({...doc}))};
+    this.chunks = index.chunks.map(chunk => ({...chunk}));
     this.docs = this.chunks.map((c) => {
       const counts = new Map();
       for (const t of [...tokens(c.text), ...tokens(c.heading), ...tokens(c.heading)]) counts.set(t, (counts.get(t) || 0) + 1);

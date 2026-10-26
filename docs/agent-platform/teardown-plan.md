@@ -1,39 +1,21 @@
-# Teardown plan (target 2026-11-06; credit expiry 2026-11-08)
+# Retention, assessment cleanup and teardown
 
-The portfolio must stand without a live system. Before anything is deleted, the durable proof is committed (sanitized):
+There is no automatic teardown authorization in this document. A historical target date or credit-expiry note does not authorize deletion. Review actual resource ownership and the current owner request before any destructive work.
 
-- README: architecture diagram, claims matrix, engineering story
-- `docs/evidence/`: attack-suite results, image digests and signature status, requalification summary, dashboard screenshots
-- the demo video script and recording
+## Persistent engineering resources
 
-## Order (each cloud deletion is shown to the owner as one batch and then executed)
+**Keep `secure-infra-worker`, `sfai-engineering` and their retained disks until the owner explicitly requests deletion.** The all-image build theme runs on `secure-infra-worker`; current offline tests use `sfai-engineering`. These VMs are outside the platform workload boundary and outside disposable assessment cleanup. Stopping a VM and retaining its disk is distinct from deleting it.
 
-1. **Final evidence run:** `make up` → `make attack` → screenshots and recording → `make down` (last Postgres snapshot).
-2. **Platform:**
-   - set `deletion_protection = false` in `terraform/root`
-   - `terraform destroy` (cluster, pool, network, identities, CI WIF pool, KMS key versions scheduled for destruction,
-     attestor/policy reset, log bucket/sink, the two Private Service Connect regional endpoints `agent-platform-dlp` and
-     `agent-platform-vertex`, and their private DNS zones and A records)
-   - delete the platform Postgres snapshots and the retained Postgres PV disk
-3. **secure-infra-worker:** stop, then delete the VM and its disk (services 8765/8768/8769 end with it; owner approval).
-4. **masar-gke** (owner-approved separately):
-   - snapshot + `pg_dump` of masar-app Postgres (approved)
-   - delete the cluster, then its PVC disks, including the two orphans `pvc-85fc9911` and `pvc-bb3c79bf`
-5. **W18 leftovers:**
-   - the approved recovery path if Cloud Shell is available; otherwise owner-approved direct deletion
-   - remove network `google-sdp-evaluation`, subnet, router + NAT, NAT address, node binding; disable the node account
-   - release lock generation 1791488059357282 within the approved scope
-6. **Registry and state:**
-   - delete images in `sdp-evaluation-images` and then the repository (digests and signatures are recorded in the repo first)
-   - export the Terraform states (sanitized summaries), then delete the state bucket last
-7. **Identities:** delete the remaining service accounts, custom roles (soft-deleted) and WIF pools (soft-deleted 30 days, no charge).
+## Disposable assessment
 
-## Final inventory (proof that nothing billable remains)
-`make inventory`, which reads: clusters, instances, disks, snapshots, addresses, forwarding rules, PSC regional
-endpoints, Cloud DNS managed zones, routers/NAT, networks,
-KMS key versions (only DESTROYED/DESTROY_SCHEDULED), log buckets, Artifact Registry repositories, buckets.
+The final assessment uses its own disposable project and the approved operator/janitor controls, synthetic data, zero external LLM calls and the same bounded rules/ceilings as the 25 October run. Its cleanup must remove its resources and unlink its billing. Cleanup targets must identify that disposable project explicitly; they must not be inferred from a current CLI default or expanded to the original platform project or persistent worker VMs.
 
-- **Expected:** all empty, except the KMS key ring (no cost without enabled versions) and the free default network objects.
-- **Billing check:** the Billing → Reports page shows a $0/day run rate after teardown. The owner takes a screenshot,
-  because billing data has no CLI.
-- The result is recorded in `docs/evidence/final-inventory.json`.
+Preserve sanitized evidence of source/image subjects, exercised controls, failures, cleanup and billing unlink. An incomplete cleanup is not a completed assessment.
+
+## Platform lifecycle
+
+`make down` snapshots the declared database and scales the platform down; it is not a whole-project teardown or a VM-deletion command. A snapshot is not a proven restore. Keep the selected release/evidence and private operator state separate from public source.
+
+A future platform teardown needs a fresh, concrete owner-approved resource inventory and dependency order. Review cluster/storage, private endpoints/DNS, registry/signatures/attestations, identities and state separately. Never use the old broad cleanup lists as authorization to remove unrelated projects, retained VMs or disks. Export required evidence and validate the exact targets before any irreversible deletion.
+
+`make inventory` is an inventory aid, not a command to delete everything listed or proof that every listed resource belongs to this platform. A retained worker is an intentional exception to a disposable assessment's empty-resource result, because it is outside that project's cleanup scope.
