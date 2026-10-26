@@ -92,9 +92,9 @@ def reference_spans(text):
 class GoogleSDPContextRedactor(GoogleSDPRedactor):
     """Trusted startup only; existing SDK/deadline/budget/response guards reused."""
 
-    def __init__(self, project_id, *, client=None, budget=None):
+    def __init__(self, project_id, *, client=None, budget=None, grpc_options=()):
         self._policy = load_policy()
-        super().__init__(project_id, client=client, budget=budget)
+        super().__init__(project_id, client=client, budget=budget, grpc_options=grpc_options)
 
     def _type_map(self):
         return self._policy["mapping"]

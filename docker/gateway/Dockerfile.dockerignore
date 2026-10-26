@@ -1,0 +1,12 @@
+**
+!requirements-gateway.txt
+!runtime/
+!runtime/**
+!contracts/
+!contracts/**
+!platform/
+!platform/core/
+!platform/core/src/
+!platform/core/src/**
+**/__pycache__
+**/*.pyc

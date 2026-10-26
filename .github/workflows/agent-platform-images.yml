@@ -1,4 +1,4 @@
-# Agent platform images (Phase E, ADR-008): app and ops, plus onboarded agents' own images (agent-financial, platform-guide).
+# Seven declared release service images. Git archive S is built only on secure-infra-worker.
 # Runs only after the CI workflow ("Validate infrastructure portfolio") succeeded on a push to main, and builds that
 # exact commit (SC-001). build -> full-severity Trivy + fresh CISA KEV gate (HIGH/CRITICAL fail-closed) ->
 # CycloneDX SBOM -> push by digest -> full-severity Trivy of the pushed digest + KEV and expiry gates (SC-002) -> keyless
@@ -95,8 +95,9 @@ jobs:
     needs: ci-gate
     if: needs.ci-gate.outputs.build == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 120
     strategy:
+      max-parallel: 1
       fail-fast: true
       matrix: ${{ fromJSON(needs.ci-gate.outputs.matrix) }}
     permissions:
@@ -110,6 +111,8 @@ jobs:
       TARGET: ${{ matrix.target }}
       DOCKERFILE: ${{ matrix.dockerfile }}
       SOURCE_ARGUMENT: ${{ matrix.source_argument }}
+      WORKER: secure-infra-worker
+      WORKER_ZONE: us-east1-b
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -118,26 +121,57 @@ jobs:
           fetch-depth: 1
       - name: Pinned qualification tools (Trivy 0.72.0, Syft 1.44.0, cosign 2.6.2; sha256-verified)
         run: mkdir -p "$RUNNER_TEMP/tools" && bash scripts/install-qualification-tools.sh "$RUNNER_TEMP/tools"
-      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          version: v0.30.1
-          driver: docker-container
-          driver-opts: image=moby/buildkit@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea
-          platforms: linux/amd64
-          use: true
-          cache-binary: false
-      - name: Build (no credentials yet)
+          name: image-input-plan
+          path: ${{ runner.temp }}
+      - name: Federated worker access (instance-scoped OS Login and IAP)
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.AGENT_PLATFORM_CI_WIF_PROVIDER }}
+          service_account: ${{ vars.AGENT_PLATFORM_CI_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+      - name: Build from exact S on secure-infra-worker
+        env:
+          PROJECT_ID: ${{ vars.AGENT_PLATFORM_PROJECT_ID }}
         run: |
           set -Eeuo pipefail
           [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_RUN_ATTEMPT" == 1 && "$(git rev-parse HEAD)" == "$SHA" ]]
-          source_args=()
-          if [[ -n "$SOURCE_ARGUMENT" ]]; then source_args=(--build-arg "$SOURCE_ARGUMENT=$SHA"); fi
-          build_context="$RUNNER_TEMP/source-context"
-          mkdir "$build_context"
-          git archive --format=tar "$SHA" | tar -xf - -C "$build_context"
-          docker buildx build --platform linux/amd64 "${source_args[@]}" --target "$TARGET" \
-            --file "$build_context/$DOCKERFILE" --provenance=false --sbom=false \
-            --tag "local/$IMAGE:${SHA}" --load "$build_context"
+          echo "::add-mask::$PROJECT_ID"
+          work="/tmp/sfai-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${IMAGE}"
+          archive="$RUNNER_TEMP/source.tar.gz"
+          git archive --format=tar "$SHA" | gzip -n > "$archive"
+          source_hash=$(sha256sum "$archive" | cut -d' ' -f1)
+          printf 'secure-infra-worker %s\n' "$(cut -d' ' -f1,2 platform/clouds/gke/terraform/worker-access/host-key.pub)" > "$RUNNER_TEMP/worker-known-hosts"
+          ssh_args=(--project "$PROJECT_ID" --zone "$WORKER_ZONE" --tunnel-through-iap --quiet
+            --ssh-flag="-oStrictHostKeyChecking=yes"
+            --ssh-flag="-oUserKnownHostsFile=$RUNNER_TEMP/worker-known-hosts"
+            --ssh-flag="-oHostKeyAlias=$WORKER")
+          scp_args=(--project "$PROJECT_ID" --zone "$WORKER_ZONE" --tunnel-through-iap --quiet
+            --scp-flag="-oStrictHostKeyChecking=yes"
+            --scp-flag="-oUserKnownHostsFile=$RUNNER_TEMP/worker-known-hosts"
+            --scp-flag="-oHostKeyAlias=$WORKER")
+          gcloud compute ssh "$WORKER" "${ssh_args[@]}" --command "install -d -m 700 '$work'" >/dev/null
+          gcloud compute scp "$archive" "$WORKER:$work/source.tar.gz" "${scp_args[@]}" >/dev/null
+          gcloud compute ssh "$WORKER" "${ssh_args[@]}" --command \
+            "set -Eeuo pipefail; cd '$work'; printf '%s  source.tar.gz\n' '$source_hash' | sha256sum -c - >/dev/null; mkdir source; tar -xzf source.tar.gz -C source; python3 source/scripts/remote-image-build.py --image '$IMAGE' --source '$SHA' --out '$work/evidence' --archive-sha256 '$source_hash'" \
+            > "$RUNNER_TEMP/worker-result.json"
+          gcloud compute scp --recurse "$WORKER:$work/evidence" "$RUNNER_TEMP/" "${scp_args[@]}" >/dev/null
+          python3 - "$RUNNER_TEMP/evidence/build.json" "$source_hash" "$SHA" "$IMAGE" <<'PY'
+          import hashlib,json,sys
+          from pathlib import Path
+          receipt=json.loads(Path(sys.argv[1]).read_text())
+          assert receipt['source_commit']==sys.argv[3] and receipt['image']==sys.argv[4]
+          assert receipt['worker']=='secure-infra-worker' and receipt['git_archive_sha256']==sys.argv[2]
+          digest=hashlib.sha256(Path(sys.argv[1]).with_name('image.tar.gz').read_bytes()).hexdigest()
+          assert digest==receipt['image_archive_sha256']
+          PY
+          gzip -dc "$RUNNER_TEMP/evidence/image.tar.gz" | docker load >/dev/null
+          cp "$RUNNER_TEMP/evidence/trivy.json" "$RUNNER_TEMP/trivy.json"
+          cp "$RUNNER_TEMP/evidence/sbom.cdx.json" "$RUNNER_TEMP/sbom.cdx.json"
+          cp "$RUNNER_TEMP/evidence/kev.json" "$RUNNER_TEMP/kev.json"
+          cp "$RUNNER_TEMP/evidence/build.json" "$RUNNER_TEMP/build.json"
       - name: Trivy (all severities and KEV; fail-closed) and SBOM
         run: |
           set -Eeuo pipefail
@@ -150,7 +184,6 @@ jobs:
           python3 scripts/reviewed-image-exception-gate.py "$RUNNER_TEMP/trivy.json" "$image" \
             "$IMAGE" "$RUNNER_TEMP/kev.json" policy/reviewed-image-exceptions.json \
             "$RUNNER_TEMP/trivy-prepush-gate.json"
-          "$RUNNER_TEMP/tools/syft" "$image" -o "cyclonedx-json=$RUNNER_TEMP/sbom.cdx.json"
           python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['bomFormat']=='CycloneDX' and d['components']" "$RUNNER_TEMP/sbom.cdx.json"
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         id: auth
@@ -184,10 +217,18 @@ jobs:
             "$RUNNER_TEMP/trivy-full-gate.json" | tee "$RUNNER_TEMP/reviewed-exception-gate.txt"
           python3 scripts/kev-release-gate.py "$RUNNER_TEMP/trivy-full-gate.json" "$ref" "$RUNNER_TEMP/kev.json" \
             policy/empty-exceptions.json | tee "$RUNNER_TEMP/release-gate.txt"
+          python3 scripts/image-provenance.py --plan "$RUNNER_TEMP/input-plan.json" \
+            --worker-receipt "$RUNNER_TEMP/build.json" --image "$IMAGE" --source "$SHA" \
+            --out "$RUNNER_TEMP/predicate.json"
           "$RUNNER_TEMP/tools/cosign" sign --yes "$ref"
+          "$RUNNER_TEMP/tools/cosign" attest --yes --type=custom \
+            --predicate "$RUNNER_TEMP/predicate.json" "$ref"
           "$RUNNER_TEMP/tools/cosign" verify "$ref" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             --certificate-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/agent-platform-images.yml@refs/heads/main" > /dev/null
+          PYTHONPATH=platform/core/src python3 scripts/image-provenance.py --verify-ref "$ref" \
+            --project "$PROJECT_ID" --source "$SHA" --predicate "$RUNNER_TEMP/predicate.json" \
+            --cosign "$RUNNER_TEMP/tools/cosign"
           gcloud beta container binauthz attestations sign-and-create --project "$PROJECT_ID" --artifact-url "$ref" \
             --attestor "projects/$PROJECT_ID/attestors/agent-platform-ci" \
             --keyversion "projects/$PROJECT_ID/locations/us-east1/keyRings/agent-platform/cryptoKeys/binauthz-attestor/cryptoKeyVersions/1"
@@ -206,6 +247,8 @@ jobs:
           name: ${{ matrix.image }}-evidence
           path: |
             ${{ runner.temp }}/receipt.json
+            ${{ runner.temp }}/predicate.json
+            ${{ runner.temp }}/build.json
             ${{ runner.temp }}/sbom.cdx.json
             ${{ runner.temp }}/trivy.json
             ${{ runner.temp }}/trivy-full.json

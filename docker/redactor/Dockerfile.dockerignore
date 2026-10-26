@@ -1,0 +1,17 @@
+**
+!requirements-google-sdp-runtime.txt
+!runtime/
+!runtime/**
+!contracts/
+!contracts/**
+!platform/
+!platform/core/
+!platform/core/src/
+!platform/core/src/**
+!evaluation/
+!evaluation/google-sdp/
+!evaluation/google-sdp/deployment.json
+!evaluation/google-sdp-context/
+!evaluation/google-sdp-context/policy.json
+**/__pycache__
+**/*.pyc

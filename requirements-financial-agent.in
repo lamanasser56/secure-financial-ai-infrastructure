@@ -1,0 +1,6 @@
+# Financial worker and trusted frontdoor; independent of the gateway dependency set.
+-c requirements-security.in
+cryptography
+jsonschema
+psycopg[binary]
+argon2-cffi

@@ -1,0 +1,7 @@
+# Console, Ops, boundaries, approval executor and schema bootstrap; no model proxy SDK.
+-c requirements-security.in
+cryptography
+jsonschema
+PyYAML
+psycopg[binary]
+argon2-cffi

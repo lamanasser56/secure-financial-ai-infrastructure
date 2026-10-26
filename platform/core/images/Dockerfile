@@ -1,9 +1,7 @@
-# Agent platform images: `app` (bilingual UI + Financial Agent + bootstrap/fault programs) and `ops` (Security &
-# Operations Agent). Same digest-pinned bases and the same hash-locked dependency set as the qualified
-# docker/agent-composition image (no new dependency); built, scanned, SBOM'd, keyless-signed and KMS-attested by
-# .github/workflows/agent-platform-images.yml. Nonroot, no shell, read-only root filesystem at runtime.
-FROM python:3.12.15-slim-trixie@sha256:29113dcae7aad06daa8e95260fa09f27d62be33b9687ea3774f771d601a02256 AS builder
-COPY requirements-litellm-candidate.txt requirements-agent-composition.txt /tmp/
+# Console/bootstrap and Ops use a minimal, hash-locked platform dependency set.
+# Provider SDKs, LiteLLM and Prisma belong only to their own service images.
+FROM python:3.12.15-slim-trixie@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704 AS builder
+COPY requirements-platform.txt /tmp/
 RUN mkdir -p /out/usr/local/bin /out/usr/local/lib \
     && cp /usr/local/bin/python3.12 /out/usr/local/bin/ \
     && cp /usr/local/lib/libpython3.12.so* /out/usr/local/lib/ \
@@ -15,7 +13,7 @@ RUN mkdir -p /out/usr/local/bin /out/usr/local/lib \
       /out/usr/local/lib/python3.12/pydoc_data \
     && python -m pip install --require-hashes --no-cache-dir \
       --target=/out/usr/local/lib/python3.12/site-packages \
-      -r /tmp/requirements-litellm-candidate.txt -r /tmp/requirements-agent-composition.txt \
+      -r /tmp/requirements-platform.txt \
     && find /out -type d -name __pycache__ -prune -exec rm -rf {} +
 
 FROM gcr.io/distroless/base-debian13:nonroot@sha256:f9518b74815721f537a7458cc693b4406208c04fce23bbffab511516117f34fd AS runtime
@@ -36,8 +34,8 @@ COPY --chown=65532:65532 contracts/ /app/contracts/
 COPY --chown=65532:65532 platform/core/src/ /app/platform/src/
 
 FROM runtime AS app
+COPY --chown=65532:65532 platform/core/database/ /app/platform/database/
 COPY --chown=65532:65532 demo/ /app/demo/
-# demo/ stays byte-identical so earlier qualification records remain valid; the console UI is served from /app/platform/ui.
 COPY --chown=65532:65532 evaluation/agent-composition/ /app/evaluation/agent-composition/
 # Console data API (/api/console/*): the rendered manifests and the agent manifests, read-only, next to the code.
 COPY --chown=65532:65532 platform/core/kubernetes/ /app/platform/kubernetes/

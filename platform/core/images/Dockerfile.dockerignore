@@ -1,7 +1,6 @@
 # Allowlist build context for platform/core/images/Dockerfile (app and ops targets).
 **
-!requirements-litellm-candidate.txt
-!requirements-agent-composition.txt
+!requirements-platform.txt
 !runtime/
 !runtime/**
 !contracts/
@@ -13,6 +12,8 @@
 !evaluation/agent-composition/**
 !platform/
 !platform/core/
+!platform/core/database/
+!platform/core/database/**
 !platform/core/src/
 !platform/core/src/**
 !platform/core/ui/

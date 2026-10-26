@@ -1,7 +1,6 @@
 # platform/core: cloud-agnostic base. Cloud overlays (platform/clouds/<cloud>/kubernetes) add identity,
 # storage class, provider egress, API-server egress and signed image digests.
-# Build with --load-restrictor LoadRestrictionsNone: programs and SQL are referenced from their single
-# canonical location (platform/core/src, platform/core/database) instead of being copied here.
+# Service programs and bootstrap SQL are owned by their signed images.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -18,22 +17,7 @@ resources:
 generatorOptions:
   disableNameSuffixHash: false
 configMapGenerator:
-  - name: platform-programs
-    namespace: platform
-    files:
-      - gateway_entry.py=../src/agent_platform/programs/gateway_entry.py
-      - redactor_server.py=../src/agent_platform/programs/redactor_server.py
-      - phone_guard.py=../src/agent_platform/programs/phone_guard.py
   - name: gateway-config
     namespace: platform
     files:
       - litellm.yaml=platform/generated/litellm.yaml
-      - gateway_hooks.py=../src/agent_platform/programs/gateway_hooks.py
-  - name: database-sql
-    namespace: platform
-    files:
-      - litellm-schema.sql=../database/litellm-schema.sql
-      - tenant.sql=../database/tenant.sql
-      - finance.sql=../database/finance.sql
-      - finance-boundary.sql=../database/finance-boundary.sql
-      - expenses.json=../database/expenses.json

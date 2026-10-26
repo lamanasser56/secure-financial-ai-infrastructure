@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Redactor service for the qualified Sensitive Data Protection image (mounted read-only from a ConfigMap).
+"""Redactor service for the qualified Sensitive Data Protection image (owned by its signed service image).
 
 Persistent-platform form of the C redaction bridge: the same GoogleSDPContextRedactor class and policy file
 (hash-checked), the same request/response contract (POST /redact {"text"} -> {"text","categories"}) and the
@@ -20,13 +20,9 @@ import sys
 import threading
 import time
 
-if __package__:
-    from .phone_guard import mask_phones
-else:  # mounted /programs/redactor_server.py entrypoint
-    from phone_guard import mask_phones
+from .phone_guard import mask_phones
 
-APP_ROOT = Path('/app')
-sys.path.insert(0, str(APP_ROOT))
+from runtime.phase3.sdp_context_policy import DIRECTORY as POLICY_DIRECTORY
 POLICY_HASH = 'c1b782c6fd051243dec4173f903cb33607893010c7d38a6b35bc1372ddb2d4db'
 WINDOW_SECONDS, WINDOW_OPERATIONS, DAILY_OPERATIONS = 3600, 174, 1740
 CLIENT_REQUESTS_PER_WINDOW = 40
@@ -159,23 +155,9 @@ class Budget:
 
 
 def keepalive_client():
-    """The adapter's Sensitive Data Protection client: same endpoint, same Application Default Credentials, same
-    SDK defaults, on a gRPC channel that also carries KEEPALIVE_OPTIONS. Construction sends no request."""
-    from google.cloud import dlp_v2
-    from google.cloud.dlp_v2.services.dlp_service.transports import DlpServiceGrpcTransport
-    from runtime.phase3.google_sdp_adapter import ENDPOINT
-
-    def channel(host, *, options=(), **kwargs):
-        return DlpServiceGrpcTransport.create_channel(host, options=[*options, *KEEPALIVE_OPTIONS], **kwargs)
-    return dlp_v2.DlpServiceClient(client_options={'api_endpoint': ENDPOINT},
-                                   transport=lambda **kwargs: DlpServiceGrpcTransport(channel=channel, **kwargs))
-
-
-def use_keepalive_client(adapter_module):
-    """Make the qualified adapter build keepalive_client() where it would call its own _create_client(). The adapter
-    still guards construction, checks api_endpoint == ENDPOINT and counts every call as a real SDK call; only the
-    channel's options change (no request, response, deadline or retry change)."""
-    adapter_module._create_client = keepalive_client
+    """Construct the SDK through its normal transport configuration; no request is sent."""
+    from runtime.phase3.google_sdp_adapter import _create_client
+    return _create_client(KEEPALIVE_OPTIONS)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -294,11 +276,9 @@ def valid_client_keys(keys):
 
 
 def main():
-    from runtime.phase3 import google_sdp_adapter
     from runtime.phase3.google_sdp_adapter import ContentAttemptBudget
     from runtime.phase3.sdp_context_policy import GoogleSDPContextRedactor
-    use_keepalive_client(google_sdp_adapter)
-    if hashlib.sha256((APP_ROOT / 'evaluation/google-sdp-context/policy.json').read_bytes()).hexdigest() != POLICY_HASH:
+    if hashlib.sha256((POLICY_DIRECTORY / 'policy.json').read_bytes()).hexdigest() != POLICY_HASH:
         raise SystemExit('redactor:policy_hash')
     project = os.environ['PORTFOLIO_PROJECT_ID']
     keys = json.loads(Path('/secrets/redactor/clients.json').read_text(), object_pairs_hook=unique)
@@ -306,7 +286,7 @@ def main():
     if not valid_client_keys(keys):
         raise SystemExit('redactor:client_keys')
     server = Server(('0.0.0.0', 4003), keys,
-                    Budget(lambda budget: GoogleSDPContextRedactor(project, budget=budget),
+                    Budget(lambda budget: GoogleSDPContextRedactor(project, budget=budget, grpc_options=KEEPALIVE_OPTIONS),
                            lambda: ContentAttemptBudget(WINDOW_OPERATIONS)))
     audit('redactor_started', policy_sha256=POLICY_HASH)
     server.serve_forever()

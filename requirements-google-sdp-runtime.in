@@ -1,3 +1,4 @@
-# Direct Python 3.12 dependencies for the disabled synthetic evaluation Job.
-jsonschema==4.23.0
+# The trusted redactor service and its optional synthetic evaluation tool.
+-c requirements-security.in
+jsonschema
 google-cloud-dlp==3.40.0

@@ -51,10 +51,7 @@ spec:
     spec:
       automountServiceAccountToken: false
       containers:
-        - command:
-            - /usr/local/bin/python3.12
-            - /programs/gateway_entry.py
-          env:
+        - env:
             - name: PORTFOLIO_PROJECT_ID
               valueFrom:
                 configMapKeyRef:
@@ -108,9 +105,6 @@ spec:
               port: 4001
             periodSeconds: 5
           volumeMounts:
-            - mountPath: /programs
-              name: programs
-              readOnly: true
             - mountPath: /config
               name: config
               readOnly: true
@@ -125,10 +119,6 @@ spec:
           type: RuntimeDefault
       serviceAccountName: gateway
       volumes:
-        - configMap:
-            defaultMode: 292
-            name: platform-programs
-          name: programs
         - configMap:
             defaultMode: 292
             name: gateway-config
@@ -160,10 +150,7 @@ spec:
     spec:
       automountServiceAccountToken: false
       containers:
-        - command:
-            - /usr/local/bin/python3.12
-            - /programs/redactor_server.py
-          env:
+        - env:
             - name: PORTFOLIO_PROJECT_ID
               valueFrom:
                 configMapKeyRef:
@@ -195,9 +182,6 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           volumeMounts:
-            - mountPath: /programs
-              name: programs
-              readOnly: true
             - mountPath: /secrets/redactor
               name: clients
               readOnly: true
@@ -212,10 +196,6 @@ spec:
           type: RuntimeDefault
       serviceAccountName: redactor
       volumes:
-        - configMap:
-            defaultMode: 292
-            name: platform-programs
-          name: programs
         - name: clients
           secret:
             defaultMode: 256
@@ -376,9 +356,6 @@ spec:
             - mountPath: /secrets/bootstrap
               name: bootstrap
               readOnly: true
-            - mountPath: /sql
-              name: sql
-              readOnly: true
       restartPolicy: OnFailure
       securityContext:
         fsGroup: 65532
@@ -393,10 +370,6 @@ spec:
           secret:
             defaultMode: 256
             secretName: bootstrap
-        - configMap:
-            defaultMode: 292
-            name: database-sql
-          name: sql
   ttlSecondsAfterFinished: 600
 ---
 apiVersion: v1

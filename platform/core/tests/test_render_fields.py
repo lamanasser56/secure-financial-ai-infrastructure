@@ -35,7 +35,7 @@ class RenderFields(unittest.TestCase):
         self.assertEqual(doc['annotations']['iam.gke.io/gcp-service-account'],
                          GATEWAY_GSA)
 
-    def test_full_render_preserves_programs_and_resolves_declared_values(self):
+    def test_full_render_has_image_owned_programs_and_resolves_declared_values(self):
         source = render.kustomize(shutil.which('kubectl') or 'kubectl')
         lock = json.loads((ROOT / 'platform/clouds/gke/release-rc1.lock.json').read_text())
         lock['registry'] = lock['registry'].replace('PROJECT_ID', 'render-fixture')
@@ -46,10 +46,14 @@ class RenderFields(unittest.TestCase):
         release_facts.install(after, onboarding.load_all(), lock, private_values=(PROJECT,))
         render.validate(after, refs)
         original = {d['metadata']['name']: d['data'] for d in before if d['kind'] == 'ConfigMap'
-                    and d['metadata']['name'].startswith(('platform-programs-', 'gateway-config-'))}
+                    and d['metadata']['name'].startswith('gateway-config-')}
         for doc in after:
             if doc['kind'] == 'ConfigMap' and doc['metadata']['name'] in original:
                 self.assertEqual(doc['data'], original[doc['metadata']['name']])
+        assert not any(d['kind'] == 'ConfigMap' and d['metadata']['name'].startswith(
+            ('platform-programs-', 'database-sql-')) for d in after)
+        assert set(next(d for d in after if d['kind'] == 'ConfigMap' and
+            d['metadata']['name'].startswith('gateway-config-'))['data']) == {'litellm.yaml'}
         env = [e['name'] for d in after if d['kind'] == 'Deployment'
                for c in d['spec']['template']['spec']['containers'] for e in c.get('env', [])]
         self.assertEqual(env.count('PORTFOLIO_PROJECT_ID'), 2)

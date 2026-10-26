@@ -19,7 +19,7 @@ import urllib.request
 from agent_platform.financial_schema import CATEGORY_CONSTRAINT
 
 TENANTS = {'fixture-a': '7d5bba9e-0f6f-4f3e-9b6c-2b8f2f0a1a01', 'fixture-b': 'c4a1f3de-5b2e-4d8f-8a7c-91e0b6d2c302'}
-SQL = Path('/sql')
+SQL = Path(__file__).resolve().parents[3] / 'database'
 GATEWAY = 'http://gateway-provider.platform.svc.cluster.local:4001'
 
 
