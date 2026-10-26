@@ -33,6 +33,13 @@ class Matrix(unittest.TestCase):
             self.assertEqual((wanted['database'],wanted['provider'],wanted['executor']),('DENIED',)*3)
         self.assertTrue(any(s[:2]==('ops','ops-executor') for s,_ in matrix))
         self.assertEqual(metadata[:2],('platform','redactor'))
+        self.assertEqual(metadata[4],'/usr/local/bin/python3.12')
+        self.assertEqual({source[3:5] for source, _ in matrix},
+                         {('python', '/usr/local/bin/python3.12'), ('node', '/nodejs/bin/node')})
+        redactor = next(d for d in self.docs if d.get('kind') == 'Deployment'
+                        and (d['metadata']['namespace'], d['metadata']['name'])
+                        == ('platform', 'redactor'))
+        self.assertNotIn('command', redactor['spec']['template']['spec']['containers'][0])
 
     def fake(self, *, bad=None):
         targets,matrix,_=attack_network.inventory(self.docs)
