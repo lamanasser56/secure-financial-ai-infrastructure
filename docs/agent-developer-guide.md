@@ -29,7 +29,7 @@ Ops observes onboarded workers read-only. An incident does not create patch perm
 
 ## Test and release
 
-Keep code and offline tests on the engineering worker. CI runs current runtime, API-server policy, real Postgres, Guide and browser suites. Synthetic transport fixtures must be identified as such; they are not live provider or deployment evidence. A skipped prerequisite is not a complete readiness result.
+Run `make test` on a fresh GitHub-hosted runner or an engineering VM for the same current runtime, API-server policy, real Postgres, Guide and browser suites. The VM is only an interactive work surface. Synthetic transport fixtures must be identified as such; they are not live provider or deployment evidence. A skipped prerequisite is not a complete readiness result.
 
 Merge only after the required checks pass. Build/scan/sign/attest the intended source, verify exact subjects and source binding, promote the release lock, then deploy with the staged `make up` path. No post-render repair or runtime source overlay should substitute for a supported image entrypoint. Current render/authority invariants must pass before any final cluster use.
 

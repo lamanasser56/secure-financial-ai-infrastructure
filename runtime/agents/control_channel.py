@@ -65,7 +65,8 @@ def peer(sock):
 
 class ControlClient:
     def __init__(self, path, token, *, controller_uid):
-        if type(token) is not str or len(token) != 64 or not 0 <= controller_uid < 65536:
+        # SO_PEERCRED exposes uid as a signed 32-bit integer, not a 16-bit id.
+        if type(token) is not str or len(token) != 64 or type(controller_uid) is not int or not 0 <= controller_uid < 2**31:
             raise ValueError
         self.path, self.token, self.uid = str(path), token, controller_uid
         self.sequence, self._lock, self.permit = 0, threading.RLock(), None
