@@ -99,7 +99,14 @@ class Verifier:
                         or statement.get('subject') != [{'name': repo, 'digest': {'sha256': digest.removeprefix('sha256:')}}]):
                     self.provenance_issue = 'statement_envelope'
                     continue
-                declared = statement['predicate']['Data']
+                # Cosign's custom predicate stores the input JSON as a string in
+                # Data. Decode it strictly: duplicate fields must not override a
+                # signed source or material claim.
+                encoded = statement['predicate']['Data']
+                if not isinstance(encoded, str):
+                    self.provenance_issue = 'predicate_shape'
+                    continue
+                declared = decode(encoded)
                 if not isinstance(declared, dict) or set(declared) != set(expected):
                     self.provenance_issue = 'predicate_shape'
                     continue
