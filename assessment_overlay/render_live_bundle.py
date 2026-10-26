@@ -123,9 +123,9 @@ def make_bundle(run_id, kubectl='kubectl', *, project, images_lock, passphrase=N
         with os.fdopen(os.open(private_lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as stream:
             json.dump(effective_lock, stream)
         args = SimpleNamespace(project_id=project, images_lock=str(private_lock),
-            control_plane_cidr='172.30.0.0/28',
-            gateway_gsa=f'assess-gateway@{project}.iam.gserviceaccount.com',
-            redactor_gsa=f'assess-redactor@{project}.iam.gserviceaccount.com',
+            control_plane_cidr='172.16.0.16/28',
+            gateway_gsa=f'agent-platform-gateway@{project}.iam.gserviceaccount.com',
+            redactor_gsa=f'google-sdp-runtime@{project}.iam.gserviceaccount.com',
             kubectl=kubectl)
         source_text, main_summary = main_render.render(args)
     docs = [doc for doc in yaml.safe_load_all(source_text) if doc]

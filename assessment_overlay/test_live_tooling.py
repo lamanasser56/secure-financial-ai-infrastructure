@@ -95,9 +95,9 @@ class LiveToolingTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             args = SimpleNamespace(project_id=PROJECT,
                 images_lock=str(lock_file(temporary)),
-                control_plane_cidr='172.30.0.0/28',
-                gateway_gsa=f'assess-gateway@{PROJECT}.iam.gserviceaccount.com',
-                redactor_gsa=f'assess-redactor@{PROJECT}.iam.gserviceaccount.com',
+                control_plane_cidr='172.16.0.16/28',
+                gateway_gsa=f'agent-platform-gateway@{PROJECT}.iam.gserviceaccount.com',
+                redactor_gsa=f'google-sdp-runtime@{PROJECT}.iam.gserviceaccount.com',
                 kubectl='kubectl')
             rendered, summary = module.render(args)
         self.assertEqual(summary['kinds']['ValidatingAdmissionPolicy'], 1)
