@@ -53,11 +53,14 @@ class LiveToolingTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             docs, receipt = make_bundle('assess-0123456789abcdef', project=PROJECT,
                 images_lock=lock_file(temporary), passphrase='synthetic-test-only',
+                runtime_registry='us-east1-docker.pkg.dev/' + PROJECT + '/sdp-evaluation-images/',
                 hasher=lambda passwords: {name: '$argon2id$synthetic-test-only'
                                           for name in passwords})
         self.assertFalse(receipt['external_llm_route'])
         self.assertEqual(receipt['platform_commit'], SOURCE)
         self.assertEqual(receipt['image_digests'], IMAGES)
+        self.assertEqual(receipt['runtime_registry'],
+                         'us-east1-docker.pkg.dev/' + PROJECT + '/sdp-evaluation-images/')
         staged = split(docs)
         self.assertEqual(sum(map(len, staged)), len(docs))
         self.assertTrue(any(d['kind'] == 'Job' and d['metadata']['name'] == 'assessment-sdp-seed'

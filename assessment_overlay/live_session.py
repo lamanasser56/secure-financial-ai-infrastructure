@@ -71,12 +71,16 @@ def prepare(*, project, images_lock, source_registry, output, kubectl='kubectl',
     lock = json.loads(lock_path.read_text())
     run_id = 'assess-' + secrets.token_hex(8)
     now = now or datetime.now(timezone.utc)
-    manifest = session_manifest(project, lock, lock_path, run_id, now)
     if not source_registry.startswith('us-east1-docker.pkg.dev/') or not source_registry.endswith('/sdp-evaluation-images/'):
         raise ValueError('reviewed source registry required')
+    if source_registry == 'us-east1-docker.pkg.dev/' + project + '/sdp-evaluation-images/':
+        raise ValueError('source registry must be separate from disposable project')
+    manifest = session_manifest(project, lock, lock_path, run_id, now)
+    manifest['source_registry'] = source_registry
+    manifest['runtime_registry'] = 'us-east1-docker.pkg.dev/' + project + '/sdp-evaluation-images/'
     output.mkdir(mode=0o700, parents=True)
     bundle = output / 'bundle.yaml'
-    env = dict(os.environ, ASSESSMENT_SOURCE_REGISTRY=source_registry)
+    env = dict(os.environ, ASSESSMENT_RUNTIME_REGISTRY=manifest['runtime_registry'])
     subprocess.run([sys.executable, '-B', str(ROOT / 'assessment_overlay/render_live_bundle.py'),
                     '--run-id', run_id, '--output', str(bundle), '--kubectl', kubectl,
                     '--images-lock', str(lock_path), '--project-id', project],
@@ -85,7 +89,9 @@ def prepare(*, project, images_lock, source_registry, output, kubectl='kubectl',
                     str(bundle), str(output / 'stages')],
                    check=True, capture_output=True, text=True)
     receipt = json.loads(bundle.with_suffix('.lock.json').read_text())
-    if receipt['platform_commit'] != manifest['source_commit'] or receipt['external_llm_route'] is not False:
+    if (receipt['platform_commit'] != manifest['source_commit']
+            or receipt['runtime_registry'] != manifest['runtime_registry']
+            or receipt['external_llm_route'] is not False):
         raise ValueError('assessment bundle does not match source/no-provider policy')
     manifest['bundle_sha256'] = receipt['bundle_sha256']
     write_private(output / 'initial-manifest.json', manifest)

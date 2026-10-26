@@ -102,7 +102,7 @@ def disposable_changes(docs, run_id):
 
 
 def make_bundle(run_id, kubectl='kubectl', *, project, images_lock, passphrase=None, hasher=None,
-                users_out=None, source_registry=None):
+                users_out=None, runtime_registry=None):
     if not re.fullmatch(r'sfai-assess-[a-z0-9-]{6,32}', project or ''):
         raise ValueError('fresh disposable assessment project required')
     lock = json.loads(Path(images_lock).read_text())
@@ -113,10 +113,9 @@ def make_bundle(run_id, kubectl='kubectl', *, project, images_lock, passphrase=N
     spec = importlib.util.spec_from_file_location('_assessment_main_gke_render', module_path)
     main_render = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(main_render)
-    registry = source_registry or lock['registry']
-    if (not registry.startswith('us-east1-docker.pkg.dev/')
-            or not registry.endswith('/sdp-evaluation-images/')):
-        raise ValueError('source registry must be the reviewed image repository')
+    registry = runtime_registry
+    if registry != f'us-east1-docker.pkg.dev/{project}/sdp-evaluation-images/':
+        raise ValueError('runtime registry must belong to the disposable project')
     effective_lock = dict(lock, registry=registry)
     with tempfile.TemporaryDirectory(prefix='assessment-image-lock-') as temporary:
         private_lock = Path(temporary) / 'images.json'
@@ -165,7 +164,7 @@ def make_bundle(run_id, kubectl='kubectl', *, project, images_lock, passphrase=N
         'seed_objects': [identity(d) for d in seed_objects],
         'redactor_deployment': identity(redactor_deployment),
         'image_digests': lock['images'], 'external_llm_route': False}
-    receipt['source_registry'] = registry
+    receipt['runtime_registry'] = registry
     return docs, receipt
 
 
@@ -177,9 +176,9 @@ def main():
     parser.add_argument('--images-lock', type=Path, required=True)
     parser.add_argument('--project-id', default=os.environ.get('ASSESSMENT_PROJECT_ID'))
     args = parser.parse_args()
-    source_registry = os.environ.get('ASSESSMENT_SOURCE_REGISTRY')
-    if not source_registry:
-        raise SystemExit('exact source registry required in ASSESSMENT_SOURCE_REGISTRY')
+    runtime_registry = os.environ.get('ASSESSMENT_RUNTIME_REGISTRY')
+    if not runtime_registry:
+        raise SystemExit('exact runtime registry required in ASSESSMENT_RUNTIME_REGISTRY')
     output = args.output.resolve()
     if output.is_relative_to(ROOT.resolve()):
         raise SystemExit('assessment manifest contains credentials; output outside repository required')
@@ -189,7 +188,7 @@ def main():
     users = {}
     docs, receipt = make_bundle(args.run_id, args.kubectl, project=args.project_id,
                                 images_lock=args.images_lock, passphrase=passphrase,
-                                users_out=users, source_registry=source_registry)
+                                users_out=users, runtime_registry=runtime_registry)
     for name, value in (('operator-passphrase', passphrase),
                         ('financial-users.json', json.dumps(users, sort_keys=True))):
         path = output.parent / name
