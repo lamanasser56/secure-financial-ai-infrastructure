@@ -19,6 +19,10 @@ output "gateway_service_account" {
   value = google_service_account.gateway.email
 }
 
+output "node_service_account" {
+  value = google_service_account.node.email
+}
+
 output "ci_service_account" {
   value = google_service_account.ci.email
 }
