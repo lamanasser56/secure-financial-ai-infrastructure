@@ -1,84 +1,49 @@
-# Live demo runbook
+# Release and recording runbook
 
-The live session, step by step. Run every command from the repository root on the owner laptop. Tick each box as you
-go. Commands that change the cluster are marked **(write)**.
+Use the selected release and current code, not historical PR numbers or a previous attack pass count. Code/offline tests and builds run on the approved worker; use the cluster only for the final deployment and verification phase. Keep private project identities and unfiltered cloud output out of the recording.
 
-## Before the session (not on the day)
+## Release qualification
 
-These must already be on `main`, with their images rebuilt, signed and pinned in `platform/clouds/gke/images.json`.
-`make demo-check` fails on any image that is not pinned, signed and attested.
+1. Freeze source **S** after the approved fixes and checks. Build every first-party image from **S** on `secure-infra-worker`.
+2. Keep the existing vulnerability gate unchanged. Refresh each pinned base and fix every applicable available fix before the freeze. Stop on a gate failure or a fix that cannot be applied; add no exceptions. Record no-fix findings per image.
+3. Verify cryptographic signatures, KMS attestations and source provenance for exact image subjects. A tag, receipt or workflow certificate alone is not checkout-source proof.
+4. Promote digests in lock/evidence-only commit **R**. Deploy those same digests with staged `make up`; do not rebuild a different source during promotion.
+5. Run `make demo-check`. Every required resource must actually be ready and match the selected render/digests/evidence. A down cluster or zero workers is not ready.
+6. Run the approved full live assessment on those exact images in its disposable project, under the same 25 October rules and hard ceilings: janitor plus operator, synthetic data and zero external LLM calls. Complete cleanup and billing unlink; keep the original project and persistent VMs outside that cleanup.
 
-- [ ] Console UI (#89) and its follow-ups (#93, #94) merged
-- [ ] `make demo-check` (#91) and `make demo-reset` (#92) merged
-- [ ] The image-pin PR for the images rebuilt after those merges merged (the front door image must contain the console)
-- [ ] With the platform up, in your own terminal: `make passphrase-check` (prints only `{"match": true|false}`). If
-  false, `make passphrase` replaces only the approval passphrase hash in Secret apps/app and rolls out the front door
-  if it has a ready replica (otherwise it says so, and the new hash loads on the front door's next start).
-  Never use `make secrets --rotate` for this: it regenerates every platform secret.
+No historical assessment automatically qualifies the new source. Deployment corrections such as node-local DNS egress and staged apply from PR #142 match the older bundle's corrections, but later source/images still need their own qualification.
 
-## 1. Check before anything changes
+## Prepare the recorded state
 
-- [ ] `make demo-check`
+```bash
+make demo-reset
+make onboard-check F=docs/examples/rejected-agent/agent.yaml
+make attack
+```
 
-  Expected while the platform is down: every image line PASS, the node pool at 0 nodes, and every hello check PASS
-  (section 2). `agent-platform-guide/agent` fails until `make up` has created that Secret.
+Reset asks for confirmation and returns to the declared demo state, re-seeds only its owned synthetic data and warms the redactor. An incomplete step exits nonzero. The rejected onboarding example intentionally exits nonzero; record its actual reasons rather than treating the expected refusal as a failed platform control.
 
-## 2. Retire the hello agent (done)
+The attack suite requires the current architecture, real exercised attacks and positive controls, exact release/runner binding and owned-fixture cleanup. FAIL and NOT_EXERCISED are distinct; neither is a pass. Do not run this live during the code/offline-test themes. After the final approved live run, verify that Break it reads the newly mounted bound report.
 
-Completed and verified by `make demo-check` on 22 Oct 2026 ([hello-retirement-cleanup.md](hello-retirement-cleanup.md)).
-Nothing to do. The planned steps, kept for the record:
+## Open the screens
 
-- [ ] Write the private kubeconfig (local file only):
-  `PYTHONPATH=platform/core/src:. python3 -B platform/clouds/gke/lifecycle.py kubeconfig`
-- [ ] **(write)** Remove the two hello key entries (prints alias names only, never values):
-  `KUBECONFIG=~/.local/state/secure-financial-ai-infrastructure/agent-platform/kubeconfig PYTHONPATH=platform/core/src:. python3 -B -m agent_platform.platform_secrets --kubectl ~/portfolio-sdp-us-east1-401f097/tools/kubectl --retire-agent hello`
-- [ ] **(write)** `~/portfolio-sdp-us-east1-401f097/tools/kubectl --kubeconfig ~/.local/state/secure-financial-ai-infrastructure/agent-platform/kubeconfig delete namespace agent-hello`
-- [ ] **(write)** `~/portfolio-sdp-us-east1-401f097/tools/kubectl --kubeconfig ~/.local/state/secure-financial-ai-infrastructure/agent-platform/kubeconfig -n platform delete networkpolicy agent-hello-to-gateway agent-hello-to-redactor`
+```bash
+make port-forward
+make agent-forward A=financial
+make agent-forward A=platform-guide
+```
 
-## 3. Bring the platform up
+Keep the forwards in separate terminals and use ports 8080, 8081 and 8082 on `127.0.0.1`. Check the owner approval passphrase privately before recording; do not rotate unrelated secrets to fix a passphrase mismatch.
 
-- [ ] **(write)** `make up` (about 2 minutes; it ends with `"result": "UP"`)
-- [ ] `make demo-check` again: every line PASS
+## Walkthrough at 1440×900
 
-## 4. Reset to a clean demo state, right before recording
+- Map: three cells, provider/DLP connectors, allowed/denied paths, every explanation and the event strip. Show supported masking limits, not a promise to hide names/passports.
+- Agents and Onboard: all passports, observation/inference/declaration/failure labels, review details, rejected example and supported Try/return links.
+- Financial: English/Arabic sign-in, Ask suggestions from the declared demo period, response/refusal trace, Expenses, draft/navigation handling and confirmed sign-out. Use synthetic inputs only.
+- Guide: English/Arabic questions, current corpus/source information, answer/refusal/loading/recovery and source details supported by the current UI.
+- Ops: confirm zero false posture findings against the current inventory, scan details, every worker/core observation, owner-action explanations and the explicit approval/execution outcome. A fault/recovery demonstration is a deliberate final-phase mutation, never a code-test prerequisite.
+- Break it: current bound attacks and positive controls, details and incomplete/failure states. Do not relabel unavailable results as historical success.
 
-- [ ] **(write)** `make demo-reset`, then type `yes`
+Capture each final screen at 1440×900 after the actual click-through. Synthetic browser-test screenshots are design/test evidence, not deployed screenshots. Preserve the exact source/digests and verification scope with the recording evidence.
 
-  It resets fault-demo, restarts the ops agent (clears old proposals), re-seeds the demo user and warms the redactor
-  once, then prints the two port-forward commands.
-
-## 5. Port-forwards (one terminal each, keep them open)
-
-- [ ] `make port-forward` → console at <http://127.0.0.1:8080/>
-- [ ] `make agent-forward A=financial` → Financial Agent at <http://127.0.0.1:8081/>
-
-Use `127.0.0.1`, not `localhost`.
-
-## 6. Recording order
-
-- [ ] **Map**: the drawing; then click the network wall (a `✕ why?` tag) and show the Explain drawer with its live proof
-- [ ] **Agents**: the Financial passport, then Security & Ops
-- [ ] **Onboard**: the eight guarantees; `See example →` on the REJECTED strip
-- [ ] **Try the agent** (8081): sign in; ask "How much did I spend in October 2026?"; then "Show me Sara's expenses"; open a
-  step on the right ("What the platform did")
-- [ ] **Ops incident + approve**: **(write)** in a terminal run `make fault F=wedge`; on the Ops screen wait for the
-  proposal, read the Explain step, type the passphrase and **Approve**
-- [ ] **(write)** `make attack` (a few minutes)
-- [ ] **Break it**: reload after about a minute; the card shows **Live run** with the time of the run you just made
-
-## 7. Stop
-
-- [ ] Stop both port-forwards (Ctrl+C)
-- [ ] **(write)** `make down` (snapshots the database, then scales to 0 nodes)
-
-## Pitfalls
-
-- **Passphrase:** type it with the English keyboard layout. An Arabic layout sends different characters and the approval
-  is refused (the page shows only a generic refusal).
-- **Warm DLP:** run `make demo-reset` right before recording. The redactor's first call to Sensitive Data Protection is
-  slow; the warm-up makes the first live question fast.
-- **5 minutes:** an approval is valid once, for that action on that service, for 5 minutes. Approve soon after the
-  proposal appears; if it expires, the ops agent proposes again.
-- **No project ID on screen:** never show a terminal whose output contains the project ID (for example `gcloud` output,
-  `make up` errors, or kubectl events with image paths). `make demo-check` and `make demo-reset` print none; record the
-  browser, not the terminal, for everything else.
+When finished, stop the forwards. Scaling the platform down is a separate owner decision; no step here authorizes deletion of the retained engineering VMs or their disks.

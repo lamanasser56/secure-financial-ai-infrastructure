@@ -17,6 +17,7 @@ docs/evidence/**
 !platform/agents/
 !platform/agents/platform-guide/
 !platform/agents/platform-guide/package.json
+!platform/agents/platform-guide/current-docs.json
 !platform/agents/platform-guide/src/
 !platform/agents/platform-guide/src/**
 !platform/agents/platform-guide/public/

@@ -6,7 +6,10 @@ FROM node:24-trixie-slim@sha256:43b9ba1142b8dcf33fa8f922ca1be85714adc444e0586c7c
 WORKDIR /build
 COPY docs/ ./docs/
 COPY platform/agents/platform-guide/tools/ ./tools/
-RUN node tools/build-index.js docs docs-index.json
+COPY platform/agents/platform-guide/src/index-format.js ./src/index-format.js
+COPY platform/agents/platform-guide/current-docs.json ./current-docs.json
+ARG SOURCE_COMMIT
+RUN node tools/build-index.js docs docs-index.json current-docs.json "$SOURCE_COMMIT"
 
 FROM gcr.io/distroless/nodejs24-debian13:nonroot@sha256:cb606325b7ec4af55462cb0b424a53b452a5b4a894ffe841fcf1048d216fb9f8 AS runtime
 WORKDIR /app/platform/agents/platform-guide

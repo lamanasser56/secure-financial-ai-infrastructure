@@ -116,7 +116,9 @@ jobs:
         run: |
           set -Eeuo pipefail
           [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_RUN_ATTEMPT" == 1 && "$(git rev-parse HEAD)" == "$SHA" ]]
-          docker buildx build --platform linux/amd64 --target "${{ matrix.target }}" \
+          source_args=()
+          if [[ "${{ matrix.image }}" == platform-guide ]]; then source_args=(--build-arg "SOURCE_COMMIT=$SHA"); fi
+          docker buildx build --platform linux/amd64 "${source_args[@]}" --target "${{ matrix.target }}" \
             --file "${{ matrix.dockerfile }}" --provenance=false --sbom=false \
             --tag "local/${{ matrix.image }}:${SHA}" --load .
       - name: Trivy (all severities and KEV; fail-closed) and SBOM

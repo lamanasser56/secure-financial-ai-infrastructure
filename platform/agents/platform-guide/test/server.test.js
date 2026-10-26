@@ -85,3 +85,34 @@ test('every shared asset is served from the canonical inventory, with fonts allo
     assert.equal((await request(host, {method: 'GET', url: '/guide.css'})).status, 200);
   } finally { await new Promise(resolve => server.close(resolve)); }
 });
+
+test('the current corpus feeds the real Guide HTTP composition with explicit synthetic transports', async () => {
+  const {build} = require('../tools/build-index');
+  const {DocsIndex} = require('../src/search');
+  const {Guide} = require('../src/agent');
+  const {Redactor, Gateway} = require('../src/clients');
+  const {fakes} = require('./helpers');
+  const corpus = path.join(__dirname, '../current-docs.json');
+  const index = new DocsIndex(build(path.resolve(__dirname, '../../../../docs'), corpus));
+  const query = 'mandatory model boundary public private upstream';
+  const expected = index.search(query)[0];
+  assert.ok(expected);
+  const answer = expected.excerpt;
+  const transports = fakes({replies: [{action: 'tool', tool: 'docs_search', args: {query}}, {action: 'answer', text: answer}]});
+  const current = new Guide({index, stream: {write() {}},
+    redactor: new Redactor('k'.repeat(64), {transport: transports.redactorTransport}),
+    gateway: new Gateway('synthetic-key', {transport: transports.gatewayTransport})});
+  const {server, host} = await listen(current);
+  try {
+    const response = await request(host, {headers: {'content-type': 'application/json', origin: 'http://' + host},
+      body: JSON.stringify({question: 'Which boundary handles accepted model messages?', language: 'en'})});
+    assert.equal(response.status, 200);
+    const value = JSON.parse(response.body);
+    assert.equal(value.status, 'answered'); assert.equal(value.answer, answer);
+    assert.ok(value.sources.some(source => source.path === expected.path));
+    const allowed = new Set(index.source.documents.map(doc => doc.path));
+    assert.ok(value.sources.every(source => allowed.has(source.path)));
+    assert.equal(index.source.source_commit, null); // Test corpus build is explicitly unbound.
+    assert.equal(transports.calls.gateway.length, 2); // Scripted local functions, zero external calls.
+  } finally { await new Promise(resolve => server.close(resolve)); }
+});

@@ -1,5 +1,7 @@
 # Minimal requalification: gemini-3.5-flash (us multi-region) behind `secure-financial-chat`
 
+**Historical record/procedure.** This retains its recorded scope, not the current platform contract or deletion authorization. References to documents rewritten in the current refresh are pinned to their pre-refresh snapshot. Use the [current architecture](../architecture.md), [limitations](../security/known-limitations.md) and [claims matrix](../agent-platform/claims-matrix.md) for current guidance. This record is excluded from the Guide current corpus.
+
 **Approved by owner:**
 
 - Decision: 2026-10-10.

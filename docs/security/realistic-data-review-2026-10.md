@@ -1,10 +1,12 @@
 # Realistic-data security review (October 2026)
 
+**Historical record/procedure.** This retains its recorded scope, not the current platform contract or deletion authorization. References to documents rewritten in the current refresh are pinned to their pre-refresh snapshot. Use the [current architecture](../architecture.md), [limitations](../security/known-limitations.md) and [claims matrix](../agent-platform/claims-matrix.md) for current guidance. This record is excluded from the Guide current corpus.
+
 **Date:** 2026-10-19. **Status:** every finding is fixed or recorded; see [Status](#status-2026-10-19).
 **Method:** offline only; no cluster or GCP. An independent reviewer (a fresh agent that did not write this code)
 drove every redaction call site with the synthetic Saudi/bilingual corpus (`platform/core/tests/corpus/`). Each
 finding below was then reproduced separately against `main` at 71cc5cf. The claims and the grading of their tests are
-in [claims-inventory.md](claims-inventory.md).
+in [claims-inventory.md](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/4f5ed25defb6ab84941f9421ef46c7559e786447/docs/security/claims-inventory.md).
 
 ## What was run
 
@@ -444,4 +446,4 @@ DLP-qualified.
 | INFO-7, INFO-8 | the proper fix needs a DLP requalification (see [Known limitations](#known-limitations-info-7-and-info-8)) | known limitation, deferred |
 | Live check | #120: `make corpus-live` runs the corpus through the real redactor at the next `make up` (ids, categories and booleans only) | merged; runs in the next cluster session |
 
-The corpus and how it is used are described in [realistic-data-corpus.md](realistic-data-corpus.md).
+The corpus and how it is used are described in [realistic-data-corpus.md](https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/4f5ed25defb6ab84941f9421ef46c7559e786447/docs/security/realistic-data-corpus.md).

@@ -1,37 +1,29 @@
-# How to view the platform
+# View the current platform
 
-The platform has no public address. You reach every page through a private port-forward on your own computer, and
-only while the platform is up.
+The GKE workload platform has no public application endpoint. Use the supported local forwards from the approved operator environment after deploying the selected release. Use `127.0.0.1`, not `localhost`, because Host/Origin checks accept the declared address.
 
-## Start
-
-1. `make up` scales the cluster from 0 to 1 node and deploys the platform. It takes about 2 minutes.
-2. In one terminal, run `make port-forward` for the front door: the console (Map, Agents, Onboard, Ops, Break it).
-3. In a second terminal, run `make agent-forward A=financial` for the Financial Agent.
-4. Optional, in a third terminal: `make agent-forward A=platform-guide` for the Platform Guide.
-
-Use `127.0.0.1`, not `localhost`: each page accepts only its exact local address.
-
-| Page | Address | What it shows |
+| Forward | Address | Screen |
 | --- | --- | --- |
-| Console | <http://127.0.0.1:8080/> | **Map** (the cluster drawing, agent health, latest activity), **Agents** (passports and the live check), **Onboard** (the eight guarantees), **Ops** (incident timeline and owner approval), **Break it** (the latest attack-suite results). Click any part to open its explanation. |
-| Financial Agent | <http://127.0.0.1:8081/> | Sign in, then **Ask** (the answer, and on the right what the platform did for that question) or **Expenses**. |
-| Platform Guide | <http://127.0.0.1:8082/> | Questions about the platform, answered from the documentation bundled into its image at build time. |
+| `make port-forward` | `http://127.0.0.1:8080/` | Map, Agents, Onboard, Ops and Break it |
+| `make agent-forward A=financial` | `http://127.0.0.1:8081/` | Trusted Financial sign-in, Ask and Expenses |
+| `make agent-forward A=platform-guide` | `http://127.0.0.1:8082/` | Guide using its bundled current documentation corpus |
 
-## On every page
+Each forward stays open in its own terminal. A Try link navigates to the corresponding local service; it does not create or deploy that agent. Return links open the matching Console passport.
 
-- **Live** in the header means the console received data in the last minute; **Offline** means it did not. Nothing on
-  a screen is sample data: a value is real or the screen says it is not available.
-- Every box, line, chip and list row opens an **Explain** drawer (Esc closes it): plain words, how it works, the live
-  proof, and what would happen without it. If no live proof exists, the drawer says so.
-- The console is English only. Run it locally without a cluster: see `docs/console/design-spec.md`, "Running locally".
+## Read the screen honestly
 
-## Approving a fix
+- The connection badge reports the last API outcome and browser receipt time. An old response is not an inferred outage; “API answered” does not certify every service or data freshness.
+- Passports distinguish observed, inferred, declared and failing checks. Partial observation is not an overall VERIFIED result.
+- Map groups three platform cells with **Audit · request events** underneath. Open details for the actual components, supported masking types and limits. Person names and passport numbers are not masked.
+- Onboard is a read-only review. Its manifest table is a summary; the owner workflow performs validation/generation.
+- Ops shows scan source/window/completeness separately from incident denials. Zero current findings requires a complete fresh scan; it is not a full assessment.
+- Financial shows worker-reported steps and honest cost availability. Conversation/drafts survive page tab/language changes in memory; they are not stored durably in the browser.
+- Break it shows a mounted report bound to its selected release and runner source. Missing/unqualified/historical results are not a fresh live pass.
 
-When a service fails, the operations agent proposes a restart or a bounded scale (a replica count within the registered bounds). Type the owner passphrase,
-select **Approve** on the **Ops** screen (it then executes once). An approval is valid once, for that action on that service, for 5 minutes.
-If the service changes in between, the platform refuses the action and changes nothing.
+Skip to content focuses the current main region without changing its route. Escape closes an explanation and restores its opener. The Console is English; Financial supports English/Arabic. Guide language and source presentation follow its current component behaviour and tests.
 
-## Stop
+## Approve an action
 
-Stop the port-forwards (Ctrl+C), then run `make down`. It snapshots the database and scales the cluster to 0 nodes.
+Read the target, action and proposal age. **Approve & execute** performs the signed approval and execution flow. It is not an approval-only draft. A refused, expired or unknown response must not be labelled verified. A lost execution response is an unknown outcome; inspect current state before retrying. Read-only targets offer owner action rather than mutation.
+
+Stop forwards when finished. `make down` snapshots/scales the declared platform; it does not delete the persistent engineering VMs. See the [runbook](operations/demo-runbook.md) and [retention policy](agent-platform/teardown-plan.md).
