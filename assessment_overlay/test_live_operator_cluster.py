@@ -29,6 +29,7 @@ class TerraformFixture:
         if command[1] == 'output':
             return json.dumps({'platform': {'value': {
                 'node_service_account': 'node@' + PROJECT + '.iam.gserviceaccount.com',
+                'cluster_name': 'agent-platform', 'cluster_location': 'us-east1-b',
                 'attestor': 'projects/fixture/attestors/assessment',
                 'attestor_key_version': 'projects/fixture/cryptoKeyVersions/1'}}})
         return ''

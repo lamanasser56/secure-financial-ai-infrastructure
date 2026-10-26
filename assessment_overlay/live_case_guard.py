@@ -39,8 +39,8 @@ def case_delta(case, before, after):
     return redactions, attempts
 
 
-def read(kubeconfig, run_id):
-    command = ['kubectl', '--kubeconfig=' + str(kubeconfig), '-n', 'platform',
+def read(kubeconfig, run_id, kubectl='kubectl'):
+    command = [str(kubectl), '--kubeconfig=' + str(kubeconfig), '-n', 'platform',
                'exec', 'deployment/redactor', '--', '/usr/local/bin/python3.12',
                '-c', REMOTE]
     result = subprocess.run(command, capture_output=True, text=True, timeout=45)
