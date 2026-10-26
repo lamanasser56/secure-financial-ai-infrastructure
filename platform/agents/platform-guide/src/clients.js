@@ -59,6 +59,15 @@ function maskEmails(text) {
   return { masked, found };
 }
 
+// This local preparation is shared with the prompt packer so UTF-8 limits use exactly the client transformation.
+function prepare(text) {
+  const emailMasked = maskEmails(String(text));
+  let spans;
+  try { spans = identifierSpans(emailMasked.masked); } catch { throw new Blocked('redaction_unavailable'); }
+  return {emailMasked, spans, masked: maskSpans(emailMasked.masked, spans)};
+}
+const maskedByteLength = text => Buffer.byteLength(prepare(text).masked);
+
 class Redactor {
   constructor(key, { transport = post, url = REDACTOR_URL, timeoutMs = 8000 } = {}) {
     if (typeof key !== 'string' || key.length !== 64) throw new Error('redaction:invalid_client');
@@ -72,15 +81,8 @@ class Redactor {
   // Emails, then structured identifiers (phone, IBAN, VAT, card, labelled IDs) are masked here, in raw text and inside the
   // JSON prompt alike: the redactor's own patterns for those are line-anchored and never match inside a JSON string.
   async redact(text, requestId) {
-    const emailMasked = maskEmails(String(text));
-    let spans;
-    try {
-      spans = identifierSpans(emailMasked.masked);
-    } catch {
-      throw new Blocked('redaction_unavailable');
-    }
+    const {emailMasked, spans, masked} = prepare(text);
     const originals = spans.map(([start, end]) => emailMasked.masked.slice(start, end));
-    const masked = maskSpans(emailMasked.masked, spans);
     const found = emailMasked.found;
     if (Buffer.byteLength(masked) > MAX_TEXT_BYTES) throw new Blocked('redaction_unavailable');
     let response;
@@ -140,4 +142,4 @@ class Gateway {
   }
 }
 
-module.exports = { Redactor, Gateway, Blocked, maskEmails, post, ALIAS, SUPPORTED };
+module.exports = { Redactor, Gateway, Blocked, maskEmails, post, ALIAS, SUPPORTED, maskedByteLength, MAX_TEXT_BYTES };

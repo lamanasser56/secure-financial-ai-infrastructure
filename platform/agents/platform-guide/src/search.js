@@ -56,6 +56,7 @@ class DocsIndex {
     });
     scored.sort((a, b) => b.score - a.score || a.i - b.i);
     return scored.slice(0, limit).map(({ i, score }) => ({
+      id: this.chunks[i].id,
       path: this.chunks[i].path,
       heading: this.chunks[i].heading,
       excerpt: this.chunks[i].text.slice(0, EXCERPT),

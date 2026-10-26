@@ -51,5 +51,4 @@ function guideWith(options) {
   return { guide, lines, ...f };
 }
 
-const SEARCH = { action: 'tool', tool: 'docs_search', args: { query: 'network isolation default deny' } };
-module.exports = { INDEX, guideWith, fakes, SEARCH };
+module.exports = { INDEX, guideWith, fakes };
