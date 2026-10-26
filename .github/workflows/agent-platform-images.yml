@@ -31,7 +31,8 @@ jobs:
       contents: read
     outputs:
       sha: ${{ steps.sha.outputs.sha }}
-      build: ${{ steps.sha.outputs.build }}
+      build: ${{ steps.plan.outputs.build }}
+      matrix: ${{ steps.plan.outputs.matrix }}
     steps:
       - id: sha
         env:
@@ -56,25 +57,39 @@ jobs:
           ok=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$sha&event=push&branch=main&status=success&per_page=1" --jq '.total_count')
           [[ "$ok" =~ ^[1-9][0-9]*$ ]] || { echo "no successful CI run on push to main for $sha"; exit 1; }
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          # Skip (no build, no signing) when everything since the previous CI-validated push to main is docs/ or the
-          # image pin file. Unknown base, a manual dispatch, a truncated file list or any other path: build.
-          build=true
-          if [[ "$EVENT" == workflow_run ]]; then
-            base=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?event=push&branch=main&status=success&per_page=10" \
-                     --jq "[.workflow_runs[] | select(.head_sha != \"$sha\")][0].head_sha // empty")
-            if [[ "$base" =~ ^[0-9a-f]{40}$ ]]; then
-              gh api "repos/$GITHUB_REPOSITORY/compare/$base...$sha" --jq '.status, .total_commits, (.files | length), .files[].filename' > "$RUNNER_TEMP/compare.txt"
-              status=$(sed -n 1p "$RUNNER_TEMP/compare.txt"); count=$(sed -n 3p "$RUNNER_TEMP/compare.txt")
-              tail -n +4 "$RUNNER_TEMP/compare.txt" > "$RUNNER_TEMP/files.txt"
-              if [[ "$status" == ahead && "$count" =~ ^[0-9]+$ && "$count" -gt 0 && "$count" -lt 300 ]] \
-                 && ! grep -qvE '^(docs/.+|platform/clouds/gke/images\.json)$' "$RUNNER_TEMP/files.txt"; then
-                build=false
-              fi
-              echo "base=$base status=$status files=$count build=$build"
-              cat "$RUNNER_TEMP/files.txt"
-            fi
-          fi
-          echo "build=$build" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ steps.sha.outputs.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: tools/image-inputs/go.mod
+          cache-dependency-path: tools/image-inputs/go.sum
+      - name: Derive current input ownership and compare a successful image-workflow plan
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.sha.outputs.sha }}
+          EVENT: ${{ github.event_name }}
+          GOTOOLCHAIN: local
+        run: |
+          set -Eeuo pipefail
+          [[ "$(git rev-parse HEAD)" == "$SHA" ]]
+          go -C tools/image-inputs build -mod=readonly -o "$RUNNER_TEMP/image-inputs" .
+          force=()
+          if [[ "$EVENT" == workflow_dispatch ]]; then force=(--force); fi
+          matrix=$(python3 scripts/plan-image-builds.py --tool "$RUNNER_TEMP/image-inputs" \
+            --source "$SHA" --out "$RUNNER_TEMP/input-plan.json" "${force[@]}")
+          printf 'matrix=%s\n' "$matrix" >> "$GITHUB_OUTPUT"
+          build=$(python3 -c 'import json,sys; print(str(bool(json.loads(sys.argv[1])["include"])).lower())' "$matrix")
+          printf 'build=%s\n' "$build" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: image-input-plan
+          path: ${{ runner.temp }}/input-plan.json
+          retention-days: 30
 
   image:
     needs: ci-gate
@@ -83,12 +98,7 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: true
-      matrix:
-        include:
-          - {image: agent-platform-app, target: app, dockerfile: platform/core/images/Dockerfile}
-          - {image: agent-platform-ops, target: ops, dockerfile: platform/core/images/Dockerfile}
-          - {image: agent-financial, target: runtime, dockerfile: platform/agents/financial/Dockerfile}
-          - {image: platform-guide, target: runtime, dockerfile: platform/agents/platform-guide/Dockerfile}
+      matrix: ${{ fromJSON(needs.ci-gate.outputs.matrix) }}
     permissions:
       contents: read
       id-token: write
@@ -96,6 +106,10 @@ jobs:
       REGISTRY: us-east1-docker.pkg.dev
       REPOSITORY: sdp-evaluation-images
       SHA: ${{ needs.ci-gate.outputs.sha }}
+      IMAGE: ${{ matrix.image }}
+      TARGET: ${{ matrix.target }}
+      DOCKERFILE: ${{ matrix.dockerfile }}
+      SOURCE_ARGUMENT: ${{ matrix.source_argument }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -117,21 +131,24 @@ jobs:
           set -Eeuo pipefail
           [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_RUN_ATTEMPT" == 1 && "$(git rev-parse HEAD)" == "$SHA" ]]
           source_args=()
-          if [[ "${{ matrix.image }}" == platform-guide ]]; then source_args=(--build-arg "SOURCE_COMMIT=$SHA"); fi
-          docker buildx build --platform linux/amd64 "${source_args[@]}" --target "${{ matrix.target }}" \
-            --file "${{ matrix.dockerfile }}" --provenance=false --sbom=false \
-            --tag "local/${{ matrix.image }}:${SHA}" --load .
+          if [[ -n "$SOURCE_ARGUMENT" ]]; then source_args=(--build-arg "$SOURCE_ARGUMENT=$SHA"); fi
+          build_context="$RUNNER_TEMP/source-context"
+          mkdir "$build_context"
+          git archive --format=tar "$SHA" | tar -xf - -C "$build_context"
+          docker buildx build --platform linux/amd64 "${source_args[@]}" --target "$TARGET" \
+            --file "$build_context/$DOCKERFILE" --provenance=false --sbom=false \
+            --tag "local/$IMAGE:${SHA}" --load "$build_context"
       - name: Trivy (all severities and KEV; fail-closed) and SBOM
         run: |
           set -Eeuo pipefail
-          image="local/${{ matrix.image }}:${SHA}"
+          image="local/$IMAGE:${SHA}"
           "$RUNNER_TEMP/tools/trivy" image --exit-code 0 --ignore-unfixed=false \
             --format json --output "$RUNNER_TEMP/trivy.json" "$image"
           curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 --max-time 60 \
             --output "$RUNNER_TEMP/kev.json" \
             https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
           python3 scripts/reviewed-image-exception-gate.py "$RUNNER_TEMP/trivy.json" "$image" \
-            "${{ matrix.image }}" "$RUNNER_TEMP/kev.json" policy/reviewed-image-exceptions.json \
+            "$IMAGE" "$RUNNER_TEMP/kev.json" policy/reviewed-image-exceptions.json \
             "$RUNNER_TEMP/trivy-prepush-gate.json"
           "$RUNNER_TEMP/tools/syft" "$image" -o "cyclonedx-json=$RUNNER_TEMP/sbom.cdx.json"
           python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['bomFormat']=='CycloneDX' and d['components']" "$RUNNER_TEMP/sbom.cdx.json"
@@ -151,7 +168,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           [[ "$PROJECT_ID" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]]
-          name="${{ matrix.image }}"
+          name="$IMAGE"
           remote="$REGISTRY/$PROJECT_ID/$REPOSITORY/$name:sha-$SHA"
           printf '%s' "$ACCESS_TOKEN" | docker login "https://$REGISTRY" -u oauth2accesstoken --password-stdin >/dev/null
           docker tag "local/$name:$SHA" "$remote"

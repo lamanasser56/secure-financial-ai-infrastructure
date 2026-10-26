@@ -22,3 +22,7 @@ if python3 -c 'import cryptography, google.auth, psycopg' 2>/dev/null; then
 else
   echo 'tests/agents: runtime dependencies absent here; run in the agents CI job (or install the app image locks).'
 fi
+
+# Docker's own parser/ignore semantics, current repository consumers and trusted baseline transport.
+GOTOOLCHAIN=local go -C tools/image-inputs test -count=1 ./...
+python3 -B -m unittest discover -s tools/image-inputs -p 'test_*.py'

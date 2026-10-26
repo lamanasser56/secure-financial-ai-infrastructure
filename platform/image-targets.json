@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "controls": [
+    ".github/workflows/agent-platform-images.yml",
+    "platform/image-targets.json",
+    "tools/image-inputs/**",
+    "scripts/install-qualification-tools.sh",
+    "scripts/reviewed-image-exception-gate.py",
+    "scripts/kev-release-gate.py",
+    "policy/reviewed-image-exceptions.json",
+    "policy/empty-exceptions.json",
+    "scripts/plan-image-builds.py"
+  ],
+  "images": [
+    {
+      "image": "agent-platform-app",
+      "target": "app",
+      "dockerfile": "platform/core/images/Dockerfile",
+      "source_argument": ""
+    },
+    {
+      "image": "agent-platform-ops",
+      "target": "ops",
+      "dockerfile": "platform/core/images/Dockerfile",
+      "source_argument": ""
+    },
+    {
+      "image": "agent-financial",
+      "target": "runtime",
+      "dockerfile": "platform/agents/financial/Dockerfile",
+      "source_argument": ""
+    },
+    {
+      "image": "platform-guide",
+      "target": "runtime",
+      "dockerfile": "platform/agents/platform-guide/Dockerfile",
+      "source_argument": "SOURCE_COMMIT"
+    }
+  ]
+}

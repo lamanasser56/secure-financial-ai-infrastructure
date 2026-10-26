@@ -23,6 +23,11 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
+      - name: Set up the pinned image-input tooling compiler
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: tools/image-inputs/go.mod
+          cache-dependency-path: tools/image-inputs/go.sum
       - name: Install validation dependencies
         run: python -m pip install --require-hashes -r requirements-dev.txt
       - name: Check Python dependency lock

@@ -21,6 +21,8 @@
 !platform/core/kubernetes/**
 !platform/agents/
 !platform/agents/*/
+# Re-exclude descendants after opening each directory; only agent.yaml is an app input.
+platform/agents/*/**
 !platform/agents/*/agent.yaml
 !platform/clouds/
 !platform/clouds/gke/
@@ -34,3 +36,4 @@
 !docs/examples/rejected-agent/agent.yaml
 **/__pycache__
 **/*.pyc
+**/node_modules
