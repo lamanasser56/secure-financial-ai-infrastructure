@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "assets": {
+    "/core.js": "text/javascript; charset=utf-8",
+    "/style.css": "text/css; charset=utf-8",
+    "/typeface/barlow-semi-condensed-latin-700-normal.woff2": "font/woff2",
+    "/typeface/barlow-semi-condensed-latin-800-normal.woff2": "font/woff2",
+    "/typeface/ibm-plex-mono-latin-400-normal.woff2": "font/woff2",
+    "/typeface/ibm-plex-mono-latin-500-normal.woff2": "font/woff2",
+    "/typeface/ibm-plex-sans-arabic-arabic-400-normal.woff2": "font/woff2",
+    "/typeface/ibm-plex-sans-arabic-arabic-500-normal.woff2": "font/woff2",
+    "/typeface/ibm-plex-sans-arabic-arabic-600-normal.woff2": "font/woff2",
+    "/typeface/ibm-plex-sans-arabic-arabic-700-normal.woff2": "font/woff2",
+    "/typeface/ibm-plex-sans-latin-400-normal.woff2": "font/woff2",
+    "/typeface/ibm-plex-sans-latin-500-normal.woff2": "font/woff2",
+    "/typeface/ibm-plex-sans-latin-600-normal.woff2": "font/woff2"
+  }
+}

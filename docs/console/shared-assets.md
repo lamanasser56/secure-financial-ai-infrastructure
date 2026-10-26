@@ -1,0 +1,11 @@
+# Shared console assets
+
+`platform/core/ui` owns the blueprint styles, generic DOM/drawer code and self-hosted fonts. `shared-assets.json` is the exact public route inventory. Financial owns only its private page and application script; the Guide owns its page, application script and component layout. There are no tracked Financial copies of the shared JavaScript, CSS or fonts.
+
+The Python HTTP handlers use `agent_platform.ui_assets`. Its path is relative to the package: source `platform/core/src/agent_platform` resolves to `platform/core/ui`; the Python image SDK at `/app/platform/src/agent_platform` resolves to `/app/platform/ui`. Docker copies the canonical files into that location. App serves the Console and trusted Financial frontdoor; the Financial worker’s package also receives the declared shared assets, without exposing a UI in its supported worker mode.
+
+The Guide image preserves its source directory relationship under `/app/platform/agents/platform-guide`, with shared files under `/app/platform/core/ui`. Its Node HTTP handler reads the same inventory. Both handlers accept exact registered shared routes, reject traversal and serve fonts only from the local origin. Licenses accompany the fonts but are not public asset routes. There is no source-directory search, generated-file repair or fallback to a second copy.
+
+Shared skip links focus `main#view` without changing the URL hash. They preserve the current screen and unsent form data. The connection badge reports the last API request outcome and the time this browser recorded it. An old successful response becomes “Last response”, never an inferred outage. Network failure, invalid JSON and HTTP errors have separate states. “API answered” does not certify service health, current posture or the age of the returned observations; unavailable observation sources are marked as limited data.
+
+HTTP tests compare every declared asset with its canonical source, including actual Financial and Guide handlers. A packaged-layout test checks the Python image path without fallback. Browser tests cover all three compositions, skip navigation/drafts, idle and failed requests, Arabic, keyboard and 360/1440 layouts. Browser fixtures do not call a model or deployment cluster.

@@ -1,0 +1,7 @@
+/* Guide layout over the canonical blueprint shell. */
+.guide-form.panel, .guide-out.panel { padding: 24px; min-width: 0; }
+.guide-form { display: grid; gap: 12px; align-content: start; }
+.guide-form textarea { min-height: 120px; resize: vertical; }
+.guide-form .btn { justify-self: start; }
+.guide-out h2 { margin-bottom: 12px; }
+.guide-out pre { white-space: pre-wrap; overflow-wrap: anywhere; }

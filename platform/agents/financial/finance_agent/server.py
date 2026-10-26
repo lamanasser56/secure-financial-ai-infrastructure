@@ -21,14 +21,12 @@ import signal
 import threading
 from urllib.parse import parse_qs, urlsplit
 
-from agent_platform import audit, release_version
+from agent_platform import audit, release_version, ui_assets
 from agent_platform.masking_scope import scope as masking_scope
 from agent_platform.financial_schema import metadata as financial_metadata
 
 UI = Path(__file__).resolve().parent / 'ui'
-ASSETS = {'/': ('index.html', 'text/html; charset=utf-8'), '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
-          '/core.js': ('core.js', 'text/javascript; charset=utf-8'), '/style.css': ('style.css', 'text/css; charset=utf-8')}
-FONTS = {p.name for p in (UI / 'typeface').glob('*.woff2')}  # the design's own fonts, same origin, fixed names
+ASSETS = {'/': ('index.html', 'text/html; charset=utf-8'), '/app.js': ('app.js', 'text/javascript; charset=utf-8')}
 HEADERS = {
     'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; img-src 'none'; "
                                "frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
@@ -91,11 +89,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, {'status': 'ok'})
         if not self.host_ok():
             return self.send(403, {'error': 'host_rejected'})
+        shared = ui_assets.read(path.path)
+        if shared is not None:
+            return self.send(200, shared[0], shared[1])
         if path.path in ASSETS:
             name, kind = ASSETS[path.path]
             return self.send(200, (UI / name).read_bytes(), kind)
-        if path.path.startswith('/typeface/') and path.path[10:] in FONTS:
-            return self.send(200, (UI / 'typeface' / path.path[10:]).read_bytes(), 'font/woff2')
         user = self.session()
         if user is None:
             return self.send(401, {'error': 'sign_in_required'})

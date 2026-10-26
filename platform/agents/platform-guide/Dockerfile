@@ -9,10 +9,12 @@ COPY platform/agents/platform-guide/tools/ ./tools/
 RUN node tools/build-index.js docs docs-index.json
 
 FROM gcr.io/distroless/nodejs24-debian13:nonroot@sha256:cb606325b7ec4af55462cb0b424a53b452a5b4a894ffe841fcf1048d216fb9f8 AS runtime
-WORKDIR /app
+WORKDIR /app/platform/agents/platform-guide
 COPY --chown=65532:65532 platform/agents/platform-guide/package.json ./
 COPY --chown=65532:65532 platform/agents/platform-guide/src/ ./src/
 COPY --chown=65532:65532 platform/agents/platform-guide/public/ ./public/
+COPY --chown=65532:65532 platform/core/ui/core.js platform/core/ui/style.css platform/core/ui/shared-assets.json /app/platform/core/ui/
+COPY --chown=65532:65532 platform/core/ui/typeface/ /app/platform/core/ui/typeface/
 COPY --from=builder --chown=65532:65532 /build/docs-index.json ./docs-index.json
 USER 65532:65532
 ENV NODE_ENV=production

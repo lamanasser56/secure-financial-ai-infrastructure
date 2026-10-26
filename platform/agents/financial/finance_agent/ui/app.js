@@ -59,12 +59,12 @@
       const response = await fetch(path, {method, headers, signal: controller.signal, credentials: 'same-origin', body: body === undefined ? undefined : JSON.stringify(body)});
       Console.captureSource(response);
       let data;
-      try { data = await response.json(); } catch { return {ok: false, status: response.status, data: {error: 'invalid_response'}}; }
-      if (!data || typeof data !== 'object' || Array.isArray(data)) return {ok: false, status: response.status, data: {error: 'invalid_response'}};
-      Console.setLive(response.ok || response.status < 500);
+      try { data = await response.json(); } catch { Console.observeAPI(response.status, false); return {ok: false, status: response.status, data: {error: 'invalid_response'}}; }
+      if (!data || typeof data !== 'object' || Array.isArray(data)) { Console.observeAPI(response.status, false); return {ok: false, status: response.status, data: {error: 'invalid_response'}}; }
+      Console.observeAPI(response.status);
       return {ok: response.ok, status: response.status, data};
     } catch {
-      Console.setLive(false);
+      Console.observeAPI(0);
       return {ok: false, status: 0, data: {error: 'unreachable'}};
     } finally { clearTimeout(timer); }
   }

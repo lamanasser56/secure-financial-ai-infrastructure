@@ -4,8 +4,16 @@ form.addEventListener('submit', async (event) => {
   event.preventDefault();
   const out = document.getElementById('out');
   const body = { question: document.getElementById('q').value, language: document.getElementById('lang').value };
-  const response = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const data = await response.json();
+  let response, data;
+  try {
+  response = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  try { data = await response.json(); }
+  catch (error) { Console.observeAPI(response.status, false); throw error; }
+  Console.observeAPI(response.status);
+  } catch (error) {
+    if (!response) Console.observeAPI(0);
+    throw error;
+  }
   document.getElementById('answer').textContent = data.answer || ('No answer: ' + (data.reason || data.error || 'error'));
   const list = document.getElementById('sources');
   list.textContent = '';

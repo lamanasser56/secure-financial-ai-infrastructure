@@ -53,19 +53,23 @@ Never for headings or prose.
 
 **Fonts are self-hosted** (SIL Open Font License). The `.woff2` files and their licence texts live in the repository
 next to the console assets, are served from the same origin, and are never loaded from a CDN or a font service. Use
-`font-display: swap` and subset to Latin. Fallbacks: `'Barlow Semi Condensed', 'Arial Narrow', sans-serif`;
-`'IBM Plex Sans', system-ui, sans-serif`; `'IBM Plex Mono', ui-monospace, monospace`.
+`font-display: swap`; use the Latin subsets and the IBM Plex Sans Arabic subset for Arabic headings and prose. Fallbacks: `'Barlow Semi Condensed', 'Arial Narrow', sans-serif`;
+`'IBM Plex Sans', system-ui, sans-serif`; `'IBM Plex Mono', ui-monospace, monospace`. Arabic uses self-hosted IBM Plex Sans Arabic (400–700).
+
+The shared CSS, generic drawer code and fonts have one owner in `platform/core/ui`, declared by `shared-assets.json`.
+Console, Financial and Guide serve build copies from that inventory. Component pages/scripts and Guide layout stay with their components; shared files are not duplicated in source.
 
 ## Frame
 
 - Full width, as the ★ screens were drawn (1440 × 900, the recording viewport): 40 px side padding and no centred
   max-width column; 16 px side gutters on small screens. Each screen fills that frame at 1440 × 900 without scrolling
   sideways or cutting anything off.
-- **Header** (68 px tall) on every screen: the wordmark `AGENT-PLATFORM` (Barlow 800, tracked) and a green `● Live` badge on the left;
+- **Header** (68 px tall on desktop) on every screen: the wordmark `Agent Runtime Platform` (Barlow 800, tracked) and a scoped API outcome badge;
   the tab row in the centre; a 1 px rule under all of it. There is no `Sample data` badge: the console shows no sample data.
 - **Tabs:** `MAP · AGENTS · ONBOARD · OPS · BREAK IT`. The current tab is `--ink` with a 2 px underline; the others are
   `--muted`. `BREAK IT` is always `--denied` (its underline too, when current).
-- `Live` means the screen's data came from the console API in the last minute; otherwise the badge reads `Offline`.
+- The badge reports `API answered`, its browser receipt time after a minute, or an explicit request/JSON/HTTP failure. Idle time never implies an outage. Limited observations are labelled `limited data`; this badge does not certify service health, posture or data freshness.
+- Skip to content focuses the current main region without changing the hash route or discarding a form draft.
 - The Ask screen is reached from an agent (Try this agent) and has no tab of its own; it shows `← <Agent>` above the
   headline, and the AGENTS tab stays current.
 

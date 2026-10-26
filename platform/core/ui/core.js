@@ -1,4 +1,4 @@
-/* Console core: DOM helper, JSON fetch, and the Explain drawer. Shared byte-for-byte with the Financial Agent UI (a test enforces it).
+/* Console core: DOM helper, JSON fetch, and the Explain drawer. Owned here; every screen serves the declared shared assets from this source.
    Every node is built with el() (no HTML parsing), so no data is ever treated as markup. */
 (() => {
   'use strict';
@@ -20,36 +20,59 @@
   }
   let language = 'en';
   const L = (en, ar) => language === 'ar' ? ar : en;
-  function setLanguage(value) { language = value === 'ar' ? 'ar' : 'en'; paintLive(); }
+  function setLanguage(value) { language = value === 'ar' ? 'ar' : 'en'; paintConnection(); }
   const $ = id => document.getElementById(id);
   const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // "Live" means data arrived in the last minute AND its live sources answered; "Not live" means the API answered but the ops
-  // agent did not (only declared values are shown); "Offline" means nothing answered.
-  let liveTimer = null, reachable = false, degraded = false;
-  function paintLive() {
-    const badge = $('live');
+  // Browser receipt time is not service health or the observation's own freshness.
+  let responseTimer = null, lastResponse = null, sourcesUnavailable = false;
+  function paintConnection() {
+    const badge = $('connection');
     if (!badge) return;
-    const on = reachable && !degraded;
-    badge.classList.toggle('on', on);
-    badge.textContent = on ? L('Live', 'متصل') : reachable ? L('Not live', 'المصادر غير متاحة') : L('Offline', 'غير متصل');
+    const recent = lastResponse && Date.now() - lastResponse.at < 60000;
+    const state = !lastResponse ? 'unchecked' : lastResponse.state;
+    const time = lastResponse ? new Date(lastResponse.at).toLocaleTimeString(language) : '';
+    const label = state === 'unchecked' ? L('Not checked', 'لم يُفحص الاتصال')
+      : state === 'failed' ? L('Last request failed', 'فشل الطلب الأخير')
+      : state === 'invalid' ? L('Invalid API response', 'استجابة غير صالحة')
+      : state === 'error' ? L('API response: ', 'استجابة الخادم: ') + lastResponse.status
+      : recent ? L('API answered', 'استجاب الخادم') : L('Last response: ', 'آخر استجابة: ') + time;
+    badge.textContent = label + (sourcesUnavailable ? L(' · limited data', ' · بيانات جزئية') : '');
+    badge.classList.toggle('on', state === 'answered' && recent && !sourcesUnavailable);
+    badge.dataset.state = state;
+    badge.dataset.recent = String(!!recent);
+    badge.title = (lastResponse ? L('Browser recorded the last request outcome at ', 'سجّل المتصفح آخر نتيجة للطلب عند ') + time + '. ' : '')
+      + L('This is API receipt information, not a verdict on all services or the age of their data.', 'هذه معلومات وصول استجابة الخادم، وليست حكمًا على صحة كل الخدمات أو حداثة بياناتها.');
+    badge.setAttribute('aria-label', badge.textContent + '. ' + badge.title);
   }
-  function setLive(ok) {
-    reachable = ok;
-    clearTimeout(liveTimer);
-    if (ok) liveTimer = setTimeout(() => setLive(false), 60000);
-    paintLive();
+  function observeAPI(status, valid = true) {
+    lastResponse = {at: Date.now(), status, state: status === 0 ? 'failed' : !valid ? 'invalid' : status >= 400 ? 'error' : 'answered'};
+    clearTimeout(responseTimer);
+    responseTimer = setTimeout(paintConnection, 60000);
+    paintConnection();
   }
-  function setDegraded(value) { degraded = value; paintLive(); }
+  function setSourcesUnavailable(value) { sourcesUnavailable = !!value; paintConnection(); }
+  document.addEventListener('visibilitychange', paintConnection);
+  // The link focuses content without changing a hash router's current screen or destroying drafts.
+  document.querySelector('.skip')?.addEventListener('click', event => {
+    event.preventDefault();
+    $('view')?.focus();
+  });
+  paintConnection();
   async function getJSON(path) {
     try {
       const response = await fetch(path, {credentials: 'same-origin', headers: {Accept: 'application/json'}});
       captureSource(response);
-      const data = await response.json();
-      if (path.startsWith('/api/console/')) setLive(response.ok);
+      let data;
+      try { data = await response.json(); }
+      catch { observeAPI(response.status, false); return {ok: false, status: response.status, data: null}; }
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        observeAPI(response.status, false); return {ok: false, status: response.status, data: null};
+      }
+      observeAPI(response.status);
       return {ok: response.ok, status: response.status, data};
     } catch (e) {
-      if (path.startsWith('/api/console/')) setLive(false);
+      observeAPI(0);
       return {ok: false, status: 0, data: null};
     }
   }
@@ -198,5 +221,5 @@
   }
   const head = (title, sub, action) => el('div', {class: 'head'}, el('div', {}, el('h1', {}, title), sub ? el('p', {class: 'sub'}, sub) : null), action || null);
   const empty = (title, text) => el('div', {class: 'panel empty'}, el('strong', {}, title), text);
-  window.Console = {setLanguage, captureSource, codeURL, head, empty, el, $, reduced, setLive, setDegraded, getJSON, clock, ago, shortDigest, proofBox, explain, explainTopic, close, setDock, screens: {}};
+  window.Console = {setLanguage, captureSource, codeURL, head, empty, el, $, reduced, observeAPI, setSourcesUnavailable, getJSON, clock, ago, shortDigest, proofBox, explain, explainTopic, close, setDock, screens: {}};
 })();

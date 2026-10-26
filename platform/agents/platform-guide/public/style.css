@@ -1,6 +1,0 @@
-body { font-family: system-ui, sans-serif; margin: 0; padding: 24px 16px; background: #0f1419; color: #e6e9ee; }
-main { max-width: 760px; margin: 0 auto; }
-textarea, select, button { font: inherit; width: 100%; box-sizing: border-box; margin: 4px 0 12px; padding: 8px; }
-textarea, select { background: #1a2129; color: inherit; border: 1px solid #3a4654; border-radius: 6px; }
-button { background: #3d7bd9; color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
-pre { overflow-x: auto; background: #1a2129; padding: 12px; border-radius: 6px; }

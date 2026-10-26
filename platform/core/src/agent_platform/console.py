@@ -23,7 +23,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import yaml
 
-from agent_platform import audit, release_facts, masking_scope
+from agent_platform import audit, release_facts, masking_scope, ui_assets
 from runtime.agents import web
 from agent_platform.observations import FRESH_SECONDS
 
@@ -595,10 +595,13 @@ class Handler(web.Handler):
 
     def asset(self, path):
         """(bytes, content type) of one fixed UI file, or None. Only files that exist in the UI directory, by exact name."""
+        shared = ui_assets.read(path, root=self.server.console.ui_dir)
+        if shared is not None:
+            return shared
         name = 'index.html' if path == '/' else path[1:]
         kind = ASSET_TYPES.get(Path(name).suffix)
         parts = name.split('/')
-        if kind is None or not (len(parts) == 1 or (len(parts) == 2 and parts[0] == 'typeface')) or not all(
+        if kind is None or Path(name).suffix == '.woff2' or len(parts) != 1 or not all(
                 re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,80}', p) for p in parts):
             return None
         file = self.server.console.ui_dir.joinpath(*parts)
