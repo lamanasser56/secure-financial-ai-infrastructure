@@ -10,7 +10,6 @@ RUN = 'assess-0123456789abcdef'
 MANIFEST = {'disposable_project_id': PROJECT, 'run_id': RUN,
             'deadline_at': '2026-10-26T03:00:00+00:00'}
 BILLING = 'ABCDEF-123456-ABCDEF'
-SA = 'janitor@fixture-project.iam.gserviceaccount.com'
 
 
 class CloudFixture:
@@ -37,7 +36,10 @@ class CloudFixture:
             return {}
         if args[:2] == ('projects', 'describe'):
             return {'projectId': PROJECT, 'labels': {'assessment_run': RUN},
+                    'projectNumber': '123456789012',
                     'lifecycleState': 'DELETE_REQUESTED' if self.deleted else 'ACTIVE'}
+        if args[:2] == ('iam', 'service-accounts') or args[:2] == ('iam', 'workload-identity-pools'):
+            return {}
         if args[:3] == ('billing', 'projects', 'describe'):
             return {'billingEnabled': self.billing,
                     'billingAccountName': 'billingAccounts/fixture' if self.billing else ''}
@@ -53,22 +55,25 @@ class CloudFixture:
 
 
 class OperatorSetupTest(unittest.TestCase):
-    def test_janitor_grants_precede_billing_link(self):
+    def test_project_local_janitor_is_armed_before_setup_succeeds(self):
         cloud = CloudFixture()
-        receipt = setup_project(MANIFEST, billing_account=BILLING, janitor_sa=SA, call=cloud,
+        receipt = setup_project(MANIFEST, billing_account=BILLING, call=cloud,
                                 now=datetime(2026, 10, 26, tzinfo=timezone.utc))
-        self.assertEqual(receipt['janitor_roles'], list(JANITOR_ROLES))
+        self.assertEqual(receipt['janitor']['roles'], list(JANITOR_ROLES))
+        self.assertEqual(receipt['janitor']['service_account'],
+                         'assessment-janitor@' + PROJECT + '.iam.gserviceaccount.com')
         link = cloud.commands.index(('billing', 'projects', 'link', PROJECT,
                                      '--billing-account=' + BILLING, '--quiet'))
         grants = [i for i, args in enumerate(cloud.commands)
                   if args[:2] == ('projects', 'add-iam-policy-binding')]
         self.assertEqual(len(grants), 3)
-        self.assertTrue(all(index < link for index in grants))
+        self.assertTrue(all(index > link for index in grants))
+        self.assertLess(max(grants), cloud.commands.index(('billing', 'projects', 'describe', PROJECT)))
 
     def test_setup_failure_invokes_billing_unlink_and_project_delete(self):
         cloud = CloudFixture(fail_enable=True)
         with self.assertRaisesRegex(RuntimeError, 'fixture enable failure'):
-            setup_project(MANIFEST, billing_account=BILLING, janitor_sa=SA, call=cloud,
+            setup_project(MANIFEST, billing_account=BILLING, call=cloud,
                           now=datetime(2026, 10, 26, tzinfo=timezone.utc))
         self.assertFalse(cloud.billing)
         self.assertTrue(cloud.deleted)
@@ -76,7 +81,7 @@ class OperatorSetupTest(unittest.TestCase):
     def test_invalid_inputs_make_no_cloud_calls(self):
         cloud = CloudFixture()
         with self.assertRaisesRegex(ValueError, 'declared billing account'):
-            setup_project(MANIFEST, billing_account='invalid', janitor_sa=SA, call=cloud,
+            setup_project(MANIFEST, billing_account='invalid', call=cloud,
                           now=datetime(2026, 10, 26, tzinfo=timezone.utc))
         self.assertEqual(cloud.commands, [])
 

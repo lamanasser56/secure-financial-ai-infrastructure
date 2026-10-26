@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 import unittest
 
-from janitor import cleanup, wait_until_deadline
+from janitor import cleanup, validate_janitor_identity, wait_until_deadline
 
 
 PROJECT = 'sfai-assess-fixture01'
@@ -22,6 +22,7 @@ class CloudFixture:
         self.commands.append(args)
         if args[:2] == ('projects', 'describe'):
             return {'projectId': PROJECT, 'labels': {'assessment_run': self.label},
+                    'projectNumber': '123456789012',
                     'lifecycleState': 'DELETE_REQUESTED' if self.deleted else 'ACTIVE'}
         if args[:3] == ('billing', 'projects', 'describe'):
             return {'billingEnabled': self.billing,
@@ -67,6 +68,18 @@ class JanitorTest(unittest.TestCase):
         wait_until_deadline({'run_id': RUN, 'deadline_at': '2026-10-26T00:01:00+00:00'},
                             now=lambda: next(times), sleep=sleeps.append)
         self.assertEqual(sleeps, [60])
+
+    def test_janitor_identity_must_belong_to_disposable_project(self):
+        cloud = CloudFixture()
+        provider = ('projects/123456789012/locations/global/workloadIdentityPools/'
+                    'assessment-janitor/providers/assessment-janitor')
+        service_account = 'assessment-janitor@' + PROJECT + '.iam.gserviceaccount.com'
+        self.assertEqual(validate_janitor_identity(PROJECT, RUN, provider, service_account,
+                                                   call=cloud)['projectNumber'], '123456789012')
+        with self.assertRaisesRegex(ValueError, 'identity_mismatch'):
+            validate_janitor_identity(PROJECT, RUN, provider.replace('123456789012', '999999999999'),
+                                      service_account, call=cloud)
+        self.assertEqual([command for command in cloud.commands if command[:2] == ('projects', 'delete')], [])
 
 
 if __name__ == '__main__':

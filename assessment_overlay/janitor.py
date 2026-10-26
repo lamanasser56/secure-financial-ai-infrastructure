@@ -16,6 +16,8 @@ import time
 
 from live_case_guard import PROJECT_PATTERN, RUN_PATTERN
 
+JANITOR_PROVIDER_SUFFIX = '/locations/global/workloadIdentityPools/assessment-janitor/providers/assessment-janitor'
+
 
 def load_manifest(path):
     manifest = json.loads(Path(path).read_text())
@@ -45,8 +47,21 @@ def inspect_project(project, run_id, call=gcloud_json):
     return described
 
 
+def validate_janitor_identity(project, run_id, provider, service_account, call=gcloud_json):
+    """Refuse an identity outside the project this workflow is allowed to delete."""
+    if not PROJECT_PATTERN.fullmatch(project or '') or not RUN_PATTERN.fullmatch(run_id or ''):
+        raise ValueError('janitor:invalid_disposable_identity')
+    described = inspect_project(project, run_id, call)
+    number = str(described.get('projectNumber', ''))
+    expected_provider = 'projects/' + number + JANITOR_PROVIDER_SUFFIX
+    expected_sa = 'assessment-janitor@' + project + '.iam.gserviceaccount.com'
+    if not number.isdigit() or provider != expected_provider or service_account != expected_sa:
+        raise ValueError('janitor:identity_mismatch')
+    return described
+
+
 def resource_absence(project, call=gcloud_json):
-    """Check the resource classes that made the 25 October run billable."""
+    """Check the billable and deployable resource classes before project deletion."""
     inventories = {
         'clusters': ('container', 'clusters', 'list'),
         'instances': ('compute', 'instances', 'list'),
@@ -54,6 +69,12 @@ def resource_absence(project, call=gcloud_json):
         'snapshots': ('compute', 'snapshots', 'list'),
         'addresses': ('compute', 'addresses', 'list'),
         'forwarding_rules': ('compute', 'forwarding-rules', 'list'),
+        'routers': ('compute', 'routers', 'list'),
+        'networks': ('compute', 'networks', 'list'),
+        'subnetworks': ('compute', 'networks', 'subnets', 'list'),
+        'routes': ('compute', 'routes', 'list'),
+        'firewall_rules': ('compute', 'firewall-rules', 'list'),
+        'buckets': ('storage', 'buckets', 'list'),
         'repositories': ('artifacts', 'repositories', 'list', '--location=us-east1'),
     }
     counts = {}
@@ -133,6 +154,8 @@ def main():
     parser.add_argument('--project-id')
     parser.add_argument('--run-id')
     parser.add_argument('--deadline-at')
+    parser.add_argument('--workload-identity-provider')
+    parser.add_argument('--service-account')
     parser.add_argument('--execute', action='store_true')
     parser.add_argument('--watch', action='store_true', help='remain independent until the hard deadline')
     args = parser.parse_args()
@@ -148,6 +171,8 @@ def main():
         deadline = datetime.fromisoformat(args.deadline_at)
         if deadline.tzinfo is None:
             raise SystemExit('janitor:deadline_timezone_required')
+        validate_janitor_identity(args.project_id, args.run_id,
+                                  args.workload_identity_provider, args.service_account)
         output = Path(os.environ.get('RUNNER_TEMP', '/tmp')) / ('janitor-' + args.run_id + '.json')
     if not args.execute:
         raise SystemExit('janitor:explicit_execute_required')
