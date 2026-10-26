@@ -8,7 +8,7 @@
 - Merged: PRs #146–#169 implemented the approved 20 themes and hosted/portable fixes; [#170](https://github.com/lamanasser56/secure-financial-ai-infrastructure/pull/170) merged with all five checks green.
 - Open: [#171](https://github.com/lamanasser56/secure-financial-ai-infrastructure/pull/171), branch `docs/release-handoff`, contains only the repository copy of this handoff; #170 feature branch is closed. Current release lock is the older assessed release, **not** final S/R. No final freeze S, lock promotion R, new deployment or new live assessment has occurred.
 - #170 contains the repository-owned disposable 12-case assessment with independent hosted janitor, exact-image provenance/admission, bounded durable ledgers and cleanup. Its 56 targeted offline tests passed on `sfai-engineering`. The live run has **not** occurred.
-- Last merged PR: #170. Current theme: release handoff only. Branch state: main at the SHA above; open #171 carries only the repository copy of this note. Next step in this turn: check the automatic post-#170 hosted image run and stop. The next tool begins the S→R sequence below.
+- Last merged PR: #170. Current theme: release handoff only. Branch state: main at the SHA above; open #171 carries only the repository copy of this note. Next step in this turn: check the automatic post-#170 hosted image run and stop. The next tool should review/merge #171 before freezing S, then follow the S→R sequence below. Merging #171 changes a Guide build input (`docs/`), so its later hosted image run must be assessed; it does not replace the mandatory all-seven build from S.
 
 ## Hosted image evidence
 
