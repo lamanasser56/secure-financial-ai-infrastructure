@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from live_case_runner import CASE_ORDER, run_all, run_case
+from live_case_runner import CASE_ORDER, case_probes, run_all, run_case
 
 
 class LiveCaseRunnerTest(unittest.TestCase):
@@ -79,6 +79,10 @@ class LiveCaseRunnerTest(unittest.TestCase):
         self.assertEqual(result['cases_passed'], 12)
         self.assertEqual(result['result'], 'PASS')
         self.assertTrue((self.run_dir / 'evidence/final-summary.json').exists())
+
+    def test_current_source_bindings_cover_the_exact_twelve(self):
+        self.assertEqual(set(case_probes(self.manifest, self.run_dir,
+                                         '/private/kubeconfig')), set(CASE_ORDER))
 
     def test_failed_case_still_cleans_up(self):
         cleaned = []
