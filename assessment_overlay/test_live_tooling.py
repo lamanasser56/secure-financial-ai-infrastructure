@@ -66,6 +66,17 @@ class LiveToolingTest(unittest.TestCase):
         self.assertTrue(any(d['kind'] == 'Job' and d['metadata']['name'] == 'assessment-sdp-seed'
                             for d in docs))
         self.assertFalse(any('vertex_ai/' in json.dumps(d) for d in docs))
+        service_accounts = {(d['metadata']['namespace'], d['metadata']['name']): d
+                            for d in docs if d['kind'] == 'ServiceAccount'}
+        self.assertNotIn('iam.gke.io/gcp-service-account',
+                         service_accounts[('platform', 'gateway')]['metadata'].get('annotations', {}))
+        self.assertEqual(service_accounts[('platform', 'redactor')]['metadata']['annotations'],
+                         {'iam.gke.io/gcp-service-account':
+                          f'google-sdp-runtime@{PROJECT}.iam.gserviceaccount.com'})
+        metadata_policy = next(d for d in docs if d['kind'] == 'NetworkPolicy'
+                               and d['metadata']['name'] == 'workload-identity-metadata')
+        self.assertEqual(metadata_policy['spec']['podSelector']['matchExpressions'][0]['values'],
+                         ['redactor'])
 
     def test_provider_is_fixed_and_counts_raw_canary_without_echoing_it(self):
         server = make_server('127.0.0.1', 0)
