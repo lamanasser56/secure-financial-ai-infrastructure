@@ -36,6 +36,8 @@ Backups, restore drills, project-level Data Access auditing, customer-managed Se
 
 Old image pins, earlier live results, workflow identity, a receipt's source field and cryptographic source provenance are different evidence. New security code needs fresh qualification of its selected images. A build certificate must not be treated as proof of checkout source unless that source is independently bound by verified provenance. `make demo-check` and the final assessment have explicit, separate scopes.
 
+Known follow-up: `release_verify.Verifier.provenance` parses `cosign verify-attestation` output as one JSON document, so a digest carrying more than one attestation fails verification closed until the parser reads one statement per line.
+
 There is no “wait until teardown” justification for misdescribing current controls. Features outside the approved release scope stay honestly limited; they are not silently promised by UI wording.
 
 ## Persistent engineering VMs
