@@ -2,10 +2,11 @@
 (() => {
   'use strict';
   const {el, $, getJSON} = Console;
-  let timers = [], serial = 0;
+  let timers = [], exits = [], serial = 0;
 
   // Run fn now and then every `ms` while this screen is open (paused while the tab is hidden).
   Console.every = (fn, ms) => { fn(); timers.push(setInterval(() => { if (!document.hidden) fn(); }, ms)); };
+  Console.onExit = cleanup => exits.push(cleanup);
   Console.display = name => name.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
   Console.title = agent => agent.display || Console.display(agent.name);  // the API's display name (e.g. "Security & Ops")
   // Health chip from agents[].health: RUNNING / NOT READY / ABSENT; nothing at all when health is null (the source cannot say).
@@ -30,6 +31,7 @@
   const screens = ['map', 'agents', 'onboard', 'ops', 'break'];
   const titles = {map: 'Map', agents: 'Agents', onboard: 'Onboard', ops: 'Ops', break: 'Break it'};
   function route() {
+    exits.splice(0).forEach(cleanup => cleanup());
     Console.close();
     Console.setDock(null);  // only the screen that asks for it hosts Explain in its layout; the others use the drawer
     timers.forEach(clearInterval); timers = [];
