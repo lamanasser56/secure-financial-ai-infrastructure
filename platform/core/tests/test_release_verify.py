@@ -53,7 +53,7 @@ def attestor():
     return {'etag': '"AAAAAAAAAAAA"', 'name': 'projects/' + PROJECT + '/attestors/agent-platform-ci',
             'updateTime': '2026-10-10T17:01:48.184784Z',
             'userOwnedGrafeasNote': {
-                'delegationServiceAccountEmail': 'service-000000000000@gcp-sa-binaryauthorization.iam.gserviceaccount.com',
+                'delegationServiceAccountEmail': 'service-PROJECT_NUMBER@gcp-sa-binaryauthorization.iam.gserviceaccount.com',
                 'noteReference': NOTE,
                 'publicKeys': [{'id': KMS_RESOURCE + KEY_ID,
                                 'pkixPublicKey': {'publicKeyPem': pem(KEY),
