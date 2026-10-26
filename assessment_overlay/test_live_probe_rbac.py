@@ -1,7 +1,7 @@
 """K02's denial requests use only the projected observer token and dry-run writes."""
 import unittest
 
-from live_probe_rbac import K02, probe_k02
+from live_probe_rbac import K02, K03, probe_k02, probe_k03
 
 
 class RbacProbeTest(unittest.TestCase):
@@ -20,6 +20,17 @@ class RbacProbeTest(unittest.TestCase):
         self.assertEqual(seen, [('ops', 'app.kubernetes.io/name=ops-agent'),
                                 ('apps', 'app.kubernetes.io/name=app')])
         self.assertIn("Path('/var/run/secrets/kubernetes.io/serviceaccount')", K02)
+
+    def test_executor_probe_uses_dry_run_for_all_patches(self):
+        compile(K03, 'k03', 'exec')
+        self.assertEqual(K03.count("path + '?dryRun=All'"), 3)
+        calls = []
+        result = probe_k03('/private/kube',
+                           pod=lambda *a, **kw: calls.append(a) or 'ops-executor-abc',
+                           execute=lambda *a, **kw: {'allowed_restart_dry_run': True,
+                                                        'template_image_change_denied': True})
+        self.assertTrue(all(result.values()))
+        self.assertEqual(calls[0][1:], ('ops', 'app.kubernetes.io/name=ops-executor'))
 
 
 if __name__ == '__main__':
