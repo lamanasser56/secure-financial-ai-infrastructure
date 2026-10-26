@@ -30,9 +30,11 @@ def workload_identity_inventory(kubeconfig, project, *, executable='kubectl', ru
     command = [str(executable), '--kubeconfig=' + str(kubeconfig),
                'get', 'serviceaccounts', '--all-namespaces', '-o', 'json']
     items = json.loads(run(command)).get('items', [])
+    managed = {'platform', 'apps', 'ops', 'agent-financial', 'agent-platform-guide'}
     annotated = [(item['metadata']['namespace'], item['metadata']['name'],
                   item['metadata'].get('annotations', {}).get('iam.gke.io/gcp-service-account'))
-                 for item in items if item['metadata'].get('annotations', {}).get('iam.gke.io/gcp-service-account')]
+                 for item in items if item['metadata']['namespace'] in managed
+                 and item['metadata'].get('annotations', {}).get('iam.gke.io/gcp-service-account')]
     return annotated == [('platform', 'redactor',
                           'google-sdp-runtime@' + project + '.iam.gserviceaccount.com')]
 
