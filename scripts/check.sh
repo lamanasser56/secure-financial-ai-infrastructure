@@ -15,13 +15,7 @@ python3 -B scripts/check-references.py
 for suite in tests/phase3/runtime tests/phase3/evaluation tests/phase4/registry tests/phase4/invocation tests/phase4/governance tests/phase5; do
   python3 -B -m unittest discover -s "$suite" -p 'test_*.py'
 done
-# tests/agents needs the application's runtime dependency set (the app image locks); the CI `agents` job installs
-# it and runs this suite together with platform/core tests and the real-API-server policy tests.
-if python3 -c 'import cryptography, google.auth, psycopg' 2>/dev/null; then
-  python3 -B -m unittest discover -s tests/agents -p 'test_*.py'
-else
-  echo 'tests/agents: runtime dependencies absent here; run in the agents CI job (or install the app image locks).'
-fi
+# The full offline command runs tests/agents in the separately hash-locked app environment.
 
 # Docker's own parser/ignore semantics, current repository consumers and trusted baseline transport.
 GOTOOLCHAIN=local go -C tools/image-inputs test -count=1 ./...

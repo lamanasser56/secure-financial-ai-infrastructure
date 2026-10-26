@@ -16,6 +16,13 @@ from runtime.phase3.trusted_runtime import ControlFailure, RedactionResult
 
 
 class ChannelTests(unittest.TestCase):
+    def test_controller_uid_accepts_cloud_identity_mapping(self):
+        client = ControlClient('/tmp/unused-channel', '1' * 64, controller_uid=918_723_641)
+        self.assertEqual(client.uid, 918_723_641)
+        for invalid in (-1, 2**31, True):
+            with self.assertRaises(ValueError):
+                ControlClient('/tmp/unused-channel', '1' * 64, controller_uid=invalid)
+
     def test_duplicate_invalid_utf8_and_byte_bounds(self):
         for raw in [b'{"key":1,"key":2}',b'{"key":NaN}',b'\xff']:
             with self.assertRaises(Exception):decode(raw)

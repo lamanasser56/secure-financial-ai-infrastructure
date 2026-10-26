@@ -1,5 +1,5 @@
 # Agent platform (Phase E, ADR-008). Offline targets need no cloud; cloud targets use declared cloud credentials.
-#   make test              offline: unit tests, provider drift, manifest invariants, terraform validate
+#   make test              complete offline suite, including browser, policy, database, and Terraform checks
 #   make test-policies     offline: RBAC / ValidatingAdmissionPolicy / Pod Security against a real local kube-apiserver
 #   make onboard A=<agent> validate platform/agents/<agent>/agent.yaml and generate what the agent inherits
 #   make onboard-check F=<manifest>  show every rule a manifest file breaks, one line each (renders nothing)
@@ -27,8 +27,6 @@ KUBECTL ?= $(TOOLS)/kubectl
 TERRAFORM ?= $(TOOLS)/terraform
 OPERATOR_PYTHON := $(abspath .cache/operator-venv/bin/python)
 ENVTEST_DIR ?= .cache/envtest-v1.35.0
-ENVTEST_URL := https://github.com/kubernetes-sigs/controller-tools/releases/download/envtest-v1.35.0/envtest-v1.35.0-linux-amd64.tar.gz
-ENVTEST_SHA512 := 130369c16f076e724d089189afaede960316f5f5dea6cf57be7a4fc6f09c77342893192509790e4056e116e232dff832ed863f5bd55dcb55d38f3ab834828a11
 PY := PYTHONPATH=platform/core/src:platform/core/tests:platform/agents/financial:. $(PYTHON) -B
 LIFECYCLE := PYTHONPATH=platform/core/src:. $(OPERATOR_PYTHON) -B platform/clouds/gke/lifecycle.py
 
@@ -42,23 +40,11 @@ operator-env:
 	if [[ ! -x "$(OPERATOR_PYTHON)" ]]; then $(PYTHON) -m venv .cache/operator-venv; fi
 	$(OPERATOR_PYTHON) -m pip install --disable-pip-version-check --require-hashes -r requirements-platform.txt
 
-test: tools
-	PATH="$(TOOLS):$$PATH" $(PY) -m unittest discover -s platform/core/tests -p 'test_*.py'
-	$(PY) -m agent_platform.providers check gemini
-	$(PY) -m agent_platform.onboarding check
-	$(TERRAFORM) -chdir=platform/clouds/gke/terraform/root init -backend=false -input=false -lockfile=readonly >/dev/null
-	$(TERRAFORM) -chdir=platform/clouds/gke/terraform/root validate -no-color
-	$(TERRAFORM) fmt -check -recursive platform/clouds/gke/terraform
+test:
+	bash scripts/test-offline.sh
 
-test-policies: $(ENVTEST_DIR)/kube-apiserver
+test-policies: tools
 	ENVTEST_BIN=$(abspath $(ENVTEST_DIR)) $(PY) -m unittest discover -s platform/core/tests -p test_envtest_policies.py -v
-
-$(ENVTEST_DIR)/kube-apiserver:
-	mkdir -p $(ENVTEST_DIR)
-	curl -fsSL -o $(ENVTEST_DIR)/envtest.tgz $(ENVTEST_URL)
-	echo "$(ENVTEST_SHA512)  $(ENVTEST_DIR)/envtest.tgz" | sha512sum -c -
-	tar -xzf $(ENVTEST_DIR)/envtest.tgz -C $(ENVTEST_DIR) --strip-components=2
-	rm $(ENVTEST_DIR)/envtest.tgz
 
 onboard:
 	$(PY) -m agent_platform.onboarding render $(A)
