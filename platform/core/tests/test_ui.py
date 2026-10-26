@@ -9,25 +9,17 @@ import unittest
 REPO = Path(__file__).resolve().parents[3]
 FRONT = REPO / 'platform/core/ui'
 FIN = REPO / 'platform/agents/financial/finance_agent/ui'
-FRONT_FILES = ('index.html', 'style.css', 'core.js', 'app.js', 'map.js', 'agents.js', 'onboard.js', 'attacks.js', 'ops.js')
-SHARED = ('style.css', 'core.js')
+FRONT_FILES = ('index.html', 'style.css', 'core.js', 'app.js', 'map.js', 'agents.js', 'onboard.js', 'attacks.js', 'ops.js', 'shared-assets.json')
 FONTS = ('barlow-semi-condensed-latin-700-normal', 'barlow-semi-condensed-latin-800-normal', 'ibm-plex-sans-latin-400-normal',
          'ibm-plex-sans-latin-500-normal', 'ibm-plex-sans-latin-600-normal', 'ibm-plex-mono-latin-400-normal', 'ibm-plex-mono-latin-500-normal') + tuple('ibm-plex-sans-arabic-arabic-%d-normal' % weight for weight in (400, 500, 600, 700))
-SCRIPTS = [FRONT / n for n in FRONT_FILES if n.endswith('.js')] + [FIN / 'app.js', FIN / 'core.js']
+SCRIPTS = [FRONT / n for n in FRONT_FILES if n.endswith('.js')] + [FIN / 'app.js']
 PAGES = (FRONT / 'index.html', FIN / 'index.html')
 
 
 class Assets(unittest.TestCase):
     def test_exact_file_set(self):
         self.assertEqual(sorted(p.name for p in FRONT.iterdir()), sorted(FRONT_FILES + ('typeface',)))
-        self.assertEqual(sorted(p.name for p in FIN.iterdir()), ['app.js', 'core.js', 'index.html', 'style.css', 'typeface'])
-
-    def test_shared_design_is_byte_identical_in_both_uis(self):
-        for name in SHARED:
-            self.assertEqual((FRONT / name).read_bytes(), (FIN / name).read_bytes(), name)
-        self.assertEqual(sorted(p.name for p in (FRONT / 'typeface').iterdir()), sorted(p.name for p in (FIN / 'typeface').iterdir()))
-        for p in (FRONT / 'typeface').iterdir():
-            self.assertEqual(p.read_bytes(), (FIN / 'typeface' / p.name).read_bytes(), p.name)
+        self.assertEqual(sorted(p.name for p in FIN.iterdir()), ['app.js', 'index.html'])
 
     def test_fonts_are_self_hosted_ofl_woff2(self):
         css = (FRONT / 'style.css').read_text()
@@ -101,12 +93,6 @@ class Scripts(unittest.TestCase):
         self.assertIn('EXPLAIN · NOT SEEN LIVE', core)
         self.assertIn('EXPLAIN · OBSERVED', core)
         self.assertIn("explainTopic('network'", (FRONT / 'map.js').read_text())
-
-    def test_badge_distinguishes_live_not_live_and_offline(self):
-        core = (FRONT / 'core.js').read_text()
-        for text in ("'Live'", "'Not live'", "'Offline'", 'setDegraded'):
-            self.assertIn(text, core)
-        self.assertIn('Console.setDegraded(!agents.data.live_available)', (FRONT / 'app.js').read_text())
 
     def test_health_chip_has_no_chip_when_health_is_null(self):
         app = (FRONT / 'app.js').read_text()

@@ -8,6 +8,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
 export async function assets(relativeFolder) {
   const folder = resolve(root, relativeFolder);
+  const sharedRoot = join(root, 'platform/core/ui');
+  const shared = JSON.parse(await readFile(join(sharedRoot, 'shared-assets.json'), 'utf8')).assets;
   if (!folder.startsWith(root + '/')) throw new Error('asset root must stay in the repository');
   const server = createServer(async (request, response) => {
     const path = new URL(request.url, 'http://127.0.0.1').pathname;
@@ -17,8 +19,8 @@ export async function assets(relativeFolder) {
     try {
       const file = path === '/' ? 'index.html' : path.slice(1);
       const types = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2'};
-      response.setHeader('Content-Type', types[extname(file)]);
-      response.end(await readFile(join(folder, file)));
+      response.setHeader('Content-Type', shared[path] || types[extname(file)]);
+      response.end(await readFile(join(shared[path] ? sharedRoot : folder, file)));
     } catch { response.writeHead(404); response.end(); }
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

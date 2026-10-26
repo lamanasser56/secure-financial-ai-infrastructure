@@ -33,6 +33,8 @@ USER 65532:65532
 WORKDIR /app
 COPY --chown=65532:65532 runtime/ /app/runtime/
 COPY --chown=65532:65532 contracts/ /app/contracts/
-COPY --chown=65532:65532 platform/core/src/agent_platform/__init__.py platform/core/src/agent_platform/audit.py platform/core/src/agent_platform/identifiers.py platform/core/src/agent_platform/redaction.py platform/core/src/agent_platform/release_version.py platform/core/src/agent_platform/masking_scope.py platform/core/src/agent_platform/financial_schema.py platform/core/src/agent_platform/request_context.py platform/core/src/agent_platform/boundary_http.py platform/core/src/agent_platform/data_capability.py /app/platform/src/agent_platform/
+COPY --chown=65532:65532 platform/core/src/agent_platform/__init__.py platform/core/src/agent_platform/audit.py platform/core/src/agent_platform/identifiers.py platform/core/src/agent_platform/redaction.py platform/core/src/agent_platform/release_version.py platform/core/src/agent_platform/masking_scope.py platform/core/src/agent_platform/financial_schema.py platform/core/src/agent_platform/ui_assets.py platform/core/src/agent_platform/request_context.py platform/core/src/agent_platform/boundary_http.py platform/core/src/agent_platform/data_capability.py /app/platform/src/agent_platform/
 COPY --chown=65532:65532 platform/agents/financial/finance_agent/ /app/finance_agent/
+COPY --chown=65532:65532 platform/core/ui/core.js platform/core/ui/style.css platform/core/ui/shared-assets.json /app/platform/ui/
+COPY --chown=65532:65532 platform/core/ui/typeface/ /app/platform/ui/typeface/
 ENTRYPOINT ["/usr/local/bin/python3.12", "-m", "finance_agent.worker"]

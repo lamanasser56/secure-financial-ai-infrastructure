@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / 'platform/agents/financial'))
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from agent_platform.data_capability import CapabilityIssuer
+from agent_platform import ui_assets
 from agent_platform.financial_schema import metadata
 from agent_platform.masking_scope import scope
 from finance_agent.auth import Sessions, LoginThrottle, hash_password
@@ -93,3 +94,15 @@ class FinancialContract(unittest.TestCase):
     def test_masking_translation_refuses_unknown_language(self):
         with self.assertRaises(ValueError):
             scope('unknown')
+
+    def test_every_shared_route_returns_the_canonical_bytes_and_security_headers(self):
+        host = next(iter(self.server.hosts))
+        for route, kind in ui_assets.inventory().items():
+            with self.subTest(route=route), closing(http.client.HTTPConnection('127.0.0.1', self.server.server_port, timeout=5)) as conn:
+                conn.request('GET', route, headers={'Host': host})
+                response = conn.getresponse()
+                self.assertEqual(response.status, 200)
+                self.assertEqual(response.getheader('Content-Type'), kind)
+                self.assertEqual(response.read(), ui_assets.read(route)[0])
+                self.assertIn("font-src 'self'", response.getheader('Content-Security-Policy'))
+                self.assertNotIn('unsafe-inline', response.getheader('Content-Security-Policy'))

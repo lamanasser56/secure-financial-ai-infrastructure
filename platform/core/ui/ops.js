@@ -11,12 +11,19 @@
   const errorCode = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(value) ? value : 'invalid_response';
   async function json(path, options = {}, timeout = 20000) {
     const controller = new AbortController(), timer = setTimeout(() => controller.abort(), timeout);
+    let response;
     try {
-      const response = await fetch(path, {credentials: 'same-origin', ...options, signal: controller.signal});
-      const data = await response.json();
-      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('invalid response');
+      response = await fetch(path, {credentials: 'same-origin', ...options, signal: controller.signal});
+      Console.captureSource(response);
+      let data;
+      try {
+        data = await response.json();
+        if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('invalid response');
+      } catch (error) { Console.observeAPI(response.status, false); throw error; }
+      Console.observeAPI(response.status);
       return {response, data};
-    } finally { clearTimeout(timer); }
+    } catch (error) { if (!response) Console.observeAPI(0); throw error; }
+    finally { clearTimeout(timer); }
   }
   async function bootstrap() {
     if (csrf !== null) return;
@@ -172,7 +179,7 @@
       try {
         const [overview, security, agents] = await Promise.all([call({operation: 'overview'}), call({operation: 'security'}), Console.getJSON('/api/console/agents')]);
         if (!alive()) return;
-        Console.setLive(overview.ok); Console.setDegraded(!overview.ok || !security.ok);
+        Console.setSourcesUnavailable(!overview.ok || !security.ok || !agents.ok || agents.data.live_available !== true);
         scans.replaceChildren(el('div', {class: 'label'}, 'Security posture'), posture(security, previousScan));
         if (security.ok && scanShape(security.data)) previousScan = security.data;
         if (!overview.ok || !['board', 'pending', 'timeline', 'denials'].every(key => Array.isArray(overview.data[key]))) {

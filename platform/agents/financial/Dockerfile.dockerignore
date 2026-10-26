@@ -19,6 +19,13 @@
 !platform/core/src/agent_platform/release_version.py
 !platform/core/src/agent_platform/masking_scope.py
 !platform/core/src/agent_platform/financial_schema.py
+!platform/core/src/agent_platform/ui_assets.py
+!platform/core/ui/
+!platform/core/ui/core.js
+!platform/core/ui/style.css
+!platform/core/ui/shared-assets.json
+!platform/core/ui/typeface/
+!platform/core/ui/typeface/**
 !platform/core/src/agent_platform/request_context.py
 !platform/agents/
 !platform/agents/financial/

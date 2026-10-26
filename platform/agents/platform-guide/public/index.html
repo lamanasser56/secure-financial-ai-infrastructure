@@ -6,21 +6,32 @@
 <title>Platform Guide · Agent Runtime Platform</title>
 <meta name="description" content="The Platform Guide example workload in Agent Runtime Platform.">
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/guide.css">
+<script defer src="/core.js"></script>
 <script defer src="/app.js"></script>
 </head>
 <body>
-<main>
-  <p class="platform-brand"><strong>Agent Runtime Platform</strong></p>
+<a class="skip" href="#view">Skip to content</a>
+<div class="frame">
+<header class="bar">
+  <span class="brand">Agent Runtime Platform</span>
+  <span id="connection" class="connection" role="status">Not checked</span>
+  <nav class="tabs" aria-label="Screens"><a href="/" aria-current="page">Guide</a><a href="http://127.0.0.1:8080/#/agents/platform-guide">Agent passport</a></nav>
+</header>
+<main id="view" tabindex="-1">
+<div class="head"><div>
   <h1>Platform Guide</h1>
-  <p>Ask how Agent Runtime Platform works. Answers come only from the platform documentation, and every answer lists its sources.</p>
-  <form id="ask">
+  <p class="sub">Ask about this platform. The Guide uses the documentation index.</p>
+  </div></div>
+  <div class="two">
+  <form id="ask" class="panel guide-form">
     <label for="q">Question</label>
     <textarea id="q" maxlength="500" rows="3" required></textarea>
     <label for="lang">Language</label>
     <select id="lang"><option value="en">English</option><option value="ar">العربية</option></select>
-    <button type="submit">Ask</button>
+    <button type="submit" class="btn inverse">Ask</button>
   </form>
-  <section id="out" hidden>
+  <section id="out" class="panel guide-out" hidden>
     <h2>Answer</h2>
     <p id="answer"></p>
     <h2>Sources</h2>
@@ -28,6 +39,10 @@
     <h2>What the platform did</h2>
     <pre id="trace"></pre>
   </section>
+  </div>
 </main>
+</div>
+<div id="scrim" class="scrim" hidden></div>
+<aside id="explain" class="drawer" role="dialog" aria-modal="false" aria-labelledby="ex-title" hidden></aside>
 </body>
 </html>

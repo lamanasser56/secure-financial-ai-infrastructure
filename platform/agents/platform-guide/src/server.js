@@ -9,13 +9,21 @@ const { DocsIndex } = require('./search');
 const audit = require('./audit');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
+// Source and image preserve this relative layout; no runtime search or fallback copy.
+const SHARED = path.resolve(__dirname, '../../../core/ui');
+const sharedInventory = JSON.parse(fs.readFileSync(path.join(SHARED, 'shared-assets.json'), 'utf8'));
+if (sharedInventory.version !== 1 || !sharedInventory.assets) throw new Error('guide:shared_assets');
+for (const [url, type] of Object.entries(sharedInventory.assets)) {
+  if (!/^\/(?:core\.js|style\.css|typeface\/[a-z0-9-]+\.woff2)$/.test(url)
+      || !['text/javascript; charset=utf-8', 'text/css; charset=utf-8', 'font/woff2'].includes(type)) throw new Error('guide:shared_route');
+}
 const ASSETS = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
-  '/style.css': ['style.css', 'text/css; charset=utf-8'],
+  '/guide.css': ['guide.css', 'text/css; charset=utf-8'],
 };
 const HEADERS = {
-  'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'",
+  'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; frame-ancestors 'none'; connect-src 'self'; base-uri 'none'; form-action 'none'",
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
   'Cache-Control': 'no-store',
@@ -32,6 +40,11 @@ function createServer(guide, { hosts }) {
     const url = request.url.split('?')[0];
     if (request.method === 'GET' && url === '/healthz') return send(response, 200, { status: 'ok' });
     if (!hosts.has(request.headers.host)) return send(response, 403, { error: 'host_rejected' });
+    if (request.method === 'GET' && Object.hasOwn(sharedInventory.assets, url)) {
+      const file = path.resolve(SHARED, url.slice(1));
+      if (!file.startsWith(SHARED + path.sep) || !fs.realpathSync(file).startsWith(fs.realpathSync(SHARED) + path.sep)) return send(response, 404, {error: 'not_found'});
+      return send(response, 200, fs.readFileSync(file), sharedInventory.assets[url]);
+    }
     if (request.method === 'GET' && ASSETS[url]) {
       const [file, type] = ASSETS[url];
       return send(response, 200, fs.readFileSync(path.join(PUBLIC, file)), type);

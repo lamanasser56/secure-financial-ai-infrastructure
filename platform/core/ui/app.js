@@ -37,7 +37,7 @@
     const [agents, topology] = await Promise.all([getJSON('/api/console/agents'), getJSON('/api/console/topology')]);
     if (!agents.ok) return null;
     const list = agents.data.agents;
-    Console.setDegraded(!agents.data.live_available);
+    Console.setSourcesUnavailable(!agents.data.live_available);
     const onboarding = await Promise.all(list.map(a => getJSON('/api/console/onboarding/' + encodeURIComponent(a.name))));
     return {agents: list, onboarding: Object.fromEntries(list.map((a, i) => [a.name, onboarding[i].ok ? onboarding[i].data : null])),
             topology: topology.ok ? topology.data : null, liveAvailable: agents.data.live_available};

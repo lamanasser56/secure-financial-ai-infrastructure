@@ -1,4 +1,4 @@
-# Allowlist build context for platform/agents/platform-guide/Dockerfile (the Platform Guide's own image).
+# Only the Guide source, current docs input and canonical shared assets enter this build context.
 **
 !docs/
 !docs/**
@@ -7,6 +7,13 @@ docs/handoffs/**
 docs/evidence/
 docs/evidence/**
 !platform/
+!platform/core/
+!platform/core/ui/
+!platform/core/ui/core.js
+!platform/core/ui/style.css
+!platform/core/ui/shared-assets.json
+!platform/core/ui/typeface/
+!platform/core/ui/typeface/**
 !platform/agents/
 !platform/agents/platform-guide/
 !platform/agents/platform-guide/package.json

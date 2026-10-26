@@ -1,4 +1,4 @@
-/* Console design (docs/console/design-spec.md). Shared byte-for-byte with the Financial Agent UI (a test enforces it).
+/* Console design (docs/console/design-spec.md). Canonical shared styles; consumers serve build copies from the shared asset inventory.
    Fonts are self-hosted (SIL OFL, ./typeface); nothing is loaded from another origin. */
 @font-face { font-family: 'Barlow Semi Condensed'; font-weight: 700; font-display: swap; src: url('/typeface/barlow-semi-condensed-latin-700-normal.woff2') format('woff2'); }
 @font-face { font-family: 'Barlow Semi Condensed'; font-weight: 800; font-display: swap; src: url('/typeface/barlow-semi-condensed-latin-800-normal.woff2') format('woff2'); }
@@ -35,9 +35,9 @@ a { color: var(--ink); }
 .frame { padding: 0 40px 32px; }  /* full width (the ★ screens were drawn at 1440 x 900): 40 px gutters, no centred column */
 .bar { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; min-height: 68px; border-bottom: 1px solid var(--line); }
 .brand { font: 800 22px var(--head); letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none; }
-.live { font: 600 13px var(--body); color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
-.live::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
-.live.on { color: var(--allowed); } .live.on::before { background: var(--allowed); }
+.connection { font: 600 13px var(--body); color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.connection::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.connection.on { color: var(--allowed); } .connection.on::before { background: var(--allowed); }
 nav.tabs { flex: 1; display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; }
 nav.tabs a { font: 700 16px var(--head); letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none; color: var(--muted); padding: 4px 0; border-bottom: 2px solid transparent; }
 nav.tabs a[aria-current='page'] { color: var(--ink); border-bottom-color: var(--ink); }
@@ -72,8 +72,8 @@ h2 { margin: 0; font: 700 24px var(--head); }
 .empty { padding: 28px 18px; color: var(--muted); }
 .empty strong { color: var(--ink); display: block; font: 700 18px var(--head); margin-bottom: 4px; }
 label { display: block; font: 700 11px var(--head); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
-input, select { width: 100%; background: var(--code); color: var(--ink); border: 1px solid var(--line); border-radius: 0; padding: 10px 12px; font: 400 15px var(--body); }
-input::placeholder { color: var(--muted); }
+input, select, textarea { width: 100%; background: var(--code); color: var(--ink); border: 1px solid var(--line); border-radius: 0; padding: 10px 12px; font: 400 15px var(--body); }
+input::placeholder, textarea::placeholder { color: var(--muted); }
 
 /* map */
 .map { display: grid; grid-template-columns: minmax(0, 1fr) 386px; gap: 24px; } .map.explaining { grid-template-columns: minmax(0, 1fr) 420px; }

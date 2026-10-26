@@ -110,7 +110,7 @@ class ReleaseFacts(unittest.TestCase):
     def test_browser_source_links_use_only_the_reported_immutable_commit(self):
         script = """
 const fs = require('node:fs'), vm = require('node:vm'), assert = require('node:assert/strict');
-const window = {}, document = {addEventListener() {}};
+const window = {}, document = {addEventListener() {}, querySelector() {return null;}, getElementById() {return null;}};
 vm.runInNewContext(fs.readFileSync(process.argv[1], 'utf8'), {window, document});
 const c = window.Console, file = 'platform/core/src/agent_platform/console.py';
 assert.equal(c.codeURL(file), null);
