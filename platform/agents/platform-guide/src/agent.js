@@ -3,7 +3,7 @@
 // Code searches the actual question once; the model selects turn-local passage IDs, or declines.
 // The server copies the selected excerpts itself and shows only those sources, with their content identity.
 // Source selection is not a semantic proof that the passages answer the question or that the docs are true.
-const { Blocked, maskedByteLength, MAX_TEXT_BYTES } = require('./clients');
+const { Blocked, maskedByteLength, MAX_TEXT_BYTES, SUPPORTED } = require('./clients');
 const { digest } = require('./index-format');
 const { newRequestId } = require('./requestId');
 const audit = require('./audit');
@@ -98,6 +98,11 @@ class Guide {
   constructor({ index, redactor, gateway, clock = Date.now, stream = process.stdout }) {
     Object.assign(this, { index, redactor, gateway, stream });
     this.limits = new Limits(clock);
+  }
+
+  info() {
+    return {corpus: {...this.index.source.corpus}, source_commit: this.index.source.source_commit,
+      masking_types: [...SUPPORTED].sort()};
   }
 
   async ask(question, language) {

@@ -119,3 +119,27 @@ test('the real reviewed corpus builds and current queries cannot return historic
   assert.match(scope, /Person names and passport numbers are not masked/);
   assert.match(fs.readFileSync(path.join(docs, 'agent-platform/teardown-plan.md'), 'utf8'), /explicit owner.*deletion|owner explicitly|explicit deletion|explicit.*request/i);
 });
+
+test('paragraph and sentence boundaries survive indexing and lookup; oversized sentences fail rather than clipping', t => {
+  const first = 'The model boundary masks supported identifiers before a request reaches the private gateway. ';
+  const second = 'Person names and passport numbers are not masked; this limitation must remain a complete sentence. ';
+  const f = fixture(t, {'current.md': '# Model gateway\n\n' + first.repeat(20) + '\n\n' + second});
+  const index = build(f.dir, f.corpus), runtime = new DocsIndex(index);
+  assert.ok(index.chunks.length > 1);
+  for (const chunk of index.chunks) {
+    assert.match(chunk.text, /^(The model boundary|Person names)/);
+    assert.ok(chunk.text.endsWith('.'));
+  }
+  for (const hit of runtime.search('passport names')) assert.equal(hit.excerpt, index.chunks.find(chunk => chunk.id === hit.id).text);
+  fs.writeFileSync(path.join(f.dir, 'current.md'), '# Long\n\n' + 'x'.repeat(1201));
+  assert.throws(() => build(f.dir, f.corpus), /passage_too_large/);
+});
+
+
+test('short factual paragraphs are preserved while markup-only blocks cannot populate an empty document', t => {
+  const f = fixture(t, {'current.md': '# Limits\n\nNames are not masked.\n\nPassports are not masked.'});
+  const index = build(f.dir, f.corpus);
+  assert.deepEqual(index.chunks.map(chunk => chunk.text), ['Names are not masked.', 'Passports are not masked.']);
+  fs.writeFileSync(path.join(f.dir, 'current.md'), '# Empty\n\n---\n\n```\n```');
+  assert.throws(() => build(f.dir, f.corpus), /empty_document/);
+});

@@ -33,13 +33,24 @@ function sanitize(text) {
 function chunks(relPath, markdown) {
   const out = [], seen = new Set();
   let heading = relPath, buffer = [], fenced = false;
+  const add = text => {
+    text = text.trim();
+    if (!/[\p{L}\p{N}]/u.test(text.replace(/^```.*$/gm, ''))) return;
+    const chunk = {path: relPath, heading, text}; chunk.id = chunkId(chunk);
+    if (!seen.has(chunk.id)) { seen.add(chunk.id); out.push(chunk); }
+  };
+  const segmenter = new Intl.Segmenter('en', {granularity: 'sentence'});
   const flush = () => {
-    const body = buffer.join('\n').replace(/\n{3,}/g, '\n\n').trim(); buffer = [];
-    for (let start = 0; start < body.length; start += MAX_CHUNK) {
-      const text = body.slice(start, start + MAX_CHUNK).trim();
-      if (text.length < 40) continue;
-      const chunk = {path: relPath, heading, text}; chunk.id = chunkId(chunk);
-      if (!seen.has(chunk.id)) { seen.add(chunk.id); out.push(chunk); }
+    const body = buffer.join('\n').trim(); buffer = [];
+    for (const paragraph of body.split(/\n\s*\n/).map(value => value.trim()).filter(Boolean)) {
+      if (paragraph.length <= MAX_CHUNK) { add(paragraph); continue; }
+      let passage = '';
+      for (const {segment} of segmenter.segment(paragraph)) {
+        if (segment.trim().length > MAX_CHUNK) throw new Error('corpus:passage_too_large ' + relPath);
+        if ((passage + segment).trim().length > MAX_CHUNK) { add(passage); passage = ''; }
+        passage += segment;
+      }
+      add(passage);
     }
   };
   for (const line of markdown.split('\n')) {

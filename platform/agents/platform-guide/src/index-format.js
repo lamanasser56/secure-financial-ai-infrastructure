@@ -26,7 +26,7 @@ function validate(index) {
   }
   for (const chunk of index.chunks) {
     if (!keys(chunk, ['id', 'path', 'heading', 'text']) || !paths.has(chunk.path) || typeof chunk.heading !== 'string'
-        || !chunk.heading || chunk.heading.length > 120 || typeof chunk.text !== 'string' || chunk.text.length < 40
+        || !chunk.heading || chunk.heading.length > 120 || typeof chunk.text !== 'string' || chunk.text.length < 1
         || chunk.text.length > MAX_CHUNK || chunk.id !== chunkId(chunk) || ids.has(chunk.id)) throw new Error('index:chunk');
     ids.add(chunk.id); covered.add(chunk.path);
   }

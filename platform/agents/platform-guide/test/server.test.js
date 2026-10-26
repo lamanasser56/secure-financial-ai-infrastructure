@@ -35,6 +35,10 @@ test('health, page and API rules', async () => {
   const { server, host } = await listen(guide);
   try {
     assert.equal((await request(host, { method: 'GET', url: '/healthz' })).status, 200);
+    const details = await request(host, {method: 'GET', url: '/api/info'});
+    assert.deepEqual(JSON.parse(details.body), guide.info());
+    assert.equal((await request(host, {method: 'GET', url: '/api/info', headers: {host: 'evil.example'}})).status, 403);
+    assert.deepEqual(JSON.parse(details.body).masking_types, [...require('../src/clients').SUPPORTED].sort());
     const page = await request(host, { method: 'GET', url: '/' });
     assert.equal(page.status, 200);
     assert.match(page.headers['content-security-policy'], /default-src 'none'/);

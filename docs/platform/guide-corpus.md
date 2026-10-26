@@ -19,3 +19,14 @@ For a covered question, one model call selects turn-local passage IDs. The code 
 The response kind is `document_excerpts`; the worker trace says `source_quotes_verified`, not a general semantic grounding verdict. The check verifies provenance within the bundled index and literal excerpt selection. It does not prove the documentation true, the passages relevant or complete, or a deployed control effective. It does not generate translations: excerpts retain their source language. Supported identifiers are checked again before display; any masking is marked alongside the excerpt.
 
 The prompt packer uses the client's own local masking transformation and the actual serialized UTF-8 byte limit. It omits whole candidate excerpts when needed; an omitted source cannot be selected. The question is never silently truncated. Failure of prompt redaction prevents the model call; failure of output redaction releases no excerpts. Quotas remain in-memory per Guide process.
+
+## Guide interface
+
+The Guide translates its controls, loading/error states and explanatory drawers into English and Arabic. Language changes preserve the question and displayed result; a pending question disables duplicate submission and language changes. Excerpts remain in the language of their source document. Current Arabic retrieval uses the explicitly selected Arabic platform references, not model-generated translations.
+
+Only selected sources appear. Their drawers show the displayed excerpt, indexed identity, declared source revision and corpus review metadata, with an immutable source link when the commit is available. Unbound test sources do not link to main. These metadata do not replace cryptographic image/source verification. The worker report opens separately and is explicitly scoped; absent or malformed reports do not become evidence.
+
+Request failures and timeouts retain the question and require an explicit retry. A timeout does not prove that the server stopped processing. Drafts and results stay only in the open page. The read-only `/api/info` endpoint supplies the running Guide's declared corpus and the masking client's actual supported categories. Failure to load it is visible and can be retried; no masking coverage is inferred from missing metadata.
+
+
+Index passages keep paragraph boundaries. Longer paragraphs split only between complete sentences; a sentence that exceeds the passage budget fails the build for editorial correction. Search returns the whole indexed passage, not a character slice from its middle. The interface labels its short preview and opens the full selected passage in the source drawer.

@@ -40,6 +40,7 @@ function createServer(guide, { hosts }) {
     const url = request.url.split('?')[0];
     if (request.method === 'GET' && url === '/healthz') return send(response, 200, { status: 'ok' });
     if (!hosts.has(request.headers.host)) return send(response, 403, { error: 'host_rejected' });
+    if (request.method === 'GET' && url === '/api/info') return send(response, 200, guide.info());
     if (request.method === 'GET' && Object.hasOwn(sharedInventory.assets, url)) {
       const file = path.resolve(SHARED, url.slice(1));
       if (!file.startsWith(SHARED + path.sep) || !fs.realpathSync(file).startsWith(fs.realpathSync(SHARED) + path.sep)) return send(response, 404, {error: 'not_found'});

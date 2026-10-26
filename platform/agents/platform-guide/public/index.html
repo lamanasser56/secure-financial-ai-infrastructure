@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Platform Guide · Agent Runtime Platform</title>
-<meta name="description" content="The Platform Guide example workload in Agent Runtime Platform.">
+<meta name="description" content="Selected excerpts from the current platform documentation.">
 <link rel="stylesheet" href="/style.css">
 <link rel="stylesheet" href="/guide.css">
 <script defer src="/core.js"></script>
@@ -16,29 +16,26 @@
 <header class="bar">
   <span class="brand">Agent Runtime Platform</span>
   <span id="connection" class="connection" role="status">Not checked</span>
-  <nav class="tabs" aria-label="Screens"><a href="/" aria-current="page">Guide</a><a href="http://127.0.0.1:8080/#/agents/platform-guide">Agent passport</a></nav>
+  <nav class="tabs" aria-label="Screens"><a id="guide-tab" href="/" aria-current="page">Guide</a><a id="passport" href="http://127.0.0.1:8080/#/agents/platform-guide">Agent passport</a></nav>
 </header>
 <main id="view" tabindex="-1">
-<div class="head"><div>
-  <h1>Platform Guide</h1>
-  <p class="sub">Ask about this platform. The Guide uses the documentation index.</p>
-  </div></div>
+  <div class="head"><div><h1 id="title">Platform Guide</h1><p id="subtitle" class="sub">Selected excerpts from the current platform docs.</p></div>
+    <button id="about" class="btn link" type="button">How answers work</button></div>
   <div class="two">
-  <form id="ask" class="panel guide-form">
-    <label for="q">Question</label>
-    <textarea id="q" maxlength="500" rows="3" required></textarea>
-    <label for="lang">Language</label>
-    <select id="lang"><option value="en">English</option><option value="ar">العربية</option></select>
-    <button type="submit" class="btn inverse">Ask</button>
-  </form>
-  <section id="out" class="panel guide-out" hidden>
-    <h2>Answer</h2>
-    <p id="answer"></p>
-    <h2>Sources</h2>
-    <ul id="sources"></ul>
-    <h2>What the platform did</h2>
-    <pre id="trace"></pre>
-  </section>
+    <form id="ask" class="panel guide-form">
+      <div class="guide-language"><label for="lang" id="language-label">Language</label><select id="lang"><option value="en">English</option><option value="ar">العربية</option></select></div>
+      <label id="question-label" for="q">Question</label>
+      <textarea id="q" maxlength="500" rows="4" required aria-describedby="question-help"></textarea>
+      <p class="muted" id="question-help">About this platform, up to 500 characters.</p>
+      <div id="examples" class="guide-examples"></div>
+      <button id="send" type="submit" class="btn inverse">Ask</button>
+      <p id="metadata-status" class="muted" role="status"></p>
+      <button id="retry-info" class="btn link" type="button" hidden>Retry documentation details</button>
+    </form>
+    <section id="out" class="panel guide-out" aria-live="polite" aria-atomic="true">
+      <h2 id="result-title">From the documentation</h2>
+      <div id="result"></div>
+    </section>
   </div>
 </main>
 </div>

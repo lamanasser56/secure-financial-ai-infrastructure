@@ -143,7 +143,7 @@ test('failure of prompt redaction prevents any model call; failed output redacti
 });
 
 test('worst-case Arabic UTF-8 context fits the actual client limit without silently truncating passages', () => {
-  const hits = Array.from({length: 3}, (_, i) => ({id: 'chunk' + i, heading: 'ش'.repeat(120), excerpt: 'ش'.repeat(450)}));
+  const hits = Array.from({length: 3}, (_, i) => ({id: 'chunk' + i, heading: 'ش'.repeat(120), excerpt: 'ش'.repeat(1200)}));
   const {prompt, admitted} = finalPrompt('س'.repeat(500), 'ar', hits);
   assert.ok(admitted.length > 0 && admitted.length < 3);
   assert.ok(maskedByteLength(JSON.stringify(prompt)) <= MAX_TEXT_BYTES);
