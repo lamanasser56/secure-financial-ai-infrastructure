@@ -1,6 +1,7 @@
 # A manifest the platform refuses, kept for demonstrations (it is not under platform/agents/, so it is never rendered):
 #   make onboard-check F=docs/examples/rejected-agent/agent.yaml
-# It asks for four things a team can never have. The platform prints one line per broken rule.
+# Three refused requests produce five rule messages: egress, per-agent and shared budgets, tool access and tool name.
+# Expected rejection: the checker exits 2; make also exits nonzero. Nothing is generated.
 agent: spend-bot
 team: demo-team
 description: An agent that asks for more than the platform allows.

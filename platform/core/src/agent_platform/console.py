@@ -232,8 +232,8 @@ class Console:
         targets = o['targets']
         tools = [{'id': 'observe', 'access': 'read', 'description': 'Watch %d registered workloads and %d onboarded agents, read-only.'
                   % (len(targets), len({key.split('.')[0] for key in o['observed']}))}]
-        wording = {'restart': 'Restart a registered workload, once, after the owner approves.',
-                   'scale': 'Scale a registered workload within its bounds, after the owner approves.'}
+        wording = {'restart': 'Propose a restart to the approval executor.',
+                   'scale': 'Propose bounded scaling to the approval executor.'}
         tools += [{'id': a, 'access': 'approval', 'description': wording.get(a, a)} for a in ACTIONS]
         egress = self._egress(o)
         reaches = sorted({f'{n}/{a}:{p}' for n, a, p in egress if n != 'ip'})
@@ -242,7 +242,7 @@ class Console:
         live = self._ops_live()
         return {'id': OPS, 'name': OPS, 'node': OPS, 'kind': 'platform', 'display': 'Security & Ops', 'namespace': 'ops', 'team': 'platform',
                 'description': 'Watches the registered workloads and the onboarded agents read-only, diagnoses faults, and proposes '
-                               'a restart or a bounded scale that runs only after the owner approves.',
+                               'a restart or bounded scale for the separate approval-verifying executor; Ops has no mutation authority.',
                 'runtime': self._runtime(container['command'][0]), 'model': self._model(), 'budget_usd_month': PLATFORM_KEYS['ops-explain'],
                 'replicas': o['deployment']['spec'].get('replicas'), 'port': container['ports'][0]['containerPort'], 'redaction': 'required',
                 'tools': tools, 'data': 'none', 'reaches': reaches,
@@ -281,11 +281,11 @@ class Console:
                      'a recent redactor event for the key of ops') if seen else
                    g('redaction', 'Identifier masking checks', 'declared', 'manifest', 'platform/core/src/agent_platform/ops/explain.py',
                      'every explanation request is redacted before the model'))
-        out.append(g('approval', 'Approval-gated actions', 'declared', 'manifest', 'platform/core/kubernetes/policies/admission.yaml',
+        out.append(g('approval', 'Separate approval executor', 'declared', 'manifest', 'platform/core/src/agent_platform/ops/authority.json',
                      'read-only Ops delegates %d registered targets to the separate approval-verifying executor; the admission policy '
                      'ops-agent-bounded-remediation limits every change' % len(o['targets'])))
-        out.append(g('image', 'Signed image only', 'declared', 'manifest', 'platform/clouds/gke/images.json',
-                     'image pinned by digest and signed by CI; the ops agent does not observe its own pod'))
+        out.append(g('image', 'Image admission', 'declared', 'manifest', o['file'],
+                     'image declared by the selected release; Ops does not observe its own pod digest and this console does not verify signatures'))
         counts = {state: sum(x['state'] == state for x in out) for state in ('verified', 'declared', 'failing')}
         return {'agent': OPS, 'guarantees': out, 'counts': counts, 'verified': counts['verified'], 'total': len(out)}
 
@@ -331,10 +331,10 @@ class Console:
                             if 'redactor' in reaches else 'redaction: required'))
         out.append(declared('tools', 'Read-only tools', ', '.join(t['id'] for t in m['tools']) or 'no tools'))
         if live and live['pods_ready'] >= 1 and live['image_digests'] and live['pods_ready'] >= live['desired']:
-            out.append(verified('image', 'Signed image only', 'ops-agent /v1/snapshot', 'inference',
+            out.append(verified('image', 'Image admission', 'ops-agent /v1/snapshot', 'inference',
                                 'running pod => admitted under the enforced Binary Authorization policy (inferred: the policy itself is not read here)'))
         else:  # not ready (or not seen): the signature cannot be inferred; health is reported separately, never as a failure here
-            out.append(declared('image', 'Signed image only', 'image pinned by digest and signed by CI; ' + (
+            out.append(declared('image', 'Image admission', 'image declared by the selected release; signature not verified here; ' + (
                 'no ready pod, so nothing can be inferred' if live else 'no running pod seen')))
         out.append(verified('ops', 'Ops monitoring', 'ops-agent /v1/snapshot', 'observed', 'a scan of ' + ns + '.agent is recent')
                    if live else declared('ops', 'Ops monitoring', 'registered read-only in the ops agent; no recent scan seen'))

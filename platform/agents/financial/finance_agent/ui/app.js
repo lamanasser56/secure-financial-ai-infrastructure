@@ -126,7 +126,7 @@
 
   function askView(view) {
     const now = new Date(), month = now.toLocaleString('en', {month: 'long'}) + ' ' + now.getFullYear();
-    view.append(el('a', {class: 'hint', href: CONSOLE}, '← Financial Agent'), Console.head('Ask. Review the trace.', null, el('button', {type: 'button', class: 'btn link', onclick: event => maskingDetails(event.currentTarget)}, 'Masking scope →')));
+    view.append(el('a', {class: 'hint', href: CONSOLE}, '← Agent passport'), Console.head('Ask. Review the trace.', null, el('button', {type: 'button', class: 'btn link', onclick: event => maskingDetails(event.currentTarget)}, 'Masking scope →')));
     const log = el('div', {class: 'log', role: 'log', 'aria-live': 'polite'});
     const input = el('input', {id: 'q', type: 'text', maxlength: 500, autocomplete: 'off', placeholder: 'Ask about your expenses…'});
     const send = el('button', {type: 'submit', class: 'btn inverse'}, 'Send');

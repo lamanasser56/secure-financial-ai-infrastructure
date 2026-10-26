@@ -223,15 +223,16 @@
 
   const kindChip = k => el('span', {class: 'chip ' + (k === 'blocked' ? 'denied' : 'allowed')}, k);
 
-  // The numbers beside the headline, each only when real data gives it. "Protected" is an agent whose passport stamp reads VERIFIED
-  // (checked live, nothing failing): shown only while live checks are available and every agent's checks came back. There is no
-  // "blocked today": /activity is a short window of recent events, not a count for the day, so no such number exists to show.
+  // Count the facts actually observed, without turning partial coverage into a protection verdict.
   function stats(data) {
     if (!data || !data.topology) return null;
-    const items = [[data.topology.nodes.filter(n => n.kind === 'agent').length, 'agents', 'Agents in the cluster drawing (/api/console/topology)']];
-    const checks = data.agents.map(a => data.onboarding[a.name]);
-    if (data.liveAvailable && checks.every(Boolean))
-      items.push([checks.filter(o => o.counts.verified > 0 && !o.counts.failing).length, 'protected', 'Agents whose passport is VERIFIED: checked live just now, nothing failing']);
+    const items = [[data.topology.nodes.filter(n => n.kind === 'agent').length, 'agents', 'Logical agents in the selected release drawing']];
+    const checks = data.agents.map(a => Console.checkSummary(data.onboarding[a.name]));
+    if (checks.every(Boolean)) {
+      const sum = key => checks.reduce((n, c) => n + c[key], 0);
+      items.push([sum('observed') + ' / ' + sum('total'), 'checks observed', sum('inferred') + ' inferred; ' + sum('declared') + ' declared. No overall protection verdict.']);
+      if (sum('failing')) items.push([sum('failing'), 'checks failing', 'Observed facts contradict the declaration']);
+    }
     return el('dl', {class: 'stats'}, items.map(([n, word, why]) => el('div', {title: why}, el('dt', {}, word), el('dd', {}, String(n)))));
   }
   // Plain words for the redactor's category codes (runtime/phase3/trusted_runtime.py SUPPORTED_ENTITIES). Unknown codes remain unspecified identifiers.
@@ -252,7 +253,7 @@
   function side(data, activity) {
     const rows = data.agents.map(a => {
       const link = el('a', {href: '#/agents/' + encodeURIComponent(a.name), class: 'who'}, el('b', {}, Console.title(a)),
-        el('span', {}, Console.countsText((data.onboarding[a.name] || {}).counts)));
+        el('span', {}, Console.countsText(data.onboarding[a.name])));
       return el('div', {class: 'row'}, link, Console.healthChip(a.health));
     });
     const events = activity && activity.events.length ? activity.events.map(e => el('div', {class: 'ev'}, kindChip(e.kind), el('span', {}, eventText(e)), el('time', {}, Console.ago(e.at))))
@@ -261,7 +262,7 @@
     return el('div', {class: 'side'},
       el('section', {class: 'panel', 'aria-label': 'Agents'}, el('div', {class: 'label'}, 'Agents'), rows.length ? rows : el('p', {class: 'muted'}, 'No agents onboarded.')),
       el('section', {class: 'panel', 'aria-label': 'Live activity'}, el('div', {class: 'label'}, 'Live activity'), events),
-      el('div', {class: 'btns'}, el('a', {class: 'btn inverse', href: '#/onboard'}, 'Onboard an agent'), el('a', {class: 'btn denied', href: '#/break'}, 'Try to break it')));
+      el('div', {class: 'btns'}, el('a', {class: 'btn inverse', href: '#/onboard'}, 'Review onboarding'), el('a', {class: 'btn denied', href: '#/break'}, 'Try to break it')));
   }
 
   Console.screens.map = (view, arg, alive) => {
