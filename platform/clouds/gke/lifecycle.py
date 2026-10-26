@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""GKE lifecycle for the agent platform (called by the Makefile). Runs on the owner's laptop.
+"""GKE lifecycle for the agent platform (called by the Makefile).
 
   plan           terraform init + plan (saved plan + JSON) of platform/clouds/gke/terraform/root   [cloud read]
   apply          apply exactly the saved, reviewed plan                                             [cloud write]
@@ -11,7 +11,7 @@
   port-forward   kubectl port-forward deploy/app 8080:8080 (the only way in)
   agent-forward A  port-forward an onboarded agent's port to 127.0.0.1 (e.g. A=financial -> http://127.0.0.1:8081/)
   inventory      read-only: everything billable that exists in the project                          [cloud read]
-Terraform uses the user-ADC guard (no static token, no metadata dependency). No command prints secrets.
+Terraform uses refreshing ADC from the declared operator identity. No command prints secrets.
 """
 import argparse
 from copy import deepcopy
@@ -27,10 +27,10 @@ import time
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 ROOT = HERE / 'terraform/root'
-STATE = Path.home() / '.local/state/secure-financial-ai-infrastructure/agent-platform'
-TOOLS = Path.home() / 'portfolio-sdp-us-east1-401f097/tools'
+STATE = Path(os.environ.get('AGENT_PLATFORM_STATE_DIR', REPO / '.cache/operator-state')).expanduser().resolve()
+TOOLS = REPO / '.cache/platform-tools'
 TF, KUBECTL = TOOLS / 'terraform', TOOLS / 'kubectl'
-TF_SHA256 = '2807bc0c4edde23aabe665a82482398e0b67c537bcf556669a9b0e9580c4f510'
+TF_SHA256 = json.loads((REPO / 'scripts/platform-tools.lock.json').read_text())['terraform']['binary_sha256']
 NAME, ZONE, POOL = 'agent-platform', 'us-east1-b', 'work'
 
 
@@ -42,19 +42,37 @@ def run(*command, check=True, capture=False, env=None, input=None):
     return result
 
 
-def settings():
-    path = STATE / 'settings.json'  # project_id, project_number, gke_version, state_bucket (private, 0600, never committed)
-    return json.loads(path.read_text())
+SETTINGS_ENV = {'project_id': 'AGENT_PLATFORM_PROJECT_ID', 'project_number': 'AGENT_PLATFORM_PROJECT_NUMBER',
+                'gke_version': 'AGENT_PLATFORM_GKE_VERSION', 'state_bucket': 'AGENT_PLATFORM_STATE_BUCKET'}
+
+
+def settings(*required):
+    """Read deployment inputs from the environment, with an optional private settings file."""
+    path = Path(os.environ.get('AGENT_PLATFORM_SETTINGS_FILE', STATE / 'settings.json'))
+    values = json.loads(path.read_text()) if path.exists() else {}
+    if not isinstance(values, dict):
+        raise SystemExit('lifecycle:settings_shape')
+    for key, name in SETTINGS_ENV.items():
+        if os.environ.get(name):
+            values[key] = os.environ[name]
+    missing = [key for key in (required or ('project_id',)) if not values.get(key)]
+    if missing:
+        raise SystemExit('lifecycle:missing_settings:' + ','.join(missing))
+    return values
 
 
 def guard_env():
-    """Refreshing user ADC for Terraform (the token guard proven for the laptop control plane)."""
+    """Validate refreshing ADC before Terraform; no static token or key is passed."""
     import importlib.util
     os.environ['AGENT_PLATFORM_PROJECT_ID'] = settings()['project_id']
     spec = importlib.util.spec_from_file_location('token_guard', HERE / 'token_guard.py')
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
     if hashlib.sha256(TF.read_bytes()).hexdigest() != TF_SHA256:
         raise SystemExit('lifecycle:terraform_binary')
+    if os.environ.get('GCE_METADATA_HOST'):
+        return module.adc_env()
+    if os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
+        return module.workload_adc_env()
     return module.user_adc_env()
 
 
@@ -63,7 +81,8 @@ def tf(*args, env):
 
 
 def plan():
-    s, env = settings(), guard_env()
+    s = settings('project_id', 'project_number', 'gke_version', 'state_bucket')
+    env = guard_env()
     STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
     tfvars = STATE / 'platform.tfvars.json'
     tfvars.write_text(json.dumps({'project_id': s['project_id'], 'project_number': s['project_number'], 'gke_version': s['gke_version']}))
@@ -101,11 +120,12 @@ def apply():
 
 def kubeconfig():
     s = settings()
+    STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
     described = json.loads(run('gcloud', 'container', 'clusters', 'describe', NAME, '--location', ZONE, '--project', s['project_id'],
                                '--format=json', capture=True).stdout)
     endpoint = described['controlPlaneEndpointsConfig']['dnsEndpointConfig']['endpoint']
     helper = STATE / 'gcloud-token-exec.sh'
-    helper.write_text('#!/bin/sh\nt=$(gcloud auth print-access-token) || exit 1\n'
+    helper.write_text('#!/bin/sh\nt=$(gcloud auth application-default print-access-token) || exit 1\n'
                       'printf \'{"apiVersion":"client.authentication.k8s.io/v1beta1","kind":"ExecCredential","status":{"token":"%s"}}\' "$t"\n')
     os.chmod(helper, 0o700)
     config = {'apiVersion': 'v1', 'kind': 'Config', 'current-context': NAME,
@@ -154,6 +174,7 @@ def release_lock(project_id):
     """The RC1 lock with this project's registry filled in, written privately (0600) for render.py --images-lock."""
     lock = json.loads(RELEASE_LOCK.read_text())
     lock['registry'] = lock['registry'].replace('PROJECT_ID', project_id)
+    STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
     path = STATE / 'release-rc1.lock.json'
     path.write_text(json.dumps(lock)); os.chmod(path, 0o600)
     return path
@@ -208,6 +229,7 @@ def activation_targets(docs):
 
 def up():
     started = time.time()
+    STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
     resize(1)
     kubeconfig()
     scale_staged_to_zero()
@@ -255,7 +277,7 @@ def up():
 
 
 def finance_tools():
-    """argon2 for the Financial Agent users' hashes, from its hash-locked set, in a local venv (owner laptop)."""
+    """argon2 for Financial Agent users' hashes, from its hash-locked set in the checkout cache."""
     python = REPO / '.cache/finance-tools/bin/python'
     if not python.exists():
         run(sys.executable, '-m', 'venv', REPO / '.cache/finance-tools')
@@ -396,6 +418,9 @@ def main(argv):
     parser.add_argument('command', choices=['plan', 'apply', 'kubeconfig', 'attest', 'up', 'down', 'fault', 'port-forward', 'inventory', 'secrets', 'agent-forward', 'seed-demo'])
     parser.add_argument('args', nargs='*')
     a = parser.parse_args(argv)
+    validated = guard_env()
+    os.environ.clear()
+    os.environ.update(validated)
     {'plan': plan, 'apply': apply, 'kubeconfig': lambda: print(kubeconfig()), 'up': up, 'down': down,
      'port-forward': port_forward, 'inventory': inventory, 'secrets': secrets, 'seed-demo': seed_demo}.get(a.command, lambda: None)()
     if a.command == 'fault':

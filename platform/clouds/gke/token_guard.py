@@ -15,6 +15,10 @@ Refused unless: no GCE_METADATA_HOST; the default ADC file is a private regular 
 account key, external account or impersonation); its quota project is absent or the project; and a fresh ADC token is
 the configured gcloud operator with cloud-platform scope. The token stays in memory for tokeninfo only.
 CLI: token_guard.py check-laptop -> prints only {"result": "PASS", "credential_source": "user-adc-laptop", ...} or REFUSED
+
+Fresh hosted runners can supply an external-account ADC file from workload identity federation and name the expected
+impersonated service account in AGENT_PLATFORM_OPERATOR. The guard rejects service-account keys, static tokens and
+unverified identities; Terraform keeps the refreshable external-account ADC file.
 """
 import json, os, pathlib, stat, subprocess, sys, urllib.error, urllib.parse, urllib.request
 
@@ -22,7 +26,8 @@ TOKENINFO = 'https://oauth2.googleapis.com/tokeninfo'
 CLOUD_PLATFORM = 'https://www.googleapis.com/auth/cloud-platform'
 # Variables that would make the provider/backend use a static token, key file or impersonation instead of ADC.
 STRIP = ('GOOGLE_OAUTH_ACCESS_TOKEN', 'GOOGLE_CREDENTIALS', 'GOOGLE_CLOUD_KEYFILE_JSON', 'GCLOUD_KEYFILE_JSON',
-         'GOOGLE_APPLICATION_CREDENTIALS', 'GOOGLE_IMPERSONATE_SERVICE_ACCOUNT', 'CLOUDSDK_AUTH_ACCESS_TOKEN_FILE')
+         'GOOGLE_APPLICATION_CREDENTIALS', 'GOOGLE_IMPERSONATE_SERVICE_ACCOUNT', 'CLOUDSDK_AUTH_ACCESS_TOKEN_FILE',
+         'CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE', 'CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT')
 
 
 class CredentialRefused(Exception):
@@ -135,12 +140,81 @@ def user_adc_env(environ=None, *, home=None, info=tokeninfo, account=gcloud_acco
     return environ
 
 
+def workload_adc_env(environ=None, *, info=tokeninfo, adc_token=user_adc_token):
+    """Validate a short-lived, impersonated external-account ADC file on a hosted runner."""
+    environ = dict(os.environ if environ is None else environ)
+    if environ.get('GCE_METADATA_HOST'):
+        raise CredentialRefused('WORKLOAD_MODE_ON_METADATA_HOST')
+    path_value = environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+    expected = environ.get('AGENT_PLATFORM_OPERATOR')
+    if not path_value or not expected:
+        raise CredentialRefused('WORKLOAD_CONFIG_MISSING')
+    path = pathlib.Path(path_value)
+    try:
+        st = path.lstat()
+        config = json.loads(path.read_text())
+    except (OSError, ValueError):
+        raise CredentialRefused('WORKLOAD_FILE_UNREADABLE') from None
+    if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o077:
+        raise CredentialRefused('WORKLOAD_FILE_NOT_PRIVATE')
+    if not isinstance(config, dict) or config.get('type') != 'external_account':
+        raise CredentialRefused('WORKLOAD_NOT_EXTERNAL_ACCOUNT')
+    if any(key in config for key in ('private_key', 'refresh_token', 'client_secret')):
+        raise CredentialRefused('WORKLOAD_STATIC_CREDENTIAL')
+    source = config.get('credential_source')
+    if not isinstance(source, dict):
+        raise CredentialRefused('WORKLOAD_SOURCE')
+    if 'file' in source:
+        if not isinstance(source['file'], str) or not pathlib.Path(source['file']).is_file() \
+                or set(source) - {'file', 'format'}:
+            raise CredentialRefused('WORKLOAD_SOURCE_FILE')
+    elif 'url' in source:
+        # The pinned google-github-actions/auth action writes this shape. Bind it
+        # to this job's OIDC endpoint/token rather than trusting an arbitrary URL.
+        actual = urllib.parse.urlparse(str(source['url']))
+        expected_url = urllib.parse.urlparse(environ.get('ACTIONS_ID_TOKEN_REQUEST_URL', ''))
+        expected_token = environ.get('ACTIONS_ID_TOKEN_REQUEST_TOKEN')
+        if actual.scheme != 'https' or (actual.scheme, actual.netloc, actual.path) != \
+                (expected_url.scheme, expected_url.netloc, expected_url.path) \
+                or source.get('headers') != {'Authorization': 'Bearer ' + str(expected_token)} \
+                or source.get('format') != {'type': 'json', 'subject_token_field_name': 'value'} \
+                or not expected_token or set(source) != {'url', 'headers', 'format'}:
+            raise CredentialRefused('WORKLOAD_SOURCE_URL')
+    else:
+        raise CredentialRefused('WORKLOAD_SOURCE')
+    url = config.get('service_account_impersonation_url', '')
+    parsed = urllib.parse.urlparse(url)
+    prefix = '/v1/projects/-/serviceAccounts/'
+    if parsed.scheme != 'https' or parsed.netloc != 'iamcredentials.googleapis.com' or not parsed.path.startswith(prefix) \
+            or not parsed.path.endswith(':generateAccessToken'):
+        raise CredentialRefused('WORKLOAD_IMPERSONATION')
+    target = urllib.parse.unquote(parsed.path[len(prefix):-len(':generateAccessToken')])
+    if target != expected:
+        raise CredentialRefused('ADC_IDENTITY_MISMATCH')
+    if not config.get('audience') or config.get('token_url') != 'https://sts.googleapis.com/v1/token':
+        raise CredentialRefused('WORKLOAD_FEDERATION_CONFIG')
+    for name in STRIP:
+        if name != 'GOOGLE_APPLICATION_CREDENTIALS':
+            environ.pop(name, None)
+    environ['CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE'] = str(path)
+    try:
+        details = info(adc_token(environ))
+    except Exception:
+        raise CredentialRefused('ADC_TOKEN_UNAVAILABLE') from None
+    if details.get('email') != expected:
+        raise CredentialRefused('ADC_IDENTITY_MISMATCH')
+    if CLOUD_PLATFORM not in details.get('scope', '').split() or int(details.get('expires_in', 0)) <= 0:
+        raise CredentialRefused('ADC_TOKEN_INVALID')
+    return environ
+
+
 if __name__ == '__main__':
     try:
-        assert sys.argv[1:] in (['check'], ['check-laptop'])
+        assert sys.argv[1:] in (['check'], ['check-laptop'], ['check-workload'])
         laptop = sys.argv[1:] == ['check-laptop']
-        child = user_adc_env() if laptop else adc_env()
-        print(json.dumps({'result': 'PASS', 'credential_source': 'user-adc-laptop' if laptop else 'metadata-adc',
+        workload = sys.argv[1:] == ['check-workload']
+        child = workload_adc_env() if workload else user_adc_env() if laptop else adc_env()
+        print(json.dumps({'result': 'PASS', 'credential_source': 'workload-adc' if workload else 'user-adc-laptop' if laptop else 'metadata-adc',
                           'static_credential_variables': [n for n in STRIP if n in child]}))
     except CredentialRefused as error:
         print(json.dumps({'result': 'REFUSED', 'code': str(error)})); raise SystemExit(1)
