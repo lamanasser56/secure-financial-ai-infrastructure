@@ -61,7 +61,7 @@ PYTHONPATH=platform/core/src:. python -B -m agent_platform.onboarding check
 PYTHONPATH=assessment_overlay:platform/core/src/agent_platform/programs:platform/core/src:. \
   python -B -m unittest discover -s assessment_overlay -p test_followup.py
 PYTHONPATH=assessment_overlay:platform/core/src:. \
-  python -B -m unittest discover -s assessment_overlay -p test_live_tooling.py
+  python -B -m unittest discover -s assessment_overlay -p 'test_live_*.py'
 PYTHONPATH=platform/core/src:platform/agents/financial:. \
   python -B -m unittest discover -s platform/agents/financial/tests -p 'test_*.py'
 node --test platform/agents/platform-guide/test/*.test.js
