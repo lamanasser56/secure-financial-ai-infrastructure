@@ -26,6 +26,13 @@ Promise.all(T.map(([name,host,port])=>new Promise(resolve=>{
 """
 
 
+def probe_source(namespace, name, container):
+    # Packet probes invoke the installed runtime, independent of an image-owned entrypoint or workload command.
+    runtime = 'node' if namespace == 'agent-platform-guide' else 'python'
+    program = '/nodejs/bin/node' if runtime == 'node' else '/usr/local/bin/python3.12'
+    return namespace, name, container['name'], runtime, program
+
+
 def inventory(docs):
     services = {(d['metadata']['namespace'], d['metadata']['name']): d for d in docs if d['kind'] == 'Service'}
     deployments = {(d['metadata']['namespace'], d['metadata']['name']): d for d in docs if d['kind'] == 'Deployment'}
@@ -60,7 +67,6 @@ def inventory(docs):
         if doc is None:
             raise NotExercised('current_role_workload_missing')
         container = doc['spec']['template']['spec']['containers'][0]
-        runtime = 'node' if 'node' in container.get('command', [''])[0] else 'python'
         wanted = {}
         for label in targets:
             # Pod-to-self traffic is outside NetworkPolicy's isolation contract.
@@ -71,12 +77,12 @@ def inventory(docs):
                              ('apps','financial-frontdoor'):'broker', ('platform','gateway-boundary'):'boundary'}[(namespace,name)]:
                     continue
             wanted[label] = 'CONNECTED' if label in allowed else 'DENIED'
-        matrix.append(((namespace, name, container['name'], runtime, container['command'][0]), wanted))
+        matrix.append((probe_source(namespace, name, container), wanted))
     redactor = deployments.get(('platform','redactor'))
     if redactor is None:
         raise NotExercised('metadata_control_missing')
     c = redactor['spec']['template']['spec']['containers'][0]
-    metadata_control = ('platform','redactor',c['name'],'python',c['command'][0])
+    metadata_control = probe_source('platform', 'redactor', c)
     return targets, matrix, metadata_control
 
 
