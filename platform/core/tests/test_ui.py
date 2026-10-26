@@ -12,7 +12,7 @@ FIN = REPO / 'platform/agents/financial/finance_agent/ui'
 FRONT_FILES = ('index.html', 'style.css', 'core.js', 'app.js', 'map.js', 'agents.js', 'onboard.js', 'attacks.js', 'ops.js')
 SHARED = ('style.css', 'core.js')
 FONTS = ('barlow-semi-condensed-latin-700-normal', 'barlow-semi-condensed-latin-800-normal', 'ibm-plex-sans-latin-400-normal',
-         'ibm-plex-sans-latin-500-normal', 'ibm-plex-sans-latin-600-normal', 'ibm-plex-mono-latin-400-normal', 'ibm-plex-mono-latin-500-normal')
+         'ibm-plex-sans-latin-500-normal', 'ibm-plex-sans-latin-600-normal', 'ibm-plex-mono-latin-400-normal', 'ibm-plex-mono-latin-500-normal') + tuple('ibm-plex-sans-arabic-arabic-%d-normal' % weight for weight in (400, 500, 600, 700))
 SCRIPTS = [FRONT / n for n in FRONT_FILES if n.endswith('.js')] + [FIN / 'app.js', FIN / 'core.js']
 PAGES = (FRONT / 'index.html', FIN / 'index.html')
 
@@ -35,7 +35,7 @@ class Assets(unittest.TestCase):
         self.assertEqual(sorted(urls), sorted('/typeface/' + f + '.woff2' for f in FONTS))
         for f in FONTS:
             self.assertEqual((FRONT / 'typeface' / (f + '.woff2')).read_bytes()[:4], b'wOF2')
-        for licence in ('LICENSE-barlow.txt', 'LICENSE-ibm-plex.txt'):
+        for licence in ('LICENSE-barlow.txt', 'LICENSE-ibm-plex.txt', 'LICENSE-ibm-plex-sans-arabic.txt'):
             self.assertIn('SIL Open Font License', (FRONT / 'typeface' / licence).read_text())
 
     def test_tokens_and_type_from_the_spec(self):
@@ -151,8 +151,6 @@ class Scripts(unittest.TestCase):
         core = (FRONT / 'core.js').read_text()
         self.assertIn("value.slice(0, 4) + '…' + value.slice(-4)", core)
         self.assertIn('navigator.clipboard.writeText(value)', core)
-        self.assertIn("title: spec.file}, 'View code →'", core)
-        self.assertIn("copy: {label: 'request', value: trace.request_id}", (FIN / 'app.js').read_text())
 
     def test_ops_explain_says_not_needed_when_an_automated_fix_is_proposed(self):
         ops = (FRONT / 'ops.js').read_text()

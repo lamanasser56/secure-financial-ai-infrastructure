@@ -16,8 +16,8 @@ CREATE TABLE finance.expenses (
   user_id uuid NOT NULL DEFAULT nullif(current_setting('finance.user_id', true), '')::uuid REFERENCES finance.users(id),
   spent_on date NOT NULL CHECK (spent_on BETWEEN DATE '2020-01-01' AND DATE '2035-12-31'),
   merchant text NOT NULL CHECK (length(merchant) BETWEEN 1 AND 60),
-  category text NOT NULL CONSTRAINT expenses_category_check
-    CHECK (category IN ('food', 'transport', 'shopping', 'bills', 'subscriptions', 'health', 'travel', 'other')),
+  -- bootstrap.finance installs the canonical financial_schema category CHECK in this same transaction.
+  category text NOT NULL,
   amount_minor bigint NOT NULL CHECK (amount_minor > 0 AND amount_minor <= 10000000),
   note text NOT NULL DEFAULT '' CHECK (length(note) <= 200),
   created_at timestamptz NOT NULL DEFAULT now()

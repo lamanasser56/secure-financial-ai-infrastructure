@@ -10,7 +10,7 @@ from contextlib import contextmanager
 import datetime
 import re
 
-CATEGORIES = ('food', 'transport', 'shopping', 'bills', 'subscriptions', 'health', 'travel', 'other')
+from agent_platform.financial_schema import CATEGORIES
 MONTH = re.compile(r'20[2-3][0-9]-(0[1-9]|1[0-2])')
 MAX_AMOUNT_MINOR = 10_000_000  # 100,000.00 SAR
 

@@ -1,0 +1,15 @@
+# Financial screen
+
+The supported UI is served by the trusted `finance_agent.frontdoor` on the local forwarded address, port 8081. Workers receive per-user capabilities; they do not serve login sessions or hold database credentials.
+
+Choose English or العربية in the header. Arabic changes the page language and direction, forms, refusals and explanation drawers. Identifiers and source paths remain literal values. The Arabic typeface is self-hosted IBM Plex Sans Arabic (SIL OFL), from `@fontsource/ibm-plex-sans-arabic@5.3.0`, package integrity `sha512-ZZ4g+JDgQY0NqSh4o0MNWU1sHQmtcee1g++aKAwyJvZxnT5y51JXsN1cIXnaQaMd40dcbK6QFYa+Z1LbaiNuqA==`. Its license accompanies the fonts.
+
+`agent_platform.financial_schema` owns category codes, English/Arabic form labels and the declared synthetic demo month. Sign-in and `/api/me` return that metadata. Both suggestions use this month; the Expenses screen starts in it. Missing metadata is shown as unavailable, without guessed categories or dates. Bootstrap installs the canonical category constraint in the same transaction as the database schema and role reconciliation; runtime validation and UI choices use the same authority.
+
+The page retains its visible conversation and unsent drafts while switching tabs or language. They stay in page memory, without browser storage. Reloading the page clears this local display; worker context is separate, held in worker memory for up to three turns. Signing out revokes the session and asks its worker to forget; worker unavailability can prevent that separate cleanup. No durable quota or lockout is promised: those counters live in the current frontdoor/worker processes and reset on restart.
+
+A pending question disables Send, both suggestions and sign-out. Its result can update the current session after tab navigation; responses from an expired session are ignored. Starting a new turn clears the previous trace. Missing or malformed traces remain unavailable. A worker trace describes reported steps, not independent boundary evidence, complete audit recording or durable retention. The masking drawer lists the supported patterns and explicitly excludes person names and passport numbers in both languages.
+
+Expense submission is disabled while pending, including after navigation. Uncertain save responses ask the user to inspect the month before retrying, because a lost response may follow a committed insert. Failed writes retain the draft. A confirmed `signed_out: true` clears the signed-in display; network errors and refusals leave it visible with an explicit warning. Any authenticated route returning 401 clears the page’s private session state and requests sign-in again.
+
+Browser coverage is in `tests/browser/financial.spec.js` and `presentation.spec.js`; real HTTP session/CSRF/forwarding/revocation coverage uses the current frontdoor in `test_financial_contract.py`. Category enforcement is tested against the real Postgres bootstrap. UI fixtures are synthetic and do not contact a provider or deployment cluster.

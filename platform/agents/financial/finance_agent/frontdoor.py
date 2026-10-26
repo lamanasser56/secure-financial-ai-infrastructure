@@ -5,7 +5,7 @@ import threading
 
 from agent_platform.boundary_http import Server as BrokerServer, request_json
 from agent_platform.data_capability import CapabilityIssuer
-from finance_agent.agent import Limits
+from finance_agent.agent import Blocked, Limits
 from finance_agent.auth import LoginThrottle, Sessions
 from finance_agent.data_broker import DataBroker
 from finance_agent.server import Handler, Server, serve
@@ -28,6 +28,8 @@ class Forwarder:
             value, _ = self.dispatch(route['url'], route['key'],
                                      {'capability': token, 'question': question, 'language': language}, timeout=60)
             return value
+        except Blocked as error:
+            return {'status': 'blocked', 'reason': error.reason, 'limits': self.limits.remaining(user)}
         except Exception:
             return {'status': 'blocked', 'reason': 'worker_unavailable', 'limits': self.limits.remaining(user)}
         finally:
