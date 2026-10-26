@@ -22,6 +22,7 @@
     "security/container-vulnerability-release-policy.md",
     "security/realistic-data-corpus.md",
     "platform/guide-corpus.md",
-    "platform/guide.ar.md"
+    "platform/guide.ar.md",
+    "platform/image-builds.md"
   ]
 }
