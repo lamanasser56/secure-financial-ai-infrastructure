@@ -15,7 +15,22 @@
     const map = {running: ['allowed', 'Running'], not_ready: ['denied', 'Not ready'], absent: ['muted', 'Absent']}[health.state];
     return map ? el('span', {class: 'chip ' + map[0]}, map[1]) : null;
   };
-  Console.countsText = c => c ? c.verified + ' verified · ' + c.declared + ' declared' + (c.failing ? ' · ' + c.failing + ' failing' : '') : 'checks unavailable';
+  // A verified API item can be an observation or an inference. Keep them separate in every summary.
+  Console.checkKind = g => g.state === 'failing' ? 'failing' : g.state === 'verified' && g.basis === 'observed' ? 'observed'
+    : g.state === 'verified' && g.basis === 'inference' ? 'inferred' : 'declared';
+  Console.checkSummary = onb => {
+    if (!onb) return null;
+    const counts = {observed: 0, inferred: 0, declared: 0, failing: 0, total: onb.guarantees.length};
+    onb.guarantees.forEach(g => {
+      const kind = Console.checkKind(g);
+      counts[kind]++;
+    });
+    return counts;
+  };
+  Console.countsText = onb => {
+    const c = Console.checkSummary(onb);
+    return c ? c.observed + ' observed · ' + c.inferred + ' inferred · ' + c.declared + ' declared' + (c.failing ? ' · ' + c.failing + ' failing' : '') : 'checks unavailable';
+  };
 
   // Everything the Map, Agents and Onboard screens need about the agents, from the console API only.
   Console.loadAgents = async () => {

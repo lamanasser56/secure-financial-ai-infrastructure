@@ -11,7 +11,7 @@ from test_console import make
 console=make()
 agents=console.agents()
 endpoints={'/api/console/agents':agents,'/api/console/topology':console.topology(),
-           '/api/console/activity?limit=3':console.activity(3)}
+           '/api/console/activity?limit=3':console.activity(3), '/api/console/example':console.example()}
 for agent in agents['agents']:
     endpoints['/api/console/onboarding/'+agent['name']]=console.onboarding(agent['name'])
 for topic in ('redactor','gateway-boundary','gateway','audit','network','private-link','internet','financial-frontdoor','ops-executor'):

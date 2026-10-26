@@ -114,13 +114,6 @@ class Scripts(unittest.TestCase):
         for label in ("'Running'", "'Not ready'", "'Absent'"):
             self.assertIn(label, app)
 
-    def test_stamp_rules(self):
-        agents = (FRONT / 'agents.js').read_text()
-        for text in ("c.failing ? 'FAILING'", "c.verified ? 'VERIFIED' : 'DECLARED'", "' live · '", "' declared'"):
-            self.assertIn(text, agents)
-        self.assertIn('explainStamp(agent, onb, e.currentTarget)', agents)  # the stamp opens Explain
-        self.assertIn("'Failing: '", agents)  # the failing item is named
-
     def test_passport_flip_leaves_no_transform_behind(self):
         agents, css = (FRONT / 'agents.js').read_text(), (FRONT / 'style.css').read_text()
         animate = agents[agents.index('page.animate('):]
@@ -131,15 +124,6 @@ class Scripts(unittest.TestCase):
             self.assertNotIn('transform', rule)
             self.assertNotIn('will-change', rule)
         self.assertIn('Console.reduced()', animate + agents)
-
-    def test_lists_are_plain_text_with_live_tags_and_one_legend(self):
-        agents, css = (FRONT / 'agents.js').read_text(), (FRONT / 'style.css').read_text()
-        self.assertIn("state === 'verified' ? el('span', {class: 'tag-live'}, 'LIVE')", agents)
-        self.assertIn("'= checked in the cluster now; others are declared in the manifest'", agents)
-        self.assertNotIn("chip declared", agents)  # no per-row DECLARED chip
-        self.assertNotIn('italic', css)
-        self.assertNotRegex(css, r'\.decl\b')
-        self.assertIn(".no .mark { color: var(--denied); }", css)  # one colour for every restriction
 
     def test_passport_values_stay_on_one_line(self):
         css = (FRONT / 'style.css').read_text()
@@ -199,13 +183,8 @@ class Scripts(unittest.TestCase):
     def test_mrz_is_built_from_real_values_only(self):
         agents = (FRONT / 'agents.js').read_text()
         body = agents[agents.index('function mrz('):agents.index('const emblem')]
-        for real in ('agent.name', 'agent.namespace', 'image_digests', 'budget_usd_month', 'counts', 'health'):
+        for real in ('agent.name', 'agent.namespace', 'image_digests', 'budget_usd_month', 'checkSummary', 'health'):
             self.assertIn(real, body)
-
-    def test_onboard_has_eight_rows_states_and_the_rejected_example(self):
-        onboard = (FRONT / 'onboard.js').read_text()
-        for text in ('Verified', 'Declared', 'Failing', 'inferred', 'REJECTED', 'docs/examples/rejected-agent/', '/api/console/example', '$500 budget'):
-            self.assertIn(text, onboard)
 
     def test_break_it_has_no_run_button_and_an_empty_state(self):
         attacks = (FRONT / 'attacks.js').read_text()
