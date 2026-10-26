@@ -297,13 +297,14 @@ class SignedSourcePredicate(unittest.TestCase):
     def statement(self, *, source=SOURCE, archive='a' * 64, fingerprint='c' * 64,
                   materials=None, build_environment='github-hosted:ubuntu-24.04', digest='b' * 64):
         repo = self.REF.split('@', 1)[0]
+        data = {'schema': 2, 'source_commit': source, 'image': 'app',
+                'build_environment': build_environment, 'git_archive_sha256': archive,
+                'input_fingerprint': fingerprint, 'materials': [self.MATERIAL] if materials is None else materials,
+                'platform': 'linux/amd64', 'builder': self.MATERIAL}
         return {'_type': 'https://in-toto.io/Statement/v0.1',
                 'predicateType': 'https://cosign.sigstore.dev/attestation/v1',
                 'subject': [{'name': repo, 'digest': {'sha256': digest}}],
-                'predicate': {'Data': {'schema': 2, 'source_commit': source, 'image': 'app',
-                    'build_environment': build_environment, 'git_archive_sha256': archive,
-                    'input_fingerprint': fingerprint, 'materials': [self.MATERIAL] if materials is None else materials,
-                    'platform': 'linux/amd64', 'builder': self.MATERIAL}}}
+                'predicate': {'Data': json.dumps(data, sort_keys=True, separators=(',', ':'))}}
 
     def run_with(self, statement):
         calls=[]
@@ -324,12 +325,21 @@ class SignedSourcePredicate(unittest.TestCase):
 
     def test_provenance_mismatch_reports_only_field_names(self):
         statement = self.statement()
-        statement['predicate']['Data']['source_commit'] = 'e' * 40
+        data = json.loads(statement['predicate']['Data'])
+        data['source_commit'] = 'e' * 40
+        statement['predicate']['Data'] = json.dumps(data)
         payload = base64.b64encode(json.dumps(statement).encode()).decode()
         verifier = Verifier(PROJECT, SOURCE, lambda _: (0, json.dumps([{'payload': payload}])))
         self.assertFalse(verifier.provenance(self.REF, image='app', archive_sha256='a' * 64,
                                              input_fingerprint='c' * 64, materials=[self.MATERIAL]))
         self.assertEqual(verifier.provenance_issue, 'predicate_values:source_commit')
+
+    def test_rejects_object_or_duplicate_fields_in_custom_data(self):
+        statement = self.statement()
+        data = statement['predicate']['Data']
+        for invalid in (json.loads(data), data[:-1] + ',"source_commit":"' + SOURCE + '"}'):
+            statement['predicate']['Data'] = invalid
+            self.assertFalse(self.run_with(statement))
 
     def test_source_material_build_environment_archive_and_subject_mutations_fail(self):
         for change in ({'source':'e'*40},{'archive':'d'*64},{'fingerprint':'e'*64},
