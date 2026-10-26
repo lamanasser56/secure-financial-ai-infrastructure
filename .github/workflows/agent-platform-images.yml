@@ -5,6 +5,8 @@
 # cosign (this job's OIDC identity, no device login, no stored key) -> cosign verify (exact workflow identity) ->
 # Binary Authorization attestation with the Cloud KMS attestor key (GKE admission cannot enforce keyless signatures
 # natively). An unsigned, unattested digest left in the registry by a blocked run is never admitted.
+# The immutable tag sha-<S> is never moved: when it already exists (another run for the same S), that subject is not
+# rebuilt but passes the same post-push gates and must already carry this workflow's signature and predicate for S.
 # Credentials: Workload Identity Federation provider agent-platform-ci (repository + ref + workflow bound).
 name: agent-platform-images
 
@@ -98,7 +100,8 @@ jobs:
     timeout-minutes: 120
     strategy:
       max-parallel: 1
-      fail-fast: true
+      # A forced (manual) build of all seven reports every image; one failure does not cancel the rest.
+      fail-fast: ${{ github.event_name != 'workflow_dispatch' }}
       matrix: ${{ fromJSON(needs.ci-gate.outputs.matrix) }}
     permissions:
       contents: read
@@ -123,7 +126,41 @@ jobs:
         with:
           name: image-input-plan
           path: ${{ runner.temp }}
+      # Read-only registry lookup. No credentials file and no exported variables: the build below stays credential-free.
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        id: lookup-auth
+        with:
+          workload_identity_provider: ${{ vars.AGENT_PLATFORM_CI_WIF_PROVIDER }}
+          service_account: ${{ vars.AGENT_PLATFORM_CI_SERVICE_ACCOUNT }}
+          token_format: access_token
+          create_credentials_file: false
+          export_environment_variables: false
+      - name: Existing immutable sha-S tag (verified, never rebuilt)
+        id: existing
+        env:
+          ACCESS_TOKEN: ${{ steps.lookup-auth.outputs.access_token }}
+          PROJECT_ID: ${{ vars.AGENT_PLATFORM_PROJECT_ID }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$PROJECT_ID" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]]
+          digest=$(python3 scripts/existing-image-tag.py lookup --registry "$REGISTRY" --project "$PROJECT_ID" \
+            --repository "$REPOSITORY" --image "$IMAGE" --source "$SHA")
+          [[ -z "$digest" || "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+          if [[ -n "$digest" ]]; then
+            echo "::notice::sha-$SHA already names $IMAGE@$digest; verifying that subject instead of rebuilding"
+          fi
+      - name: Export exact S archive
+        run: |
+          set -Eeuo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_RUN_ATTEMPT" == 1 && "$(git rev-parse HEAD)" == "$SHA" ]]
+          archive="$RUNNER_TEMP/source.tar.gz"
+          git archive --format=tar "$SHA" | gzip -n > "$archive"
+          sha256sum "$archive" | cut -d' ' -f1 > "$RUNNER_TEMP/git-archive.sha256"
+          mkdir "$RUNNER_TEMP/source-context"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/source-context"
       - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+        if: steps.existing.outputs.digest == ''
         with:
           version: v0.30.1
           driver: docker-container
@@ -132,21 +169,17 @@ jobs:
           use: true
           cache-binary: false
       - name: Build exact S on the hosted runner (no cloud credentials)
+        if: steps.existing.outputs.digest == ''
         run: |
           set -Eeuo pipefail
-          [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_RUN_ATTEMPT" == 1 && "$(git rev-parse HEAD)" == "$SHA" ]]
-          archive="$RUNNER_TEMP/source.tar.gz"
-          git archive --format=tar "$SHA" | gzip -n > "$archive"
-          sha256sum "$archive" | cut -d' ' -f1 > "$RUNNER_TEMP/git-archive.sha256"
           build_context="$RUNNER_TEMP/source-context"
-          mkdir "$build_context"
-          tar -xzf "$archive" -C "$build_context"
           source_args=()
           if [[ -n "$SOURCE_ARGUMENT" ]]; then source_args=(--build-arg "$SOURCE_ARGUMENT=$SHA"); fi
           docker buildx build --platform linux/amd64 "${source_args[@]}" --target "$TARGET" \
             --file "$build_context/$DOCKERFILE" --provenance=false --sbom=false \
             --tag "local/$IMAGE:${SHA}" --load "$build_context"
       - name: Trivy (all severities and KEV; fail-closed) and SBOM
+        if: steps.existing.outputs.digest == ''
         run: |
           set -Eeuo pipefail
           image="local/$IMAGE:${SHA}"
@@ -177,15 +210,34 @@ jobs:
         env:
           ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
           PROJECT_ID: ${{ vars.AGENT_PLATFORM_PROJECT_ID }}
+          EXISTING: ${{ steps.existing.outputs.digest }}
         run: |
           set -Eeuo pipefail
           [[ "$PROJECT_ID" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]]
           name="$IMAGE"
           remote="$REGISTRY/$PROJECT_ID/$REPOSITORY/$name:sha-$SHA"
           printf '%s' "$ACCESS_TOKEN" | docker login "https://$REGISTRY" -u oauth2accesstoken --password-stdin >/dev/null
-          docker tag "local/$name:$SHA" "$remote"
-          docker push "$remote" > "$RUNNER_TEMP/push.log"
-          digest=$(docker buildx imagetools inspect "$remote" --format '{{json .Manifest}}' | python3 -c "import json,sys; print(json.load(sys.stdin)['digest'])")
+          if [[ -n "$EXISTING" ]]; then
+            # sha-S is immutable and already names a subject: never rebuild, push, retag or re-sign it. Its pre-push
+            # evidence is taken from that exact registry subject, through the same gates as a fresh build.
+            [[ "$EXISTING" =~ ^sha256:[0-9a-f]{64}$ ]]
+            digest="$EXISTING"
+            ref="$REGISTRY/$PROJECT_ID/$REPOSITORY/$name@$digest"
+            curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 --max-time 60 \
+              --output "$RUNNER_TEMP/kev.json" \
+              https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+            "$RUNNER_TEMP/tools/trivy" image --exit-code 0 --ignore-unfixed=false \
+              --format json --output "$RUNNER_TEMP/trivy.json" "$ref"
+            python3 scripts/reviewed-image-exception-gate.py "$RUNNER_TEMP/trivy.json" "$ref" \
+              "$name" "$RUNNER_TEMP/kev.json" policy/reviewed-image-exceptions.json \
+              "$RUNNER_TEMP/trivy-prepush-gate.json"
+            "$RUNNER_TEMP/tools/syft" "registry:$ref" -o "cyclonedx-json=$RUNNER_TEMP/sbom.cdx.json"
+            python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['bomFormat']=='CycloneDX' and d['components']" "$RUNNER_TEMP/sbom.cdx.json"
+          else
+            docker tag "local/$name:$SHA" "$remote"
+            docker push "$remote" > "$RUNNER_TEMP/push.log"
+            digest=$(docker buildx imagetools inspect "$remote" --format '{{json .Manifest}}' | python3 -c "import json,sys; print(json.load(sys.stdin)['digest'])")
+          fi
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           ref="$REGISTRY/$PROJECT_ID/$REPOSITORY/$name@$digest"
           # SC-002: every severity, KEV checked before any severity filter, fresh feed; blocks before signing.
@@ -199,15 +251,24 @@ jobs:
           python3 scripts/image-provenance.py --plan "$RUNNER_TEMP/input-plan.json" \
             --archive-sha256 "$(cat "$RUNNER_TEMP/git-archive.sha256")" --image "$IMAGE" --source "$SHA" \
             --out "$RUNNER_TEMP/predicate.json"
-          "$RUNNER_TEMP/tools/cosign" sign --yes "$ref"
-          "$RUNNER_TEMP/tools/cosign" attest --yes --type=custom \
-            --predicate "$RUNNER_TEMP/predicate.json" "$ref"
-          "$RUNNER_TEMP/tools/cosign" verify "$ref" \
-            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            --certificate-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/agent-platform-images.yml@refs/heads/main" > /dev/null
-          PYTHONPATH=platform/core/src python3 scripts/image-provenance.py --verify-ref "$ref" \
-            --project "$PROJECT_ID" --source "$SHA" --predicate "$RUNNER_TEMP/predicate.json" \
-            --cosign "$RUNNER_TEMP/tools/cosign"
+          if [[ -n "$EXISTING" ]]; then
+            # Verify only: this workflow's keyless signature at S and the signed predicate recomputed for S.
+            PYTHONPATH=platform/core/src python3 scripts/existing-image-tag.py verify --ref "$ref" \
+              --project "$PROJECT_ID" --source "$SHA" --predicate "$RUNNER_TEMP/predicate.json" \
+              --cosign "$RUNNER_TEMP/tools/cosign"
+            echo existing_tag_verified > "$RUNNER_TEMP/subject-origin.txt"
+          else
+            "$RUNNER_TEMP/tools/cosign" sign --yes "$ref"
+            "$RUNNER_TEMP/tools/cosign" attest --yes --type=custom \
+              --predicate "$RUNNER_TEMP/predicate.json" "$ref"
+            "$RUNNER_TEMP/tools/cosign" verify "$ref" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+              --certificate-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/agent-platform-images.yml@refs/heads/main" > /dev/null
+            PYTHONPATH=platform/core/src python3 scripts/image-provenance.py --verify-ref "$ref" \
+              --project "$PROJECT_ID" --source "$SHA" --predicate "$RUNNER_TEMP/predicate.json" \
+              --cosign "$RUNNER_TEMP/tools/cosign"
+            echo fresh_build > "$RUNNER_TEMP/subject-origin.txt"
+          fi
           gcloud beta container binauthz attestations sign-and-create --project "$PROJECT_ID" --artifact-url "$ref" \
             --attestor "projects/$PROJECT_ID/attestors/agent-platform-ci" \
             --keyversion "projects/$PROJECT_ID/locations/us-east1/keyRings/agent-platform/cryptoKeys/binauthz-attestor/cryptoKeyVersions/1"
@@ -233,4 +294,5 @@ jobs:
             ${{ runner.temp }}/trivy-full.json
             ${{ runner.temp }}/reviewed-exception-gate.txt
             ${{ runner.temp }}/release-gate.txt
+            ${{ runner.temp }}/subject-origin.txt
           retention-days: 30

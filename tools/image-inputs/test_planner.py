@@ -123,7 +123,8 @@ class WorkflowContract(unittest.TestCase):
         self.assertEqual(image['if'], "needs.ci-gate.outputs.build == 'true'")
         self.assertEqual(jobs['ci-gate']['outputs']['matrix'], '${{ steps.plan.outputs.matrix }}')
         build = next(step for step in image['steps'] if step.get('name') == 'Build exact S on the hosted runner (no cloud credentials)')['run']
-        self.assertIn('git archive --format=tar "$SHA"', build)
+        export = next(step for step in image['steps'] if step.get('name') == 'Export exact S archive')['run']
+        self.assertIn('git archive --format=tar "$SHA"', export)
         self.assertIn('docker buildx build --platform linux/amd64', build)
         self.assertIn('--load "$build_context"', build)
         self.assertNotIn('gcloud compute ssh', str(image))
