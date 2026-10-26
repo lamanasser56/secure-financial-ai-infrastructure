@@ -290,5 +290,44 @@ class CryptographicAttestation(unittest.TestCase):
                 self.assertFalse(Verifier(PROJECT, SOURCE, fake).attestation(self.REF))
 
 
+class SignedSourcePredicate(unittest.TestCase):
+    REF = 'us-east1-docker.pkg.dev/' + PROJECT + '/repo/app@sha256:' + 'b' * 64
+    MATERIAL = 'moby/buildkit@sha256:99368f3e46177c6405b9740e4461d91cee004128daeecca78d4ceac50ec1da5c'
+
+    def statement(self, *, source=SOURCE, archive='a' * 64, fingerprint='c' * 64,
+                  materials=None, worker='secure-infra-worker', digest='b' * 64):
+        repo = self.REF.split('@', 1)[0]
+        return {'_type': 'https://in-toto.io/Statement/v0.1',
+                'predicateType': 'https://cosign.sigstore.dev/attestation/v1',
+                'subject': [{'name': repo, 'digest': {'sha256': digest}}],
+                'predicate': {'Data': {'schema': 1, 'source_commit': source, 'image': 'app',
+                    'worker': worker, 'git_archive_sha256': archive,
+                    'input_fingerprint': fingerprint, 'materials': [self.MATERIAL] if materials is None else materials,
+                    'platform': 'linux/amd64', 'builder': self.MATERIAL}}}
+
+    def run_with(self, statement):
+        calls=[]
+        def run(args):
+            calls.append(args)
+            return 0,json.dumps([{'payload': base64.b64encode(json.dumps(statement).encode()).decode()}])
+        verifier=Verifier(PROJECT,SOURCE,run)
+        answer=verifier.provenance(self.REF,image='app',archive_sha256='a'*64,
+                                  input_fingerprint='c'*64,materials=[self.MATERIAL])
+        self.assertEqual(calls[0][1],'verify-attestation')
+        self.assertIn('--certificate-github-workflow-sha='+SOURCE,calls[0])
+        self.assertIn('--certificate-identity='+IDENTITY,calls[0])
+        self.assertIn('--certificate-oidc-issuer='+ISSUER,calls[0])
+        return answer
+
+    def test_exact_verified_statement_passes(self):
+        self.assertTrue(self.run_with(self.statement()))
+
+    def test_source_material_worker_archive_and_subject_mutations_fail(self):
+        for change in ({'source':'e'*40},{'archive':'d'*64},{'fingerprint':'e'*64},
+                       {'materials':[]},{'worker':'elsewhere'},{'digest':'e'*64}):
+            with self.subTest(change=change):
+                self.assertFalse(self.run_with(self.statement(**change)))
+
+
 if __name__ == '__main__':
     unittest.main()

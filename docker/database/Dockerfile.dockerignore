@@ -1,0 +1,5 @@
+**
+!tools/
+!tools/database-gosu/
+!tools/database-gosu/go.mod
+!tools/database-gosu/go.sum

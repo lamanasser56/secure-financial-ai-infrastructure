@@ -1,5 +1,4 @@
-# syntax=docker/dockerfile:1
-FROM python:3.12.15-slim-trixie@sha256:29113dcae7aad06daa8e95260fa09f27d62be33b9687ea3774f771d601a02256 AS builder
+FROM python:3.12.15-slim-trixie@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704 AS builder
 COPY requirements-google-sdp-runtime.txt /tmp/requirements.txt
 RUN mkdir -p /out/usr/local/bin /out/usr/local/lib \
     && cp /usr/local/bin/python3.12 /out/usr/local/bin/ \
@@ -13,7 +12,7 @@ RUN mkdir -p /out/usr/local/bin /out/usr/local/lib \
     && python -m pip install --require-hashes --no-cache-dir \
       --target=/out/usr/local/lib/python3.12/site-packages -r /tmp/requirements.txt \
     && find /out -type d \( -name __pycache__ -o -name tests -o -name test \) -prune -exec rm -rf {} +
-FROM gcr.io/distroless/base-debian13:nonroot@sha256:a0d70d6a97cd697d9362bc2aae4a6560dd65817e365d0043b07325a97975dc91
+FROM gcr.io/distroless/base-debian13:nonroot@sha256:f9518b74815721f537a7458cc693b4406208c04fce23bbffab511516117f34fd
 COPY --from=builder /out/usr/local /usr/local
 COPY --from=builder /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/
 COPY --from=builder /lib/x86_64-linux-gnu/libstdc++.so.6 /lib/x86_64-linux-gnu/

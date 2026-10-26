@@ -126,11 +126,18 @@ def _deployment() -> tuple[str, str]:
 REGION, ENDPOINT = _guarded(_deployment)
 
 
-def _create_client() -> Any:
+def _create_client(grpc_options=()) -> Any:
     from google.cloud import dlp_v2  # Optional dependency; never imported by the core.
 
     # Omitted credentials select Application Default Credentials in the SDK.
-    return dlp_v2.DlpServiceClient(client_options={"api_endpoint": ENDPOINT})
+    if not grpc_options:
+        return dlp_v2.DlpServiceClient(client_options={"api_endpoint": ENDPOINT})
+    from google.cloud.dlp_v2.services.dlp_service.transports import DlpServiceGrpcTransport
+
+    def channel(host, *, options=(), **kwargs):
+        return DlpServiceGrpcTransport.create_channel(host, options=[*options, *grpc_options], **kwargs)
+    return dlp_v2.DlpServiceClient(client_options={"api_endpoint": ENDPOINT},
+                                   transport=lambda **kwargs: DlpServiceGrpcTransport(channel=channel, **kwargs))
 
 
 class ContentAttemptBudget:
@@ -376,6 +383,7 @@ class GoogleSDPRedactor:
         region: str = REGION,
         client: Any = None,
         budget: ContentAttemptBudget | None = None,
+        grpc_options: tuple = (),
     ):
         if (
             type(project_id) is not str
@@ -394,7 +402,10 @@ class GoogleSDPRedactor:
         self._test_counts = dict(self._operation_counts)
         self._real_sdk = client is None
         self._busy = threading.Lock()
-        self._client = client if client is not None else _guarded(_create_client)
+        if type(grpc_options) is not tuple or (client is not None and grpc_options):
+            raise GoogleSDPFailure("CONFIGURATION_REJECTED", "startup")
+        factory = (lambda: _create_client(grpc_options)) if grpc_options else _create_client
+        self._client = client if client is not None else _guarded(factory)
         if _guarded(lambda: self._client.api_endpoint == ENDPOINT) is not True:
             raise GoogleSDPFailure("CONFIGURATION_REJECTED", "startup")
 

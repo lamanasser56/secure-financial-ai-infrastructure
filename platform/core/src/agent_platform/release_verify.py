@@ -56,6 +56,52 @@ class Verifier:
         except (ValueError, KeyError, TypeError):
             return False
 
+    def provenance(self, ref, *, image, archive_sha256, input_fingerprint, materials):
+        """Require a verified DSSE statement for this digest and actual archived checkout S.
+
+        Cosign checks Fulcio identity, issuer and the transparency log before any payload is read.
+        The signed predicate binds the source archive, current input graph and pinned materials.
+        """
+        if (not isinstance(self.source, str) or not re.fullmatch('[0-9a-f]{40}', self.source)
+                or not re.fullmatch('[0-9a-f]{64}', archive_sha256 or '')
+                or not re.fullmatch('[0-9a-f]{64}', input_fingerprint or '')
+                or not isinstance(materials, list) or materials != sorted(set(materials))):
+            return False
+        rc, raw = self.run([self.cosign, 'verify-attestation', ref, '--type=custom', '--output=json',
+            '--certificate-identity=' + IDENTITY, '--certificate-oidc-issuer=' + ISSUER,
+            '--certificate-github-workflow-sha=' + self.source])
+        if rc:
+            return False
+        try:
+            values = decode(raw)
+            if isinstance(values, dict):
+                values = [values]
+            if not isinstance(values, list):
+                return False
+            repo, digest = ref.rsplit('@', 1)
+            expected = {'schema': 1, 'source_commit': self.source, 'image': image,
+                        'worker': 'secure-infra-worker', 'input_fingerprint': input_fingerprint,
+                        'git_archive_sha256': archive_sha256,
+                        'materials': materials, 'platform': 'linux/amd64',
+                        'builder': 'moby/buildkit@sha256:99368f3e46177c6405b9740e4461d91cee004128daeecca78d4ceac50ec1da5c'}
+            for value in values:
+                payload = base64.b64decode(value['payload'], validate=True)
+                if len(payload) > 65536:
+                    continue
+                statement = decode(payload)
+                if (statement.get('_type') != 'https://in-toto.io/Statement/v0.1'
+                        or statement.get('predicateType') != 'https://cosign.sigstore.dev/attestation/v1'
+                        or statement.get('subject') != [{'name': repo, 'digest': {'sha256': digest.removeprefix('sha256:')}}]):
+                    continue
+                declared = statement['predicate']['Data']
+                if not isinstance(declared, dict) or set(declared) != set(expected):
+                    continue
+                if all(declared[k] == v for k, v in expected.items()):
+                    return True
+        except (KeyError, TypeError, ValueError):
+            return False
+        return False
+
     def attestation(self, ref):
         try:
             authority = self.cloud('container', 'binauthz', 'attestors', 'describe', ATTESTOR)

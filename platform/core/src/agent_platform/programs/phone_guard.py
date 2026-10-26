@@ -2,7 +2,7 @@
 
 The existing SDP policy remains in force for every other finding. This small
 guard covers inline phone values that its line-anchored patterns miss. It is
-mounted beside redactor_server.py in the trusted platform-programs ConfigMap.
+packaged beside redactor_server.py in the signed redactor image.
 """
 
 import re

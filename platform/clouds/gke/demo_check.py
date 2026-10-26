@@ -204,6 +204,15 @@ class Checker:
             full = self.images['registry'].replace('PROJECT_ID', self.project) + ref
             self.line(self.verifier.signature(full), 'image ' + name + ' signed by declared CI workflow')
             self.line(self.verifier.attestation(full), 'image ' + name + ' attested by declared KMS authority')
+            if self.images.get('schema_version', 1) >= 2:
+                declarations = self.images.get('provenance', {})
+                entry = declarations.get(name, {}) if isinstance(declarations, dict) else {}
+                self.line(self.verifier.provenance(full,
+                    image=ref.split('@', 1)[0],
+                    archive_sha256=entry.get('git_archive_sha256'),
+                    input_fingerprint=entry.get('input_fingerprint'),
+                    materials=entry.get('materials')),
+                    'image ' + name + ' source and materials cryptographically attested')
 
     def all(self):
         rc, raw = self.run(['gcloud', 'auth', 'list', '--filter=status:ACTIVE', '--format=value(account)'])

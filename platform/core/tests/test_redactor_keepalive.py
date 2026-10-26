@@ -27,13 +27,13 @@ class Options(unittest.TestCase):
         self.assertEqual(options['grpc.use_local_subchannel_pool'], 1)  # a rebuild never reuses the old connection
         self.assertLess(options['grpc.keepalive_timeout_ms'], options['grpc.keepalive_time_ms'])
 
-    def test_main_installs_the_keepalive_client_in_the_adapter(self):
-        adapter = types.SimpleNamespace(_create_client=lambda: 'original')
-        redactor_server.use_keepalive_client(adapter)
-        self.assertIs(adapter._create_client, redactor_server.keepalive_client)
-        source = (redactor_server.__file__ and open(redactor_server.__file__).read())
-        main = source[source.index('def main():'):]
-        self.assertLess(main.index('use_keepalive_client(google_sdp_adapter)'), main.index('Budget('))  # before any client
+    def test_service_constructs_the_sdk_with_keepalive_options_without_mutating_adapter(self):
+        from runtime.phase3 import google_sdp_adapter
+        factory = google_sdp_adapter._create_client
+        with mock.patch('runtime.phase3.google_sdp_adapter._create_client', return_value=mock.Mock(api_endpoint=google_sdp_adapter.ENDPOINT)) as client:
+            google_sdp_adapter.GoogleSDPRedactor('demo-project-123456', grpc_options=redactor_server.KEEPALIVE_OPTIONS)
+        client.assert_called_once_with(redactor_server.KEEPALIVE_OPTIONS)
+        self.assertIsNotNone(factory)
 
     def test_idle_rebuild_backstop_is_unchanged(self):
         self.assertEqual((redactor_server.IDLE_SECONDS, redactor_server.RETIRE_SECONDS), (120, 30))
@@ -176,15 +176,12 @@ class SdkClient(unittest.TestCase):
         import grpc
         from google.auth.credentials import AnonymousCredentials
         from google.cloud import dlp_v2
-        from runtime.phase3 import google_sdp_adapter
         from runtime.phase3.sdp_context_policy import GoogleSDPContextRedactor
-        with mock.patch.object(google_sdp_adapter, '_create_client', google_sdp_adapter._create_client):
-            redactor_server.use_keepalive_client(google_sdp_adapter)
-            with mock.patch('google.auth.default', return_value=(AnonymousCredentials(), None)), \
-                    mock.patch.object(grpc, 'secure_channel', wraps=grpc.secure_channel) as secure_channel:
-                adapter = GoogleSDPContextRedactor('demo-project-123456')
+        with mock.patch('google.auth.default', return_value=(AnonymousCredentials(), None)), \
+                mock.patch.object(grpc, 'secure_channel', wraps=grpc.secure_channel) as secure_channel:
+            adapter = GoogleSDPContextRedactor('demo-project-123456', grpc_options=redactor_server.KEEPALIVE_OPTIONS)
         self.addCleanup(adapter._client.transport.close)
-        self.assertTrue(adapter.uses_real_sdk)  # operation_counts feed the daily ceiling
+        self.assertTrue(adapter.uses_real_sdk)
         self.assertIsInstance(adapter._client, dlp_v2.DlpServiceClient)
         self.assertEqual(dict(secure_channel.call_args.kwargs['options'])['grpc.http2.max_pings_without_data'], 0)
 

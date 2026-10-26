@@ -9,7 +9,10 @@
     "scripts/kev-release-gate.py",
     "policy/reviewed-image-exceptions.json",
     "policy/empty-exceptions.json",
-    "scripts/plan-image-builds.py"
+    "scripts/plan-image-builds.py",
+    "requirements-*.in",
+    "scripts/remote-image-build.py",
+    "scripts/image-provenance.py"
   ],
   "images": [
     {
@@ -35,6 +38,24 @@
       "target": "runtime",
       "dockerfile": "platform/agents/platform-guide/Dockerfile",
       "source_argument": "SOURCE_COMMIT"
+    },
+    {
+      "image": "agent-platform-gateway",
+      "target": "runtime",
+      "dockerfile": "docker/gateway/Dockerfile",
+      "source_argument": ""
+    },
+    {
+      "image": "agent-platform-redactor",
+      "target": "runtime",
+      "dockerfile": "docker/redactor/Dockerfile",
+      "source_argument": ""
+    },
+    {
+      "image": "agent-platform-database",
+      "target": "runtime",
+      "dockerfile": "docker/database/Dockerfile",
+      "source_argument": ""
     }
   ]
 }

@@ -1,7 +1,7 @@
-"""LiteLLM proxy hook (loaded from /config by `litellm_settings.callbacks`): keep Gemini thought signatures inside
+"""Image-owned LiteLLM proxy hook: keep Gemini thought signatures inside
 the gateway.
 
-Gemini 3.x attaches an opaque thoughtSignature to its replies and LiteLLM 1.104.0 surfaces it as
+Gemini 3.x attaches an opaque thoughtSignature to its replies and LiteLLM 1.104.7 surfaces it as
 message.provider_specific_fields.thought_signatures. The provider validates signatures only on native function-call
 parts within the current turn. This platform never uses native function calling (the core admission rejects
 tool_calls) and every model request is stateless (one system and one user message; no model turn is replayed), so
@@ -11,7 +11,7 @@ writes one bounded audit line (`gateway_request`: request ID, key alias, resolve
 prompt, a reply or a key value) so the gateway's trace line carries the caller's request ID. Any other provider-specific field is left
 in place, so the core admission still rejects it (fail closed).
 
-Thought text: the profile requests thinkingLevel=low, which LiteLLM 1.104.0 can only send with includeThoughts=true
+Thought text: the profile requests thinkingLevel=low, which LiteLLM 1.104.7 can only send with includeThoughts=true
 (owner decision 2026-10-11: thinkingLevel=minimal failed the decision schema; the qualified core fixes max_tokens at
 1024, which the default level can exhaust). LiteLLM puts that text in message.reasoning_content and
 message.thinking_blocks. Both are removed here, whatever their value, so thought text stays inside the gateway: it is
@@ -57,7 +57,7 @@ def audit_fields(data, user_api_key_dict, response):
 
 
 def emit_audit(fields):
-    """Same one-line JSON shape as agent_platform.audit.emit (this file is mounted alone from a ConfigMap)."""
+    """Same one-line JSON shape as agent_platform.audit.emit (this module belongs to the gateway image)."""
     print(json.dumps({'audit_event': 'gateway_request', 'component': 'gateway', 'at': round(time.time(), 3), **fields},
                      sort_keys=True, separators=(',', ':')), flush=True)
 
