@@ -14,9 +14,29 @@ import subprocess
 
 CASES = {'D02', 'D06', 'D04', 'D05', 'D07', 'O03', 'O04',
          'K01', 'K02', 'K03', 'K05', 'R01'}
+PROJECT_PATTERN = re.compile(r'sfai-assess-[a-z0-9-]{6,32}\Z')
+RUN_PATTERN = re.compile(r'assess-[0-9a-f]{16}\Z')
+# The 25 October twelve-case subset. Each pair is completed redactions / SDK
+# attempts, excluding the separate setup reserve (2 / 4). No probe may borrow
+# another case's allocation.
+CASE_LIMITS = {case: (0, 0) for case in CASES}
+CASE_LIMITS.update({'D02': (4, 10), 'R01': (2, 5)})
+SETUP_LIMITS = (2, 4)
+PLANNED_LIMITS = (8, 19)
 REMOTE = ('import json;from pathlib import Path;'
           'print(json.dumps({n:json.loads(Path("/assessment-state/"+n).read_text()) '
           'for n in ("sdp-attempts.json","sdp-completions.json")}))')
+
+
+def case_delta(case, before, after):
+    redactions = after['completed_redactions'] - before['completed_redactions']
+    attempts = after['sdk_attempts'] - before['sdk_attempts']
+    if redactions < 0 or attempts < 0:
+        raise RuntimeError('durable counter decreased')
+    allowed_redactions, allowed_attempts = CASE_LIMITS[case]
+    if redactions > allowed_redactions or attempts > allowed_attempts:
+        raise RuntimeError('case allocation exceeded')
+    return redactions, attempts
 
 
 def read(kubeconfig, run_id):
@@ -51,7 +71,7 @@ def main():
     args = parser.parse_args()
     manifest = json.loads((args.run_dir / 'initial-manifest.json').read_text())
     run_id = manifest['run_id']
-    if not re.fullmatch(r'assess-[0-9a-f]{16}', run_id):
+    if not RUN_PATTERN.fullmatch(run_id):
         raise RuntimeError('invalid run ID')
     output = args.run_dir / 'evidence' / ('case-' + args.case + '-' + args.phase + '-ledgers.json')
     if output.exists():
@@ -62,11 +82,7 @@ def main():
     if args.phase == 'after':
         prior = args.run_dir / 'evidence' / ('case-' + args.case + '-before-ledgers.json')
         before = json.loads(prior.read_text())
-        if (state['completed_redactions'] < before['completed_redactions']
-                or state['sdk_attempts'] < before['sdk_attempts']):
-            raise RuntimeError('durable counter decreased')
-        state['delta_redactions'] = state['completed_redactions'] - before['completed_redactions']
-        state['delta_sdk_attempts'] = state['sdk_attempts'] - before['sdk_attempts']
+        state['delta_redactions'], state['delta_sdk_attempts'] = case_delta(args.case, before, state)
     output.write_text(json.dumps(state, sort_keys=True, indent=2) + '\n')
     print(args.case, args.phase, state['completed_redactions'], state['sdk_attempts'])
     if state['completed_redactions'] >= 12 or state['sdk_attempts'] >= 40:

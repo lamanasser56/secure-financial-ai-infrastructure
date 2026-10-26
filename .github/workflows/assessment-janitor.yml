@@ -1,0 +1,59 @@
+name: Disposable assessment janitor
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_id:
+        description: Disposable assessment project ID only
+        required: true
+        type: string
+      run_id:
+        description: Source-bound assessment run ID
+        required: true
+        type: string
+      deadline_at:
+        description: UTC ISO 8601 hard deadline from the private run manifest
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  independent-janitor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 210
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.AGENT_PLATFORM_CI_WIF_PROVIDER }}
+          service_account: ${{ vars.AGENT_PLATFORM_CI_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          version: '582.0.0'
+      - name: Wait independently, then unlink billing and delete the disposable project
+        env:
+          ASSESSMENT_PROJECT_ID: ${{ inputs.project_id }}
+          ASSESSMENT_RUN_ID: ${{ inputs.run_id }}
+          ASSESSMENT_DEADLINE_AT: ${{ inputs.deadline_at }}
+        run: >-
+          python3 -B assessment_overlay/janitor.py
+          --project-id "$ASSESSMENT_PROJECT_ID"
+          --run-id "$ASSESSMENT_RUN_ID"
+          --deadline-at "$ASSESSMENT_DEADLINE_AT"
+          --execute --watch
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: janitor-receipt
+          path: ${{ runner.temp }}/janitor-*.json
+          if-no-files-found: ignore
