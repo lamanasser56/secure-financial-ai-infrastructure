@@ -2,7 +2,6 @@
 
 import http.client
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -17,37 +16,20 @@ from unittest.mock import patch
 os.environ.setdefault('ASSESSMENT_RUN_ID', 'assess-0000000000000001')
 
 from phone_guard import mask_phones
-from redactor_server import CompletionBudget, load_platform
+from redactor_server import CompletionBudget
 from sdp_guard import CompletedLedger, Exhausted, Ledger, LimitedClient
 from seed_sdp import seed
 from patch_ops_stub import patch as patch_ops_stub, assert_order
 from patch_redactor_bundle import patch as patch_redactor_bundle
 
 
-MAIN_SHA = '41ffbf260a446b5db2292356a8ea23219e58a524'
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def main_file(path):
-    return subprocess.run(['git', 'show', f'{MAIN_SHA}:{path}'], cwd=ROOT,
-                          capture_output=True, check=True).stdout
-
-
-def qualified_worktree_file(path):
-    current = (ROOT / path).read_bytes()
-    if current != main_file(path):
-        raise AssertionError(f'current platform source drifted from qualified main: {path}')
-    return current
-
-
-def main_redactor(directory):
-    programs = Path(directory)
-    (programs / 'redactor_server.py').write_bytes(qualified_worktree_file(
-        'platform/core/src/agent_platform/programs/redactor_server.py'))
-    (programs / 'phone_guard.py').write_bytes(qualified_worktree_file(
-        'platform/core/src/agent_platform/programs/phone_guard.py'))
-    return load_platform(programs / 'redactor_server.py')
-
+def main_redactor(_directory):
+    # The current redactor is image-owned and imported through its package contract.
+    from agent_platform.programs import redactor_server
+    return redactor_server
 
 class _Result:
     def __init__(self, text):
@@ -284,87 +266,55 @@ class FollowupTests(unittest.TestCase):
                 server.shutdown();server.server_close();thread.join(timeout=3)
 
     def test_main_f15_client_does_not_follow_redirect(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            source = Path(temporary) / 'main_redaction.py'
-            source.write_bytes(qualified_worktree_file('platform/core/src/agent_platform/redaction.py'))
-            spec = importlib.util.spec_from_file_location('_qualified_main_redaction', source)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            first, redirected = [], []
+        from agent_platform import redaction as module
+        first, redirected = [], []
 
-            class Redirect(BaseHTTPRequestHandler):
-                def log_message(self, *_):
-                    pass
+        class Redirect(BaseHTTPRequestHandler):
+            def log_message(self, *_):
+                pass
 
-                def do_POST(self):
-                    first.append(self.path)
-                    self.send_response(302)
-                    self.send_header('Location', f'http://127.0.0.1:{self.server.server_port}/sink')
-                    self.end_headers()
+            def do_POST(self):
+                first.append(self.path)
+                self.send_response(302)
+                self.send_header('Location', f'http://127.0.0.1:{self.server.server_port}/sink')
+                self.end_headers()
 
-                def do_GET(self):
-                    redirected.append(self.path)
-                    self.send_response(200)
-                    self.end_headers()
+            def do_GET(self):
+                redirected.append(self.path)
+                self.send_response(200)
+                self.end_headers()
 
-            server = ThreadingHTTPServer(('127.0.0.1', 0), Redirect)
-            thread = threading.Thread(target=server.serve_forever, daemon=True)
-            thread.start()
-            try:
-                budget = SimpleNamespace(reserve=lambda _: None, accept_output=lambda _: None)
-                client = module.RedactorClient(f'http://127.0.0.1:{server.server_port}',
-                                               'a' * 64, budget=budget)
-                with self.assertRaises(module.ControlFailure):
-                    client.redact('synthetic text')
-                self.assertEqual(first, ['/redact'])
-                self.assertEqual(redirected, [])
-            finally:
-                server.shutdown();server.server_close();thread.join(timeout=3)
+        server = ThreadingHTTPServer(('127.0.0.1', 0), Redirect)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            budget = SimpleNamespace(reserve=lambda _: None, accept_output=lambda _: None)
+            client = module.RedactorClient(f'http://127.0.0.1:{server.server_port}',
+                                           'a' * 64, budget=budget)
+            with self.assertRaises(module.ControlFailure):
+                client.redact('synthetic text')
+            self.assertEqual(first, ['/redact'])
+            self.assertEqual(redirected, [])
+        finally:
+            server.shutdown();server.server_close();thread.join(timeout=3)
 
-    def test_source_render_wires_dual_ledger_without_policy_weakening(self):
+    def test_image_owned_redactor_rejects_the_historical_assessment_overlay(self):
         import yaml
-        root = Path(__file__).resolve().parents[1]
         rendered = subprocess.run(['kubectl', 'kustomize', '--load-restrictor=LoadRestrictionsNone',
-                                   'platform/core/kubernetes'], cwd=root, capture_output=True, text=True,
+                                   'platform/core/kubernetes'], cwd=ROOT, capture_output=True, text=True,
                                   check=True, timeout=30)
         docs = [d for d in yaml.safe_load_all(rendered.stdout) if d]
-        programs = next(d for d in docs if d['kind'] == 'ConfigMap' and
-                        d['metadata']['namespace'] == 'platform' and
-                        d['metadata']['name'].startswith('platform-programs-'))
-        real_redactor = qualified_worktree_file(
-            'platform/core/src/agent_platform/programs/redactor_server.py').decode()
-        real_phone = qualified_worktree_file(
-            'platform/core/src/agent_platform/programs/phone_guard.py').decode()
-        self.assertEqual(programs['data']['redactor_server.py'], real_redactor)
-        self.assertEqual(programs['data']['phone_guard.py'], real_phone)
-        amended, preseed, redactor = patch_redactor_bundle(
-            docs, Path(__file__).parent, 'assess-0000000000000001')
-        self.assertEqual(programs['data']['redactor_server.py'], real_redactor)
-        self.assertEqual(programs['data']['phone_guard.py'], real_phone)
-        self.assertEqual(redactor['spec']['template']['spec']['containers'][0]['command'][-1],
-                         '/assessment/redactor_server.py')
-        self.assertLess(amended.index(preseed[2]), amended.index(redactor))
-        synthetic_ops = {'kind': 'Secret', 'metadata': {'namespace': 'ops', 'name': 'ops-agent'},
-                         'stringData': {'ops.json': json.dumps({
-                             'api_key': 'synthetic', 'approver_public_key': 'synthetic',
-                             'gateway_key': 'synthetic-gateway', 'redactor_key': 'synthetic-redactor',
-                             'executor_key': 'synthetic'})}}
-        amended = patch_ops_stub([*amended, synthetic_ops],
-                                 Path(__file__).with_name('ops_server_assessment.py'))
-        assert_order(amended)
-        self.assertEqual([d['kind'] for d in preseed], ['ConfigMap', 'PersistentVolumeClaim', 'Job'])
-        self.assertEqual(preseed[2]['spec']['template']['spec']['containers'][0]['command'][-1],
-                         '/assessment-state')
-        self.assertTrue(any(v['name'] == 'assessment-state' for v in
-                            redactor['spec']['template']['spec']['volumes']))
-        self.assertEqual(next(d for d in amended if d['kind'] == 'ResourceQuota' and
-                              d['metadata']['name'] == 'bounds' and d['metadata']['namespace'] == 'platform')
-                         ['spec']['hard']['requests.storage'], '11Gi')
-        policy = root / 'evaluation/google-sdp-context/policy.json'
+        self.assertFalse(any(d['kind'] == 'ConfigMap' and d['metadata'].get('namespace') == 'platform'
+                             and d['metadata']['name'].startswith('platform-programs-') for d in docs))
+        redactor = next(d for d in docs if d['kind'] == 'Deployment'
+                        and (d['metadata']['namespace'], d['metadata']['name']) == ('platform', 'redactor'))
+        self.assertNotIn('command', redactor['spec']['template']['spec']['containers'][0])
+        with self.assertRaisesRegex(ValueError, 'image-owned redactor'):
+            patch_redactor_bundle(docs, Path(__file__).parent, 'assess-0000000000000001')
         import hashlib
+        policy = ROOT / 'evaluation/google-sdp-context/policy.json'
         self.assertEqual(hashlib.sha256(policy.read_bytes()).hexdigest(),
                          'c1b782c6fd051243dec4173f903cb33607893010c7d38a6b35bc1372ddb2d4db')
-
 
 if __name__ == '__main__':
     unittest.main()

@@ -24,29 +24,11 @@ APP = IMAGE_LOCK['registry'] + IMAGE_LOCK['images']['app']
 
 
 class LiveToolingTest(unittest.TestCase):
-    def test_full_disposable_bundle_restores_main_source_and_stages_fail_closed(self):
-        docs, receipt = make_bundle('assess-0123456789abcdef', passphrase='synthetic-test-only',
-            hasher=lambda passwords: {name: '$argon2id$synthetic-test-only'
-                                      for name in passwords})
-        self.assertFalse(receipt['external_llm_route'])
-        self.assertNotIn('restored_main_environment_names', receipt)
-        env_names = [env['name'] for doc in docs if doc['kind'] == 'Deployment'
-                     for container in doc['spec']['template']['spec']['containers']
-                     for env in container.get('env', [])]
-        self.assertEqual(env_names.count('PORTFOLIO_PROJECT_ID'), 2)
-        staged = split(docs)
-        self.assertEqual(sum(map(len, staged)), len(docs))
-        self.assertTrue(any(d['kind'] == 'ConfigMap' and d['metadata']['name'].startswith('console-release-facts-') for d in staged[1]))
-        seed = next(d for d in docs if d['kind'] == 'Job' and
-            d['metadata']['name'] == 'assessment-sdp-seed')
-        self.assertEqual(seed['spec']['template']['spec']['securityContext']
-                         ['seccompProfile']['type'], 'RuntimeDefault')
-        programs = next(d for d in docs if d['kind'] == 'ConfigMap' and
-            d['metadata']['name'].startswith('platform-programs-'))['data']
-        expected = (ROOT / 'platform/core/src/agent_platform/programs/redactor_server.py').read_text()
-        self.assertEqual(programs['redactor_server.py'].replace('\r\n', '\n'), expected.replace('\r\n', '\n'))
-        self.assertNotIn('PORTFOLIO_sfai-assess-20261022-635651', json.dumps(docs))
-        self.assertNotIn('vertex_ai/', json.dumps(docs))
+    def test_historical_bundle_refuses_current_image_owned_redactor(self):
+        with self.assertRaisesRegex(ValueError, 'image-owned redactor'):
+            make_bundle('assess-0123456789abcdef', passphrase='synthetic-test-only',
+                        hasher=lambda passwords: {name: '$argon2id$synthetic-test-only'
+                                                  for name in passwords})
 
     def test_provider_is_fixed_and_counts_raw_canary_without_echoing_it(self):
         server = make_server('127.0.0.1', 0)
@@ -106,10 +88,9 @@ class LiveToolingTest(unittest.TestCase):
         self.assertFalse(any('vertex_ai/' in json.dumps(doc) for doc in amended))
         self.assertEqual(receipt['stub_source_sha256'],
                          hashlib.sha256((OVERLAY / 'provider_stub.py').read_bytes()).hexdigest())
-        before_programs = find('ConfigMap', 'platform', 'platform-programs-')[0]
-        source_programs = next(d for d in original if d['kind'] == 'ConfigMap' and
-                               d['metadata']['name'].startswith('platform-programs-'))
-        self.assertEqual(before_programs['data'], source_programs['data'])
+        self.assertEqual(find('ConfigMap', 'platform', 'platform-programs-'), [])
+        self.assertFalse(any(d['kind'] == 'ConfigMap' and d['metadata'].get('namespace') == 'platform'
+                             and d['metadata']['name'].startswith('platform-programs-') for d in original))
 
 
 if __name__ == '__main__':
