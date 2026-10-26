@@ -31,6 +31,9 @@ def patch(docs, overlay_dir, run_id):
     if not re.fullmatch(r'assess-[0-9a-f]{16}', run_id):
         raise ValueError('fresh exact assessment run ID required')
     docs = list(docs)
+    if not any(d.get('kind') == 'ConfigMap' and d.get('metadata', {}).get('namespace') == 'platform'
+               and d.get('metadata', {}).get('name', '').startswith('platform-programs-') for d in docs):
+        raise ValueError('historical overlay cannot instrument image-owned redactor')
     overlay = Path(overlay_dir)
     programs = _one(docs, 'ConfigMap', 'platform', 'platform-programs-')
     deployment = _one(docs, 'Deployment', 'platform', 'redactor')

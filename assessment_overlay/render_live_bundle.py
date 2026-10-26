@@ -88,6 +88,8 @@ def disposable_changes(docs, run_id):
 def make_bundle(run_id, kubectl='kubectl', *, passphrase=None, hasher=None,
                 users_out=None, source_registry=None):
     lock = json.loads(IMAGE_LOCK.read_text())
+    if not lock['images']['redactor'].startswith('agent-platform-redactor@sha256:'):
+        raise ValueError('assessment image lock predates image-owned redactor')
     if lock['source_commit'] != '41ffbf260a446b5db2292356a8ea23219e58a524':
         raise ValueError('platform source lock drift')
     module_path = ROOT / 'platform/clouds/gke/render.py'
