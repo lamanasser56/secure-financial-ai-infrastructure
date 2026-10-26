@@ -59,7 +59,8 @@ def main():
                                    archive_sha256=signed['git_archive_sha256'],
                                    input_fingerprint=signed['input_fingerprint'],
                                    materials=signed['materials']):
-            raise SystemExit('cryptographic source/material provenance verification failed')
+            raise SystemExit('cryptographic source/material provenance verification failed: '
+                             + verifier.provenance_issue)
         print('exact-subject source/material attestation verified')
         return
     if not all((args.plan, args.archive_sha256, args.image, args.source, args.out)):
