@@ -23,13 +23,18 @@
   const why = (agent, id) => (agent && agent.kind === 'platform' && WHY_PLATFORM[id]) || WHY_NOT_LIVE[id] || 'No live source exists for it.';
   const STATE = {verified: ['VERIFIED LIVE', 'allowed', '✓'], declared: ['DECLARED · NOT CHECKED LIVE', 'declared', '✓'], failing: ['FAILING', 'denied', '!']};
 
-  function explainGuarantee(g, from, agent) {
+  async function explainGuarantee(g, from, agent) {
     const [eyebrow] = STATE[g.state];
     const blocks = [{label: 'In plain words', text: g.title + ': ' + g.detail + '.'},
                     {label: 'How it is known', text: g.state === 'declared' ? 'From the manifest only (' + g.source + ').'
                       : 'Seen through ' + g.source + (g.basis === 'inference' ? '. This is an inference, not a direct observation.' : '.')}];
     if (g.state === 'declared') blocks.push({label: 'Why it cannot be checked live', text: why(agent, g.id)});
     else blocks.push({label: 'Proof · ' + g.source, node: el('pre', {class: 'code'}, g.detail)});
+    if (g.id === 'redaction') {
+      const scope = await Console.getJSON('/api/console/explain/redactor');
+      if (from && !document.contains(from)) return;
+      blocks.push({label: 'Masking scope', text: scope.ok ? scope.data.plain + ' ' + scope.data.how : 'Masking scope unavailable. No coverage is inferred.'});
+    }
     Console.explain({eyebrow: 'EXPLAIN · ' + eyebrow, live: g.state === 'verified', title: g.title, sub: g.id, blocks}, from);
   }
   Console.explainGuarantee = explainGuarantee;
@@ -107,7 +112,7 @@
     const restricted = [];
     if (denied.some(d => d.to === 'internet')) restricted.push(listItem('no', 'No internet access', g('network'), 'network', agent));
     if (denied.some(d => tenants.has(d.to))) restricted.push(listItem('no', 'Cannot reach other agents', g('network'), 'network', agent));
-    if (g('redaction')) restricted.push(listItem('no', 'Personal data hidden from the model', g('redaction'), 'redaction', agent));
+    if (g('redaction')) restricted.push(listItem('no', 'Supported identifier masking', g('redaction'), 'redaction', agent));
     if (g('approval')) restricted.push(listItem('no', 'Changes nothing without the owner\'s approval', g('approval'), 'approval', agent));
     if (agent.data !== 'none' && agent.data.user_entry === 'own-rows') restricted.push(listItem('no', "Sees only the signed-in user's rows", null, 'rows', agent));
     const card = el('article', {class: 'passport', 'aria-label': 'Passport of ' + Console.title(agent)},

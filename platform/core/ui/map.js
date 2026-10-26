@@ -3,8 +3,8 @@
   'use strict';
   const {el, $, getJSON} = Console;
   const W = 918;
-  const EXTERNAL = {'model-provider': ['Google AI', 'the model'], dlp: ['Google DLP', 'finds personal data']};
-  const CELLS = {'gateway-boundary': ['Redaction gateway', 'trusted provider boundary'], 'financial-frontdoor': ['Data broker', 'verified user capabilities'], 'ops-executor': ['Approval executor', 'owner signature required'], gateway: ['Model gateway', 'one key, one budget'], redactor: ['Redactor', 'hides personal data'], audit: ['Audit', 'bounded component events']};
+  const EXTERNAL = {'model-provider': ['Google AI', 'the model'], dlp: ['Google DLP', 'checks identifiers']};
+  const CELLS = {'gateway-boundary': ['Redaction gateway', 'trusted provider boundary'], 'financial-frontdoor': ['Data broker', 'verified user capabilities'], 'ops-executor': ['Approval executor', 'owner signature required'], gateway: ['Model gateway', 'one key, one budget'], redactor: ['Redactor', 'masks supported identifiers'], audit: ['Audit', 'bounded component events']};
 
   function agentExplain(agent, from) {
     Console.explain({eyebrow: agent.live ? 'EXPLAIN · VERIFIED LIVE' : 'EXPLAIN · NOT SEEN LIVE', live: !!agent.live, title: Console.title(agent), sub: agent.namespace,
@@ -124,17 +124,17 @@
       items.push([checks.filter(o => o.counts.verified > 0 && !o.counts.failing).length, 'protected', 'Agents whose passport is VERIFIED: checked live just now, nothing failing']);
     return el('dl', {class: 'stats'}, items.map(([n, word, why]) => el('div', {title: why}, el('dt', {}, word), el('dd', {}, String(n)))));
   }
-  // Plain words for the redactor's category codes (runtime/phase3/trusted_runtime.py SUPPORTED_ENTITIES). Unknown codes: "personal data".
+  // Plain words for the redactor's category codes (runtime/phase3/trusted_runtime.py SUPPORTED_ENTITIES). Unknown codes remain unspecified identifiers.
   const CATEGORY = {EMAIL_ADDRESS: 'an email address', PHONE_NUMBER: 'a phone number', CREDIT_CARD: 'a card number', IBAN_CODE: 'a bank account number (IBAN)',
                     SAUDI_BANK_ACCOUNT: 'a bank account number', SAUDI_NATIONAL_ID: 'a national ID number', SAUDI_RESIDENT_ID: 'a residence ID number',
                     SAUDI_VAT_ID: 'a VAT number'};
   const plainCategories = codes => {
-    const said = [...new Set((codes || []).map(c => CATEGORY[c] || 'personal data'))];
-    return said.length ? said.length > 1 ? said.slice(0, -1).join(', ') + ' and ' + said[said.length - 1] : said[0] : 'personal data';
+    const said = [...new Set((codes || []).map(c => CATEGORY[c] || 'an unspecified identifier'))];
+    return said.length ? said.length > 1 ? said.slice(0, -1).join(', ') + ' and ' + said[said.length - 1] : said[0] : 'unspecified identifiers';
   };
   Console.plainCategories = plainCategories;
   function eventText(e) {
-    if (e.kind === 'masked') return 'Hid ' + plainCategories(e.categories) + (e.caller ? ' · ' + e.caller : '');
+    if (e.kind === 'masked') return (e.categories && e.categories.length ? 'Masked ' + plainCategories(e.categories) : 'Identifier check') + (e.caller ? ' · ' + e.caller : '');
     if (e.kind === 'approved') return 'Approved' + (e.action ? ' ' + e.action : '') + (e.target ? ' · ' + e.target : '');
     return (e.code || e.reason || 'refused').toLowerCase().replace(/_/g, ' ') + (e.target ? ' · ' + e.target : e.caller ? ' · ' + e.caller : '');
   }

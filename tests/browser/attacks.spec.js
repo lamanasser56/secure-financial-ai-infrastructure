@@ -1,32 +1,16 @@
 import {test, expect} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
-import {createServer} from 'node:http';
-import {readFile} from 'node:fs/promises';
-import {dirname, resolve, join, extname} from 'node:path';
+import {dirname, resolve, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {assets} from './server.js';
 
 const here = dirname(fileURLToPath(import.meta.url)), root = resolve(here, '../..');
 const fixtures = JSON.parse(execFileSync(process.env.PYTHON || 'python3', [join(here, 'attack_payloads.py')], {
   encoding: 'utf8', env: {...process.env, PYTHONPATH: join(root, 'platform/core/src')}
 }));
 let server, origin;
-test.beforeAll(async () => {
-  server = createServer(async (request, response) => {
-    const path = new URL(request.url, 'http://127.0.0.1').pathname;
-    if (!/^\/(?:index\.html|[a-z]+\.(?:js|css)|typeface\/[a-z0-9-]+\.woff2)?$/.test(path)) {
-      response.writeHead(404); response.end(); return;
-    }
-    try {
-      const file = path === '/' ? 'index.html' : path.slice(1);
-      const types = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2'};
-      response.setHeader('Content-Type', types[extname(file)]);
-      response.end(await readFile(join(root, 'platform/core/ui', file)));
-    } catch { response.writeHead(404); response.end(); }
-  });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  origin = 'http://127.0.0.1:' + server.address().port;
-});
-test.afterAll(async () => { await new Promise(resolve => server.close(resolve)); });
+test.beforeAll(async () => { server = await assets('platform/core/ui'); origin = server.origin; });
+test.afterAll(async () => { await server.close(); });
 
 async function open(page, scenario, status = 200) {
   const errors = [];

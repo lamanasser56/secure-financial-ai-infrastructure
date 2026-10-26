@@ -177,7 +177,7 @@
   // ADVANCED_DATAPATH, private_endpoints.tf, no Cloud NAT, the redactor's Sensitive Data Protection adapter, LiteLLM).
   const LAYER = {network: 'Kubernetes NetworkPolicy · GKE Dataplane V2', 'private-link': 'Private Service Connect · FQDNNetworkPolicy',
                  internet: 'default-deny egress · no Cloud NAT', redactor: 'Sensitive Data Protection · fails closed',
-                 gateway: 'LiteLLM · one scoped key per agent', audit: 'one JSON line per request · no content'};
+                 gateway: 'LiteLLM · one scoped key per agent', audit: 'bounded component request events'};
   // The six platform topics: wording and proof both come from /api/console/explain (proof is live or null).
   async function explainTopic(topic, from, focus) {
     const r = await getJSON('/api/console/explain/' + encodeURIComponent(topic));
@@ -186,9 +186,9 @@
       return;
     }
     const d = r.data;
-    // "Verified live" only if the part clicked has live proof of its own (a focused list with no readable namespace has none).
+    // An observation is scoped to its source; it does not certify the whole control or every request.
     const seen = !!d.proof && typeof narrow(d.proof, focus).namespaces !== 'string';
-    explain({eyebrow: seen ? 'EXPLAIN · VERIFIED LIVE' : 'EXPLAIN · NOT SEEN LIVE', live: seen, title: d.title, sub: LAYER[topic],
+    explain({eyebrow: seen ? 'EXPLAIN · OBSERVED' : 'EXPLAIN · DECLARED', live: seen, title: d.title, sub: LAYER[topic],
              blocks: [{label: 'In plain words', text: d.plain}, {label: 'How it works', text: d.how},
                       {label: 'Proof' + (d.proof && d.proof.source ? ' · ' + d.proof.source : ''), node: proofBox(d.proof, focus)},
                       {label: 'Without it', text: d.without, cls: 'without'}], file: d.file}, from);

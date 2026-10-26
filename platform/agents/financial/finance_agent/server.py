@@ -22,6 +22,7 @@ import threading
 from urllib.parse import parse_qs, urlsplit
 
 from agent_platform import audit, release_version
+from agent_platform.masking_scope import scope as masking_scope
 
 UI = Path(__file__).resolve().parent / 'ui'
 ASSETS = {'/': ('index.html', 'text/html; charset=utf-8'), '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
@@ -78,6 +79,10 @@ class Handler(BaseHTTPRequestHandler):
             return None
         return value if type(value) is dict else None
 
+    def identity(self, user):
+        return {'name':user['n'],'csrf':user['c'],'expires_at':user['exp'],
+                'limits':self.server.agent.limits.remaining(user['u']),'masking_scope':masking_scope()}
+
     def do_GET(self):
         path = urlsplit(self.path)
         if path.path == '/healthz':
@@ -93,8 +98,7 @@ class Handler(BaseHTTPRequestHandler):
         if user is None:
             return self.send(401, {'error': 'sign_in_required'})
         if path.path == '/api/me':
-            return self.send(200, {'name': user['n'], 'csrf': user['c'], 'expires_at': user['exp'],
-                                   'limits': self.server.agent.limits.remaining(user['u'])})
+            return self.send(200, self.identity(user))
         if path.path == '/api/expenses':
             month = (parse_qs(path.query).get('month') or [''])[0]
             try:
@@ -151,8 +155,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(401, {'error': 'wrong_username_or_password'})
         cookie, payload = self.server.sessions.issue(account['id'], account['display_name'])
         audit.emit('finance_login', 'agent-financial', user_ref=self.server.agent._user_ref(account['id']))
-        return self.send(200, {'name': payload['n'], 'csrf': payload['c'], 'expires_at': payload['exp'],
-                               'limits': self.server.agent.limits.remaining(account['id'])},
+        return self.send(200, self.identity(payload),
                          cookie=COOKIE + '=' + cookie + '; HttpOnly; SameSite=Strict; Path=/; Max-Age=3600')
 
 

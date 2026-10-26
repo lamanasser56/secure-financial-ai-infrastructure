@@ -1,4 +1,4 @@
-/* Financial Agent UI: real sign-in, chat, and "What the platform did" built from the /api/ask trace. Same design as the console. */
+/* Financial Agent UI: real sign-in, chat, and worker-reported steps from the /api/ask trace. Same design as the console. */
 (() => {
   'use strict';
   const {el, $} = Console;
@@ -34,79 +34,99 @@
   const money = minor => (minor / 100).toLocaleString('en', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' SAR';
   const words = s => String(s || '').replace(/_/g, ' ');
 
-  // ---- What the platform did: each step exists only if the trace says it happened -------------------------------------------------
+  function costText(trace) {
+    const source = (trace.cost_source === 'litellm_response_header' && Number.isInteger(trace.model_calls) && trace.model_calls > 0)
+      || (trace.cost_source === 'no_model_call' && trace.model_calls === 0 && trace.cost_usd === 0);
+    if (!source || typeof trace.cost_usd !== 'number' || !Number.isFinite(trace.cost_usd) || trace.cost_usd < 0) return 'cost unavailable';
+    return trace.cost_usd > 0 && trace.cost_usd < 0.0001 ? '<$0.0001' : '$' + trace.cost_usd.toFixed(4);
+  }
+  function maskingBlocks() {
+    const scope = me && me.masking_scope;
+    if (!scope || !Array.isArray(scope.supported)) return [{label: 'Masking scope', text: 'The scope is unavailable. No masking coverage is inferred.'}];
+    return [{label: 'Masking scope', text: scope.summary},
+      {label: 'Supported patterns', node: el('ul', {}, scope.supported.map(row => el('li', {}, row.label, ' · ', el('span', {class: 'mono'}, row.code))))},
+      {label: 'Limits', text: scope.limits + ' ' + scope.additional}];
+  }
+  function maskingDetails(from) {
+    Console.explain({eyebrow: 'EXPLAIN · MASKING SCOPE', title: 'Identifier masking scope',
+      blocks: maskingBlocks(), file: 'platform/core/src/agent_platform/masking_scope.py'}, from);
+  }
+
+  // These are the worker's reported steps, not independently joined boundary events.
   function steps(trace) {
-    const out = [];
-    const ex = (title, plain, how, proof, without) => from => Console.explain({eyebrow: 'EXPLAIN · FROM THIS REQUEST', live: true, title, copy: {label: 'request', value: trace.request_id},
-      blocks: [{label: 'In plain words', text: plain}, {label: 'How it works', text: how}, {label: 'Proof · this request\'s trace', node: el('pre', {class: 'code'}, proof.join('\n'))},
-               {label: 'Without it', text: without, cls: 'without'}], file: 'platform/agents/financial/finance_agent/agent.py'}, from);
-    out.push({mark: '✓', kind: 'allowed', text: 'Checked who you are', open: ex('Checked who you are', 'The platform knew who was asking before it touched any data.',
-      'Your session cookie is signed and expires. Every request is checked, and your pseudonymous user reference is used instead of your name.',
-      ['user_ref: ' + trace.user_ref, 'outcome: ' + trace.outcome], 'Anyone could ask as anyone.')});
+    const out = [], tools = Array.isArray(trace.tool_calls) ? trace.tool_calls : [];
+    const ex = (title, plain, how, reported, extra = []) => from => Console.explain({eyebrow: 'EXPLAIN · WORKER REPORT', title,
+      copy: {label: 'request', value: trace.request_id},
+      blocks: [{label: 'Source', text: 'Produced by the worker for this request. This trace is not independent evidence that every boundary enforced its policy.'},
+        {label: 'In plain words', text: plain}, {label: 'How the current platform works', text: how},
+        {label: 'Reported fields', node: el('pre', {class: 'code'}, reported.join('\n'))}, ...extra],
+      file: 'platform/agents/financial/finance_agent/agent.py'}, from);
+    if (trace.user_ref) out.push({mark: '·', kind: 'plain', text: 'Identity reference reported', open: ex('Identity reference reported',
+      'The worker included a pseudonymous user reference in its report.',
+      'The trusted frontdoor authenticates the session. The broker checks capabilities bound to the user and worker; workers do not hold login or database credentials.',
+      ['user_ref: ' + trace.user_ref, 'outcome: ' + trace.outcome])});
     if (trace.redaction && trace.redaction.calls > 0) {
-      const found = Object.entries(trace.redaction.categories).map(([k, v]) => k + ' × ' + v);
-      out.push({mark: '✓', kind: 'allowed', text: 'Hid personal data from the model', open: ex('Hid personal data from the model', 'Personal data was masked before any text reached the AI model.',
-        'Every model request goes through the platform redactor first. If the redactor fails, the request is not sent.',
-        ['redactor calls: ' + trace.redaction.calls, 'categories found: ' + (found.join(', ') || 'none')], 'Names, emails and numbers would reach the model.')});
+      const found = Object.entries(trace.redaction.categories || {}).filter(([, count]) => count > 0).map(([code, count]) => code + ' × ' + count);
+      const title = found.length ? 'Identifier masking reported' : 'Identifier checks reported';
+      out.push({mark: '·', kind: 'plain', text: title, open: ex(title,
+        'The worker reported redaction calls and the categories found. A call with no findings does not prove that text contained no sensitive data.',
+        'The mandatory model boundary checks accepted messages before using private provider credentials. Unavailable redaction refuses that request.',
+        ['redactor calls: ' + trace.redaction.calls, 'categories found: ' + (found.join(', ') || 'none reported')], maskingBlocks())});
     }
-    if (trace.data_access) {
-      out.push({mark: '✓', kind: 'allowed', text: 'Read only your own rows', open: ex('Read only your own rows', 'The agent could read only your own records.',
-        'The tools run as a read-only database role under row-level security, scoped to your user reference.',
-        ['role: ' + trace.data_access.role, 'scoped_to: ' + trace.data_access.scoped_to, ...trace.tool_calls.map(t => t.tool_id + ': ' + t.rows_returned + ' row(s)')],
-        "The agent could be tricked into reading someone else's expenses.")});
-    }
-    if (trace.injection_result && trace.injection_result.question_instruction_like) {
-      out.push({mark: '!', kind: 'plain', text: 'Your question contained instruction-like text', open: ex('Your question contained instruction-like text',
-        'Text you pasted (an invoice, an email) reads like an order to the assistant. It was sent as your question, and recorded.',
-        'Your own question is never withheld. The answer is still limited to read-only tools, your own rows and the checks on figures and claims.',
-        ['question_instruction_like: true'], 'A pasted document could carry someone else\'s instructions.')});
-    }
-    if (trace.injection_result && trace.injection_result.withheld_fields) {
-      out.push({mark: '!', kind: 'denied', text: 'Ignored orders hidden in the data', open: ex('Ignored orders hidden in the data', 'Text in your records that looked like an instruction was withheld from the model.',
-        'Record fields are screened before the model sees them. Instruction-like text is replaced and never followed.',
-        ['result: ' + words(trace.injection_result.result), 'withheld fields: ' + trace.injection_result.withheld_fields], 'A merchant name could give the model orders.')});
-    }
-    if (trace.grounding_result === 'grounded') {
-      out.push({mark: '✓', kind: 'allowed', text: 'Matched the number to the data', open: ex('Matched the number to the data', 'Every figure in the answer was found in your records.',
-        'The answer is checked against the tool results before it is shown. An unmatched figure blocks the answer.',
-        ['grounding: grounded', 'tool calls: ' + (trace.tool_calls.length || 'none')], 'The model could state a number that is not in your data.')});
-    } else if (trace.grounding_result === 'ungrounded_claim_blocked') {
-      out.push({mark: '!', kind: 'denied', text: 'Stopped an answer the data did not support', open: ex('Stopped an answer the data did not support', 'The answer made a claim your records do not support, so it was not shown.',
-        'The answer is checked against the tool results before it is shown.', ['grounding: ungrounded claim blocked', 'reason: ' + words(trace.reason)], 'A made-up claim would look like a fact.')});
-    }
-    if (trace.outcome === 'refused') {
-      out.push({mark: '!', kind: 'denied', text: 'Refused: ' + words(trace.reason), open: ex('Refused', REASONS[trace.reason] || 'The request was refused before any answer.',
-        'Limits and checks run before and after the model.', ['outcome: refused', 'reason: ' + words(trace.reason)], 'Limits could be bypassed.')});
-    }
+    if (trace.data_access) out.push({mark: '·', kind: 'plain', text: 'Scoped reads reported', open: ex('Scoped reads reported',
+      'The worker reported calls through the user-scoped data path.',
+      'The trusted data broker checks an active signed capability and runs registered read-only tools under row-level security. This worker trace is not an independent broker event.',
+      ['reported role: ' + trace.data_access.role, 'reported scope: ' + trace.data_access.scoped_to,
+        ...tools.map(tool => tool.tool_id + ': ' + tool.rows_returned + ' row(s)')])});
+    if (trace.injection_result && trace.injection_result.question_instruction_like) out.push({mark: '!', kind: 'plain',
+      text: 'Instruction-like question reported', open: ex('Instruction-like question reported',
+        'The worker marked the question as instruction-like. This flag is not a stored copy of the question.',
+        'Question text remains untrusted input. Registered tools, user scope and output checks still apply.', ['question_instruction_like: true'])});
+    if (trace.injection_result && trace.injection_result.withheld_fields) out.push({mark: '!', kind: 'plain',
+      text: 'Field filtering reported', open: ex('Field filtering reported',
+        'The worker reported withholding fields recognized by its instruction-pattern filter.',
+        'Pattern filtering does not recognize every instruction or prove what the model followed.',
+        ['result: ' + words(trace.injection_result.result), 'withheld fields: ' + trace.injection_result.withheld_fields])});
+    if (trace.grounding_result === 'grounded') out.push({mark: '·', kind: 'plain', text: 'Grounding check reported', open: ex('Grounding check reported',
+      'The worker reported that its figure and claim checks accepted the answer.',
+      'These checks compare figures and selected claims with tool results; they do not prove every sentence is correct.',
+      ['grounding: grounded', 'tool calls: ' + tools.length])});
+    else if (trace.grounding_result === 'ungrounded_claim_blocked') out.push({mark: '!', kind: 'plain', text: 'Grounding refusal reported',
+      open: ex('Grounding refusal reported', 'The worker reported withholding an answer after its grounding checks.',
+        'Figure and selected-claim checks run before an answer is shown.', ['grounding: ungrounded claim blocked', 'reason: ' + words(trace.reason)])});
+    if (trace.outcome === 'refused' || trace.outcome === 'blocked') out.push({mark: '!', kind: 'plain', text: 'Refusal reported: ' + words(trace.reason),
+      open: ex('Refusal reported', REASONS[trace.reason] || 'The worker reported a refusal.',
+        'This is the reported result of this turn, not a statement about every service or request.', ['outcome: ' + trace.outcome, 'reason: ' + words(trace.reason)])});
     return out;
   }
 
   function didPanel(state) {
-    const list = el('ul', {}), foot = el('footer', {});
-    const panel = el('section', {class: 'panel did', 'aria-label': 'What the platform did'}, el('h2', {}, 'What the platform did'), list, foot);
+    const list = el('ul', {}), foot = el('footer', {}, 'Worker-produced metadata.');
+    const panel = el('section', {class: 'panel did', 'aria-label': 'Worker request trace'}, el('h2', {}, 'Worker request trace'), list, foot);
     state.paint = (trace, elapsed) => {
       const rows = steps(trace);
       list.replaceChildren();
-      rows.forEach((s, i) => {
-        const li = el('li', {}, el('button', {type: 'button', onclick: e => s.open(e.currentTarget), 'aria-label': s.text + ' — how it works'},
-          el('span', {class: 'ring ' + s.kind, 'aria-hidden': 'true'}, s.mark), s.text));
-        if (Console.reduced()) list.append(li); else setTimeout(() => list.append(li), i * 160);  // fills row by row, as the controls ran
+      rows.forEach((step, index) => {
+        const row = el('li', {}, el('button', {type: 'button', onclick: event => step.open(event.currentTarget), 'aria-label': step.text + ' — details'},
+          el('span', {class: 'ring ' + step.kind, 'aria-hidden': 'true'}, step.mark), step.text));
+        if (Console.reduced()) list.append(row); else setTimeout(() => list.append(row), index * 160);
       });
-      foot.replaceChildren(el('span', {}, elapsed.toFixed(1) + ' s · ' + (trace.cost_usd === null ? 'cost unavailable' : '$' + trace.cost_usd.toFixed(4))),
-        el('button', {type: 'button', class: 'btn link', onclick: e => Console.explain({eyebrow: 'EXPLAIN · FROM THIS REQUEST', live: true, title: 'Audit record', copy: {label: 'request', value: trace.request_id},
-          blocks: [{label: 'In plain words', text: 'One line per request is written to the audit log. It holds ids, counts and codes, never your question or the answer.'},
-                   {label: 'How it works', text: 'This is the same object that was audited and returned to you.'},
-                   {label: 'Proof · this request\'s trace', node: el('pre', {class: 'code'}, [
-                     'request_id: ' + trace.request_id, 'outcome: ' + trace.outcome, 'model: ' + trace.model.alias + (trace.model.resolved ? ' → ' + trace.model.resolved : ''),
-                     'model calls: ' + trace.model_calls, 'tokens: ' + trace.tokens, 'cost: ' + (trace.cost_usd === null ? '—' : trace.cost_usd) + ' (' + trace.cost_source + ')'].join('\n'))}],
-          file: 'platform/agents/financial/finance_agent/agent.py'}, e.currentTarget)}, 'Audit record →'));
+      foot.replaceChildren(el('span', {}, elapsed.toFixed(1) + ' s · ' + (costText(trace) === 'cost unavailable' ? 'cost unavailable' : 'reported model cost ' + costText(trace))),
+        el('button', {type: 'button', class: 'btn link', onclick: event => Console.explain({eyebrow: 'EXPLAIN · WORKER REPORT', title: 'Request trace',
+          copy: {label: 'request', value: trace.request_id},
+          blocks: [{label: 'Source', text: 'Worker-produced metadata returned with this answer. Boundary events are not independently joined into this trace.'},
+            {label: 'Audit scope', text: 'Components emit bounded request events. This trace does not prove complete recording, durable retention or an authentic record of every boundary decision.'},
+            {label: 'Reported fields', node: el('pre', {class: 'code'}, ['request_id: ' + trace.request_id, 'outcome: ' + trace.outcome,
+              'model: ' + trace.model.alias + (trace.model.resolved ? ' → ' + trace.model.resolved : ''), 'model calls: ' + trace.model_calls,
+              'tokens: ' + JSON.stringify(trace.tokens), 'model cost: ' + costText(trace), 'cost source: ' + (trace.cost_source || 'unavailable')].join('\n'))}],
+          file: 'platform/agents/financial/finance_agent/agent.py'}, event.currentTarget)}, 'Request trace →'));
     };
     return panel;
   }
 
   function askView(view) {
     const now = new Date(), month = now.toLocaleString('en', {month: 'long'}) + ' ' + now.getFullYear();
-    view.append(el('a', {class: 'hint', href: CONSOLE}, '← Financial Agent'), Console.head('Ask. Then see what protected you.', null));
+    view.append(el('a', {class: 'hint', href: CONSOLE}, '← Financial Agent'), Console.head('Ask. Review the trace.', null, el('button', {type: 'button', class: 'btn link', onclick: event => maskingDetails(event.currentTarget)}, 'Masking scope →')));
     const log = el('div', {class: 'log', role: 'log', 'aria-live': 'polite'});
     const input = el('input', {id: 'q', type: 'text', maxlength: 500, autocomplete: 'off', placeholder: 'Ask about your expenses…'});
     const send = el('button', {type: 'submit', class: 'btn inverse'}, 'Send');
@@ -128,7 +148,7 @@
     view.append(el('div', {class: 'ask'}, el('section', {class: 'panel chat', 'aria-label': 'Conversation'}, log,
       el('div', {class: 'chips'}, chip('How much did I spend in ' + month + '?'), chip('Which category did I spend most on in October 2026?')),
       el('form', {class: 'send', onsubmit: e => { e.preventDefault(); ask(input.value); }}, el('div', {}, el('label', {for: 'q'}, 'Your question'), input), send)), did));
-    did.querySelector('ul').append(el('li', {class: 'muted'}, 'Ask a question to see what the platform did.'));
+    did.querySelector('ul').append(el('li', {class: 'muted'}, 'Ask a question to see worker-reported steps.'));
   }
 
   async function expensesView(view) {
