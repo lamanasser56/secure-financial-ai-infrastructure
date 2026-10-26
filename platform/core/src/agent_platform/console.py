@@ -23,7 +23,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import yaml
 
-from agent_platform import audit, release_facts
+from agent_platform import audit, release_facts, masking_scope
 from runtime.agents import web
 
 HERE = Path(__file__).resolve()
@@ -277,9 +277,9 @@ class Console:
                      'gateway key ops-explain, used only to explain a finding; the key is never readable here'))
         out.append(g('budget', 'Monthly budget', 'declared', 'manifest', 'platform/core/src/agent_platform/onboarding.py',
                      'ops-explain: %s per month' % self._ops_agent()['budget_usd_month']))
-        out.append(g('redaction', 'Personal data redaction', 'verified', 'observed', 'redactor audit via ops-agent /v1/activity',
+        out.append(g('redaction', 'Identifier masking checks', 'verified', 'observed', 'redactor audit via ops-agent /v1/activity',
                      'a recent redactor event for the key of ops') if seen else
-                   g('redaction', 'Personal data redaction', 'declared', 'manifest', 'platform/core/src/agent_platform/ops/explain.py',
+                   g('redaction', 'Identifier masking checks', 'declared', 'manifest', 'platform/core/src/agent_platform/ops/explain.py',
                      'every explanation request is redacted before the model'))
         out.append(g('approval', 'Approval-gated actions', 'declared', 'manifest', 'platform/core/kubernetes/policies/admission.yaml',
                      'read-only Ops delegates %d registered targets to the separate approval-verifying executor; the admission policy '
@@ -325,9 +325,9 @@ class Console:
                                'no default-deny policy in the live NetworkPolicy list of ' + ns))
         out.append(declared('model_key', 'Scoped model key', 'gateway key agent-' + name + ' created by make up; the key is never readable here'))
         out.append(declared('budget', 'Monthly budget', 'budget_usd_month: %s' % m['model']['budget_usd_month']))
-        out.append(verified('redaction', 'Personal data redaction', 'redactor audit via ops-agent /v1/activity', 'observed',
+        out.append(verified('redaction', 'Identifier masking checks', 'redactor audit via ops-agent /v1/activity', 'observed',
                             'a recent redactor event for the key of ' + ns) if seen else
-                   declared('redaction', 'Personal data redaction', 'redaction: required; egress rendered to the redactor'
+                   declared('redaction', 'Identifier masking checks', 'redaction: required; egress rendered to the redactor'
                             if 'redactor' in reaches else 'redaction: required'))
         out.append(declared('tools', 'Read-only tools', ', '.join(t['id'] for t in m['tools']) or 'no tools'))
         if live and live['pods_ready'] >= 1 and live['image_digests'] and live['pods_ready'] >= live['desired']:
@@ -520,7 +520,7 @@ class Console:
         for line in reversed(self._recent_audit()):
             if line.get('audit_event') != 'model_response_shape':
                 scalars = {k: v for k, v in line.items() if type(v) in (str, int, float, bool)}
-                return {'source': 'front-door audit stream (this process)', 'line': dict(list(scalars.items())[:10])}
+                return {'source': 'frontdoor events (this process; bounded memory)', 'line': dict(list(scalars.items())[:10])}
         return None
 
 
@@ -542,9 +542,9 @@ EXPLAIN = {
         'without': 'A tricked agent could send data to any server.'}},
     'redactor': {'proof': Console._proof_redactor, 'file': 'platform/core/src/agent_platform/programs/redactor_server.py', 'text': {
         'title': 'Redactor',
-        'plain': 'Personal data is hidden from the model.',
-        'how': 'Every model request goes through the redactor first. If it fails, the request is not sent.',
-        'without': 'Names, emails and numbers would reach the model.'}},
+        'plain': masking_scope.SUMMARY,
+        'how': masking_scope.explanation() + ' The mandatory model boundary refuses requests when redaction is unavailable.',
+        'without': 'Supported identifiers could reach the model without masking.'}},
     'gateway': {'proof': Console._proof_gateway, 'file': 'platform/core/kubernetes/platform/workloads.yaml', 'text': {
         'title': 'Private model provider gateway',
         'plain': 'One key and one budget per agent.',
@@ -554,18 +554,18 @@ EXPLAIN = {
         'title': 'Audit',
         'plain': 'Bounded component events support investigation.',
         'how': 'Trusted mediators emit their own events. Worker traces and stdout alone do not prove complete or authentic audit.',
-        'without': 'Nothing could be shown or proven afterwards.'}},
+        'without': 'Fewer component events would be available for investigation.'}},
 }
 
 
 for _topic, _title, _description, _source in (
-    ('gateway-boundary', 'Mandatory redaction gateway', 'A trusted frontend redacts accepted messages before using private provider credentials.', 'platform/core/src/agent_platform/gateway_boundary.py'),
+    ('gateway-boundary', 'Mandatory redaction gateway', 'A trusted frontend applies supported identifier masking before using private provider credentials.', 'platform/core/src/agent_platform/gateway_boundary.py'),
     ('financial-frontdoor', 'Trusted user and data boundary', 'Only this boundary holds user-authentication and database credentials; workers use active signed read capabilities.', 'platform/agents/financial/finance_agent/frontdoor.py'),
     ('ops-executor', 'Independent approval executor', 'Only this identity can patch registered workloads after verifying owner approval and consuming a durable one-use receipt.', 'platform/core/src/agent_platform/ops/executor.py'),
 ):
     # These declarations have no independent read-only proof source in this API.
     EXPLAIN[_topic] = {'proof': None, 'file': _source, 'text': {'title': _title, 'plain': _description,
-                      'how': 'Declared RC1 source architecture; live deployment enforcement remains unverified.',
+                      'how': (masking_scope.SUMMARY + ' ' + masking_scope.explanation()) if _topic == 'gateway-boundary' else 'This describes the selected source architecture. This panel has no independent live enforcement proof.',
                       'without': 'A compromised worker could cross a boundary intended to be enforced independently.'}}
 
 

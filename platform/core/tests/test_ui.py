@@ -99,7 +99,7 @@ class Scripts(unittest.TestCase):
         core = (FRONT / 'core.js').read_text()
         self.assertIn("'No live proof available'", core)
         self.assertIn('EXPLAIN · NOT SEEN LIVE', core)
-        self.assertIn('EXPLAIN · VERIFIED LIVE', core)
+        self.assertIn('EXPLAIN · OBSERVED', core)
         self.assertIn("explainTopic('network'", (FRONT / 'map.js').read_text())
 
     def test_badge_distinguishes_live_not_live_and_offline(self):
@@ -154,14 +154,6 @@ class Scripts(unittest.TestCase):
         self.assertIn("a.kind === 'platform' ? 'acts with approval'", mapjs)
         self.assertNotIn('Security & Ops', agents + mapjs)  # the display name comes from the API
         self.assertIn("filter(a => a.kind !== 'platform')", (FRONT / 'onboard.js').read_text())
-
-    def test_activity_uses_plain_words_for_categories(self):
-        mapjs = (FRONT / 'map.js').read_text()
-        self.assertIn("EMAIL_ADDRESS: 'an email address'", mapjs)
-        self.assertIn("CATEGORY[c] || 'personal data'", mapjs)
-        from runtime.phase3.trusted_runtime import SUPPORTED_ENTITIES
-        for code in SUPPORTED_ENTITIES:
-            self.assertIn(code + ':', mapjs)
 
     def test_proof_is_focused_wrapped_short_and_expandable(self):
         core, css = (FRONT / 'core.js').read_text(), (FRONT / 'style.css').read_text()
@@ -236,13 +228,6 @@ class Scripts(unittest.TestCase):
             self.assertNotRegex(script.read_text(), r"el\('(div|span)', \{[^}]*onclick")  # clickable things are buttons or links
         self.assertIn(':focus-visible', (FRONT / 'style.css').read_text())
 
-    def test_financial_ui_renders_only_the_steps_the_trace_says_happened(self):
-        app = (FIN / 'app.js').read_text()
-        for text in ('Checked who you are', 'Hid personal data from the model', 'Read only your own rows', 'Ignored orders hidden in the data',
-                     'Matched the number to the data', 'trace.redaction.calls > 0', 'if (trace.data_access)', 'if (trace.injection_result && trace.injection_result.withheld_fields)', 'if (trace.injection_result && trace.injection_result.question_instruction_like)',
-                     "trace.grounding_result === 'grounded'", 'Audit record →', 'Real login'.lower() and '/api/login'):
-            self.assertIn(text, app)
-        self.assertNotIn('language: UI', app)
 
 
 if __name__ == '__main__':

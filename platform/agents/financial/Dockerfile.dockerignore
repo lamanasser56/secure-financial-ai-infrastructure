@@ -17,6 +17,7 @@
 !platform/core/src/agent_platform/data_capability.py
 !platform/core/src/agent_platform/redaction.py
 !platform/core/src/agent_platform/release_version.py
+!platform/core/src/agent_platform/masking_scope.py
 !platform/core/src/agent_platform/request_context.py
 !platform/agents/
 !platform/agents/financial/
