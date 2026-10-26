@@ -22,7 +22,7 @@ Registered tool schemas, caller scope and output admission bound what a worker c
 
 Request events are bounded metadata. Expense writes and Ops changes do not promise a durable audit record before mutation. Cloud log collection, a configured retention period and a worker trace are not proof of complete recording or irreversible retention. No durable-audit enforcement feature is claimed.
 
-The Guide reads its declared current documentation corpus. Index version, source identity and retrieved excerpts determine the material available to it. A list of search hits or a figure check alone is not semantic proof for every claim in an answer. Application text must describe the actual admission checks, rather than advertise universal grounding.
+The Guide reads its declared current documentation corpus. Index version, source identity and retrieved excerpts determine the material available to it. Its model selects passage IDs; code returns only those indexed excerpts and rejects generated factual prose. Zero hits refuse without a model call. The worker trace reports source_quotes_verified, which checks literal source selection, not truth, relevance, completeness or deployed enforcement. Excerpts keep their source language; this is not generated translation.
 
 ## Shared services and cloud controls
 

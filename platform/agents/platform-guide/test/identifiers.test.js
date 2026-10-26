@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { identifierSpans, maskSpans } = require('../src/identifiers');
 const { Redactor, Blocked, maskEmails } = require('../src/clients');
-const { guideWith, SEARCH } = require('./helpers');
+const { guideWith } = require('./helpers');
 
 // The same cases the Python detector is held to (platform/core/tests/test_identifiers.py).
 const CASES = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../core/tests/identifier_cases.json'), 'utf8'));
@@ -79,9 +79,9 @@ test('the client sends only masked text, reports the categories, and fails close
 });
 
 test('regression: tonight\'s invoice pasted into the Guide never reaches the redactor or the model raw', async () => {
-  const answer = { action: 'answer', text: 'Every namespace has a default-deny NetworkPolicy.' };
-  const h = guideWith({ replies: [SEARCH, answer] });
-  await h.guide.ask(CASES.invoice, 'en');
+  const answer = {action: 'answer', sources: ['p1']};
+  const h = guideWith({ replies: [answer] });
+  await h.guide.ask('network\n' + CASES.invoice, 'en');
   const sent = JSON.stringify([h.calls.redactor.map((c) => c.body), h.calls.gateway.map((c) => c.body)]);
   for (const value of [...CASES.invoice_values, ...CASES.invoice_emails]) assert.ok(!sent.includes(value), value);
   assert.ok(h.calls.gateway.length >= 1); // the model was reached, with masked text only
@@ -128,9 +128,9 @@ test('every value in the pasted corpus documents is masked, and masked JSON stay
 
 test('regression RD-01: a pasted multi-line email never reaches the redactor or the model raw', async () => {
   const doc = CORPUS.documents.find((d) => d.id === 'doc_email_thread');
-  const question = doc.text.slice(0, 480);
-  const answer = { action: 'answer', text: 'Every namespace has a default-deny NetworkPolicy.' };
-  const h = guideWith({ replies: [SEARCH, answer] });
+  const question = 'network\n' + doc.text.slice(0, 480);
+  const answer = {action: 'answer', sources: ['p1']};
+  const h = guideWith({ replies: [answer] });
   await h.guide.ask(question, 'en');
   const sent = normalized(JSON.stringify([h.calls.redactor.map((c) => c.body), h.calls.gateway.map((c) => c.body)]));
   const values = doc.values.filter((v) => question.includes(v));

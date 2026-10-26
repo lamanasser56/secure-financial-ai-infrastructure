@@ -5,7 +5,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createServer } = require('../src/server');
-const { guideWith, SEARCH } = require('./helpers');
+const { guideWith } = require('./helpers');
 
 function listen(guide) {
   return new Promise((resolve) => {
@@ -31,7 +31,7 @@ function request(host, { method = 'POST', url = '/api/ask', headers = {}, body }
 }
 
 test('health, page and API rules', async () => {
-  const { guide } = guideWith({ replies: [SEARCH, { action: 'answer', text: 'Every namespace has a default-deny NetworkPolicy.' }] });
+  const { guide } = guideWith({ replies: [{action: 'answer', sources: ['p1']}] });
   const { server, host } = await listen(guide);
   try {
     assert.equal((await request(host, { method: 'GET', url: '/healthz' })).status, 200);
@@ -98,14 +98,14 @@ test('the current corpus feeds the real Guide HTTP composition with explicit syn
   const expected = index.search(query)[0];
   assert.ok(expected);
   const answer = expected.excerpt;
-  const transports = fakes({replies: [{action: 'tool', tool: 'docs_search', args: {query}}, {action: 'answer', text: answer}]});
+  const transports = fakes({replies: [{action: 'answer', sources: ['p1']}]});
   const current = new Guide({index, stream: {write() {}},
     redactor: new Redactor('k'.repeat(64), {transport: transports.redactorTransport}),
     gateway: new Gateway('synthetic-key', {transport: transports.gatewayTransport})});
   const {server, host} = await listen(current);
   try {
     const response = await request(host, {headers: {'content-type': 'application/json', origin: 'http://' + host},
-      body: JSON.stringify({question: 'Which boundary handles accepted model messages?', language: 'en'})});
+      body: JSON.stringify({question: query, language: 'en'})});
     assert.equal(response.status, 200);
     const value = JSON.parse(response.body);
     assert.equal(value.status, 'answered'); assert.equal(value.answer, answer);
@@ -113,6 +113,6 @@ test('the current corpus feeds the real Guide HTTP composition with explicit syn
     const allowed = new Set(index.source.documents.map(doc => doc.path));
     assert.ok(value.sources.every(source => allowed.has(source.path)));
     assert.equal(index.source.source_commit, null); // Test corpus build is explicitly unbound.
-    assert.equal(transports.calls.gateway.length, 2); // Scripted local functions, zero external calls.
+    assert.equal(transports.calls.gateway.length, 1); // Scripted local functions, zero external calls.
   } finally { await new Promise(resolve => server.close(resolve)); }
 });
