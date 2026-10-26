@@ -1,4 +1,4 @@
-# Agent platform (Phase E, ADR-008). Offline targets need no cloud; cloud targets run on the owner's laptop.
+# Agent platform (Phase E, ADR-008). Offline targets need no cloud; cloud targets use declared cloud credentials.
 #   make test              offline: unit tests, provider drift, manifest invariants, terraform validate
 #   make test-policies     offline: RBAC / ValidatingAdmissionPolicy / Pod Security against a real local kube-apiserver
 #   make onboard A=<agent> validate platform/agents/<agent>/agent.yaml and generate what the agent inherits
@@ -22,18 +22,27 @@ SHELL := /bin/bash
 .ONESHELL:
 .SHELLFLAGS := -Eeuo pipefail -c
 PYTHON ?= python3
-TOOLS ?= $(HOME)/portfolio-sdp-us-east1-401f097/tools
+TOOLS ?= $(abspath .cache/platform-tools)
 KUBECTL ?= $(TOOLS)/kubectl
 TERRAFORM ?= $(TOOLS)/terraform
+OPERATOR_PYTHON := $(abspath .cache/operator-venv/bin/python)
 ENVTEST_DIR ?= .cache/envtest-v1.35.0
 ENVTEST_URL := https://github.com/kubernetes-sigs/controller-tools/releases/download/envtest-v1.35.0/envtest-v1.35.0-linux-amd64.tar.gz
 ENVTEST_SHA512 := 130369c16f076e724d089189afaede960316f5f5dea6cf57be7a4fc6f09c77342893192509790e4056e116e232dff832ed863f5bd55dcb55d38f3ab834828a11
 PY := PYTHONPATH=platform/core/src:platform/core/tests:platform/agents/financial:. $(PYTHON) -B
-LIFECYCLE := PYTHONPATH=platform/core/src:. $(PYTHON) -B platform/clouds/gke/lifecycle.py
+LIFECYCLE := PYTHONPATH=platform/core/src:. $(OPERATOR_PYTHON) -B platform/clouds/gke/lifecycle.py
 
-.PHONY: test test-policies onboard onboard-check agent-forward provider plan apply up down port-forward fault attack inventory secrets seed-demo demo-check demo-reset passphrase-check passphrase corpus-live
+.PHONY: test test-policies tools operator-env onboard onboard-check agent-forward provider plan apply up down port-forward fault attack inventory secrets seed-demo demo-check demo-reset passphrase-check passphrase corpus-live
 
-test:
+tools:
+	$(PYTHON) -B scripts/install-platform-tools.py
+
+operator-env:
+	$(PYTHON) -c 'import sys; assert sys.version_info[:2] == (3, 12), "Python 3.12 required"'
+	if [[ ! -x "$(OPERATOR_PYTHON)" ]]; then $(PYTHON) -m venv .cache/operator-venv; fi
+	$(OPERATOR_PYTHON) -m pip install --disable-pip-version-check --require-hashes -r requirements-platform.txt
+
+test: tools
 	PATH="$(TOOLS):$$PATH" $(PY) -m unittest discover -s platform/core/tests -p 'test_*.py'
 	$(PY) -m agent_platform.providers check gemini
 	$(PY) -m agent_platform.onboarding check
@@ -60,50 +69,50 @@ onboard-check:
 provider:
 	$(PY) -m agent_platform.providers render $(P)
 
-plan:
+plan: tools operator-env
 	$(LIFECYCLE) plan
 
-apply:
+apply: tools operator-env
 	$(LIFECYCLE) apply
 
-up:
+up: tools operator-env
 	PATH="$(TOOLS):$$PATH" $(LIFECYCLE) up
 
-down:
+down: tools operator-env
 	$(LIFECYCLE) down
 
-port-forward:
+port-forward: tools operator-env
 	$(LIFECYCLE) port-forward
 
-agent-forward:
+agent-forward: tools operator-env
 	$(LIFECYCLE) agent-forward $(A)
 
-fault:
+fault: tools operator-env
 	$(LIFECYCLE) fault $(F)
 
-attack:
-	PATH="$(TOOLS):$$PATH" $(PY) platform/clouds/gke/attack_suite.py --out docs/evidence/attack-suite.json
+attack: tools operator-env
+	PATH="$(TOOLS):$$PATH" PYTHONPATH=platform/core/src:platform/core/tests:platform/agents/financial:. $(OPERATOR_PYTHON) -B platform/clouds/gke/attack_suite.py --out docs/evidence/attack-suite.json
 
-corpus-live:
-	PATH="$(TOOLS):$$PATH" $(PY) platform/clouds/gke/corpus_live.py
+corpus-live: tools operator-env
+	PATH="$(TOOLS):$$PATH" PYTHONPATH=platform/core/src:platform/core/tests:platform/agents/financial:. $(OPERATOR_PYTHON) -B platform/clouds/gke/corpus_live.py
 
-inventory:
+inventory: tools operator-env
 	$(LIFECYCLE) inventory
 
-demo-check:
-	@PATH="$(TOOLS):$$PATH" PYTHONPATH=platform/core/src:. $(PYTHON) -B platform/clouds/gke/demo_check.py
+demo-check: tools operator-env
+	@PATH="$(TOOLS):$$PATH" PYTHONPATH=platform/core/src:. $(OPERATOR_PYTHON) -B platform/clouds/gke/demo_check.py
 
-seed-demo:
+seed-demo: tools operator-env
 	$(LIFECYCLE) seed-demo
 
-demo-reset:
-	@PATH="$(TOOLS):$$PATH" PYTHONPATH=platform/core/src:. $(PYTHON) -B platform/clouds/gke/demo_reset.py
+demo-reset: tools operator-env
+	@PATH="$(TOOLS):$$PATH" PYTHONPATH=platform/core/src:. $(OPERATOR_PYTHON) -B platform/clouds/gke/demo_reset.py
 
-secrets:
+secrets: tools operator-env
 	$(LIFECYCLE) secrets
 
-passphrase-check:
-	@PATH="$(TOOLS):$$PATH" PYTHONPATH=platform/core/src:. $(PYTHON) -B platform/clouds/gke/passphrase.py check
+passphrase-check: tools operator-env
+	@PATH="$(TOOLS):$$PATH" PYTHONPATH=platform/core/src:. $(OPERATOR_PYTHON) -B platform/clouds/gke/passphrase.py check
 
-passphrase:
-	@PATH="$(TOOLS):$$PATH" PYTHONPATH=platform/core/src:. $(PYTHON) -B platform/clouds/gke/passphrase.py replace
+passphrase: tools operator-env
+	@PATH="$(TOOLS):$$PATH" PYTHONPATH=platform/core/src:. $(OPERATOR_PYTHON) -B platform/clouds/gke/passphrase.py replace
