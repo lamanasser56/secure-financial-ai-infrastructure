@@ -1,4 +1,4 @@
-"""Only the committed harness may differ from S; a dirty checkout never selects S."""
+"""Only committed orchestration code may differ from S; deployed content and dirty checkouts never do."""
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -8,7 +8,8 @@ import tempfile
 import unittest
 
 from live_session import session_manifest
-from render_live_bundle import RELEASE_LOCK, assert_harness_unchanged, harness_record, selected_source
+from source_selection import (DEPLOYED_CONTENT, RELEASE_LOCK, assert_harness_unchanged, harness_record,
+                              selected_source, source_tree)
 
 
 def git(root, *args):
@@ -26,6 +27,8 @@ class Repository:
         git(self.root, 'config', 'commit.gpgsign', 'false')
         self.write('platform/product.py', 'PRODUCT = 1\n')
         self.write('assessment_overlay/probe.py', 'PROBE = 1\n')
+        for path in DEPLOYED_CONTENT:
+            self.write(path, '# deployed at S\n')
         self.write(RELEASE_LOCK, '{}\n')
         self.write('.gitignore', '.cache/\n')
         self.source = self.commit('S')
@@ -86,6 +89,27 @@ class SourceSelectionTest(unittest.TestCase):
         self.assertEqual(manifest['source_commit'], self.repo.source)
         self.assertEqual(manifest['harness_commit'], head)
         self.assertEqual(manifest['harness_diff_sha256'], record['harness_diff_sha256'])
+
+    def test_changed_deployed_overlay_file_fails(self):
+        self.assertIn('assessment_overlay/provider_stub.py', DEPLOYED_CONTENT)
+        for path in sorted(DEPLOYED_CONTENT):
+            with self.subTest(path=path):
+                repo = Repository(tempfile.mkdtemp(dir=self.temp.name))
+                repo.write(path, '# changed after S\n')
+                repo.commit('deployed content change')
+                with self.assertRaisesRegex(ValueError, 'differs from qualified release'):
+                    selected_source(repo.lock(), repo.root)
+
+    def test_bundle_is_rendered_from_a_worktree_at_s(self):
+        self.repo.write('assessment_overlay/probe.py', 'PROBE = 2\n')
+        self.repo.commit('harness change')
+        with source_tree(self.repo.source, self.repo.root) as tree:
+            self.assertEqual(git(tree, 'rev-parse', 'HEAD'), self.repo.source)
+            self.assertEqual((tree / 'assessment_overlay/probe.py').read_text(), 'PROBE = 1\n')
+            self.assertEqual((tree / 'assessment_overlay/provider_stub.py').read_text(), '# deployed at S\n')
+        self.assertFalse(tree.exists())
+        self.assertEqual(git(self.repo.root, 'worktree', 'list').count('\n'), 0)
+        self.assertEqual(self.select(), self.repo.source)
 
     def test_release_lock_and_evidence_may_change(self):
         self.repo.write(RELEASE_LOCK, json.dumps({'source_commit': self.repo.source}))

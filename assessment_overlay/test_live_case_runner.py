@@ -5,7 +5,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from live_case_runner import CASE_ORDER, case_probes, run_all, run_case
+from janitor import JANITOR_IDENTITY_SECONDS
+from live_case_runner import CASE_ORDER, case_probes, confirm_janitor_survived_identity_window, run_all, run_case
 
 
 class LiveCaseRunnerTest(unittest.TestCase):
@@ -24,7 +25,8 @@ class LiveCaseRunnerTest(unittest.TestCase):
             'bundle_sha256': self.manifest['bundle_sha256'], 'verified_runtime_images': ['app']}))
         (evidence / 'janitor-armed.json').write_text(json.dumps({
             'run_id': self.manifest['run_id'], 'watch_step_in_progress': True,
-            'workflow_run_id': 42}))
+            'workflow_run_id': 42,
+            'watch_step_started_at': (datetime.now(timezone.utc) - timedelta(minutes=20)).isoformat()}))
         self.calls = []
 
     def run_one(self, case='D02', checks=None, janitor=True, ledger=None):
@@ -96,6 +98,41 @@ class LiveCaseRunnerTest(unittest.TestCase):
                     janitor_status=lambda *_: True,
                     cleanup=lambda *_: cleaned.append(True) or {'result': 'PASS'})
         self.assertEqual(cleaned, [True])
+
+
+    def test_first_case_waits_out_the_janitor_identity_window(self):
+        started = datetime.now(timezone.utc)
+        armed = self.run_dir / 'evidence/janitor-armed.json'
+        armed.write_text(json.dumps(dict(json.loads(armed.read_text()),
+                                         watch_step_started_at=started.isoformat().replace('+00:00', 'Z'))))
+        clock = [started + timedelta(minutes=2)]
+        checked_at = []
+
+        def status(run):
+            checked_at.append(clock[0])
+            return True
+        receipt = confirm_janitor_survived_identity_window(
+            self.manifest, self.run_dir, janitor_status=status, clock=lambda: clock[0],
+            sleep=lambda seconds: clock.__setitem__(0, clock[0] + timedelta(seconds=seconds)))
+        self.assertEqual(len(checked_at), 1)
+        self.assertGreaterEqual(checked_at[0], started + timedelta(seconds=JANITOR_IDENTITY_SECONDS))
+        self.assertTrue(receipt['watch_step_in_progress'])
+        self.assertTrue((self.run_dir / 'evidence/janitor-identity-window.json').is_file())
+
+    def test_janitor_gone_after_its_identity_window_cleans_up_before_any_case(self):
+        cleaned, probed = [], []
+        probes = {case: lambda: probed.append(1) or {'checked': True} for case in CASE_ORDER}
+        with self.assertRaisesRegex(RuntimeError, 'live_run_inconclusive'):
+            run_all(self.manifest, self.run_dir, kubeconfig='/private/kubeconfig', probes=probes,
+                    ledger_reader=lambda *_: {'run_id': self.manifest['run_id'],
+                        'completed_redactions': 0, 'sdk_attempts': 0, 'inflight': 0},
+                    janitor_status=lambda *_: False,
+                    cleanup=lambda *_: cleaned.append(True) or {'result': 'PASS'})
+        self.assertEqual(cleaned, [True])
+        self.assertEqual(probed, [])
+        summary = json.loads((self.run_dir / 'evidence/final-summary.json').read_text())
+        self.assertEqual(summary['cases_passed'], 0)
+        self.assertFalse((self.run_dir / 'evidence/case-D02-result.json').exists())
 
 
 if __name__ == '__main__':

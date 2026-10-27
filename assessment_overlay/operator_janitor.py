@@ -9,7 +9,7 @@ from urllib import request
 
 from janitor import cleanup, load_manifest, write_receipt
 from operator_setup import REPOSITORY
-from render_live_bundle import assert_harness_unchanged
+from source_selection import assert_harness_unchanged
 
 
 WORKFLOW = 'assessment-janitor.yml'
@@ -81,7 +81,8 @@ def arm(manifest, setup, *, api, now=None, sleep=time.sleep, timeout_seconds=ARM
                 for step in job.get('steps', []):
                     if step.get('name') == WAIT_STEP and step.get('status') == 'in_progress':
                         return {'run_id': run_id, 'workflow_run_id': run['id'],
-                                'watch_step_in_progress': True, 'started_at': now.isoformat()}
+                                'watch_step_in_progress': True, 'started_at': now.isoformat(),
+                                'watch_step_started_at': step.get('started_at') or now.isoformat()}
         sleep(10)
     raise RuntimeError('assessment:janitor_watch_not_confirmed')
 

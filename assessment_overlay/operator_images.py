@@ -11,7 +11,7 @@ import tempfile
 from agent_platform.release_verify import Verifier
 from cloud_wait import Waiter
 from janitor import load_manifest, write_receipt
-from render_live_bundle import assert_harness_unchanged
+from source_selection import assert_harness_unchanged
 
 
 REGISTRY = re.compile(r'us-east1-docker\.pkg\.dev/([a-z][a-z0-9-]{4,28}[a-z0-9])/sdp-evaluation-images/\Z')

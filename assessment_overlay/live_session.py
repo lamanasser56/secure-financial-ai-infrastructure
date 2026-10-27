@@ -15,7 +15,7 @@ import subprocess
 import sys
 
 from live_case_guard import CASE_LIMITS, PLANNED_LIMITS, SETUP_LIMITS, PROJECT_PATTERN, RUN_PATTERN
-from render_live_bundle import ROOT, harness_record, selected_source
+from source_selection import ROOT, harness_record, selected_source, source_tree
 
 
 HARD_LIMITS = (20, 60)
@@ -82,20 +82,27 @@ def prepare(*, project, images_lock, source_registry, output, kubectl='kubectl',
     manifest['runtime_registry'] = 'us-east1-docker.pkg.dev/' + project + '/sdp-evaluation-images/'
     output.mkdir(mode=0o700, parents=True)
     bundle = output / 'bundle.yaml'
-    env = dict(os.environ, ASSESSMENT_RUNTIME_REGISTRY=manifest['runtime_registry'])
-    subprocess.run([sys.executable, '-B', str(ROOT / 'assessment_overlay/render_live_bundle.py'),
-                    '--run-id', run_id, '--output', str(bundle), '--kubectl', kubectl,
-                    '--images-lock', str(lock_path), '--project-id', project],
-                   env=env, check=True, capture_output=True, text=True)
-    subprocess.run([sys.executable, '-B', str(ROOT / 'assessment_overlay/stage_live_bundle.py'),
-                    str(bundle), str(output / 'stages')],
-                   check=True, capture_output=True, text=True)
+    if os.sep in kubectl:
+        kubectl = str(Path(kubectl).resolve())  # The renderer runs inside the S worktree.
+    # S's own renderer, stager and embedded overlay files produce what is applied.
+    with source_tree(manifest['source_commit']) as tree:
+        env = dict(os.environ, ASSESSMENT_RUNTIME_REGISTRY=manifest['runtime_registry'],
+                   PYTHONPATH=os.pathsep.join(str(tree / part) for part in
+                                              ('assessment_overlay', 'platform/core/src', '.')))
+        subprocess.run([sys.executable, '-B', str(tree / 'assessment_overlay/render_live_bundle.py'),
+                        '--run-id', run_id, '--output', str(bundle), '--kubectl', kubectl,
+                        '--images-lock', str(lock_path), '--project-id', project],
+                       env=env, cwd=tree, check=True, capture_output=True, text=True)
+        subprocess.run([sys.executable, '-B', str(tree / 'assessment_overlay/stage_live_bundle.py'),
+                        str(bundle), str(output / 'stages')],
+                       env=env, cwd=tree, check=True, capture_output=True, text=True)
     receipt = json.loads(bundle.with_suffix('.lock.json').read_text())
     if (receipt['platform_commit'] != manifest['source_commit']
             or receipt['runtime_registry'] != manifest['runtime_registry']
             or receipt['external_llm_route'] is not False):
         raise ValueError('assessment bundle does not match source/no-provider policy')
     manifest['bundle_sha256'] = receipt['bundle_sha256']
+    manifest['bundle_rendered_from'] = manifest['source_commit']
     write_private(output / 'initial-manifest.json', manifest)
     (output / 'evidence').mkdir(mode=0o700)
     # The recorded S..HEAD harness diff; the manifest holds its commit and digest.

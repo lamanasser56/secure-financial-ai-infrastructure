@@ -11,7 +11,8 @@ import yaml
 from cloud_wait import Waiter
 from janitor import cleanup, load_manifest, write_receipt
 from live_case_guard import read as read_ledgers
-from render_live_bundle import ROOT, assert_harness_unchanged
+from render_live_bundle import ROOT
+from source_selection import assert_harness_unchanged
 from stage_live_bundle import key, split
 
 

@@ -18,6 +18,7 @@ from cloud_wait import Waiter
 from live_case_guard import PROJECT_PATTERN, RUN_PATTERN
 
 JANITOR_PROVIDER_SUFFIX = '/locations/global/workloadIdentityPools/assessment-janitor/providers/assessment-janitor'
+JANITOR_IDENTITY_SECONDS = 900
 
 
 def load_manifest(path):
@@ -68,16 +69,16 @@ def validate_janitor_identity(project, run_id, provider, service_account, call=g
 
 def wait_for_janitor_identity(project, run_id, provider, service_account, *, deadline_at,
                               call=gcloud_json, waiter=None):
-    """Wait, up to the deadline, until the new janitor identity can read its project.
+    """Wait at most JANITOR_IDENTITY_SECONDS until the new janitor identity can read its project.
 
     Workload Identity and role bindings created moments earlier take minutes to
-    propagate, and the operator counts this watch step as an armed janitor from
-    its start; so a gcloud failure (RuntimeError) is retried until the deadline
-    instead of ending the janitor. An identity mismatch (ValueError) is final.
+    propagate, so a gcloud failure (RuntimeError) is retried within the window;
+    an identity mismatch (ValueError) is final. The operator confirms the watch
+    step is still running after this window before the first case.
     """
     waiter = waiter or Waiter(deadline_at)
     return waiter.retry(lambda: validate_janitor_identity(project, run_id, provider, service_account, call),
-                        seconds=24 * 3600, what='janitor_identity')
+                        seconds=JANITOR_IDENTITY_SECONDS, what='janitor_identity')
 
 
 def resource_absence(project, call=gcloud_json):
@@ -191,8 +192,12 @@ def main():
         deadline = datetime.fromisoformat(args.deadline_at)
         if deadline.tzinfo is None:
             raise SystemExit('janitor:deadline_timezone_required')
-        wait_for_janitor_identity(args.project_id, args.run_id, args.workload_identity_provider,
-                                  args.service_account, deadline_at=args.deadline_at)
+        try:
+            wait_for_janitor_identity(args.project_id, args.run_id, args.workload_identity_provider,
+                                      args.service_account, deadline_at=args.deadline_at)
+        except (RuntimeError, ValueError) as error:
+            # Fail the job visibly; the operator then refuses the first case and cleans up.
+            raise SystemExit('janitor:identity_unusable:' + str(error)) from error
         output = Path(os.environ.get('RUNNER_TEMP', '/tmp')) / ('janitor-' + args.run_id + '.json')
     if not args.execute:
         raise SystemExit('janitor:explicit_execute_required')
