@@ -118,21 +118,29 @@ class WorkflowContract(unittest.TestCase):
         import yaml
         workflow = yaml.safe_load((ROOT / '.github/workflows/agent-platform-images.yml').read_text())
         jobs = workflow['jobs']
-        image = jobs['image']
-        self.assertEqual(image['strategy']['matrix'], '${{ fromJSON(needs.ci-gate.outputs.matrix) }}')
-        self.assertEqual(image['if'], "needs.ci-gate.outputs.build == 'true'")
+        image, publish = jobs['image'], jobs['publish']
+        # All seven are built (the runtime smoke runs them together); only the planner's selection is published.
+        self.assertEqual(image['strategy']['matrix'], '${{ fromJSON(needs.ci-gate.outputs.all_matrix) }}')
+        self.assertEqual(publish['strategy']['matrix'], '${{ fromJSON(needs.ci-gate.outputs.matrix) }}')
+        for job in (image, jobs['runtime-smoke'], publish):
+            self.assertEqual(job['if'], "needs.ci-gate.outputs.build == 'true'")
         self.assertEqual(jobs['ci-gate']['outputs']['matrix'], '${{ steps.plan.outputs.matrix }}')
+        self.assertEqual(jobs['ci-gate']['outputs']['all_matrix'], '${{ steps.plan.outputs.all_matrix }}')
         build = next(step for step in image['steps'] if step.get('name') == 'Build exact S on the hosted runner (no cloud credentials)')['run']
         export = next(step for step in image['steps'] if step.get('name') == 'Export exact S archive')['run']
         self.assertIn('git archive --format=tar "$SHA"', export)
         self.assertIn('docker buildx build --platform linux/amd64', build)
         self.assertIn('--load "$build_context"', build)
-        self.assertNotIn('gcloud compute ssh', str(image))
-        self.assertNotIn('gcloud compute scp', str(image))
-        self.assertLess(image['steps'].index(next(step for step in image['steps'] if step.get('name') == 'Build exact S on the hosted runner (no cloud credentials)')),
-                        image['steps'].index(next(step for step in image['steps'] if step.get('id') == 'auth')))
-        self.assertEqual(image['strategy']['max-parallel'], 1)
-        self.assertTrue(any(step.get('with', {}).get('name') == 'image-input-plan' for step in image['steps']))
+        for job in jobs.values():
+            self.assertNotIn('gcloud compute ssh', str(job))
+            self.assertNotIn('gcloud compute scp', str(job))
+        # Building and smoke testing hold no cloud credential; only publication authenticates.
+        for job in (image, jobs['runtime-smoke']):
+            self.assertNotIn('id-token', job['permissions'])
+            self.assertFalse(any(step.get('uses', '').startswith('google-github-actions/') for step in job['steps']))
+        self.assertEqual(publish['permissions']['id-token'], 'write')
+        self.assertEqual(publish['strategy']['max-parallel'], 1)
+        self.assertTrue(any(step.get('with', {}).get('name') == 'image-input-plan' for step in publish['steps']))
         self.assertTrue(any(step.get('uses', '').startswith('docker/setup-buildx-action@') for step in image['steps']))
         gate_text = '\n'.join(step.get('run', '') for step in jobs['ci-gate']['steps'])
         self.assertIn('scripts/plan-image-builds.py', gate_text)
@@ -140,6 +148,25 @@ class WorkflowContract(unittest.TestCase):
         self.assertNotIn('/compare/', gate_text)
         self.assertNotIn('grep -qvE', gate_text)
         self.assertTrue(any(step.get('with', {}).get('name') == 'image-input-plan' for step in jobs['ci-gate']['steps']))
+
+    def test_runtime_smoke_runs_the_exact_built_images_before_anything_is_pushed_or_signed(self):
+        import yaml
+        jobs = yaml.safe_load((ROOT / '.github/workflows/agent-platform-images.yml').read_text())['jobs']
+        smoke, publish = jobs['runtime-smoke'], jobs['publish']
+        self.assertEqual(smoke['needs'], ['ci-gate', 'image'])
+        self.assertIn('runtime-smoke', publish['needs'])
+        text = '\n'.join(step.get('run', '') for step in smoke['steps'])
+        self.assertIn('scripts/runtime-smoke.py', text)
+        self.assertIn("assert got == expected", text)
+        self.assertIn('assert len(images) == 7', text)
+        save = next(s for s in jobs['image']['steps'] if s.get('name', '').startswith('Save the exact built image'))['run']
+        self.assertIn('docker save', save)
+        self.assertIn('image-id.txt', save)
+        load = next(s for s in publish['steps'] if s.get('name', '').startswith('Load the exact image'))['run']
+        self.assertIn('image-id.txt', load)
+        push = next(s for s in publish['steps'] if s.get('id') == 'publish')['run']
+        self.assertLess(push.index("['config']['digest']"), push.index('cosign" sign'))
+        self.assertNotIn('docker buildx build', push)
 
     def test_ci_runs_current_graph_and_baseline_transport_checks_with_pinned_compiler(self):
         import yaml

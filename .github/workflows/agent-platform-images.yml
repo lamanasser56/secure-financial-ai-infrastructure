@@ -1,7 +1,9 @@
 # Seven declared release service images. Git archive S is built on GitHub-hosted runners.
 # Runs only after the CI workflow ("Validate infrastructure portfolio") succeeded on a push to main, and builds that
-# exact commit (SC-001). build -> full-severity Trivy + fresh CISA KEV gate (HIGH/CRITICAL fail-closed) ->
-# CycloneDX SBOM -> push by digest -> full-severity Trivy of the pushed digest + KEV and expiry gates (SC-002) -> keyless
+# exact commit (SC-001). build all seven (no cloud credential) -> full-severity Trivy + fresh CISA KEV gate
+# (HIGH/CRITICAL fail-closed) -> CycloneDX SBOM -> runtime smoke: all seven run together, every declared workload with
+# the exact command/args of the rendered manifests, and must become ready and stay up -> push by digest (config =
+# the smoked image) -> full-severity Trivy of the pushed digest + KEV and expiry gates (SC-002) -> keyless
 # cosign (this job's OIDC identity, no device login, no stored key) -> cosign verify (exact workflow identity) ->
 # Binary Authorization attestation with the Cloud KMS attestor key (GKE admission cannot enforce keyless signatures
 # natively). An unsigned, unattested digest left in the registry by a blocked run is never admitted.
@@ -35,6 +37,7 @@ jobs:
       sha: ${{ steps.sha.outputs.sha }}
       build: ${{ steps.plan.outputs.build }}
       matrix: ${{ steps.plan.outputs.matrix }}
+      all_matrix: ${{ steps.plan.outputs.all_matrix }}
     steps:
       - id: sha
         env:
@@ -87,6 +90,13 @@ jobs:
           printf 'matrix=%s\n' "$matrix" >> "$GITHUB_OUTPUT"
           build=$(python3 -c 'import json,sys; print(str(bool(json.loads(sys.argv[1])["include"])).lower())' "$matrix")
           printf 'build=%s\n' "$build" >> "$GITHUB_OUTPUT"
+          # The runtime smoke runs all seven images together, so all seven are built; the plan selects what is published.
+          all_matrix=$(python3 -c 'import json,sys
+          plan, selected = json.load(open(sys.argv[1])), {e["image"] for e in json.loads(sys.argv[2])["include"]}
+          print(json.dumps({"include": [{"image": e["image"], "target": e["target"], "dockerfile": e["dockerfile"],
+              "source_argument": e["source_argument"], "publish": e["image"] in selected} for e in plan["images"]]},
+              separators=(",", ":")))' "$RUNNER_TEMP/input-plan.json" "$matrix")
+          printf 'all_matrix=%s\n' "$all_matrix" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: image-input-plan
@@ -94,21 +104,18 @@ jobs:
           retention-days: 30
 
   image:
+    # Build all seven from S without any cloud credential; gate and SBOM the ones selected for publication.
     needs: ci-gate
     if: needs.ci-gate.outputs.build == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     strategy:
-      max-parallel: 1
-      # A forced (manual) build of all seven reports every image; one failure does not cancel the rest.
-      fail-fast: ${{ github.event_name != 'workflow_dispatch' }}
-      matrix: ${{ fromJSON(needs.ci-gate.outputs.matrix) }}
+      max-parallel: 3
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.ci-gate.outputs.all_matrix) }}
     permissions:
       contents: read
-      id-token: write
     env:
-      REGISTRY: us-east1-docker.pkg.dev
-      REPOSITORY: sdp-evaluation-images
       SHA: ${{ needs.ci-gate.outputs.sha }}
       IMAGE: ${{ matrix.image }}
       TARGET: ${{ matrix.target }}
@@ -122,11 +129,163 @@ jobs:
           fetch-depth: 1
       - name: Pinned qualification tools (Trivy 0.72.0, Syft 1.44.0, cosign 2.6.2; sha256-verified)
         run: mkdir -p "$RUNNER_TEMP/tools" && bash scripts/install-qualification-tools.sh "$RUNNER_TEMP/tools"
+      - name: Export exact S archive
+        run: |
+          set -Eeuo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_RUN_ATTEMPT" == 1 && "$(git rev-parse HEAD)" == "$SHA" ]]
+          archive="$RUNNER_TEMP/source.tar.gz"
+          git archive --format=tar "$SHA" | gzip -n > "$archive"
+          sha256sum "$archive" | cut -d' ' -f1 > "$RUNNER_TEMP/git-archive.sha256"
+          mkdir "$RUNNER_TEMP/source-context"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/source-context"
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+        with:
+          version: v0.30.1
+          driver: docker-container
+          driver-opts: image=moby/buildkit@sha256:99368f3e46177c6405b9740e4461d91cee004128daeecca78d4ceac50ec1da5c
+          platforms: linux/amd64
+          use: true
+          cache-binary: false
+      - name: Build exact S on the hosted runner (no cloud credentials)
+        run: |
+          set -Eeuo pipefail
+          build_context="$RUNNER_TEMP/source-context"
+          source_args=()
+          if [[ -n "$SOURCE_ARGUMENT" ]]; then source_args=(--build-arg "$SOURCE_ARGUMENT=$SHA"); fi
+          docker buildx build --platform linux/amd64 "${source_args[@]}" --target "$TARGET" \
+            --file "$build_context/$DOCKERFILE" --provenance=false --sbom=false \
+            --tag "local/$IMAGE:${SHA}" --load "$build_context"
+      - name: Trivy (all severities and KEV; fail-closed) and SBOM
+        if: matrix.publish
+        run: |
+          set -Eeuo pipefail
+          image="local/$IMAGE:${SHA}"
+          "$RUNNER_TEMP/tools/trivy" image --exit-code 0 --ignore-unfixed=false \
+            --format json --output "$RUNNER_TEMP/trivy.json" "$image"
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 --max-time 60 \
+            --output "$RUNNER_TEMP/kev.json" \
+            https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+          python3 scripts/reviewed-image-exception-gate.py "$RUNNER_TEMP/trivy.json" "$image" \
+            "$IMAGE" "$RUNNER_TEMP/kev.json" policy/reviewed-image-exceptions.json \
+            "$RUNNER_TEMP/trivy-prepush-gate.json"
+          "$RUNNER_TEMP/tools/syft" "$image" -o "cyclonedx-json=$RUNNER_TEMP/sbom.cdx.json"
+          python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['bomFormat']=='CycloneDX' and d['components']" "$RUNNER_TEMP/sbom.cdx.json"
+      - name: Save the exact built image for the runtime smoke test and publication
+        run: |
+          set -Eeuo pipefail
+          docker image inspect --format '{{.Id}}' "local/$IMAGE:${SHA}" > "$RUNNER_TEMP/image-id.txt"
+          [[ "$(cat "$RUNNER_TEMP/image-id.txt")" =~ ^sha256:[0-9a-f]{64}$ ]]
+          docker save "local/$IMAGE:${SHA}" | gzip -1 > "$RUNNER_TEMP/image.tar.gz"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ matrix.image }}-build
+          path: |
+            ${{ runner.temp }}/image.tar.gz
+            ${{ runner.temp }}/image-id.txt
+            ${{ runner.temp }}/git-archive.sha256
+            ${{ runner.temp }}/trivy.json
+            ${{ runner.temp }}/trivy-prepush-gate.json
+            ${{ runner.temp }}/kev.json
+            ${{ runner.temp }}/sbom.cdx.json
+          retention-days: 3
+          compression-level: 0
+
+  runtime-smoke:
+    # All seven images run together, each workload with the exact command/args of the rendered manifests, before any
+    # image is pushed or signed (scripts/runtime-smoke.py). No cloud credential; secrets are synthetic.
+    needs: [ci-gate, image]
+    if: needs.ci-gate.outputs.build == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      SHA: ${{ needs.ci-gate.outputs.sha }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ needs.ci-gate.outputs.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Repository-declared tools and operator environment
+        run: |
+          set -Eeuo pipefail
+          [[ "$(git rev-parse HEAD)" == "$SHA" ]]
+          make tools operator-env
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: '*-build'
+          path: ${{ runner.temp }}/builds
+      - name: Load the seven exact built images
+        run: |
+          set -Eeuo pipefail
+          python3 - "$RUNNER_TEMP/builds" "$SHA" "$RUNNER_TEMP/images.json" <<'PY'
+          import json, re, subprocess, sys
+          from pathlib import Path
+          builds, sha, out = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+          images = {}
+          for directory in sorted(builds.iterdir()):
+              name = directory.name.removesuffix('-build')
+              expected = (directory / 'image-id.txt').read_text().strip()
+              assert re.fullmatch(r'sha256:[0-9a-f]{64}', expected), name
+              with open(directory / 'image.tar.gz', 'rb') as archive:
+                  subprocess.run('gunzip | docker load', shell=True, stdin=archive, check=True, stdout=subprocess.DEVNULL)
+              ref = f'local/{name}:{sha}'
+              got = subprocess.run(['docker', 'image', 'inspect', '--format', '{{.Id}}', ref],
+                                   capture_output=True, text=True, check=True).stdout.strip()
+              assert got == expected, name
+              images[name] = ref
+          assert len(images) == 7, sorted(images)
+          Path(out).write_text(json.dumps(images))
+          PY
+      - name: Runtime smoke test (every declared workload must run)
+        run: |
+          set -Eeuo pipefail
+          PYTHONPATH=platform/core/src:. .cache/operator-venv/bin/python -B scripts/runtime-smoke.py \
+            --images "$RUNNER_TEMP/images.json" --kubectl "$PWD/.cache/platform-tools/kubectl" \
+            --out "$RUNNER_TEMP/runtime-smoke.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: runtime-smoke
+          path: ${{ runner.temp }}/runtime-smoke.json
+          retention-days: 30
+
+  publish:
+    needs: [ci-gate, image, runtime-smoke]
+    if: needs.ci-gate.outputs.build == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      max-parallel: 1
+      # A forced (manual) build of all seven reports every image; one failure does not cancel the rest.
+      fail-fast: ${{ github.event_name != 'workflow_dispatch' }}
+      matrix: ${{ fromJSON(needs.ci-gate.outputs.matrix) }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      REGISTRY: us-east1-docker.pkg.dev
+      REPOSITORY: sdp-evaluation-images
+      SHA: ${{ needs.ci-gate.outputs.sha }}
+      IMAGE: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ needs.ci-gate.outputs.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Pinned qualification tools (Trivy 0.72.0, Syft 1.44.0, cosign 2.6.2; sha256-verified)
+        run: mkdir -p "$RUNNER_TEMP/tools" && bash scripts/install-qualification-tools.sh "$RUNNER_TEMP/tools"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: image-input-plan
           path: ${{ runner.temp }}
-      # Read-only registry lookup. No credentials file and no exported variables: the build below stays credential-free.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ matrix.image }}-build
+          path: ${{ runner.temp }}
+      # Read-only registry lookup. No credentials file and no exported variables.
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         id: lookup-auth
         with:
@@ -150,49 +309,12 @@ jobs:
           if [[ -n "$digest" ]]; then
             echo "::notice::sha-$SHA already names $IMAGE@$digest; verifying that subject instead of rebuilding"
           fi
-      - name: Export exact S archive
-        run: |
-          set -Eeuo pipefail
-          [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_RUN_ATTEMPT" == 1 && "$(git rev-parse HEAD)" == "$SHA" ]]
-          archive="$RUNNER_TEMP/source.tar.gz"
-          git archive --format=tar "$SHA" | gzip -n > "$archive"
-          sha256sum "$archive" | cut -d' ' -f1 > "$RUNNER_TEMP/git-archive.sha256"
-          mkdir "$RUNNER_TEMP/source-context"
-          tar -xzf "$archive" -C "$RUNNER_TEMP/source-context"
-      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
-        if: steps.existing.outputs.digest == ''
-        with:
-          version: v0.30.1
-          driver: docker-container
-          driver-opts: image=moby/buildkit@sha256:99368f3e46177c6405b9740e4461d91cee004128daeecca78d4ceac50ec1da5c
-          platforms: linux/amd64
-          use: true
-          cache-binary: false
-      - name: Build exact S on the hosted runner (no cloud credentials)
+      - name: Load the exact image that passed the runtime smoke test
         if: steps.existing.outputs.digest == ''
         run: |
           set -Eeuo pipefail
-          build_context="$RUNNER_TEMP/source-context"
-          source_args=()
-          if [[ -n "$SOURCE_ARGUMENT" ]]; then source_args=(--build-arg "$SOURCE_ARGUMENT=$SHA"); fi
-          docker buildx build --platform linux/amd64 "${source_args[@]}" --target "$TARGET" \
-            --file "$build_context/$DOCKERFILE" --provenance=false --sbom=false \
-            --tag "local/$IMAGE:${SHA}" --load "$build_context"
-      - name: Trivy (all severities and KEV; fail-closed) and SBOM
-        if: steps.existing.outputs.digest == ''
-        run: |
-          set -Eeuo pipefail
-          image="local/$IMAGE:${SHA}"
-          "$RUNNER_TEMP/tools/trivy" image --exit-code 0 --ignore-unfixed=false \
-            --format json --output "$RUNNER_TEMP/trivy.json" "$image"
-          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 --max-time 60 \
-            --output "$RUNNER_TEMP/kev.json" \
-            https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
-          python3 scripts/reviewed-image-exception-gate.py "$RUNNER_TEMP/trivy.json" "$image" \
-            "$IMAGE" "$RUNNER_TEMP/kev.json" policy/reviewed-image-exceptions.json \
-            "$RUNNER_TEMP/trivy-prepush-gate.json"
-          "$RUNNER_TEMP/tools/syft" "$image" -o "cyclonedx-json=$RUNNER_TEMP/sbom.cdx.json"
-          python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['bomFormat']=='CycloneDX' and d['components']" "$RUNNER_TEMP/sbom.cdx.json"
+          gunzip < "$RUNNER_TEMP/image.tar.gz" | docker load > /dev/null
+          [[ "$(docker image inspect --format '{{.Id}}' "local/$IMAGE:${SHA}")" == "$(cat "$RUNNER_TEMP/image-id.txt")" ]]
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         id: auth
         with:
@@ -233,10 +355,15 @@ jobs:
               "$RUNNER_TEMP/trivy-prepush-gate.json"
             "$RUNNER_TEMP/tools/syft" "registry:$ref" -o "cyclonedx-json=$RUNNER_TEMP/sbom.cdx.json"
             python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['bomFormat']=='CycloneDX' and d['components']" "$RUNNER_TEMP/sbom.cdx.json"
+            smoke=earlier_run
           else
             docker tag "local/$name:$SHA" "$remote"
             docker push "$remote" > "$RUNNER_TEMP/push.log"
             digest=$(docker buildx imagetools inspect "$remote" --format '{{json .Manifest}}' | python3 -c "import json,sys; print(json.load(sys.stdin)['digest'])")
+            # The pushed manifest's config is the exact image that passed the runtime smoke test.
+            config=$(docker buildx imagetools inspect "$REGISTRY/$PROJECT_ID/$REPOSITORY/$name@$digest" --raw | python3 -c "import json,sys; print(json.load(sys.stdin)['config']['digest'])")
+            [[ "$config" == "$(cat "$RUNNER_TEMP/image-id.txt")" ]]
+            smoke=passed
           fi
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           ref="$REGISTRY/$PROJECT_ID/$REPOSITORY/$name@$digest"
@@ -272,14 +399,15 @@ jobs:
           gcloud beta container binauthz attestations sign-and-create --project "$PROJECT_ID" --artifact-url "$ref" \
             --attestor "projects/$PROJECT_ID/attestors/agent-platform-ci" \
             --keyversion "projects/$PROJECT_ID/locations/us-east1/keyRings/agent-platform/cryptoKeys/binauthz-attestor/cryptoKeyVersions/1"
-          python3 - "$ref" "$RUNNER_TEMP/trivy.json" "$SHA" "$RUNNER_TEMP/release-gate.txt" > "$RUNNER_TEMP/receipt.json" <<'PY'
+          python3 - "$ref" "$RUNNER_TEMP/trivy.json" "$SHA" "$RUNNER_TEMP/release-gate.txt" "$smoke" > "$RUNNER_TEMP/receipt.json" <<'PY'
           import hashlib, json, sys
           trivy = json.load(open(sys.argv[2]))
           findings = sum(v.get('Severity') in ('HIGH', 'CRITICAL') for r in trivy.get('Results', [])
                          for v in (r.get('Vulnerabilities') or []))
           print(json.dumps({'image': sys.argv[1], 'source_sha': sys.argv[3], 'trivy_high_critical': findings,
                             'release_gate': open(sys.argv[4]).read().strip(), 'cosign': 'keyless_verified',
-                            'binauthz': 'attested_kms', 'sbom': 'cyclonedx'}, sort_keys=True))
+                            'binauthz': 'attested_kms', 'sbom': 'cyclonedx', 'runtime_smoke': sys.argv[5]},
+                           sort_keys=True))
           PY
           docker logout "https://$REGISTRY" >/dev/null
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
