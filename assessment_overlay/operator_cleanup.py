@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 import subprocess
 
+import cloud_log
 from cloud_wait import Waiter
 from janitor import cleanup, gcloud_json, inspect_project, load_manifest, resource_absence, write_receipt
 from operator_cluster import ROOT, run_terraform
@@ -26,8 +27,10 @@ def kubectl(command):
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=300)
     except subprocess.TimeoutExpired:
+        cloud_log.failed(command, 'timeout', '')
         raise RuntimeError('assessment:kubectl_timeout') from None
     if result.returncode:
+        cloud_log.failed(command, result.returncode, result.stderr)
         raise RuntimeError('assessment:kubectl_failed')
     return result.stdout
 
@@ -119,6 +122,7 @@ def main():
     if not args.execute:
         raise SystemExit('assessment:explicit_execute_required')
     manifest = load_manifest(args.run_dir / 'initial-manifest.json')
+    cloud_log.configure(args.run_dir, manifest)
     try:
         result = destroy(manifest, args.run_dir, terraform=args.terraform, kubectl_path=args.kubectl)
     except BaseException:

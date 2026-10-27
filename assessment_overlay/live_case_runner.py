@@ -197,6 +197,7 @@ def cleanup_disposable(manifest, run_dir):
 
 
 def main():
+    import cloud_log
     from janitor import load_manifest
     from live_case_guard import read as read_ledgers
     from operator_janitor import github_api, watch_running
@@ -210,6 +211,7 @@ def main():
     if not args.execute or not token:
         raise SystemExit('assessment:explicit_execute_and_github_token_required')
     manifest = load_manifest(args.run_dir / 'initial-manifest.json')
+    cloud_log.configure(args.run_dir, manifest)
     assert_harness_unchanged(manifest)
     kubeconfig = args.run_dir / 'kube' / 'kubeconfig'
     if not kubeconfig.is_file():

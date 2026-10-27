@@ -7,6 +7,7 @@ from pathlib import Path
 import time
 from urllib import request
 
+import cloud_log
 from janitor import cleanup, load_manifest, write_receipt
 from operator_setup import REPOSITORY
 from source_selection import assert_harness_unchanged
@@ -117,6 +118,7 @@ def main():
     if not args.execute or not token:
         raise SystemExit('assessment:explicit_execute_and_github_token_required')
     manifest = load_manifest(args.run_dir / 'initial-manifest.json')
+    cloud_log.configure(args.run_dir, manifest)
     assert_harness_unchanged(manifest)
     setup = json.loads((args.run_dir / 'evidence/project-setup.json').read_text())
     try:

@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 
+import cloud_log
 from cloud_wait import Waiter
 from janitor import cleanup, gcloud_json, inspect_project, load_manifest, write_receipt
 from render_live_bundle import ROOT
@@ -53,6 +54,7 @@ def run_terraform(command, *, data_dir, cwd, timeout=TERRAFORM_SECONDS):
         result = subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True,
                                 timeout=timeout)
     except subprocess.TimeoutExpired:
+        cloud_log.failed(command, 'timeout', '')
         raise RuntimeError('assessment:terraform_timeout:' + command[1]) from None
     # Keep Terraform's own diagnostics privately beside the state; they are never printed.
     logs = Path(data_dir).parent / 'logs'
@@ -61,6 +63,7 @@ def run_terraform(command, *, data_dir, cwd, timeout=TERRAFORM_SECONDS):
     with os.fdopen(os.open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as stream:
         stream.write(result.stderr if command[1] == 'show' else result.stdout + result.stderr)
     if result.returncode:
+        cloud_log.failed(command, result.returncode, result.stderr)
         raise RuntimeError('assessment:terraform_failed:' + command[1])
     return result.stdout
 
@@ -185,6 +188,7 @@ def main():
     if not args.execute:
         raise SystemExit('assessment:explicit_execute_required')
     manifest = load_manifest(args.run_dir / 'initial-manifest.json')
+    cloud_log.configure(args.run_dir, manifest)
     assert_harness_unchanged(manifest)
     try:
         receipt = create_cluster(manifest, args.run_dir, gke_version=args.gke_version,
