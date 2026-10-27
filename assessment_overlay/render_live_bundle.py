@@ -28,21 +28,72 @@ ROOT = Path(__file__).resolve().parents[1]
 OVERLAY = Path(__file__).resolve().parent
 
 
-def selected_source(lock):
+HARNESS = 'assessment_overlay/'
+RELEASE_LOCK = 'platform/clouds/gke/release-rc1.lock.json'
+
+
+def git(root, *args):
+    return subprocess.run(['git', *args], cwd=root, capture_output=True, text=True,
+                          check=True).stdout
+
+
+def checkout_changes(root=ROOT):
+    """Paths that differ from HEAD: staged, unstaged, untracked, or hidden from status."""
+    changed = set(git(root, 'diff', '--name-only', '--no-renames', 'HEAD').splitlines())
+    # Only the repository's own .gitignore files may hide a file, not a personal exclude.
+    changed |= set(git(root, 'ls-files', '--others', '--exclude-per-directory=.gitignore').splitlines())
+    # assume-unchanged (lower-case tag) and skip-worktree (S) entries hide local edits.
+    changed |= {line[2:] for line in git(root, 'ls-files', '-v').splitlines()
+                if line[:1].islower() or line[:1] == 'S'}
+    return sorted(changed)
+
+
+def assessed_path(path):
+    """Paths that may differ from S: the instrument, its release lock and evidence."""
+    return path == RELEASE_LOCK or path.startswith('docs/evidence/') or path.startswith(HARNESS)
+
+
+def selected_source(lock, root=ROOT):
+    """Return S when this checkout runs S's product exactly.
+
+    Everything outside assessment_overlay/ must equal S, except the release lock
+    and docs/evidence/. The harness may change after S, but only in commits: an
+    uncommitted or untracked change anywhere refuses the session, so a local
+    edit can never pass as the committed harness or as S.
+    """
     source = lock.get('source_commit')
     if (lock.get('schema_version') != 2 or lock.get('runtime_contract') != 'trusted-boundaries-v2'
             or not isinstance(source, str) or not re.fullmatch(r'[0-9a-f]{40}', source)):
         raise ValueError('current qualified image lock required')
-    exists = subprocess.run(['git', 'cat-file', '-e', source + '^{commit}'], cwd=ROOT,
+    exists = subprocess.run(['git', 'cat-file', '-e', source + '^{commit}'], cwd=root,
                             capture_output=True, check=False)
     if exists.returncode:
         raise ValueError('selected source commit unavailable')
-    changed = subprocess.run(['git', 'diff', '--name-only', source, 'HEAD'], cwd=ROOT,
-                             capture_output=True, text=True, check=True).stdout.splitlines()
-    if any(path != 'platform/clouds/gke/release-rc1.lock.json'
-           and not path.startswith('docs/evidence/') for path in changed):
+    if checkout_changes(root):
+        raise ValueError('assessment checkout has uncommitted or untracked changes')
+    # --no-renames lists both sides, so moving product code into the harness is refused.
+    changed = git(root, 'diff', '--name-only', '--no-renames', source, 'HEAD').splitlines()
+    if any(not assessed_path(path) for path in changed):
         raise ValueError('assessment source differs from qualified release')
     return source
+
+
+def harness_record(source, root=ROOT):
+    """The committed harness that runs against S, and its S..HEAD diff."""
+    diff = git(root, 'diff', '--no-renames', '--binary', source, 'HEAD', '--', HARNESS)
+    return {
+        'harness_commit': git(root, 'rev-parse', 'HEAD').strip(),
+        'harness_changed_files': git(root, 'diff', '--name-only', '--no-renames', source, 'HEAD',
+                                     '--', HARNESS).splitlines(),
+        'harness_diff_sha256': hashlib.sha256(diff.encode()).hexdigest(),
+    }, diff
+
+
+def assert_harness_unchanged(manifest, root=ROOT):
+    """Each operator step runs the exact clean harness commit the session recorded."""
+    if (git(root, 'rev-parse', 'HEAD').strip() != manifest.get('harness_commit')
+            or checkout_changes(root)):
+        raise SystemExit('assessment:harness_checkout_changed_since_session')
 
 
 def identity(doc):

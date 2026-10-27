@@ -162,7 +162,7 @@ def cleanup_disposable(manifest, run_dir):
     from operator_cleanup import destroy
     try:
         return destroy(manifest, run_dir)
-    except Exception:
+    except BaseException:
         fallback = cleanup(manifest)
         write_receipt(Path(run_dir) / 'evidence' / 'operator-cleanup-fallback.json', fallback)
         return fallback
@@ -172,6 +172,7 @@ def main():
     from janitor import load_manifest
     from live_case_guard import read as read_ledgers
     from operator_janitor import github_api, watch_running
+    from render_live_bundle import assert_harness_unchanged
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--run-dir', type=Path, required=True)
@@ -181,6 +182,7 @@ def main():
     if not args.execute or not token:
         raise SystemExit('assessment:explicit_execute_and_github_token_required')
     manifest = load_manifest(args.run_dir / 'initial-manifest.json')
+    assert_harness_unchanged(manifest)
     kubeconfig = args.run_dir / 'kube' / 'kubeconfig'
     if not kubeconfig.is_file():
         raise SystemExit('assessment:private_kubeconfig_required')

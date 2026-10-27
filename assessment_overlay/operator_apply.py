@@ -8,9 +8,10 @@ import sys
 
 import yaml
 
+from cloud_wait import Waiter
 from janitor import cleanup, load_manifest, write_receipt
 from live_case_guard import read as read_ledgers
-from render_live_bundle import ROOT
+from render_live_bundle import ROOT, assert_harness_unchanged
 from stage_live_bundle import key, split
 
 
@@ -18,8 +19,15 @@ sys.path.insert(0, str(ROOT / 'platform/clouds/gke'))
 import lifecycle  # noqa: E402
 
 
+API_SECONDS = 600
+APPLY_SECONDS = 300
+
+
 def kubectl(command, *, input=None):
-    result = subprocess.run(command, input=input, capture_output=True, text=True, timeout=900)
+    try:
+        result = subprocess.run(command, input=input, capture_output=True, text=True, timeout=900)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError('assessment:kubectl_timeout:' + command[2]) from None
     if result.returncode:
         raise RuntimeError('assessment:kubectl_failed:' + command[2])
     return result.stdout
@@ -39,16 +47,24 @@ def check_stages(run_dir, manifest):
     return expected
 
 
-def run_apply(kubeconfig, stages, *, kubectl_path='kubectl', run=kubectl):
+def run_apply(kubeconfig, stages, *, kubectl_path='kubectl', run=kubectl, waiter=None):
+    waiter = waiter or Waiter()
     base = [str(kubectl_path), '--kubeconfig=' + str(kubeconfig)]
+    # A new control plane (and its DNS endpoint) can answer before it is ready.
+    waiter.retry(lambda: run(base + ['get', '--raw=/readyz']), seconds=API_SECONDS, what='api_server_ready')
     for index, docs in enumerate(stages):
         normal = [doc for doc in docs if doc['kind'] != 'NetworkLogging']
         addon = [doc for doc in docs if doc['kind'] == 'NetworkLogging']
+        # Applies are idempotent; a just-created CRD or admission webhook may not serve yet.
         if normal:
-            run(base + ['apply', '--server-side', '--field-manager=assessment', '-f', '-'],
-                input=yaml.safe_dump_all(normal, sort_keys=False))
+            body = yaml.safe_dump_all(normal, sort_keys=False)
+            waiter.retry(lambda body=body: run(base + ['apply', '--server-side', '--field-manager=assessment',
+                                                       '-f', '-'], input=body),
+                         seconds=APPLY_SECONDS, what='apply_stage_%d' % index)
         if addon:
-            run(base + ['apply', '-f', '-'], input=yaml.safe_dump_all(addon, sort_keys=False))
+            body = yaml.safe_dump_all(addon, sort_keys=False)
+            waiter.retry(lambda body=body: run(base + ['apply', '-f', '-'], input=body),
+                         seconds=APPLY_SECONDS, what='apply_addon_%d' % index)
         if index == 4:
             run(base + ['-n', 'platform', 'rollout', 'status', 'statefulset/postgres', '--timeout=600s'])
         if index == 5:
@@ -89,7 +105,7 @@ def runtime_digests(pods, manifest, namespaces):
 
 def apply_bundle(manifest, run_dir, cluster, admission, *, kubectl_path='kubectl',
                  kubeconfig_for=lifecycle.kubeconfig_for, run=kubectl,
-                 ledger_reader=read_ledgers):
+                 ledger_reader=read_ledgers, waiter=None):
     run_dir = Path(run_dir).resolve()
     if run_dir.is_relative_to(ROOT.resolve()):
         raise ValueError('assessment:private_run_directory_required')
@@ -103,7 +119,8 @@ def apply_bundle(manifest, run_dir, cluster, admission, *, kubectl_path='kubectl
     kubeconfig = kubeconfig_for(manifest['disposable_project_id'],
                                 cluster['cluster_name'], cluster['cluster_location'],
                                 run_dir / 'kube')
-    objects = run_apply(kubeconfig, stages, kubectl_path=kubectl_path, run=run)
+    objects = run_apply(kubeconfig, stages, kubectl_path=kubectl_path, run=run,
+                        waiter=waiter or Waiter(manifest.get('deadline_at')))
     namespace_names = {doc['metadata']['name'] for doc in stages[0] if doc['kind'] == 'Namespace'}
     pod_data = json.loads(run([str(kubectl_path), '--kubeconfig=' + str(kubeconfig),
                                'get', 'pods', '--all-namespaces', '-o', 'json']))
@@ -126,12 +143,13 @@ def main():
     if not args.execute:
         raise SystemExit('assessment:explicit_execute_required')
     manifest = load_manifest(args.run_dir / 'initial-manifest.json')
+    assert_harness_unchanged(manifest)
     cluster = json.loads((args.run_dir / 'evidence/cluster-setup.json').read_text())
     admission = json.loads((args.run_dir / 'evidence/disposable-admission.json').read_text())
     try:
         receipt = apply_bundle(manifest, args.run_dir, cluster, admission,
                                kubectl_path=args.kubectl)
-    except Exception:
+    except BaseException:  # lifecycle.kubeconfig_for exits with SystemExit on a gcloud failure.
         fallback = cleanup(manifest)
         write_receipt(args.run_dir / 'evidence/apply-fallback.json', fallback)
         raise

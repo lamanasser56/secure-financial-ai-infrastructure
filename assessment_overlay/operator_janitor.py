@@ -9,10 +9,13 @@ from urllib import request
 
 from janitor import cleanup, load_manifest, write_receipt
 from operator_setup import REPOSITORY
+from render_live_bundle import assert_harness_unchanged
 
 
 WORKFLOW = 'assessment-janitor.yml'
 WAIT_STEP = 'Wait independently, then unlink billing and delete the disposable project'
+# Runner queueing, checkout, Python and gcloud setup come before the watch step.
+ARM_SECONDS = 600
 API_ROOT = 'https://api.github.com/repos/' + REPOSITORY
 
 
@@ -36,10 +39,12 @@ def runs(api):
     return result['workflow_runs']
 
 
-def arm(manifest, setup, *, api, now=None, sleep=time.sleep, timeout_seconds=300):
+def arm(manifest, setup, *, api, now=None, sleep=time.sleep, timeout_seconds=ARM_SECONDS):
     now = now or datetime.now(timezone.utc)
-    if now >= datetime.fromisoformat(manifest['deadline_at']):
+    remaining = (datetime.fromisoformat(manifest['deadline_at']) - now).total_seconds()
+    if remaining <= 0:
         raise RuntimeError('assessment:deadline_passed')
+    timeout_seconds = min(timeout_seconds, remaining)
     run_id = manifest['run_id']
     identity = setup.get('janitor', {})
     project = manifest['disposable_project_id']
@@ -57,15 +62,21 @@ def arm(manifest, setup, *, api, now=None, sleep=time.sleep, timeout_seconds=300
             'workload_identity_provider': provider, 'service_account': sa}})
     started = time.monotonic()
     while time.monotonic() - started < timeout_seconds:
-        matches = [item for item in runs(api) if item.get('id') not in previous
-                   and item.get('display_title') == 'Janitor ' + run_id]
-        if len(matches) > 1:
+        try:
+            matches = [item for item in runs(api) if item.get('id') not in previous
+                       and item.get('display_title') == 'Janitor ' + run_id]
+        except OSError:
+            matches = None  # A transient GitHub API error is retried until the bound.
+        if matches and len(matches) > 1:
             raise RuntimeError('assessment:ambiguous_janitor_runs')
         if matches:
             run = matches[0]
             if run.get('status') == 'completed':
                 raise RuntimeError('assessment:janitor_exited_before_watch')
-            jobs = api('GET', '/actions/runs/' + str(run['id']) + '/jobs?per_page=100')
+            try:
+                jobs = api('GET', '/actions/runs/' + str(run['id']) + '/jobs?per_page=100')
+            except OSError:
+                jobs = {}
             for job in jobs.get('jobs', []):
                 for step in job.get('steps', []):
                     if step.get('name') == WAIT_STEP and step.get('status') == 'in_progress':
@@ -75,8 +86,18 @@ def arm(manifest, setup, *, api, now=None, sleep=time.sleep, timeout_seconds=300
     raise RuntimeError('assessment:janitor_watch_not_confirmed')
 
 
-def watch_running(run_id, workflow_run_id, *, api):
+def watch_running(run_id, workflow_run_id, *, api, sleep=time.sleep, attempts=3):
     """Recheck the independent janitor immediately before each live case."""
+    for attempt in range(attempts):
+        try:
+            return janitor_watching(run_id, workflow_run_id, api=api)
+        except OSError:
+            if attempt == attempts - 1:
+                return False  # Unreadable janitor state stops the run, like a stopped janitor.
+            sleep(10)
+
+
+def janitor_watching(run_id, workflow_run_id, *, api):
     run = api('GET', '/actions/runs/' + str(workflow_run_id))
     if (run.get('id') != workflow_run_id or run.get('display_title') != 'Janitor ' + run_id
             or run.get('event') != 'workflow_dispatch' or run.get('status') != 'in_progress'):
@@ -95,11 +116,12 @@ def main():
     if not args.execute or not token:
         raise SystemExit('assessment:explicit_execute_and_github_token_required')
     manifest = load_manifest(args.run_dir / 'initial-manifest.json')
+    assert_harness_unchanged(manifest)
     setup = json.loads((args.run_dir / 'evidence/project-setup.json').read_text())
     try:
         receipt = arm(manifest, setup, api=lambda method, path, payload=None:
                       github_api(token, method, path, payload))
-    except Exception:
+    except BaseException:
         cleanup(manifest)
         raise
     write_receipt(args.run_dir / 'evidence/janitor-armed.json', receipt)
