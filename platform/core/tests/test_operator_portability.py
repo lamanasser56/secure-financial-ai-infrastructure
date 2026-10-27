@@ -28,6 +28,22 @@ class OperatorPortabilityTests(unittest.TestCase):
         self.assertEqual(lifecycle.STATE, (ROOT / '.cache/operator-state').resolve())
         self.assertEqual(lifecycle.TF_SHA256, json.loads((ROOT / 'scripts/platform-tools.lock.json').read_text())['terraform']['binary_sha256'])
 
+    def test_make_tools_provides_the_cosign_demo_check_runs(self):
+        """A fresh checkout's `make demo-check` verifies signatures with cosign from `make tools`, not the host."""
+        import re
+        lock = json.loads((ROOT / 'scripts/platform-tools.lock.json').read_text())['cosign']
+        qualification = (ROOT / 'scripts/install-qualification-tools.sh').read_text()
+        pinned = re.search(r"'(https://github\.com/sigstore/cosign/releases/download/[^']+)' \\\n\s+'([0-9a-f]{64})'",
+                           qualification)
+        self.assertEqual((lock['url'], lock['binary_sha256']), pinned.groups())
+        self.assertIn('v' + lock['version'] + '/', lock['url'])
+        installer = (ROOT / 'scripts/install-platform-tools.py').read_text()
+        self.assertIn("TOOLS / 'cosign'", installer)
+        self.assertIn("LOCK['cosign']['binary_sha256']", installer)
+        makefile = (ROOT / 'Makefile').read_text()
+        self.assertRegex(makefile, r'(?m)^demo-check: tools operator-env$')
+        self.assertIn('PATH="$(TOOLS):$$PATH"', makefile.split('demo-check:', 1)[1].split('\n\n', 1)[0])
+
     def test_settings_can_come_from_environment_without_a_machine_file(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {
             'AGENT_PLATFORM_SETTINGS_FILE': str(Path(tmp) / 'absent.json'),

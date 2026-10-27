@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install and verify repo-pinned Kubernetes and Terraform tools in .cache."""
+"""Install and verify repo-pinned Kubernetes, Terraform and cosign tools in .cache."""
 import hashlib
 import json
 import os
@@ -88,6 +88,14 @@ def install():
         terraform.chmod(0o755)
         if not verify(terraform, LOCK['terraform']['binary_sha256']):
             raise ValueError('terraform checksum mismatch after extraction')
+    # make demo-check verifies keyless signatures and signed predicates with cosign; same pin as the image workflow.
+    cosign = TOOLS / 'cosign'
+    if not verify(cosign, LOCK['cosign']['binary_sha256']):
+        with tempfile.TemporaryDirectory(dir=CACHE) as temporary:
+            download = Path(temporary) / 'cosign'
+            obtain(LOCK['cosign']['url'], download, 'sha256', LOCK['cosign']['binary_sha256'])
+            download.chmod(0o755)
+            download.replace(cosign)
     linked = TOOLS / 'kubectl'
     if linked.is_symlink() and linked.resolve() != kube.resolve():
         raise ValueError('kubectl link points outside pinned envtest')
@@ -95,7 +103,7 @@ def install():
         verify(linked, LOCK['envtest']['kubectl_sha256'])
     elif not linked.exists():
         linked.symlink_to(kube)
-    print('repo-pinned kubectl, envtest and Terraform verified')
+    print('repo-pinned kubectl, envtest, Terraform and cosign verified')
 
 
 if __name__ == '__main__':
