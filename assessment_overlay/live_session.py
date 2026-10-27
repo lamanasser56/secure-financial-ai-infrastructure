@@ -15,7 +15,7 @@ import subprocess
 import sys
 
 from live_case_guard import CASE_LIMITS, PLANNED_LIMITS, SETUP_LIMITS, PROJECT_PATTERN, RUN_PATTERN
-from render_live_bundle import ROOT, selected_source
+from render_live_bundle import ROOT, harness_record, selected_source
 
 
 HARD_LIMITS = (20, 60)
@@ -33,17 +33,19 @@ def private_path(path):
     return path
 
 
-def session_manifest(project, lock, lock_path, run_id, now):
+def session_manifest(project, lock, lock_path, run_id, now, root=ROOT):
     if not PROJECT_PATTERN.fullmatch(project):
         raise ValueError('disposable assessment project required')
     if not RUN_PATTERN.fullmatch(run_id):
         raise ValueError('fresh assessment run ID required')
-    source = selected_source(lock)
+    source = selected_source(lock, root)
+    harness, _ = harness_record(source, root)
     return {
         'schema_version': 1,
         'run_id': run_id,
         'disposable_project_id': project,
         'source_commit': source,
+        **harness,
         'images_lock_sha256': hashlib.sha256(Path(lock_path).read_bytes()).hexdigest(),
         'image_digests': lock['images'],
         'started_at': now.isoformat(),
@@ -96,7 +98,16 @@ def prepare(*, project, images_lock, source_registry, output, kubectl='kubectl',
     manifest['bundle_sha256'] = receipt['bundle_sha256']
     write_private(output / 'initial-manifest.json', manifest)
     (output / 'evidence').mkdir(mode=0o700)
+    # The recorded S..HEAD harness diff; the manifest holds its commit and digest.
+    harness, diff = harness_record(manifest['source_commit'])
+    if harness != {key: manifest[key] for key in harness}:
+        raise ValueError('assessment harness changed during session preparation')
+    with os.fdopen(os.open(output / 'evidence' / 'harness.diff', os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                           0o600), 'w') as stream:
+        stream.write(diff)
     print(json.dumps({'run_id': run_id, 'source_commit': manifest['source_commit'],
+                      'harness_commit': manifest['harness_commit'],
+                      'harness_changed_files': len(manifest['harness_changed_files']),
                       'bundle_sha256': manifest['bundle_sha256'], 'external_llm_calls_allowed': 0}))
     return manifest
 

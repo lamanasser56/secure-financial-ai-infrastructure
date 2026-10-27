@@ -6,7 +6,15 @@ no runtime step imports them or depends on their location.
 
 The assessed source is the final frozen commit S and its seven-image lock.
 Render with live_session.py into a private directory outside the checkout.
-The release lock must identify S exactly. The operator verifies source image
+The release lock must identify S exactly. Everything outside
+`assessment_overlay/` must equal S, except the release lock and
+`docs/evidence/`. The harness in `assessment_overlay/` is the instrument and
+may change after S, but only in commits: an uncommitted, untracked or hidden
+change anywhere refuses the session. The private manifest records the harness
+commit, its changed files and the digest of the S..HEAD `assessment_overlay/`
+diff, which is kept as `evidence/harness.diff`; every later operator step
+refuses a checkout whose HEAD or working tree changed since the session (cleanup
+never does). The operator verifies source image
 signatures, KMS attestations and provenance, copies the seven exact digests to
 the disposable registry, signs/verifies disposable attestations, and checks
 running Pod image IDs before the first case. The provider route is a fixed
@@ -40,6 +48,20 @@ An active cross-user capability is covered by the current-source integration
 test in platform/core/tests/test_trusted_boundaries.py; the production
 frontdoor does not expose active capabilities for a live replay, so a revoked
 token must never be reported as live proof of cross-user binding.
+
+Every long-running or eventually consistent cloud step waits for its
+observable result, bounded by the 180-minute deadline (`cloud_wait.py`): the
+project create (owned only through its run label), billing link, the service
+enable operation and then the enabled state, the default network removal,
+janitor IAM and Workload Identity propagation (inside its watch step the
+janitor retries its identity check until the deadline, so a slow propagation
+never ends it), Terraform applies (re-planned
+create-only against the private state, at most three attempts), image copies,
+disposable attestations and the first API server contact and stage applies.
+Terraform runs from a private copy of the tracked root and module whose only
+addition is a `backend_override.tf` for private local state. Cleanup deletes the
+run's namespaces so their disks are released before the destroy, then polls the
+absence inventory to zero; it is never bounded by the deadline.
 
 Private manifests, passwords, kubeconfig, raw requests and case details stay
 outside Git. Receipts contain counters, digests and booleans only. Any failed

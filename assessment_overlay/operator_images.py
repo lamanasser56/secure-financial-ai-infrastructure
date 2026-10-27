@@ -9,7 +9,9 @@ import subprocess
 import tempfile
 
 from agent_platform.release_verify import Verifier
+from cloud_wait import Waiter
 from janitor import load_manifest, write_receipt
+from render_live_bundle import assert_harness_unchanged
 
 
 REGISTRY = re.compile(r'us-east1-docker\.pkg\.dev/([a-z][a-z0-9-]{4,28}[a-z0-9])/sdp-evaluation-images/\Z')
@@ -17,8 +19,16 @@ IMAGES = {'gateway', 'database', 'redactor', 'app', 'ops-agent', 'agent-financia
 DIGEST = re.compile(r'[a-z][a-z0-9-]+@sha256:[0-9a-f]{64}\Z')
 
 
-def command(args, *, env=None, input=None):
-    result = subprocess.run(args, capture_output=True, text=True, input=input, env=env, timeout=900)
+COPY_SECONDS = 1800
+COPY_RETRY_SECONDS = 300
+
+
+def command(args, *, env=None, input=None, timeout=900):
+    try:
+        result = subprocess.run(args, capture_output=True, text=True, input=input, env=env,
+                                timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return 124, ''
     return result.returncode, result.stdout
 
 
@@ -61,27 +71,44 @@ def verify_source(lock, source, verifier):
 
 
 def copy_images(manifest, lock_path, run_dir, *, crane='crane', cosign='cosign', run=command,
-                verifier_factory=Verifier):
+                verifier_factory=Verifier, waiter=None):
     lock, source_project, source, target = source_subjects(manifest, lock_path)
-    verifier = verifier_factory(source_project, manifest['source_commit'], run, cosign=cosign)
-    verify_source(lock, source, verifier)
+    waiter = waiter or Waiter(manifest.get('deadline_at'))
     copied = {}
+    # One private registry configuration serves cosign (source verification) and
+    # crane, so neither reads the operator's personal Docker credential helper.
     with tempfile.TemporaryDirectory(prefix='assessment-registry-', dir=run_dir) as directory:
         env = dict(os.environ, DOCKER_CONFIG=directory)
-        rc, token = run(['gcloud', 'auth', 'application-default', 'print-access-token'], env=env)
-        if rc or not token.strip():
-            raise RuntimeError('assessment:short_lived_registry_token_unavailable')
-        rc, _ = run([crane, 'auth', 'login', 'us-east1-docker.pkg.dev',
-                     '-u', 'oauth2accesstoken', '--password-stdin'],
-                    env=env, input=token)
-        if rc:
-            raise RuntimeError('assessment:registry_login_failed')
+
+        def registry_run(args, **kwargs):
+            return run(args, env=env, **kwargs)
+
+        def login():
+            # Short-lived token: refreshed before each image, so a slow copy cannot outlive it.
+            rc, token = run(['gcloud', 'auth', 'application-default', 'print-access-token'], env=env)
+            if rc or not token.strip():
+                raise RuntimeError('assessment:short_lived_registry_token_unavailable')
+            rc, _ = run([crane, 'auth', 'login', 'us-east1-docker.pkg.dev',
+                         '-u', 'oauth2accesstoken', '--password-stdin'],
+                        env=env, input=token)
+            if rc:
+                raise RuntimeError('assessment:registry_login_failed')
+
+        login()
+        verifier = verifier_factory(source_project, manifest['source_commit'], registry_run, cosign=cosign)
+        verify_source(lock, source, verifier)
         for name in sorted(IMAGES):
             image = lock['images'][name]
             tag = target + image.split('@', 1)[0] + ':' + manifest['run_id']
-            rc, _ = run([crane, 'copy', source + image, tag], env=env)
-            if rc:
-                raise RuntimeError('assessment:image_copy_failed:' + name)
+
+            def copy(image=image, tag=tag, name=name):
+                login()
+                rc, _ = run([crane, 'copy', source + image, tag], env=env,
+                            timeout=waiter.timeout(COPY_SECONDS))
+                if rc:
+                    raise RuntimeError('assessment:image_copy_failed:' + name)
+            # A copy is idempotent (same digest); a new repository can briefly refuse pushes.
+            waiter.retry(copy, seconds=COPY_RETRY_SECONDS, what='image_copy:' + name)
             rc, got = run([crane, 'digest', tag], env=env)
             if rc or got.strip() != image.split('@', 1)[1]:
                 raise RuntimeError('assessment:copied_digest_mismatch:' + name)
@@ -102,6 +129,7 @@ def main():
     if not args.execute:
         raise SystemExit('assessment:explicit_execute_required')
     manifest = load_manifest(args.run_dir / 'initial-manifest.json')
+    assert_harness_unchanged(manifest)
     receipt = copy_images(manifest, args.images_lock, args.run_dir,
                           crane=args.crane, cosign=args.cosign)
     write_receipt(args.run_dir / 'evidence/image-copy.json', receipt)

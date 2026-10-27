@@ -17,13 +17,17 @@ SETUP = {'janitor': {
 
 
 class GithubFixture:
-    def __init__(self, *, step='in_progress'):
+    def __init__(self, *, step='in_progress', errors=0):
         self.dispatched = False
         self.calls = []
         self.step = step
+        self.errors = errors
 
     def __call__(self, method, path, payload=None):
         self.calls.append((method, path, payload))
+        if self.dispatched and method == 'GET' and self.errors:
+            self.errors -= 1
+            raise OSError('fixture transient GitHub API error')
         if method == 'POST':
             self.dispatched = True
             self.payload = payload
@@ -48,6 +52,20 @@ class OperatorJanitorTest(unittest.TestCase):
         self.assertTrue(receipt['watch_step_in_progress'])
         self.assertEqual(api.payload['inputs']['project_id'], PROJECT)
         self.assertEqual(api.payload['ref'], 'main')
+
+    def test_transient_github_errors_while_confirming_are_retried(self):
+        api = GithubFixture(errors=2)
+        receipt = arm(MANIFEST, SETUP, api=api, sleep=lambda seconds: None,
+                      now=datetime(2026, 10, 26, tzinfo=timezone.utc))
+        self.assertEqual(receipt['workflow_run_id'], 42)
+
+    def test_unreadable_janitor_before_a_case_is_not_running(self):
+        api = GithubFixture(errors=5)
+        api.dispatched = True
+        self.assertFalse(watch_running(RUN, 42, api=api, sleep=lambda seconds: None))
+        api = GithubFixture(errors=1)
+        api.dispatched = True
+        self.assertTrue(watch_running(RUN, 42, api=api, sleep=lambda seconds: None))
 
     def test_invalid_identity_refuses_dispatch(self):
         api = GithubFixture()

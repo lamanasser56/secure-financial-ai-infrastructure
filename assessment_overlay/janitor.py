@@ -14,6 +14,7 @@ from pathlib import Path
 import subprocess
 import time
 
+from cloud_wait import Waiter
 from live_case_guard import PROJECT_PATTERN, RUN_PATTERN
 
 JANITOR_PROVIDER_SUFFIX = '/locations/global/workloadIdentityPools/assessment-janitor/providers/assessment-janitor'
@@ -33,8 +34,13 @@ def load_manifest(path):
     return manifest
 
 
-def gcloud_json(*args):
-    result = subprocess.run(['gcloud', *args, '--format=json'], capture_output=True, text=True, timeout=60)
+def gcloud_json(*args, timeout=60):
+    try:
+        result = subprocess.run(['gcloud', *args, '--format=json'], capture_output=True, text=True,
+                                timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # A RuntimeError keeps cleanup's fail-safe paths running after a slow call.
+        raise RuntimeError('janitor:gcloud_timeout:' + args[0] + ':' + args[1]) from None
     if result.returncode:
         raise RuntimeError('janitor:gcloud_failed:' + args[0] + ':' + args[1])
     return json.loads(result.stdout or 'null')
@@ -58,6 +64,20 @@ def validate_janitor_identity(project, run_id, provider, service_account, call=g
     if not number.isdigit() or provider != expected_provider or service_account != expected_sa:
         raise ValueError('janitor:identity_mismatch')
     return described
+
+
+def wait_for_janitor_identity(project, run_id, provider, service_account, *, deadline_at,
+                              call=gcloud_json, waiter=None):
+    """Wait, up to the deadline, until the new janitor identity can read its project.
+
+    Workload Identity and role bindings created moments earlier take minutes to
+    propagate, and the operator counts this watch step as an armed janitor from
+    its start; so a gcloud failure (RuntimeError) is retried until the deadline
+    instead of ending the janitor. An identity mismatch (ValueError) is final.
+    """
+    waiter = waiter or Waiter(deadline_at)
+    return waiter.retry(lambda: validate_janitor_identity(project, run_id, provider, service_account, call),
+                        seconds=24 * 3600, what='janitor_identity')
 
 
 def resource_absence(project, call=gcloud_json):
@@ -171,8 +191,8 @@ def main():
         deadline = datetime.fromisoformat(args.deadline_at)
         if deadline.tzinfo is None:
             raise SystemExit('janitor:deadline_timezone_required')
-        validate_janitor_identity(args.project_id, args.run_id,
-                                  args.workload_identity_provider, args.service_account)
+        wait_for_janitor_identity(args.project_id, args.run_id, args.workload_identity_provider,
+                                  args.service_account, deadline_at=args.deadline_at)
         output = Path(os.environ.get('RUNNER_TEMP', '/tmp')) / ('janitor-' + args.run_id + '.json')
     if not args.execute:
         raise SystemExit('janitor:explicit_execute_required')
