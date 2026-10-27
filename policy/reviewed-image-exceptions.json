@@ -1,33 +1,4 @@
 {
   "schema_version": 1,
-  "exceptions": [
-    {
-      "image": "agent-platform-app",
-      "target": "Python",
-      "package": "filelock",
-      "installed_version": "3.32.7",
-      "advisory": "CVE-2026-112940",
-      "severity": "HIGH",
-      "fixed_version": "4.2.1",
-      "approved_at": "2026-10-25",
-      "expires_at": "2026-11-06",
-      "status": "temporary_mitigation",
-      "justification": "The affected ReadWriteLock implementation is not imported by the App entrypoint or its identified filelock consumers; the container runs as nonroot with a read-only root filesystem and private memory-backed /tmp. This is static reachability analysis, not live verification.",
-      "reachability_evidence": "docs/evidence/trivy-2026-10-24/reachability.md"
-    },
-    {
-      "image": "agent-platform-ops",
-      "target": "Python",
-      "package": "filelock",
-      "installed_version": "3.32.7",
-      "advisory": "CVE-2026-112940",
-      "severity": "HIGH",
-      "fixed_version": "4.2.1",
-      "approved_at": "2026-10-25",
-      "expires_at": "2026-11-06",
-      "status": "temporary_mitigation",
-      "justification": "The affected ReadWriteLock implementation is not imported by the Ops entrypoint or its identified filelock consumers; the container runs as nonroot with a read-only root filesystem and private memory-backed /tmp. This is static reachability analysis, not live verification.",
-      "reachability_evidence": "docs/evidence/trivy-2026-10-24/reachability.md"
-    }
-  ]
+  "exceptions": []
 }
