@@ -263,7 +263,6 @@ certifi==2026.10.19 \
     #   -c requirements-litellm-candidate.txt
     #   httpcore
     #   httpx
-    #   litellm
     #   requests
 cffi==2.1.1 \
     --hash=sha256:046bfc24911b37851ee1b51aab8bffe713d89c68c6a057b09484ce9fd5f69b4e \
@@ -1388,23 +1387,24 @@ jsonschema-specifications==2025.9.1 \
     # via
     #   -c requirements-litellm-candidate.txt
     #   jsonschema
-litellm==1.104.7 \
-    --hash=sha256:0d3bf2f632e393d5b4a0b3c36e7e5b37c849a91c9928deae1acbc2e94ed7992f \
-    --hash=sha256:49011a18197bc276e58054448936a8489a0a4474a119f7e0bcb5d5699772256c \
-    --hash=sha256:9480d17af96c92ec97f0c1849dc2ee26f66df0e2610e5f095fe15a9c8d6e2b05 \
-    --hash=sha256:9ff006de677de9bf430b56ad0677e7bf7315ffd1dc0a4dd2f9d424f43bcee38f \
-    --hash=sha256:a26d8fc65cee9cb66b7a843114352270ca40beaf9872622d5ce64c0064f975bd \
-    --hash=sha256:edd7ff193eb622d39a92053e3f50353515e1a9dab1465904971eef041251ac61 \
-    --hash=sha256:edf2888758eb7adf8eee085ed6251a45488e12f8c83bd105f7014542a4e7260c \
-    --hash=sha256:f5617e2a2eebe221c4f3d287069709da43d7252be6175e68b798eb164d46a329
+litellm==1.104.0 \
+    --hash=sha256:3c4a15692a9dd259033195c5d4ca1697a14e6bd50d679435a799a9028e99b453 \
+    --hash=sha256:414d31b0bda41aa8fb8696c78d5f728a446e37a34476c6f5f2b6fa17ddd66ee4 \
+    --hash=sha256:5494970a1f035db8557aa87fd5e289757a26b204f25e53430c181e608a42a864 \
+    --hash=sha256:574acb77ed62ca2b2a751f7182e2fa1055dbbf047fabfa03d8e8af6d5502636d \
+    --hash=sha256:6ffed0207c6fba822fa484754f8fea40d8e9705673189d4bb6f18fa866e59a8e \
+    --hash=sha256:98fd18c8fdb3074f130e01e95c5848906f42860ca45c376fcb6a5e0cc8755f9f \
+    --hash=sha256:b0a690d18b0d25f907d08329027ca57b03f0173a4824b89b8f91528490d10bde \
+    --hash=sha256:df550ab471974edefd7cb0cc6b88b42db453f0de6b91db3cc570f5e1e8d8b173
     # via
     #   -c requirements-litellm-candidate.txt
     #   -r requirements-litellm-candidate.in
-litellm-enterprise==0.1.71.post1 \
-    --hash=sha256:a9eb794a53fc6f57805250b058295abf701b0633868bd842f7ed2075f8da9150 \
-    --hash=sha256:e29d2346f0fcb2888a5fa9049703db203900a05b772dc092210f973ca26a8969
+litellm-enterprise==0.1.71 \
+    --hash=sha256:06730a48619ee6fe54a396494196a4c9e79a9817639f878c76a1c3c4175573be \
+    --hash=sha256:249f86d70b86a3fa9566ae0fa93a71760cc8c8452d652ee283498ed6466dfdc7
     # via
     #   -c requirements-litellm-candidate.txt
+    #   -r requirements-litellm-candidate.in
     #   litellm
 litellm-proxy-extras==0.4.102.post1 \
     --hash=sha256:567e9854c50d1b9aba7a53b245c6a0798673c7680cb088dc0cfbc867ab37220f \

@@ -11,7 +11,7 @@ import sys
 from importlib.metadata import version
 
 # Must equal the pins in requirements-gateway.txt (checked by platform/core/tests/test_gateway_entry.py).
-REVIEWED_TOOLCHAIN = {'litellm': '1.104.7', 'prisma': '0.15.0'}
+REVIEWED_TOOLCHAIN = {'litellm': '1.104.0', 'prisma': '0.15.0'}
 PRISMA_BINARY_PLATFORM = 'debian-openssl-3.0.x'
 ARGV = ['/app/proxy.py', '--config', '/config/litellm.yaml', '--host', '0.0.0.0', '--port', '4001',
         '--num_workers', '1']

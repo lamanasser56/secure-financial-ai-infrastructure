@@ -1,6 +1,9 @@
 # Supported model-proxy dependencies, isolated from console/observer/worker images.
 -c requirements-security.in
-litellm[proxy]==1.104.7
+# Reviewed toolchain; LiteLLM-family pins must predate the 2026-10-21 LiteLLM pipeline compromise
+# (vendor advisory: pin versions published before 21 October).
+litellm[proxy]==1.104.0
+litellm-enterprise==0.1.71
 PyJWT
 cryptography
 opentelemetry-api
