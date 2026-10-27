@@ -8,6 +8,7 @@ import sys
 
 import yaml
 
+import cloud_log
 from cloud_wait import Waiter
 from janitor import cleanup, load_manifest, write_receipt
 from live_case_guard import read as read_ledgers
@@ -28,8 +29,10 @@ def kubectl(command, *, input=None):
     try:
         result = subprocess.run(command, input=input, capture_output=True, text=True, timeout=900)
     except subprocess.TimeoutExpired:
+        cloud_log.failed(command, 'timeout', '')
         raise RuntimeError('assessment:kubectl_timeout:' + command[2]) from None
     if result.returncode:
+        cloud_log.failed(command, result.returncode, result.stderr)
         raise RuntimeError('assessment:kubectl_failed:' + command[2])
     return result.stdout
 
@@ -144,6 +147,7 @@ def main():
     if not args.execute:
         raise SystemExit('assessment:explicit_execute_required')
     manifest = load_manifest(args.run_dir / 'initial-manifest.json')
+    cloud_log.configure(args.run_dir, manifest)
     assert_harness_unchanged(manifest)
     cluster = json.loads((args.run_dir / 'evidence/cluster-setup.json').read_text())
     admission = json.loads((args.run_dir / 'evidence/disposable-admission.json').read_text())

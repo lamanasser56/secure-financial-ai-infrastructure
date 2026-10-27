@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import subprocess
 
+import cloud_log
 from cloud_wait import Waiter
 from janitor import cleanup, gcloud_json, load_manifest, write_receipt
 from source_selection import assert_harness_unchanged
@@ -43,12 +44,14 @@ IAM_SECONDS = 420
 
 def start_services_enable(project, services):
     """Start one batch enable and return its long-running operation, or None if already done."""
+    argv = ['gcloud', 'services', 'enable', *services, '--project=' + project, '--async', '--quiet']
     try:
-        result = subprocess.run(['gcloud', 'services', 'enable', *services, '--project=' + project,
-                                 '--async', '--quiet'], capture_output=True, text=True, timeout=120)
+        result = subprocess.run(argv, capture_output=True, text=True, timeout=120)
     except subprocess.TimeoutExpired:
+        cloud_log.failed(argv, 'timeout', '')
         raise RuntimeError('operator:services_enable_start_timeout') from None
     if result.returncode:
+        cloud_log.failed(argv, result.returncode, result.stderr)
         raise RuntimeError('operator:services_enable_start_failed')
     match = OPERATION.search(result.stderr + result.stdout)
     return match[1] if match else None
@@ -197,12 +200,26 @@ def setup_project(manifest, *, billing_account, folder=None, call=gcloud_json,
         args = ['projects', 'create', project, '--labels=assessment_run=' + run_id, '--quiet']
         if folder:
             args.append('--folder=' + str(folder))
+        # gcloud waits on the create operation itself, so its exit is the operation result.
+        # The project is then read by its exact ID; only this run's label proves ownership.
         try:
             call(*args, timeout=waiter.timeout(PROJECT_CREATE_SECONDS))
-        except RuntimeError:
-            pass  # The create operation may still finish; only this run's label proves ownership.
-        described = waiter.poll(lambda: labelled_project(project, run_id, call),
-                                seconds=PROJECT_CREATE_SECONDS, what='project_create')
+            outcome = 'created'
+        except RuntimeError as error:
+            outcome = 'timeout' if 'gcloud_timeout' in str(error) else 'failed'
+        if outcome == 'failed':
+            # The create returned an error: check once whether it still produced this
+            # run's project (an error after the operation finished); otherwise stop now.
+            try:
+                described = labelled_project(project, run_id, call)
+            except RuntimeError:
+                described = None
+            if not described:
+                raise RuntimeError('operator:project_create_failed')
+        else:
+            # Created (read-after-write) or still running after a client timeout.
+            described = waiter.poll(lambda: labelled_project(project, run_id, call),
+                                    seconds=PROJECT_CREATE_SECONDS, what='project_create')
         created = True
         waiter.retry(lambda: call('billing', 'projects', 'link', project,
                                   '--billing-account=' + billing_account, '--quiet'),
@@ -235,6 +252,7 @@ def main():
     parser.add_argument('--execute', action='store_true')
     args = parser.parse_args()
     manifest = load_manifest(args.run_dir / 'initial-manifest.json')
+    cloud_log.configure(args.run_dir, manifest)
     assert_harness_unchanged(manifest)
     if not args.execute or not args.billing_account:
         raise SystemExit('operator:explicit_execute_and_inputs_required')

@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from agent_platform.release_verify import Verifier
+import cloud_log
 from cloud_wait import Waiter
 from janitor import load_manifest, write_receipt
 from operator_images import IMAGES, command
@@ -73,6 +74,7 @@ def main():
     if not args.execute:
         raise SystemExit('assessment:explicit_execute_required')
     manifest = load_manifest(args.run_dir / 'initial-manifest.json')
+    cloud_log.configure(args.run_dir, manifest)
     assert_harness_unchanged(manifest)
     cluster = json.loads((args.run_dir / 'evidence/cluster-setup.json').read_text())
     copies = json.loads((args.run_dir / 'evidence/image-copy.json').read_text())

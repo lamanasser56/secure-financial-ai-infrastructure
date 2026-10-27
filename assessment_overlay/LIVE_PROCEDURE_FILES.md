@@ -70,6 +70,15 @@ addition is a `backend_override.tf` for private local state. Cleanup deletes the
 run's namespaces so their disks are released before the destroy, then polls the
 absence inventory to zero; it is never bounded by the deadline.
 
+Every failed gcloud, Terraform, crane, cosign or kubectl call made by the
+operator steps, the janitor and the ledger reads is kept in full (command, exit
+code, stderr) in the private `logs/cloud-failures.jsonl` of the run folder
+(mode 0600, never printed); the output shows one masked reason line
+(`cloud_log.py`). The project create's own exit is the create operation's
+result: on success or a client timeout the exact project ID is described until
+it carries this run's label; on an error it is described once and the setup
+stops at once if this run's project does not exist.
+
 Private manifests, passwords, kubeconfig, raw requests and case details stay
 outside Git. Receipts contain counters, digests and booleans only. Any failed
 security check, unreadable ledger, lost janitor, deadline or ceiling stops the

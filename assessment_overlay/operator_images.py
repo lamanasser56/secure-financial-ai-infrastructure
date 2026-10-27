@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 
 from agent_platform.release_verify import Verifier
+import cloud_log
 from cloud_wait import Waiter
 from janitor import load_manifest, write_receipt
 from source_selection import assert_harness_unchanged
@@ -28,7 +29,10 @@ def command(args, *, env=None, input=None, timeout=900):
         result = subprocess.run(args, capture_output=True, text=True, input=input, env=env,
                                 timeout=timeout)
     except subprocess.TimeoutExpired:
+        cloud_log.failed(args, 'timeout', '')
         return 124, ''
+    if result.returncode:
+        cloud_log.failed(args, result.returncode, result.stderr)
     return result.returncode, result.stdout
 
 
@@ -129,6 +133,7 @@ def main():
     if not args.execute:
         raise SystemExit('assessment:explicit_execute_required')
     manifest = load_manifest(args.run_dir / 'initial-manifest.json')
+    cloud_log.configure(args.run_dir, manifest)
     assert_harness_unchanged(manifest)
     receipt = copy_images(manifest, args.images_lock, args.run_dir,
                           crane=args.crane, cosign=args.cosign)

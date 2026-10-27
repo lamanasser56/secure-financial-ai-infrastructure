@@ -11,6 +11,8 @@ from pathlib import Path
 import re
 import subprocess
 
+import cloud_log
+
 
 CASES = {'D02', 'D06', 'D04', 'D05', 'D07', 'O03', 'O04',
          'K01', 'K02', 'K03', 'K05', 'R01'}
@@ -43,8 +45,13 @@ def read(kubeconfig, run_id, kubectl='kubectl'):
     command = [str(kubectl), '--kubeconfig=' + str(kubeconfig), '-n', 'platform',
                'exec', 'deployment/redactor', '--', '/usr/local/bin/python3.12',
                '-c', REMOTE]
-    result = subprocess.run(command, capture_output=True, text=True, timeout=45)
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=45)
+    except subprocess.TimeoutExpired:
+        cloud_log.failed(command, 'timeout', '')
+        raise RuntimeError('both durable ledgers must be readable') from None
     if result.returncode:
+        cloud_log.failed(command, result.returncode, result.stderr)
         raise RuntimeError('both durable ledgers must be readable')
     state = json.loads(result.stdout)
     attempts, completions = state['sdp-attempts.json'], state['sdp-completions.json']

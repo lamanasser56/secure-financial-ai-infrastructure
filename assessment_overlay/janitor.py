@@ -14,6 +14,7 @@ from pathlib import Path
 import subprocess
 import time
 
+import cloud_log
 from cloud_wait import Waiter
 from live_case_guard import PROJECT_PATTERN, RUN_PATTERN
 
@@ -36,13 +37,15 @@ def load_manifest(path):
 
 
 def gcloud_json(*args, timeout=60):
+    argv = ['gcloud', *args, '--format=json']
     try:
-        result = subprocess.run(['gcloud', *args, '--format=json'], capture_output=True, text=True,
-                                timeout=timeout)
-    except subprocess.TimeoutExpired:
+        result = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as error:
+        cloud_log.failed(argv, 'timeout', error.stderr if isinstance(error.stderr, str) else '')
         # A RuntimeError keeps cleanup's fail-safe paths running after a slow call.
         raise RuntimeError('janitor:gcloud_timeout:' + args[0] + ':' + args[1]) from None
     if result.returncode:
+        cloud_log.failed(argv, result.returncode, result.stderr)
         raise RuntimeError('janitor:gcloud_failed:' + args[0] + ':' + args[1])
     return json.loads(result.stdout or 'null')
 
@@ -182,6 +185,7 @@ def main():
     args = parser.parse_args()
     if args.run_dir:
         manifest = load_manifest(args.run_dir / 'initial-manifest.json')
+        cloud_log.configure(args.run_dir, manifest)
         output = args.run_dir / 'evidence/janitor-cleanup.json'
     else:
         manifest = {'schema_version': 1, 'disposable_project_id': args.project_id,

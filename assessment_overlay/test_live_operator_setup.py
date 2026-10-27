@@ -33,7 +33,8 @@ def waiter(clock=None):
 
 class CloudFixture:
     def __init__(self, *, fail_enable=False, operation_polls=2, operation_error=False,
-                 create_times_out=False, binding_failures=0, never_enabled=False):
+                 create_times_out=False, binding_failures=0, never_enabled=False,
+                 create_fails=False, create_exists=False, describe_lag=0):
         self.commands = []
         self.created = False
         self.billing = False
@@ -46,6 +47,9 @@ class CloudFixture:
         self.create_times_out = create_times_out
         self.binding_failures = binding_failures
         self.never_enabled = never_enabled
+        self.create_fails = create_fails
+        self.create_exists = create_exists
+        self.describe_lag = describe_lag
         self.starts = []
 
     def start(self, project, services):
@@ -57,6 +61,9 @@ class CloudFixture:
     def __call__(self, *args, timeout=None):
         self.commands.append(args)
         if args[:2] == ('projects', 'create'):
+            if self.create_fails:
+                self.created = self.create_exists
+                raise RuntimeError('janitor:gcloud_failed:projects:create')
             self.created = True
             if self.create_times_out:
                 raise RuntimeError('janitor:gcloud_timeout:projects:create')
@@ -80,6 +87,9 @@ class CloudFixture:
         if args[:3] == ('services', 'list', '--enabled'):
             return [{'config': {'name': name}, 'state': 'ENABLED'} for name in SERVICES] if self.enabled else []
         if args[:2] == ('projects', 'describe'):
+            if self.describe_lag:
+                self.describe_lag -= 1
+                raise RuntimeError('janitor:gcloud_failed:projects:describe')
             if not self.created:
                 raise RuntimeError('janitor:gcloud_failed:projects:describe')
             return {'projectId': PROJECT, 'labels': {'assessment_run': RUN},
@@ -171,6 +181,30 @@ class OperatorSetupTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'services_enable_start'):
             setup(cloud)
         self.assertTrue(cloud.deleted)  # The labelled project was found, so it was cleaned up.
+
+    def test_failed_create_stops_at_once_without_waiting_or_cleanup(self):
+        cloud, clock = CloudFixture(create_fails=True), Clock()
+        with self.assertRaisesRegex(RuntimeError, 'project_create_failed'):
+            setup(cloud, waiter(clock))
+        self.assertEqual(clock.now, START)  # No five-minute wait for a project that was never made.
+        self.assertEqual([args[:2] for args in cloud.commands],
+                         [('projects', 'create'), ('projects', 'describe')])
+        self.assertFalse(cloud.billing)
+
+    def test_create_error_after_the_operation_finished_still_uses_the_exact_project(self):
+        cloud = CloudFixture(create_fails=True, create_exists=True)
+        receipt = setup(cloud)
+        self.assertTrue(receipt['project_label_verified'])
+
+    def test_created_project_is_read_by_exact_id_through_read_lag(self):
+        cloud, clock = CloudFixture(describe_lag=2), Clock()
+        setup(cloud, waiter(clock))
+        describes = [args for args in cloud.commands if args[:2] == ('projects', 'describe')]
+        self.assertTrue(all(args == ('projects', 'describe', PROJECT) for args in describes))
+        self.assertFalse([args for args in cloud.commands if args[:2] == ('projects', 'list')])
+        baseline, plain = Clock(), CloudFixture()
+        setup(plain, waiter(baseline))
+        self.assertEqual((clock.now - START) - (baseline.now - START), timedelta(seconds=20))
 
     def test_iam_propagation_is_retried(self):
         cloud = CloudFixture(binding_failures=2)
