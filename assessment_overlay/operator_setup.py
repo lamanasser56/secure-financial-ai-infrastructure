@@ -15,7 +15,7 @@ import subprocess
 
 from cloud_wait import Waiter
 from janitor import cleanup, gcloud_json, load_manifest, write_receipt
-from render_live_bundle import assert_harness_unchanged
+from source_selection import assert_harness_unchanged
 
 
 JANITOR_ROLES = ('roles/resourcemanager.projectDeleter', 'roles/billing.projectManager', 'roles/viewer')

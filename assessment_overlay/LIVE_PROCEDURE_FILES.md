@@ -8,9 +8,14 @@ The assessed source is the final frozen commit S and its seven-image lock.
 Render with live_session.py into a private directory outside the checkout.
 The release lock must identify S exactly. Everything outside
 `assessment_overlay/` must equal S, except the release lock and
-`docs/evidence/`. The harness in `assessment_overlay/` is the instrument and
-may change after S, but only in commits: an uncommitted, untracked or hidden
-change anywhere refuses the session. The private manifest records the harness
+`docs/evidence/`. So must every overlay file whose output is applied to the
+assessment cluster (`source_selection.DEPLOYED_CONTENT`: the renderer, the
+stager, the gateway/ops/redactor patches and the embedded provider stub,
+redactor server, ops server, seed and SDP guard), and the bundle is rendered by
+S's own renderer from a temporary detached worktree at S. Only orchestration,
+waiting, verification and evidence code may change after S, and only in
+commits: an uncommitted, untracked or hidden change anywhere refuses the
+session. The private manifest records the harness
 commit, its changed files and the digest of the S..HEAD `assessment_overlay/`
 diff, which is kept as `evidence/harness.diff`; every later operator step
 refuses a checkout whose HEAD or working tree changed since the session (cleanup
@@ -54,8 +59,10 @@ observable result, bounded by the 180-minute deadline (`cloud_wait.py`): the
 project create (owned only through its run label), billing link, the service
 enable operation and then the enabled state, the default network removal,
 janitor IAM and Workload Identity propagation (inside its watch step the
-janitor retries its identity check until the deadline, so a slow propagation
-never ends it), Terraform applies (re-planned
+janitor retries its identity check for at most 15 minutes and otherwise fails
+its job visibly; before the first case the runner waits until that window has
+passed and requires the janitor still in its watch step, or cleans up),
+Terraform applies (re-planned
 create-only against the private state, at most three attempts), image copies,
 disposable attestations and the first API server contact and stage applies.
 Terraform runs from a private copy of the tracked root and module whose only

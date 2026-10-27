@@ -5,7 +5,8 @@ import unittest
 from unittest import mock
 
 from cloud_wait import Waiter
-from janitor import cleanup, gcloud_json, validate_janitor_identity, wait_for_janitor_identity, wait_until_deadline
+from janitor import (JANITOR_IDENTITY_SECONDS, cleanup, gcloud_json, main as janitor_main,
+                     validate_janitor_identity, wait_for_janitor_identity, wait_until_deadline)
 
 
 PROJECT = 'sfai-assess-fixture01'
@@ -88,7 +89,7 @@ class JanitorTest(unittest.TestCase):
         self.assertEqual([command for command in cloud.commands if command[:2] == ('projects', 'delete')], [])
 
 
-    def test_janitor_identity_waits_for_iam_propagation_within_the_deadline(self):
+    def test_janitor_identity_waits_for_iam_propagation_within_its_window(self):
         now = [datetime(2026, 10, 26, tzinfo=timezone.utc)]
 
         def sleep(seconds):
@@ -97,19 +98,41 @@ class JanitorTest(unittest.TestCase):
                     'assessment-janitor/providers/assessment-janitor')
         service_account = 'assessment-janitor@' + PROJECT + '.iam.gserviceaccount.com'
         deadline = '2026-10-26T03:00:00+00:00'
+
+        def wait(cloud, account_provider=provider):
+            return wait_for_janitor_identity(PROJECT, RUN, account_provider, service_account,
+                                             deadline_at=deadline, call=cloud,
+                                             waiter=Waiter(deadline, clock=lambda: now[0], sleep=sleep))
         cloud = CloudFixture()
         cloud.unreadable = 3
-        described = wait_for_janitor_identity(PROJECT, RUN, provider, service_account, deadline_at=deadline,
-                                              call=cloud, waiter=Waiter(deadline, clock=lambda: now[0],
-                                                                        sleep=sleep))
-        self.assertEqual(described['projectNumber'], '123456789012')
+        self.assertEqual(wait(cloud)['projectNumber'], '123456789012')
         self.assertEqual(len(cloud.commands), 4)
         cloud = CloudFixture()
         with self.assertRaisesRegex(ValueError, 'identity_mismatch'):
-            wait_for_janitor_identity(PROJECT, RUN, provider.replace('123456789012', '999999999999'),
-                                      service_account, deadline_at=deadline, call=cloud,
-                                      waiter=Waiter(deadline, clock=lambda: now[0], sleep=sleep))
+            wait(cloud, provider.replace('123456789012', '999999999999'))
         self.assertEqual(len(cloud.commands), 1)
+        # Still unusable after 15 minutes: the wait ends there, long before the deadline.
+        cloud, started = CloudFixture(), now[0]
+        cloud.unreadable = 10 ** 6
+        with self.assertRaisesRegex(RuntimeError, 'retry_exhausted:janitor_identity'):
+            wait(cloud)
+        self.assertGreaterEqual(now[0] - started, timedelta(seconds=JANITOR_IDENTITY_SECONDS))
+        self.assertLess(now[0] - started, timedelta(seconds=JANITOR_IDENTITY_SECONDS + 60))
+
+    def test_unusable_janitor_identity_fails_the_job_visibly(self):
+        argv = ['janitor.py', '--project-id', PROJECT, '--run-id', RUN,
+                '--deadline-at', '2026-10-26T03:00:00+00:00',
+                '--workload-identity-provider', 'provider', '--service-account', 'account',
+                '--execute', '--watch']
+        with mock.patch('sys.argv', argv), \
+                mock.patch('janitor.wait_for_janitor_identity',
+                           side_effect=RuntimeError('assessment:retry_exhausted:janitor_identity')), \
+                mock.patch('janitor.wait_until_deadline') as watch, mock.patch('janitor.cleanup') as clean:
+            with self.assertRaises(SystemExit) as raised:
+                janitor_main()
+        self.assertIn('janitor:identity_unusable', str(raised.exception.code))
+        watch.assert_not_called()
+        clean.assert_not_called()
 
     def test_slow_gcloud_call_is_a_runtime_error_so_cleanup_continues(self):
         with mock.patch('janitor.subprocess.run', side_effect=subprocess.TimeoutExpired(['gcloud'], 60)):

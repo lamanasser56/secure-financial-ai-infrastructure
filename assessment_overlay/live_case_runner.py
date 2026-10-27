@@ -5,12 +5,13 @@ checks. The runner records no raw request, response, credential, or canary.
 """
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
+import time
 
-from janitor import write_receipt
+from janitor import JANITOR_IDENTITY_SECONDS, write_receipt
 from live_case_guard import CASE_LIMITS, PLANNED_LIMITS, SETUP_LIMITS, case_delta
 
 
@@ -42,6 +43,31 @@ def readiness(manifest, run_dir, case, *, now, janitor_status):
             raise RuntimeError('assessment:prior_case_not_passed')
     if any((evidence / ('case-' + later + '-result.json')).exists() for later in CASE_ORDER[index:]):
         raise RuntimeError('assessment:case_or_later_already_started')
+
+
+# The janitor starts its identity check a little after GitHub marks the step started.
+JANITOR_WINDOW_MARGIN_SECONDS = 120
+
+
+def confirm_janitor_survived_identity_window(manifest, run_dir, *, janitor_status,
+                                             clock=lambda: datetime.now(timezone.utc), sleep=time.sleep):
+    """Before the first case, wait out the janitor's identity window, then require it still watching."""
+    armed = json.loads((Path(run_dir) / 'evidence' / 'janitor-armed.json').read_text())
+    started = datetime.fromisoformat(str(armed.get('watch_step_started_at', '')).replace('Z', '+00:00'))
+    if started.tzinfo is None or armed.get('run_id') != manifest['run_id']:
+        raise RuntimeError('assessment:janitor_watch_start_unknown')
+    window_end = started + timedelta(seconds=JANITOR_IDENTITY_SECONDS + JANITOR_WINDOW_MARGIN_SECONDS)
+    if window_end >= datetime.fromisoformat(manifest['deadline_at']):
+        raise RuntimeError('assessment:janitor_window_after_deadline')
+    while clock() < window_end:
+        sleep(min(60, max(1, (window_end - clock()).total_seconds())))
+    if janitor_status(armed['workflow_run_id']) is not True:
+        raise RuntimeError('assessment:janitor_not_watching_after_identity_window')
+    receipt = {'run_id': manifest['run_id'], 'workflow_run_id': armed['workflow_run_id'],
+               'identity_window_end': window_end.isoformat(), 'confirmed_at': clock().isoformat(),
+               'watch_step_in_progress': True}
+    write_receipt(Path(run_dir) / 'evidence' / 'janitor-identity-window.json', receipt)
+    return receipt
 
 
 def run_case(manifest, run_dir, case, probe, *, kubeconfig, ledger_reader,
@@ -125,7 +151,7 @@ def case_probes(manifest, run_dir, kubeconfig):
 
 
 def run_all(manifest, run_dir, *, kubeconfig, probes, ledger_reader,
-            janitor_status, cleanup):
+            janitor_status, cleanup, janitor_window=None):
     """Run all cases in order and require confirmed cleanup even after failure."""
     if set(probes) != set(CASE_ORDER):
         raise RuntimeError('assessment:case_binding_incomplete')
@@ -134,6 +160,8 @@ def run_all(manifest, run_dir, *, kubeconfig, probes, ledger_reader,
     run_dir = Path(run_dir)
     failure = None
     try:
+        confirm_janitor_survived_identity_window(manifest, run_dir, janitor_status=janitor_status,
+                                                 **(janitor_window or {}))
         for case in CASE_ORDER:
             run_case(manifest, run_dir, case, probes[case], kubeconfig=kubeconfig,
                      ledger_reader=ledger_reader, janitor_status=janitor_status)
@@ -172,7 +200,7 @@ def main():
     from janitor import load_manifest
     from live_case_guard import read as read_ledgers
     from operator_janitor import github_api, watch_running
-    from render_live_bundle import assert_harness_unchanged
+    from source_selection import assert_harness_unchanged
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--run-dir', type=Path, required=True)

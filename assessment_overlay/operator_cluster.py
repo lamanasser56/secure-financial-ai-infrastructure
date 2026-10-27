@@ -17,7 +17,8 @@ import subprocess
 
 from cloud_wait import Waiter
 from janitor import cleanup, gcloud_json, inspect_project, load_manifest, write_receipt
-from render_live_bundle import ROOT, assert_harness_unchanged
+from render_live_bundle import ROOT
+from source_selection import assert_harness_unchanged
 
 
 TERRAFORM_SOURCE = 'platform/clouds/gke/terraform'
