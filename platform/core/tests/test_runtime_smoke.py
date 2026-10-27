@@ -99,6 +99,19 @@ class Translation(unittest.TestCase):
         self.assertIn('gateway.platform.svc.cluster.local', aliases['smoke-platform-gateway-boundary'])
         self.assertIn('redactor.platform.svc.cluster.local', aliases['smoke-platform-redactor'])
 
+    def test_only_workload_identity_pods_get_a_synthetic_adc_key(self):
+        fake = FakeDocker()
+        with patch.object(smoke, 'docker', fake):
+            adc = {}
+            for w in self.workloads():
+                w.start('net')
+                adc[w.id] = 'GOOGLE_APPLICATION_CREDENTIALS=/var/run/smoke-workload-identity/adc.json' in fake.calls[-1]
+                if adc[w.id]:
+                    key = json.loads((w.workdir / 'workload-identity/adc.json').read_text())
+                    self.assertEqual(key['client_email'], w.workload_identity())
+                    self.assertEqual(key['type'], 'service_account')
+        self.assertEqual({k for k, v in adc.items() if v}, {'smoke-platform-gateway', 'smoke-platform-redactor'})
+
     def test_secrets_are_synthetic_and_complete_for_every_reference(self):
         fake = FakeDocker()
         with patch.object(smoke, 'docker', fake):
