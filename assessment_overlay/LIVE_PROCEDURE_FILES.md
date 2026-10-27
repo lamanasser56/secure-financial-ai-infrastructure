@@ -56,8 +56,11 @@ token must never be reported as live proof of cross-user binding.
 
 Every long-running or eventually consistent cloud step waits for its
 observable result, bounded by the 180-minute deadline (`cloud_wait.py`): the
-project create (owned only through its run label), billing link, the service
-enable operation and then the enabled state, the default network removal,
+project create (owned only through its run label), billing link, the
+synchronous service enable (gcloud waits on its operation through Service
+Usage, for at most 15 minutes; the operation is never polled with
+`services operations describe`, which routes these operations to another API)
+and then the enabled state, the default network removal,
 janitor IAM and Workload Identity propagation (inside its watch step the
 janitor retries its identity check for at most 15 minutes and otherwise fails
 its job visibly; before the first case the runner waits until that window has
