@@ -5,3 +5,5 @@ jsonschema
 PyYAML
 psycopg[binary]
 argon2-cffi
+# runtime/agents/identity.py verifies the fixture issuer with google.auth.jwt.
+google-auth

@@ -41,7 +41,7 @@ ENV LD_LIBRARY_PATH=/usr/local/lib \
 USER 65532:65532
 WORKDIR /app
 COPY --chown=65532:65532 platform/core/src/agent_platform/__init__.py /app/platform/src/agent_platform/
-COPY --chown=65532:65532 platform/core/src/agent_platform/programs/__init__.py platform/core/src/agent_platform/programs/gateway_hooks.py /app/platform/src/agent_platform/programs/
+COPY --chown=65532:65532 platform/core/src/agent_platform/programs/__init__.py platform/core/src/agent_platform/programs/gateway_entry.py platform/core/src/agent_platform/programs/gateway_hooks.py /app/platform/src/agent_platform/programs/
 
 COPY --from=builder /out/prisma/ /app/prisma/
 ENV CONFIG_FILE_PATH=/config/litellm.yaml \
@@ -51,4 +51,5 @@ ENV CONFIG_FILE_PATH=/config/litellm.yaml \
     LITELLM_LOCAL_MODEL_COST_MAP=true \
     LITELLM_DISABLE_LATEST_RELEASE_CHECK=true \
     DO_NOT_TRACK=true
-ENTRYPOINT ["/usr/local/bin/python3.12", "-m", "uvicorn", "litellm.proxy.proxy_server:app", "--host", "0.0.0.0", "--port", "4001", "--workers", "1", "--no-access-log"]
+# The reviewed prelude (toolchain check, fixed Prisma platform, no Prisma CLI) runs before the proxy starts.
+ENTRYPOINT ["/usr/local/bin/python3.12", "-m", "agent_platform.programs.gateway_entry"]

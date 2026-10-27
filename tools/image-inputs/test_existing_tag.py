@@ -156,27 +156,28 @@ class TagExistsAndFailsVerification(unittest.TestCase):
 class WorkflowContract(unittest.TestCase):
     def setUp(self):
         import yaml
-        self.image = yaml.safe_load((ROOT / '.github/workflows/agent-platform-images.yml').read_text())['jobs']['image']
-        self.steps = self.image['steps']
+        jobs = yaml.safe_load((ROOT / '.github/workflows/agent-platform-images.yml').read_text())['jobs']
+        self.image, self.publish = jobs['image'], jobs['publish']
+        self.steps = self.publish['steps']
 
     def step(self, **match):
         return next(s for s in self.steps if all(s.get(k) == v for k, v in match.items()))
 
     def test_forced_matrix_does_not_fail_fast(self):
-        self.assertEqual(self.image['strategy']['fail-fast'], "${{ github.event_name != 'workflow_dispatch' }}")
-        self.assertEqual(self.image['strategy']['max-parallel'], 1)
+        self.assertEqual(self.publish['strategy']['fail-fast'], "${{ github.event_name != 'workflow_dispatch' }}")
+        self.assertEqual(self.publish['strategy']['max-parallel'], 1)
+        self.assertIs(self.image['strategy']['fail-fast'], False)
 
-    def test_lookup_precedes_build_without_exporting_credentials(self):
+    def test_lookup_precedes_loading_without_exporting_credentials(self):
         lookup_auth, found = self.step(id='lookup-auth'), self.step(id='existing')
         self.assertFalse(lookup_auth['with']['create_credentials_file'])
         self.assertFalse(lookup_auth['with']['export_environment_variables'])
         self.assertIn('scripts/existing-image-tag.py lookup', found['run'])
-        build = self.step(name='Build exact S on the hosted runner (no cloud credentials)')
-        order = [self.steps.index(s) for s in (lookup_auth, found, build, self.step(id='auth'))]
+        load = self.step(name='Load the exact image that passed the runtime smoke test')
+        order = [self.steps.index(s) for s in (lookup_auth, found, load, self.step(id='auth'))]
         self.assertEqual(order, sorted(order))
-        for name in ('Build exact S on the hosted runner (no cloud credentials)',
-                     'Trivy (all severities and KEV; fail-closed) and SBOM'):
-            self.assertEqual(self.step(name=name)['if'], "steps.existing.outputs.digest == ''")
+        self.assertEqual(load['if'], "steps.existing.outputs.digest == ''")
+        self.assertFalse(any('docker buildx build' in s.get('run', '') for s in self.steps))
 
     def test_existing_subject_is_gated_and_verified_never_pushed_retagged_or_signed(self):
         publish = self.step(id='publish')
