@@ -11,7 +11,6 @@ import json
 import os
 from pathlib import Path
 import re
-import subprocess
 
 import cloud_log
 from cloud_wait import Waiter
@@ -34,7 +33,6 @@ REPOSITORY = 'lamanasser56/secure-financial-ai-infrastructure'
 JANITOR_POOL = 'assessment-janitor'
 
 
-OPERATION = re.compile(r'\b(operations/[A-Za-z0-9._:-]+)')
 PROJECT_CREATE_SECONDS = 300
 BILLING_SECONDS = 300
 SERVICES_SECONDS = 900
@@ -42,32 +40,22 @@ DEFAULT_NETWORK_SECONDS = 180
 IAM_SECONDS = 420
 
 
-def start_services_enable(project, services):
-    """Start one batch enable and return its long-running operation, or None if already done."""
-    argv = ['gcloud', 'services', 'enable', *services, '--project=' + project, '--async', '--quiet']
+def enable_services(project, *, call, waiter):
+    """Enable synchronously, then confirm the enabled state; both bounded by the deadline.
+
+    gcloud waits on the batch enable operation itself, through the Service Usage
+    API. (`gcloud services operations describe` routes these `acf.` operations to
+    another API and always fails, so the operation is never polled directly.) A
+    client timeout falls through to the state check; any other error is final.
+    """
     try:
-        result = subprocess.run(argv, capture_output=True, text=True, timeout=120)
-    except subprocess.TimeoutExpired:
-        cloud_log.failed(argv, 'timeout', '')
-        raise RuntimeError('operator:services_enable_start_timeout') from None
-    if result.returncode:
-        cloud_log.failed(argv, result.returncode, result.stderr)
-        raise RuntimeError('operator:services_enable_start_failed')
-    match = OPERATION.search(result.stderr + result.stdout)
-    return match[1] if match else None
-
-
-def enable_services(project, *, call, start, waiter):
-    """Wait on the enable operation, then until every service reads as enabled."""
-    operation = waiter.retry(lambda: start(project, SERVICES), seconds=SERVICES_SECONDS,
-                             what='services_enable_start')
-    if operation:
-        def finished():
-            value = call('services', 'operations', 'describe', operation)
-            if value.get('error'):
-                raise ValueError('operator:services_enable_operation_failed')
-            return value.get('done') is True
-        waiter.poll(finished, seconds=SERVICES_SECONDS, what='services_enable_operation')
+        call('services', 'enable', *SERVICES, '--project=' + project, '--quiet',
+             timeout=waiter.timeout(SERVICES_SECONDS))
+        outcome = 'completed'
+    except RuntimeError as error:
+        if 'gcloud_timeout' not in str(error):
+            raise RuntimeError('operator:services_enable_failed') from error
+        outcome = 'client_timeout'
 
     def enabled():
         names = {item.get('config', {}).get('name') or str(item.get('name', '')).rsplit('/', 1)[-1]
@@ -75,7 +63,7 @@ def enable_services(project, *, call, start, waiter):
                  if item.get('state', 'ENABLED') == 'ENABLED'}
         return set(SERVICES) <= names
     waiter.poll(enabled, seconds=SERVICES_SECONDS, what='services_enabled')
-    return operation is not None
+    return outcome
 
 
 def default_network_rules(project, call):
@@ -186,7 +174,7 @@ def labelled_project(project, run_id, call):
 
 
 def setup_project(manifest, *, billing_account, folder=None, call=gcloud_json,
-                  start=start_services_enable, waiter=None, now=None):
+                  waiter=None, now=None):
     project, run_id = manifest['disposable_project_id'], manifest['run_id']
     if not BILLING_PATTERN.fullmatch(billing_account):
         raise ValueError('declared billing account required')
@@ -226,7 +214,7 @@ def setup_project(manifest, *, billing_account, folder=None, call=gcloud_json,
                      seconds=BILLING_SECONDS, what='billing_link')
         waiter.poll(lambda: call('billing', 'projects', 'describe', project).get('billingEnabled') is True,
                     seconds=BILLING_SECONDS, what='billing_enabled')
-        waited_on_operation = enable_services(project, call=call, start=start, waiter=waiter)
+        services_enable = enable_services(project, call=call, waiter=waiter)
         default_removed = remove_default_network(project, call=call, waiter=waiter,
                                                  appear_seconds=DEFAULT_NETWORK_SECONDS)
         janitor = arm_janitor(project, described.get('projectNumber'), call, waiter)
@@ -236,7 +224,7 @@ def setup_project(manifest, *, billing_account, folder=None, call=gcloud_json,
         return {'run_id': run_id, 'project_label_verified': True,
                 'janitor': janitor, 'billing_linked': True,
                 'services_enabled': list(SERVICES),
-                'services_operation_waited': waited_on_operation,
+                'services_enable': services_enable,
                 'default_network_removed': default_removed}
     except BaseException:
         if created:

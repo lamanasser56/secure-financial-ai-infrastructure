@@ -11,7 +11,6 @@ RUN = 'assess-0123456789abcdef'
 MANIFEST = {'disposable_project_id': PROJECT, 'run_id': RUN,
             'deadline_at': '2026-10-26T03:00:00+00:00'}
 BILLING = 'ABCDEF-123456-ABCDEF'
-OPERATION = 'operations/acat.p2-123456789012-fixture'
 START = datetime(2026, 10, 26, tzinfo=timezone.utc)
 
 
@@ -32,7 +31,7 @@ def waiter(clock=None):
 
 
 class CloudFixture:
-    def __init__(self, *, fail_enable=False, operation_polls=2, operation_error=False,
+    def __init__(self, *, fail_enable=False, enable_times_out=False, enabled_after_polls=1,
                  create_times_out=False, binding_failures=0, never_enabled=False,
                  create_fails=False, create_exists=False, describe_lag=0):
         self.commands = []
@@ -42,21 +41,15 @@ class CloudFixture:
         self.enabled = False
         self.default_network = True
         self.fail_enable = fail_enable
-        self.operation_polls = operation_polls
-        self.operation_error = operation_error
+        self.enable_times_out = enable_times_out
+        self.enabled_after_polls = enabled_after_polls
+        self.enable_timeouts = []
         self.create_times_out = create_times_out
         self.binding_failures = binding_failures
         self.never_enabled = never_enabled
         self.create_fails = create_fails
         self.create_exists = create_exists
         self.describe_lag = describe_lag
-        self.starts = []
-
-    def start(self, project, services):
-        self.starts.append((project, tuple(services)))
-        if self.fail_enable:
-            raise RuntimeError('fixture enable failure')
-        return OPERATION
 
     def __call__(self, *args, timeout=None):
         self.commands.append(args)
@@ -76,16 +69,17 @@ class CloudFixture:
         if args[:3] == ('billing', 'projects', 'link'):
             self.billing = True
             return {}
-        if args[:3] == ('services', 'operations', 'describe'):
-            self.operation_polls -= 1
-            if self.operation_polls > 0:
-                return {'name': OPERATION}
-            if self.operation_error:
-                return {'name': OPERATION, 'done': True, 'error': {'code': 9}}
-            self.enabled = not self.never_enabled
-            return {'name': OPERATION, 'done': True}
+        if args[:2] == ('services', 'enable'):
+            self.enable_timeouts.append(timeout)
+            if self.fail_enable:
+                raise RuntimeError('janitor:gcloud_failed:services:enable')
+            if self.enable_times_out:
+                raise RuntimeError('janitor:gcloud_timeout:services:enable')
+            return {}
         if args[:3] == ('services', 'list', '--enabled'):
-            return [{'config': {'name': name}, 'state': 'ENABLED'} for name in SERVICES] if self.enabled else []
+            self.enabled_after_polls -= 1
+            ready = self.enabled_after_polls <= 0 and not self.never_enabled
+            return [{'config': {'name': name}, 'state': 'ENABLED'} for name in SERVICES] if ready else []
         if args[:2] == ('projects', 'describe'):
             if self.describe_lag:
                 self.describe_lag -= 1
@@ -122,7 +116,7 @@ class CloudFixture:
 
 
 def setup(cloud, wait=None):
-    return setup_project(MANIFEST, billing_account=BILLING, call=cloud, start=cloud.start,
+    return setup_project(MANIFEST, billing_account=BILLING, call=cloud,
                          waiter=wait or waiter(), now=START)
 
 
@@ -141,24 +135,39 @@ class OperatorSetupTest(unittest.TestCase):
         self.assertTrue(all(index > link for index in grants))
         self.assertEqual(cloud.commands[-1], ('billing', 'projects', 'describe', PROJECT))
 
-    def test_services_wait_on_the_enable_operation_then_the_enabled_state(self):
-        cloud = CloudFixture(operation_polls=3)
+    def test_services_enable_waits_synchronously_then_confirms_the_enabled_state(self):
+        cloud = CloudFixture(enabled_after_polls=3)
         receipt = setup(cloud)
-        self.assertTrue(receipt['services_operation_waited'])
-        self.assertEqual(cloud.starts, [(PROJECT, SERVICES)])
-        polls = [i for i, args in enumerate(cloud.commands)
-                 if args[:3] == ('services', 'operations', 'describe')]
-        self.assertEqual(len(polls), 3)
-        enabled = cloud.commands.index(('services', 'list', '--enabled', '--project=' + PROJECT))
-        self.assertGreater(enabled, max(polls))
+        self.assertEqual(receipt['services_enable'], 'completed')
+        enable = [args for args in cloud.commands if args[:2] == ('services', 'enable')]
+        self.assertEqual(enable, [('services', 'enable', *SERVICES, '--project=' + PROJECT, '--quiet')])
+        self.assertEqual(cloud.enable_timeouts, [900])  # 15 minutes, well inside the deadline here.
+        self.assertFalse([args for args in cloud.commands if args[:2] == ('services', 'operations')])
+        lists = [i for i, args in enumerate(cloud.commands) if args[:3] == ('services', 'list', '--enabled')]
+        self.assertEqual(len(lists), 3)
         account = next(i for i, args in enumerate(cloud.commands)
                        if args[:3] == ('iam', 'service-accounts', 'create'))
-        self.assertLess(enabled, account)
+        self.assertLess(max(lists), account)
 
-    def test_failed_enable_operation_cleans_up(self):
-        cloud = CloudFixture(operation_error=True)
-        with self.assertRaisesRegex(ValueError, 'services_enable_operation_failed'):
+    def test_enable_timeout_is_bounded_by_the_deadline(self):
+        clock = Clock()
+        clock.now = datetime.fromisoformat(MANIFEST['deadline_at']) - timedelta(minutes=5)
+        cloud = CloudFixture()
+        setup_project(MANIFEST, billing_account=BILLING, call=cloud, waiter=waiter(clock), now=clock.now)
+        self.assertLessEqual(cloud.enable_timeouts[0], 300)
+
+    def test_client_timeout_falls_through_to_the_enabled_state(self):
+        cloud = CloudFixture(enable_times_out=True, enabled_after_polls=2)
+        receipt = setup(cloud)
+        self.assertEqual(receipt['services_enable'], 'client_timeout')
+        self.assertEqual(len([args for args in cloud.commands if args[:2] == ('services', 'enable')]), 1)
+
+    def test_other_enable_error_is_final_and_cleans_up(self):
+        cloud = CloudFixture(fail_enable=True)
+        with self.assertRaisesRegex(RuntimeError, 'services_enable_failed'):
             setup(cloud)
+        self.assertEqual(len([args for args in cloud.commands if args[:2] == ('services', 'enable')]), 1)
+        self.assertFalse([args for args in cloud.commands if args[:3] == ('services', 'list', '--enabled')])
         self.assertFalse(cloud.billing)
         self.assertTrue(cloud.deleted)
 
@@ -169,16 +178,9 @@ class OperatorSetupTest(unittest.TestCase):
         self.assertLessEqual(clock.now, datetime.fromisoformat(MANIFEST['deadline_at']))
         self.assertTrue(cloud.deleted)
 
-    def test_setup_failure_invokes_billing_unlink_and_project_delete(self):
-        cloud = CloudFixture(fail_enable=True)
-        with self.assertRaisesRegex(RuntimeError, 'retry_exhausted:services_enable_start'):
-            setup(cloud)
-        self.assertFalse(cloud.billing)
-        self.assertTrue(cloud.deleted)
-
     def test_slow_project_create_is_owned_only_through_its_run_label(self):
         cloud = CloudFixture(create_times_out=True, fail_enable=True)
-        with self.assertRaisesRegex(RuntimeError, 'services_enable_start'):
+        with self.assertRaisesRegex(RuntimeError, 'services_enable_failed'):
             setup(cloud)
         self.assertTrue(cloud.deleted)  # The labelled project was found, so it was cleaned up.
 
@@ -226,10 +228,9 @@ class OperatorSetupTest(unittest.TestCase):
     def test_invalid_inputs_make_no_cloud_calls(self):
         cloud = CloudFixture()
         with self.assertRaisesRegex(ValueError, 'declared billing account'):
-            setup_project(MANIFEST, billing_account='invalid', call=cloud, start=cloud.start,
+            setup_project(MANIFEST, billing_account='invalid', call=cloud,
                           waiter=waiter(), now=START)
         self.assertEqual(cloud.commands, [])
-        self.assertEqual(cloud.starts, [])
 
 
 if __name__ == '__main__':
