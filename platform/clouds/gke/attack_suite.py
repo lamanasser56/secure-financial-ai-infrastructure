@@ -573,7 +573,7 @@ def case_ops_stale_approval_refused():
             second=signed_restart_proposal(exclude={first['proposal']['request_id']},bound=patched)
             fresh=ops_execute(second['proposal'],second['token'])
             versions=dict(second['versions'],after_execution=version_token(current_version()))
-    verdict=fresh_control_verdict(stale,replay,unchanged,fresh)
+    verdict=fresh_control_verdict(stale,replay,unchanged,fresh,versions)
     auth_held=unsigned==forged=={'result':'DENIED','code':'APPROVAL_REJECTED'} and unauthenticated_unchanged
     if not auth_held: verdict='FAIL'
     return verdict=='PASS', {'verdict':verdict,'unsigned_approval':unsigned,'forged_approval':forged,'stale_approval':stale,'template_unchanged_after_refusal':unchanged,
@@ -582,15 +582,16 @@ def case_ops_stale_approval_refused():
         'fresh_proposal_created_after_patch':second['proposal']['created_at']>patched['patched_at']}
 
 
-def fresh_control_verdict(stale, replay, unchanged, fresh):
+def fresh_control_verdict(stale, replay, unchanged, fresh, versions):
     """stale_approval_verdict, plus one case for the fresh positive control: if every security check held (stale
     approval refused OBJECT_CHANGED, its replay ALREADY_USED, template unchanged) and only the fresh proposal was refused
-    OBJECT_CHANGED, the target's resourceVersion moved between selection and execution (a status write on the
-    crash-looping target). That refusal is correct and the control could not establish its result: NOT_EXERCISED,
-    with the recorded versions as proof, never PASS or FAIL. A failed security check stays FAIL."""
+    OBJECT_CHANGED, the result is NOT_EXERCISED only when the recorded versions prove the move: the version read right
+    after execution differs from the version bound to the fresh proposal (a status write on the crash-looping target).
+    If the version did not move, OBJECT_CHANGED is an executor defect: FAIL. A failed security check stays FAIL."""
     verdict = stale_approval_verdict(stale, replay, unchanged, fresh)
     held = (stale == {'result': 'DENIED', 'code': 'OBJECT_CHANGED'} and replay.get('code') == 'ALREADY_USED' and unchanged)
-    if verdict == 'FAIL' and held and fresh == {'result': 'DENIED', 'code': 'OBJECT_CHANGED'}:
+    moved = versions['after_execution'] != versions['bound']
+    if verdict == 'FAIL' and held and moved and fresh == {'result': 'DENIED', 'code': 'OBJECT_CHANGED'}:
         return 'NOT_EXERCISED'
     return verdict
 
