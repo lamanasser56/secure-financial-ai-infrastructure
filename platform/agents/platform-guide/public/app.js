@@ -39,7 +39,8 @@
   const number = value => Number(value).toLocaleString(language);
   const sourceLang = value => /[\u0600-\u06ff]/.test(value) ? 'ar' : 'en';
   // Excerpts are Markdown from the reviewed docs. Render a small closed subset as DOM nodes, never as HTML:
-  // paragraphs, bullet and numbered lists, **bold**, `code`, [link text](target) as its text, fenced blocks and tables as code.
+  // paragraphs, bullet and numbered lists, **bold**, `code`, [link text](target) as its text, fenced blocks and table lines as
+  // monospaced blocks (not <pre>: raw worker data is the only preformatted content in the answer area).
   function inline(text) {
     const out = [];
     for (const part of String(text).split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)\s]+\))/)) {
@@ -59,7 +60,7 @@
       if (list) blocks.push(list); list = null;
     };
     for (const line of lines) {
-      if (/^```/.test(line)) { if (fence) { blocks.push(el('pre', {class: 'code'}, fence.join('\n'))); fence = null; } else { flush(); fence = []; } continue; }
+      if (/^```/.test(line)) { if (fence) { blocks.push(el('div', {class: 'guide-block'}, fence.join('\n'))); fence = null; } else { flush(); fence = []; } continue; }
       if (fence) { fence.push(line); continue; }
       const item = /^\s*(?:[-*]|\d+[.)])\s+(.*)$/.exec(line);
       if (item) {
@@ -68,12 +69,12 @@
         if (!list || list.tagName.toLowerCase() !== tag) { if (list) blocks.push(list); list = el(tag, {}); }
         list.append(el('li', {}, ...inline(item[1]))); continue;
       }
-      if (/^\s*\|/.test(line)) { flush(); blocks.push(el('pre', {class: 'code'}, line)); continue; }
+      if (/^\s*\|/.test(line)) { flush(); blocks.push(el('div', {class: 'guide-block'}, line)); continue; }
       if (!line.trim()) { flush(); continue; }
       if (list) { blocks.push(list); list = null; }
       para.push(line.trim());
     }
-    if (fence) blocks.push(el('pre', {class: 'code'}, fence.join('\n')));
+    if (fence) blocks.push(el('div', {class: 'guide-block'}, fence.join('\n')));
     flush();
     return el('div', {class: cls + ' guide-md', dir: 'auto', lang: sourceLang(text)}, ...blocks);
   }
