@@ -38,6 +38,57 @@
   const reasonText = code => REASONS[code] ? L(...REASONS[code]) : L('The Guide refused this result. No excerpts were released.', 'رفض الدليل هذه النتيجة. لم تُعرض مقتطفات.');
   const number = value => Number(value).toLocaleString(language);
   const sourceLang = value => /[\u0600-\u06ff]/.test(value) ? 'ar' : 'en';
+  // Excerpts are Markdown from the reviewed docs. Render a small closed subset as DOM nodes, never as HTML:
+  // paragraphs, bullet and numbered lists, **bold**, `code`, [link text](target) as its text, fenced blocks and tables as code.
+  function inline(text) {
+    const out = [];
+    for (const part of String(text).split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)\s]+\))/)) {
+      if (!part) continue;
+      if (/^\*\*[^*]+\*\*$/.test(part)) out.push(el('strong', {}, part.slice(2, -2)));
+      else if (/^`[^`]+`$/.test(part)) out.push(el('code', {}, part.slice(1, -1)));
+      else if (/^\[[^\]]+\]\([^)\s]+\)$/.test(part)) out.push(part.slice(1, part.indexOf('](')));
+      else out.push(part);
+    }
+    return out;
+  }
+  function markdown(text, cls) {
+    const blocks = [], lines = String(text).split('\n');
+    let para = [], list = null, fence = null;
+    const flush = () => {
+      if (para.length) blocks.push(el('p', {}, ...inline(para.join(' ')))); para = [];
+      if (list) blocks.push(list); list = null;
+    };
+    for (const line of lines) {
+      if (/^```/.test(line)) { if (fence) { blocks.push(el('pre', {class: 'code'}, fence.join('\n'))); fence = null; } else { flush(); fence = []; } continue; }
+      if (fence) { fence.push(line); continue; }
+      const item = /^\s*(?:[-*]|\d+[.)])\s+(.*)$/.exec(line);
+      if (item) {
+        if (para.length) { blocks.push(el('p', {}, ...inline(para.join(' ')))); para = []; }
+        const tag = /^\s*\d/.test(line) ? 'ol' : 'ul';
+        if (!list || list.tagName.toLowerCase() !== tag) { if (list) blocks.push(list); list = el(tag, {}); }
+        list.append(el('li', {}, ...inline(item[1]))); continue;
+      }
+      if (/^\s*\|/.test(line)) { flush(); blocks.push(el('pre', {class: 'code'}, line)); continue; }
+      if (!line.trim()) { flush(); continue; }
+      if (list) { blocks.push(list); list = null; }
+      para.push(line.trim());
+    }
+    if (fence) blocks.push(el('pre', {class: 'code'}, fence.join('\n')));
+    flush();
+    return el('div', {class: cls + ' guide-md', dir: 'auto', lang: sourceLang(text)}, ...blocks);
+  }
+  // "Architecture · Model gateway": the document and its section, so two passages of one document stay distinct.
+  // Passages of one section in the same answer are numbered: "Architecture · Model gateway · passage 2".
+  function sectionTitle(source) {
+    const base = source.path.split('/').pop().replace(/\.md$/, '');
+    const arabic = /\.ar$/.test(base), words = base.replace(/\.ar$/, '').replace(/[-_]+/g, ' ');
+    const doc = words.charAt(0).toUpperCase() + words.slice(1) + (arabic ? L(' (Arabic)', ' (عربي)') : '');
+    return source.heading && source.heading !== source.path && source.heading.toLowerCase() !== words.toLowerCase() ? doc + ' · ' + source.heading : doc;
+  }
+  function sourceTitle(source, all) {
+    const title = sectionTitle(source), same = all.filter(other => sectionTitle(other) === title);
+    return same.length > 1 ? title + L(' · passage ', ' · مقطع ') + number(same.indexOf(source) + 1) : title;
+  }
   const validTrace = value => record(value) && value.request_id === result?.request_id
     && Number.isInteger(value.model_calls) && value.model_calls >= 0 && value.model_calls <= 1
     && Number.isInteger(value.tokens) && value.tokens >= 0 && record(value.redaction)
@@ -74,7 +125,7 @@
   function openSource(source, from) {
     const url = result?.source_commit ? 'https://github.com/lamanasser56/secure-financial-ai-infrastructure/blob/' + result.source_commit + '/' + source.path : null;
     const blocks = [
-      {label: L('Excerpt shown', 'المقتطف المعروض'), node: el('p', {class: 'guide-excerpt', dir: 'auto', lang: sourceLang(source.excerpt)}, source.excerpt)},
+      {label: L('Excerpt shown', 'المقتطف المعروض'), node: markdown(source.excerpt, 'guide-excerpt')},
       {label: L('Document', 'الوثيقة'), node: el('bdi', {class: 'mono', dir: 'ltr'}, source.path)},
       {label: L('Source scope', 'نطاق المصدر'), text: L('Selected from the bundled current corpus. Source selection does not prove relevance, completeness or deployed enforcement. Excerpts retain their source language.', 'اختير من مجموعة الوثائق الحالية المرفقة. اختيار المصدر لا يثبت الصلة أو الاكتمال أو الإنفاذ المنشور. يبقى المقتطف بلغة وثيقته.')},
       {label: L('Identifier check', 'فحص المعرّفات'), text: source.identifiers_masked ? L('Supported identifiers were masked in the displayed excerpt.', 'أُخفيت معرّفات مدعومة في المقتطف المعروض.') : L('The output check reported no text change. This does not mean every kind of personal data is masked.', 'لم يُبلّغ فحص الإخراج عن تغيير النص. لا يعني ذلك إخفاء كل أنواع البيانات الشخصية.')},
@@ -83,7 +134,7 @@
       {label: L('Content identities', 'معرّفات المحتوى'), node: el('pre', {class: 'code guide-code'}, source.id + '\n' + source.excerpt_sha256 + '\n' + result.corpus.manifest_sha256)},
       {label: L('Build metadata limits', 'حدود بيانات البناء'), text: L('These are declared source and content identities, not cryptographic verification of an image signature or source provenance.', 'هذه بيانات مصدر معلن ومعرّفات محتوى، وليست تحققًا تشفيريًا من توقيع صورة أو إسناد مصدرها.')},
     ];
-    Console.explain({eyebrow: L('DOCUMENT SOURCE', 'مصدر الوثيقة'), title: source.heading, blocks}, from);
+    Console.explain({eyebrow: L('DOCUMENT SOURCE', 'مصدر الوثيقة'), title: sourceTitle(source, result.sources), blocks}, from);
   }
   function openTrace(from) {
     const trace = result.trace;
@@ -146,12 +197,14 @@
     else if (!result) nodes.push(el('p', {class: 'muted guide-state'}, L('Ask about the platform. Details and sources open when selected.', 'اسأل عن المنصة. تُفتح التفاصيل والمصادر عند اختيارها.')));
     else {
       if (result.status === 'answered') {
-        for (const source of result.sources) nodes.push(el('p', {class: 'guide-excerpt', dir: 'auto', lang: sourceLang(source.excerpt)}, source.excerpt));
+        result.sources.forEach((source, i) => nodes.push(el('div', {class: 'guide-quote'},
+          el('div', {class: 'guide-quote-from'}, L('Source ', 'المصدر ') + number(i + 1) + ' · ', el('span', {dir: 'auto'}, sourceTitle(source, result.sources))),
+          markdown(source.excerpt, 'guide-excerpt'))));
         nodes.push(el('ul', {class: 'guide-sources', 'aria-label': L('Selected sources', 'المصادر المختارة')}, result.sources.map((source, i) => el('li', {},
           el('button', {type: 'button', class: 'btn link', onclick: event => openSource(source, event.currentTarget)},
-            L('Source ', 'المصدر ') + number(i + 1), el('span', {class: 'guide-source-name', dir: 'auto'}, source.heading))))));
+            L('Source ', 'المصدر ') + number(i + 1), el('span', {class: 'guide-source-name', dir: 'auto'}, sourceTitle(source, result.sources)))))));
+        nodes.push(el('p', {class: 'guide-note muted'}, L('Open a source for its document, revision and identifier check. Excerpts retain their source language.', 'افتح المصدر لعرض وثيقته ونسختها وفحص المعرّفات. تبقى المقتطفات بلغة مصادرها.')));
       } else nodes.push(el('p', {class: 'guide-state', role: 'status'}, reasonText(result.reason)));
-      nodes.push(el('p', {class: 'guide-note muted'}, L('Preview only; open a source for the full excerpt. Excerpts retain their source language.', 'معاينة فقط؛ افتح المصدر لقراءة المقتطف كاملًا. تبقى المقتطفات بلغة مصادرها.')));
       nodes.push(validTrace(result.trace) ? el('button', {class: 'btn link', type: 'button', onclick: event => openTrace(event.currentTarget)}, L('Inspect request trace', 'فحص أثر الطلب'))
         : el('p', {class: 'muted'}, L('Worker report unavailable; no trace evidence is inferred.', 'إفادة العامل غير متاحة؛ لا نفترض دليلًا من الأثر.')));
     }

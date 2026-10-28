@@ -25,9 +25,13 @@ flowchart LR
   executor --> kube[Kubernetes API and admission]
 ```
 
+### Network
+
+Agents cannot reach the internet or each other. Every agent namespace starts from a default-deny NetworkPolicy for ingress and egress; the release then allows only DNS and the platform services that agent needs (the model gateway boundary, the redactor and, for the Financial workers, the data broker). No egress rule points at an address range and the cluster has no Cloud NAT, so there is no route out. Calls to Google's model and DLP APIs leave only from the platform's model gateway and redactor, through private endpoints for the named Google hostnames. Agent Pods also cannot reach the database, the private model provider gateway, the approval executor, the Kubernetes API or the cloud metadata server.
+
 ### Model gateway
 
-The Map's **Model gateway** cell groups three parts: `gateway-boundary` accepts bounded requests and authenticates the caller; `redactor` masks supported identifier patterns; the private `gateway`/LiteLLM provider path uses the scoped upstream credential. The subtitle is **identifiers masked first**.
+Every model request from an agent passes three parts in order. `gateway-boundary` accepts a bounded request and authenticates the calling agent. `redactor` masks supported identifier patterns in each message. Only then does the private `gateway` (LiteLLM) call the model provider, with an upstream credential scoped to that agent. Identifiers are masked before a request leaves the cluster.
 
 Workers' public gateway credentials do not authenticate directly to the private LiteLLM service. `agent_platform.gateway_boundary.GatewayBoundary` validates the alias and message shape, redacts each accepted message, discards caller-supplied request metadata and generates its own request ID before dispatch. Failure refuses the affected call. Client-side masking is additional protection, not the enforcement authority for a hostile worker.
 
@@ -41,13 +45,13 @@ The broker endpoint checks caller identity, capability signature, active status,
 
 ### Approval executor
 
-The Ops agent reads observations and proposes actions. It has no workload mutation authority. The trusted app signs the owner's approval; the independent `ops-executor` authenticates and verifies it, checks the registered action/target and current evidence, and performs the bounded patch. RBAC and admission restrict this identity to declared targets and allowed restart/scale changes. Model explanations are display-only and do not grant authority.
+Only the independent approval executor (`ops-executor`) can execute an approved change, and only after the owner signs the approval. The Ops agent reads observations and proposes actions. It has no workload mutation authority. The trusted app signs the owner's approval; the independent `ops-executor` authenticates and verifies it, checks the registered action/target and current evidence, and performs the bounded patch. RBAC and admission restrict this identity to declared targets and allowed restart/scale changes. Model explanations are display-only and do not grant authority.
 
 `platform/core/src/agent_platform/ops/authority.json` declares managed roles, exact bindings and subjects. Generated RBAC and posture comparison use this inventory. Unexpected subjects are findings. Read-only targets, including Financial workers and the executor itself, cannot become remediation targets merely because a finding exists.
 
 ### Request events
 
-The Map strip reads **Audit · request events**. Components emit bounded events and worker-produced trace metadata. These are not a complete, independently joined or durable audit of every request. Worker trace fields do not prove enforcement by the broker or model boundary. [Request trace](platform/request-trace.md) describes their actual scope.
+Platform components emit bounded request events, and workers return trace metadata with each answer. These are not a complete, independently joined or durable audit of every request. Worker trace fields do not prove enforcement by the broker or model boundary. [Request trace](platform/request-trace.md) describes their actual scope.
 
 ## Infrastructure and release
 
