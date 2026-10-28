@@ -188,6 +188,9 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .tabsel button[aria-pressed='true'] { color: var(--ink); border-color: var(--ink); }
 .atk { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 14px 22px; border-top: 1px solid var(--hair); }
 .atk:first-of-type { border-top: 0; } .atk b { font: 700 24px/1.2 var(--head); display: block; } .atk .by { color: var(--muted); font-size: 14px; } .atk time { color: var(--muted); font: 400 12px var(--mono); }
+button.atk { width: 100%; background: none; border: 0; border-top: 1px solid var(--hair); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+button.atk:hover { background: rgba(242, 247, 255, 0.04); } button.atk .what { display: block; min-width: 0; } button.atk .by { display: block; }
+.result .note ul.why { margin: 6px 0 0; padding-left: 18px; font-size: 14px; } .result .note ul.why li { margin: 4px 0; }
 .atk .chip { font-size: 13px; padding: 4px 10px; } .atk .note { grid-column: 2 / -1; font-size: 14px; border-left: 3px solid var(--denied); padding-left: 10px; }
 .result .note { margin: 14px 0 6px; font-size: 15px; border-left: 3px solid var(--denied); padding-left: 12px; } .result .note p { margin: 4px 0 0; }
 .more { padding: 14px 22px; border-top: 1px solid var(--hair); }

@@ -159,6 +159,53 @@ class Orchestration(unittest.TestCase):
         self.assertEqual([r['verdict'] for r in rows],['NOT_EXERCISED','NOT_EXERCISED','PASS'])
         self.assertEqual(called,[True])
 
+    def test_the_cases_own_reason_is_recorded_never_free_text(self):
+        def unavailable(): raise NotExercised('dns_or_target_failure')
+        def odd(): raise NotExercised('Free text with private-project-fixture')
+        def crashed(): raise KeyError('x')
+        rows=run([Case('setup_case','control',unavailable),Case('attack_case','attack',lambda:(True,{}),('setup_case',)),
+            Case('odd_case','attack',odd),Case('crash_case','attack',crashed)],emit=lambda _:None)
+        self.assertEqual([r['evidence'] for r in rows],[
+            {'reason':'CONTROL_UNAVAILABLE','detail':'dns_or_target_failure'},
+            {'reason':'DEPENDENCY_UNAVAILABLE','detail':'requires_setup_case'},
+            {'reason':'CONTROL_UNAVAILABLE','detail':'not_exercised'},
+            {'reason':'CASE_UNAVAILABLE','detail':'key_error'}])
+        self.assertNotIn('private-project-fixture',json.dumps(rows))
+
+    def test_positive_control_retries_only_transient_provider_failures(self):
+        replies=iter([{'status':503,'code':'MODEL_UNAVAILABLE'},{'status':429,'code':'INVALID_REPLY'},{'status':200}])
+        waits=[]
+        with patch.object(attack_suite,'boundary_request',lambda worker:next(replies)):
+            self.assertEqual(attack_suite.boundary_positive('agent-u1',sleep=waits.append),({'status':200},3))
+        self.assertEqual(waits,[5,15])
+        for refusal in ({'status':503,'code':'REDACTION_UNAVAILABLE'},{'status':400,'code':'MESSAGES_REJECTED'}):
+            calls=[]
+            with patch.object(attack_suite,'boundary_request',lambda worker:calls.append(1) or refusal):
+                self.assertEqual(attack_suite.boundary_positive('agent-u1',sleep=lambda _:None),(refusal,1))
+        always=lambda worker:{'status':503,'code':'MODEL_UNAVAILABLE'}
+        with patch.object(attack_suite,'boundary_request',always):
+            self.assertEqual(attack_suite.boundary_positive('agent-u1',sleep=lambda _:None)[1],4)
+
+    def test_active_pair_is_attempted_twice_inside_one_probe_window_and_records_why(self):
+        import contextlib, attack_runtime
+        windows=[];attempts=[]
+        @contextlib.contextmanager
+        def window(k,namespace,name,source):
+            windows.append(name); yield
+        def flaky(ask,inspect,finish):
+            attempts.append(1)
+            if len(attempts)==1: raise NotExercised('active_turn_not_established')
+            return True,{'workers':[{'verdict':'PASS'}]}
+        with patch.object(attack_runtime,'temporary_worker',window):
+            ok,evidence=attack_runtime.run_capability_probe(None,None,('a','b'),['agent-u1','agent-u2'],pair=flaky,sleep=lambda _:None)
+        self.assertTrue(ok)
+        self.assertEqual(windows,['agent-u1','agent-u2'])
+        self.assertEqual((evidence['pair_attempts'],evidence['first_attempt_reason']),(2,'active_turn_not_established'))
+        def never(ask,inspect,finish): raise NotExercised('active_turn_did_not_finish')
+        with patch.object(attack_runtime,'temporary_worker',window), self.assertRaises(NotExercised) as raised:
+            attack_runtime.run_capability_probe(None,None,('a','b'),['agent-u1','agent-u2'],pair=never,sleep=lambda _:None)
+        self.assertEqual(str(raised.exception),'active_turn_did_not_finish')
+
     def test_cleanup_failure_stops_later_attacks_but_runs_remaining_cleanup(self):
         called=[]
         def failed(): raise RestoreFailed('synthetic')

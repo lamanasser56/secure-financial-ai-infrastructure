@@ -46,6 +46,18 @@ def safe_evidence(value, private=(), depth=0):
     raise ValueError('evidence_shape')
 
 
+DETAIL = re.compile(r'[a-z][a-z0-9_]{2,60}')
+
+
+def detail(error):
+    """The case's own closed reason (NotExercised('dns_or_target_failure')), or the exception type: never free text."""
+    text = str(error) if isinstance(error, (NotExercised, RestoreFailed)) else ''
+    if DETAIL.fullmatch(text):
+        return text
+    name = re.sub(r'(?<!^)(?=[A-Z])', '_', type(error).__name__).lower()
+    return name if DETAIL.fullmatch(name) else 'unspecified'
+
+
 def nested_verdict(value, verdict='NOT_EXERCISED'):
     if isinstance(value,dict):
         return value.get('verdict')==verdict or any(nested_verdict(v,verdict) for v in value.values())
@@ -59,23 +71,25 @@ def run(cases, *, private=(), emit=print):
     rows=[]; seen={}; stopped=False
     for case in cases:
         at=datetime.datetime.now(datetime.timezone.utc).isoformat()
-        verdict,evidence='NOT_EXERCISED',{'reason':'DEPENDENCY_UNAVAILABLE'}
+        missing=[name for name in case.requires if seen.get(name)!='PASS']
+        verdict,evidence='NOT_EXERCISED',{'reason':'DEPENDENCY_UNAVAILABLE','detail':'cleanup_failed_earlier' if stopped and not missing
+                                          else ('requires_'+missing[0])[:61] if missing else 'unspecified'}
         if case.always or (not stopped and all(seen.get(name)=='PASS' for name in case.requires)):
             try:
                 ok,evidence=case.run()
                 if type(ok) is not bool or type(evidence) is not dict: raise ValueError('case_reply')
                 evidence=safe_evidence(evidence,private)
                 verdict='FAIL' if nested_verdict(evidence,'FAIL') else 'NOT_EXERCISED' if nested_verdict(evidence) else 'PASS' if ok else 'FAIL'
-            except RestoreFailed:
-                verdict,evidence='FAIL',{'reason':'CLEANUP_INCOMPLETE'}
+            except RestoreFailed as error:
+                verdict,evidence='FAIL',{'reason':'CLEANUP_INCOMPLETE','detail':detail(error)}
                 stopped=True
-            except NotExercised:
-                verdict,evidence='NOT_EXERCISED',{'reason':'CONTROL_UNAVAILABLE'}
-            except KeyboardInterrupt:
-                verdict,evidence='NOT_EXERCISED',{'reason':'INTERRUPTED'}
+            except NotExercised as error:
+                verdict,evidence='NOT_EXERCISED',{'reason':'CONTROL_UNAVAILABLE','detail':detail(error)}
+            except KeyboardInterrupt as error:
+                verdict,evidence='NOT_EXERCISED',{'reason':'INTERRUPTED','detail':detail(error)}
                 stopped=True
-            except (Exception,SystemExit):
-                verdict,evidence='NOT_EXERCISED',{'reason':'CASE_UNAVAILABLE'}
+            except (Exception,SystemExit) as error:
+                verdict,evidence='NOT_EXERCISED',{'reason':'CASE_UNAVAILABLE','detail':detail(error)}
         row={'case':case.name,'kind':case.kind,'result':'PASS' if verdict=='PASS' else 'FAIL',
              'verdict':verdict,'at':at,'evidence':evidence}
         rows.append(row); seen[case.name]=verdict

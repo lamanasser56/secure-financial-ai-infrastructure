@@ -198,12 +198,29 @@ def active_pair(ask, inspect, finish, *, timeout=20):
         return all(s.get('verdict') == 'PASS' for s in summaries), {'workers': summaries}
 
 
-def run_capability_probe(k, app, sessions, workers):
+PAIR_ATTEMPTS = 2  # establishing two simultaneous turns is timing-sensitive; the boundary checks themselves are never retried
+
+
+def run_capability_probe(k, app, sessions, workers, *, attempts=PAIR_ATTEMPTS, pair=None, sleep=time.sleep):
     from contextlib import ExitStack
     source = (Path(__file__).parent / 'attack_probes/financial_probe.py').read_text()
+    pair = pair or active_pair
     with ExitStack() as stack:
         for worker in workers:
             stack.enter_context(temporary_worker(k, 'agent-financial', worker, source))
-        return active_pair(lambda i: app.ask(sessions[i], 'Synthetic active broker boundary probe.'),
-            lambda i, body: control(k, 'agent-financial', workers[i], body),
-            lambda i, body: control(k, 'agent-financial', workers[i], body))
+        first = None
+        for attempt in range(1, attempts + 1):
+            try:
+                ok, evidence = pair(lambda i: app.ask(sessions[i], 'Synthetic active broker boundary probe.'),
+                    lambda i, body: control(k, 'agent-financial', workers[i], body),
+                    lambda i, body: control(k, 'agent-financial', workers[i], body))
+            except NotExercised as error:
+                first = first or str(error)
+                if attempt == attempts:
+                    raise
+                sleep(5)
+                continue
+            evidence = dict(evidence, pair_attempts=attempt)
+            if first:
+                evidence['first_attempt_reason'] = first
+            return ok, evidence
