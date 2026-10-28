@@ -161,7 +161,8 @@
   }
 
   Console.screens.ops = (view, arg, alive) => {
-    // Background polls never disable the button: it only looked unusable. A click during a poll queues one more refresh.
+    // Only a click disables the button, until its refresh lands; background polls never touch it (it looked unusable every
+    // 6 s). A click during a poll queues one more refresh.
     const refreshButton = el('button', {type: 'button', class: 'btn inverse', onclick: () => refresh(true)}, 'Refresh Ops');
     view.append(Console.head('Security & Operations', 'Observed workloads, scoped checks and owner actions.', refreshButton));
     const board = el('section', {class: 'panel', 'aria-label': 'Workload observations'}, 'Loading…');
@@ -182,7 +183,7 @@
       if (!alive()) return;
       if (busy) { again = again || manual === true; return; }
       busy = true;
-      if (manual === true) { refreshButton.setAttribute('aria-busy', 'true'); refreshButton.textContent = 'Refreshing…'; }
+      if (manual === true) { refreshButton.disabled = true; refreshButton.setAttribute('aria-busy', 'true'); }
       try {
         const [overview, security, agents] = await Promise.all([call({operation: 'overview'}), call({operation: 'security'}), Console.getJSON('/api/console/agents')]);
         if (!alive()) return;
@@ -232,7 +233,7 @@
       } finally {
         busy = false;
         if (alive()) {
-          refreshButton.removeAttribute('aria-busy'); refreshButton.textContent = 'Refresh Ops';
+          refreshButton.disabled = false; refreshButton.removeAttribute('aria-busy');
           if (again) { again = false; refresh(true); }
         }
       }

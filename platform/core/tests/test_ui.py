@@ -174,8 +174,10 @@ class Scripts(unittest.TestCase):
 
     def test_refresh_buttons_are_never_disabled_by_background_polls(self):
         ops, onboard = (FRONT / 'ops.js').read_text(), (FRONT / 'onboard.js').read_text()
-        self.assertNotIn('refreshButton.disabled', ops)
-        self.assertNotIn('check.disabled', onboard)
+        self.assertIn("if (manual === true) { refreshButton.disabled = true;", ops)  # only a click disables it
+        self.assertIn("if (manual === true) { check.disabled = true;", onboard)
+        self.assertEqual(ops.count('refreshButton.disabled = true'), 1)
+        self.assertEqual(onboard.count('check.disabled = true'), 1)
         self.assertIn("refresh(true)", ops)
         self.assertIn("tick(true)", onboard)
 
