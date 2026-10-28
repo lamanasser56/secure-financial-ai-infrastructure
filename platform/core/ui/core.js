@@ -213,13 +213,22 @@
     }
     const d = r.data;
     // An observation is scoped to its source; it does not certify the whole control or every request.
-    const seen = !!d.proof && typeof narrow(d.proof, focus).namespaces !== 'string';
-    explain({eyebrow: seen ? 'EXPLAIN · OBSERVED' : 'EXPLAIN · DECLARED', live: seen, title: d.title, sub: LAYER[topic],
+    const seen = !!d.proof && typeof narrow(d.proof, focus).namespaces !== 'string', attacked = !!d.attack_proof;
+    explain({eyebrow: seen ? 'EXPLAIN · OBSERVED' : attacked ? 'EXPLAIN · PROVEN BY ATTACK RUN' : 'EXPLAIN · DECLARED', live: seen || attacked,
+             title: d.title, sub: LAYER[topic],
              blocks: [{label: 'In plain words', text: d.plain}, {label: 'How it works', text: d.how},
-                      {label: 'Proof' + (d.proof && d.proof.source ? ' · ' + d.proof.source : ''), node: proofBox(d.proof, focus)},
-                      {label: 'Without it', text: d.without, cls: 'without'}], file: d.file}, from);
+                      attacked ? {label: "Proven by this release's attack run", node: attackProof(d.attack_proof)} : null,
+                      d.proof || !attacked ? {label: 'Proof' + (d.proof && d.proof.source ? ' · ' + d.proof.source : ''), node: proofBox(d.proof, focus)} : null,
+                      {label: 'Without it', text: d.without, cls: 'without'}].filter(Boolean), file: d.file}, from);
+  }
+  // Attack cases of the current release's report that held this boundary; each links to its case on Break it.
+  function attackProof(proof) {
+    return el('div', {class: 'attack-proof'}, el('ul', {}, proof.cases.map(c => el('li', {},
+      el('a', {href: '/#/break/' + encodeURIComponent(c.case)}, 'Case ' + c.number + ' · ' + c.label + ' →'),
+      el('span', {class: 'muted'}, ' boundary held · ' + c.at.slice(0, 19).replace('T', ' ') + ' UTC')))),
+      el('p', {class: 'muted'}, proof.source + ' · run ' + proof.run_id.slice(0, 8) + '…'));
   }
   const head = (title, sub, action) => el('div', {class: 'head'}, el('div', {}, el('h1', {}, title), sub ? el('p', {class: 'sub'}, sub) : null), action || null);
   const empty = (title, text) => el('div', {class: 'panel empty'}, el('strong', {}, title), text);
-  window.Console = {setLanguage, captureSource, codeURL, head, empty, el, $, reduced, observeAPI, setSourcesUnavailable, getJSON, clock, ago, shortDigest, proofBox, explain, explainTopic, close, setDock, screens: {}};
+  window.Console = {setLanguage, captureSource, codeURL, head, empty, el, $, reduced, observeAPI, setSourcesUnavailable, getJSON, clock, ago, shortDigest, proofBox, attackProof, explain, explainTopic, close, setDock, screens: {}};
 })();
