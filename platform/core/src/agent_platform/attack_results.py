@@ -8,10 +8,18 @@ import json
 import re
 
 CONFIGMAP, NAMESPACE, KEY = 'attack-results', 'apps', 'attack-suite.json'
-SUITE, VERSION = 'agent-platform-attacks', 2
+SUITE, VERSION = 'agent-platform-attacks', 3
+READABLE = (2, 3)  # v2 rows carry no reason or facts
 SHA = re.compile(r'[0-9a-f]{40}')
 DIGEST = re.compile(r'sha256:[0-9a-f]{64}')
 CASE = re.compile(r'[a-z][a-z0-9_]{2,80}')
+REASON = re.compile(r'[a-z][a-z0-9_]{2,60}')
+FACT_KEY = re.compile(r'[a-z][a-z0-9_.:/ ,()-]{0,99}')
+# Closed tokens only: codes (OBJECT_CHANGED), snake words (rejected_by_binary_authorization), request IDs, worker names.
+# Hyphenated or free text (a project ID, a key) never fits, so a fact cannot carry it even from a hand-edited ConfigMap.
+FACT_TEXT = re.compile(r'[A-Z][A-Z0-9_:]{0,60}|[a-z][a-z0-9_]{0,60}|[0-9a-f]{32}|agent-u[0-9]{1,2}')
+CREDENTIAL = re.compile(r'(^|[._ ])(password|token|capability|authorization|cookie|csrf|secret|key|private_key|api_key)$')
+MAX_FACTS = 24
 TIME = re.compile(r'20[0-9]{2}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-5][0-9]:[0-5][0-9](\.[0-9]{1,6})?(\+00:00|Z)')
 
 # One case inventory: the executable owner registry must match it exactly. Display
@@ -66,9 +74,55 @@ def binding(value):
     return {'id': value['id'], 'source_commit': value['source_commit'], 'images': list(value['images'])}
 
 
+def reason_of(row):
+    """Closed reason for a row that did not pass: the case's own detail first, then the runner's category."""
+    if 'evidence' not in row:
+        value = row.get('reason')
+        if value is not None and (type(value) is not str or not REASON.fullmatch(value) or row['verdict'] == 'PASS'):
+            raise ValueError('attack_results:reason')
+        return value
+    if row['verdict'] == 'PASS':
+        return None
+    evidence = row['evidence'] if type(row['evidence']) is dict else {}
+    for key in ('detail', 'reason'):
+        value = evidence.get(key)
+        if type(value) is str and REASON.fullmatch(value.lower()):
+            return value.lower()
+    return 'not_recorded'
+
+
+def facts_of(row):
+    """Closed, bounded scalar facts from the case's evidence ("workers.0.checks.forged_user": true). Never free text."""
+    if 'evidence' not in row:
+        facts = row.get('facts', [])
+        if (type(facts) is not list or len(facts) > MAX_FACTS or any(
+                type(f) is not list or len(f) != 2 or type(f[0]) is not str or not FACT_KEY.fullmatch(f[0])
+                or (type(f[1]) is str and CREDENTIAL.search(f[0]))
+                or not (type(f[1]) in (bool, int) or (type(f[1]) is str and FACT_TEXT.fullmatch(f[1])))
+                for f in facts)):
+            raise ValueError('attack_results:facts')
+        return [list(f) for f in facts]
+    out = []
+    def walk(prefix, value):
+        if len(out) >= MAX_FACTS:
+            return
+        if type(value) is dict:
+            for key in sorted(value):
+                if type(key) is str and FACT_KEY.fullmatch((prefix + '.' if prefix else '') + key):
+                    walk((prefix + '.' if prefix else '') + key, value[key])
+        elif type(value) is list:
+            for index, item in enumerate(value[:8]):
+                walk(prefix + '.' + str(index), item)
+        elif prefix and FACT_KEY.fullmatch(prefix) and (type(value) in (bool, int) and abs(value) < 10**9
+                                                        or type(value) is str and FACT_TEXT.fullmatch(value) and not CREDENTIAL.search(prefix)):
+            out.append([prefix, value])
+    walk('', row['evidence'] if type(row.get('evidence')) is dict else {})
+    return out
+
+
 def sanitize(data):
     """Current producer contract. Missing, duplicate or unknown required cases cannot look complete."""
-    if (type(data) is not dict or type(data.get('schema_version')) is not int or data['schema_version'] != VERSION or data.get('suite') != SUITE
+    if (type(data) is not dict or type(data.get('schema_version')) is not int or data['schema_version'] not in READABLE or data.get('suite') != SUITE
             or type(data.get('run_id')) is not str or not re.fullmatch(r'[0-9a-f]{32}', data['run_id'])
             or type(data.get('results')) is not list or len(data['results']) != len(CASES)):
         raise ValueError('attack_results:shape')
@@ -87,8 +141,11 @@ def sanitize(data):
         at = timestamp(row.get('at'))
         if datetime.datetime.fromisoformat(at.replace('Z', '+00:00')) > datetime.datetime.fromisoformat(completed.replace('Z', '+00:00')):
             raise ValueError('attack_results:order')
-        rows.append({key: row[key] for key in ('case', 'kind', 'verdict', 'result', 'at')})
-    return {'schema_version': VERSION, 'suite': SUITE, 'run_id': data['run_id'],
+        out = {key: row[key] for key in ('case', 'kind', 'verdict', 'result', 'at')}
+        if data['schema_version'] >= 3:
+            out['reason'], out['facts'] = reason_of(row), facts_of(row)
+        rows.append(out)
+    return {'schema_version': data['schema_version'], 'suite': SUITE, 'run_id': data['run_id'],
             'runner_commit': runner, 'release': binding(data.get('release')),
             'completed_at': completed, 'results': rows}
 
@@ -131,7 +188,18 @@ def view(data, expected):
                         'not_exercised': sum(r['verdict'] == 'NOT_EXERCISED' for r in rows)}
     return dict(report, available=True, binding=match, source='mounted', file='ConfigMap apps/attack-results',
                 complete=match != 'historical' and report['runner_commit'] is not None and all(r['verdict'] != 'NOT_EXERCISED' for r in report['results']),
-                summary=groups)
+                incomplete=incomplete(report, match), summary=groups)
+
+
+def incomplete(report, match):
+    """Why this report cannot qualify the release, as closed items the console names one by one."""
+    if match == 'historical':
+        return []
+    out = [{'case': r['case'], 'label': r['label'], 'kind': r['kind'], 'verdict': r['verdict'], 'reason': r.get('reason')}
+           for r in report['results'] if r['verdict'] != 'PASS']
+    if report['runner_commit'] is None:
+        out.append({'case': None, 'label': 'Runner source', 'kind': None, 'verdict': None, 'reason': 'runner_commit_not_recorded'})
+    return out
 
 
 def configmap(data):

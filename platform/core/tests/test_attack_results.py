@@ -43,9 +43,57 @@ class Shape(unittest.TestCase):
     def test_only_public_binding_closed_cases_and_metadata_survive(self):
         clean = attack_results.sanitize(report())
         self.assertEqual(set(clean), {'schema_version', 'suite', 'run_id', 'runner_commit', 'release', 'completed_at', 'results'})
-        self.assertTrue(all(set(r) == {'case', 'kind', 'result', 'verdict', 'at'} for r in clean['results']))
+        self.assertTrue(all(set(r) == {'case', 'kind', 'result', 'verdict', 'at', 'reason', 'facts'} for r in clean['results']))
         for secret in (PROJECT, 'sk-', 'password', 'raw'):
             self.assertNotIn(secret, json.dumps(clean))
+
+    def test_v3_keeps_the_real_reason_and_closed_facts_only(self):
+        run = report()
+        run['results'][3].update(result='FAIL', verdict='NOT_EXERCISED',
+                                 evidence={'reason': 'CONTROL_UNAVAILABLE', 'detail': 'active_turn_not_established'})
+        run['results'][4]['evidence'] = {'forged_session_cookie': 401, 'lama_sees_sara_rows': False, 'code': 'OBJECT_CHANGED',
+                                         'worker': 'agent-u2', 'request_id': 'e'*32, 'note': 'free text: ' + PROJECT,
+                                         'project': PROJECT, 'api_key': 'abc', 'nested': {'session_token': 'x', 'checks': [{'forged_user': True}]}}
+        clean = attack_results.sanitize(run)
+        self.assertEqual(clean['results'][3]['reason'], 'active_turn_not_established')
+        self.assertIsNone(clean['results'][4]['reason'])
+        self.assertEqual(dict(map(tuple, clean['results'][4]['facts'])), {
+            'forged_session_cookie': 401, 'lama_sees_sara_rows': False, 'code': 'OBJECT_CHANGED', 'worker': 'agent-u2',
+            'request_id': 'e'*32, 'nested.checks.0.forged_user': True})
+        self.assertNotIn(PROJECT, json.dumps(clean))
+        # The ConfigMap round trip (writer sanitizes, console sanitizes again) keeps both.
+        again = attack_results.view(json.loads(attack_results.configmap(run)['data'][attack_results.KEY]), run['release'])
+        self.assertEqual(again['results'][3]['reason'], 'active_turn_not_established')
+        self.assertEqual(again['results'][4]['facts'], clean['results'][4]['facts'])
+        self.assertEqual([(i['case'], i['reason']) for i in again['incomplete']], [(run['results'][3]['case'], 'active_turn_not_established')])
+
+    def test_a_reason_without_detail_falls_back_to_the_runner_category_and_never_to_free_text(self):
+        run = report()
+        run['results'][0].update(result='FAIL', verdict='NOT_EXERCISED', evidence={'reason': 'CONTROL_UNAVAILABLE'})
+        run['results'][1].update(result='FAIL', verdict='FAIL', evidence={'reason': 'see ' + PROJECT})
+        rows = attack_results.sanitize(run)['results']
+        self.assertEqual((rows[0]['reason'], rows[1]['reason']), ('control_unavailable', 'not_recorded'))
+
+    def test_a_hand_edited_configmap_cannot_smuggle_text_through_reason_or_facts(self):
+        clean = attack_results.sanitize(report())
+        for row in ({'reason': PROJECT}, {'reason': 'ok_reason'},  # a PASS row has no reason
+                    {'facts': [['note', PROJECT]]}, {'facts': [['api_key', 'abc']]}, {'facts': [['x', 'y']] * 25}):
+            bad = deepcopy(clean); bad['results'][0].update(row)
+            with self.subTest(row=row), self.assertRaises(ValueError):
+                attack_results.sanitize(bad)
+
+    def test_version_2_reports_stay_readable_without_reasons(self):
+        run = report(); run['schema_version'] = 2
+        clean = attack_results.sanitize(run)
+        self.assertEqual(clean['schema_version'], 2)
+        self.assertTrue(all(set(r) == {'case', 'kind', 'result', 'verdict', 'at'} for r in clean['results']))
+        self.assertEqual(attack_results.view(run, run['release'])['incomplete'], [])
+
+    def test_missing_runner_identity_is_named_as_the_reason(self):
+        run = report(); run['runner_commit'] = None
+        value = attack_results.view(run, run['release'])
+        self.assertFalse(value['complete'])
+        self.assertEqual([i['reason'] for i in value['incomplete']], ['runner_commit_not_recorded'])
 
     def test_missing_duplicate_unknown_and_misclassified_cases_cannot_qualify(self):
         original = report()

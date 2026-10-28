@@ -154,6 +154,15 @@ class Scripts(unittest.TestCase):
         self.assertIn('No mounted results.', attacks)
         self.assertIn('/api/console/attacks', attacks)
 
+    def test_break_it_cases_open_and_counts_are_split_by_kind(self):
+        attacks = (FRONT / 'attacks.js').read_text()
+        self.assertIn("el('button', {type: 'button', class: 'atk'", attacks)  # every case is openable
+        self.assertIn('openCase(d, row, index', attacks)
+        self.assertIn("'Attack cases: ' + counts(attacks, 'held')", attacks)
+        self.assertIn("'Controls: ' + counts(controls, 'passed')", attacks)
+        self.assertIn('d.incomplete', attacks)  # the note names each case and its recorded reason
+        self.assertNotIn('Required execution or runner identity is missing', attacks)
+
     def test_ops_is_minimal_and_has_no_rollback(self):
         ops = (FRONT / 'ops.js').read_text()
         self.assertNotIn('rollback', ops.lower())
