@@ -122,6 +122,14 @@ class Shape(unittest.TestCase):
         self.assertEqual((value['summary']['attack']['failed'], value['summary']['attack']['not_exercised']), (1, 1))
         self.assertEqual(value['summary']['control']['passed'], 6)
 
+    def test_a_newer_runner_commit_keeps_the_report_current_for_the_same_release(self):
+        # The suite can run from a checkout newer than R (operator-side test code only): the binding compares the
+        # selected source, digests and declarations, never the runner's commit.
+        for runner in ('d'*40, 'f'*40):
+            run = report(); run['runner_commit'] = runner
+            value = attack_results.view(run, run['release'])
+            self.assertEqual((value['binding'], value['complete']), ('current', True))
+
     def test_source_image_or_declaration_change_breaks_the_release_match(self):
         run = report()
         self.assertEqual(attack_results.view(run, run['release'])['binding'], 'current')
