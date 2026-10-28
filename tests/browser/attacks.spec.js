@@ -65,7 +65,9 @@ test('every case opens with its outcome, recorded reason and facts', async ({pag
   await expect(drawer.getByText('EXPLAIN · CASE 3 OF 23 · ATTACK', {exact: true})).toBeVisible();
   await expect(drawer.getByText('The two simultaneous user turns could not be held open together.')).toBeVisible();
   await expect(drawer.getByText('active_turn_not_established', {exact: true})).toBeVisible();
-  await page.keyboard.press('Escape');
+});
+
+test('a held case shows the closed facts it recorded', async ({page}) => {
   await open(page, 'facts');
   await page.locator('.atk').filter({hasText: 'Forge a session or name another user'}).click();
   await expect(page.getByRole('dialog').locator('pre')).toHaveText('forged_session_cookie: 401\ninsert_naming_other_user: 400\nlama_sees_sara_rows: false');
