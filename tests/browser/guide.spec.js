@@ -44,7 +44,11 @@ for (const ar of [false, true]) {
     await ask(page, ar);
     expect(calls).toEqual([{question: ar ? 'ما الذي تخفيه بوابة النموذج؟' : 'What does the Model gateway mask?', language: ar ? 'ar' : 'en'}]);
     const reply = ar ? data.ar : data.en;
-    await expect(page.locator('.guide-excerpt')).toHaveText(reply.sources.map(source => source.excerpt));
+    // Excerpts render from Markdown: the visible text is the excerpt without its markers.
+    const plain = text => text.replace(/^```.*$/gm, '').replace(/^\s*(?:[-*]|\d+[.)])\s+/gm, '').replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/`([^`]+)`/g, '$1').replace(/\[([^\]]+)\]\([^)\s]+\)/g, '$1');
+    await expect(page.locator('#result .guide-excerpt')).toHaveText(reply.sources.map(source => plain(source.excerpt)));
+    if (reply.sources.some(source => /\*\*[^*]+\*\*/.test(source.excerpt))) await expect(page.locator('#result .guide-excerpt strong').first()).toBeVisible();
     await expect(page.locator('.guide-excerpt').first()).toHaveAttribute('lang', ar ? 'ar' : 'en');
     expect(await page.locator('#result').innerText()).not.toContain('grounded');
     expect(await page.locator('main pre').count()).toBe(0);
