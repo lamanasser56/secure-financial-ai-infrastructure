@@ -119,18 +119,24 @@ if __name__ == '__main__':
 
 class FreshControl(unittest.TestCase):
     STALE, REPLAY = {'result': 'DENIED', 'code': 'OBJECT_CHANGED'}, {'result': 'DENIED', 'code': 'ALREADY_USED'}
-    MOVED = {'result': 'DENIED', 'code': 'OBJECT_CHANGED'}
+    MOVED_REPLY = {'result': 'DENIED', 'code': 'OBJECT_CHANGED'}
+    MOVED = {'patched': 'rv_a', 'current_at_selection': 'rv_b', 'bound': 'rv_b', 'after_execution': 'rv_c'}
+    STILL = {'patched': 'rv_a', 'current_at_selection': 'rv_b', 'bound': 'rv_b', 'after_execution': 'rv_b'}
 
-    def test_a_version_moved_before_the_fresh_execution_is_not_exercised(self):
-        self.assertEqual(attack_suite.fresh_control_verdict(self.STALE, self.REPLAY, True, self.MOVED), 'NOT_EXERCISED')
+    def test_object_changed_with_a_proven_version_move_is_not_exercised(self):
+        self.assertEqual(attack_suite.fresh_control_verdict(self.STALE, self.REPLAY, True, self.MOVED_REPLY, self.MOVED), 'NOT_EXERCISED')
+
+    def test_object_changed_without_a_version_move_is_an_executor_defect(self):
+        self.assertEqual(attack_suite.fresh_control_verdict(self.STALE, self.REPLAY, True, self.MOVED_REPLY, self.STILL), 'FAIL')
 
     def test_the_fresh_control_passes_only_when_verified(self):
-        self.assertEqual(attack_suite.fresh_control_verdict(self.STALE, self.REPLAY, True, {'result': 'VERIFIED', 'code': 'ROLLOUT_COMPLETE_AND_HEALTHY'}), 'PASS')
-        self.assertEqual(attack_suite.fresh_control_verdict(self.STALE, self.REPLAY, True, {'result': 'DENIED', 'code': 'APPROVAL_REJECTED'}), 'FAIL')
+        verified = {'result': 'VERIFIED', 'code': 'ROLLOUT_COMPLETE_AND_HEALTHY'}
+        self.assertEqual(attack_suite.fresh_control_verdict(self.STALE, self.REPLAY, True, verified, self.STILL), 'PASS')
+        self.assertEqual(attack_suite.fresh_control_verdict(self.STALE, self.REPLAY, True, {'result': 'DENIED', 'code': 'APPROVAL_REJECTED'}, self.MOVED), 'FAIL')
 
     def test_a_broken_security_check_stays_a_failure_even_if_the_fresh_one_moved(self):
         for stale, replay, unchanged in (({'result': 'VERIFIED', 'code': 'X'}, self.REPLAY, True),
                                          (self.STALE, {'result': 'VERIFIED', 'code': 'X'}, True),
                                          (self.STALE, self.REPLAY, False)):
             with self.subTest(stale=stale, replay=replay, unchanged=unchanged):
-                self.assertEqual(attack_suite.fresh_control_verdict(stale, replay, unchanged, self.MOVED), 'FAIL')
+                self.assertEqual(attack_suite.fresh_control_verdict(stale, replay, unchanged, self.MOVED_REPLY, self.MOVED), 'FAIL')
