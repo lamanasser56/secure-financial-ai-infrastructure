@@ -116,6 +116,7 @@ class JsonKube:
                 if op['op'] in ('replace','add'): parent[key]=op['value']
                 if op['op']=='remove': del parent[key]
             self.doc=changed;self.doc['metadata']['resourceVersion']=str(int(self.doc['metadata']['resourceVersion'])+1)
+            return SimpleNamespace(returncode=0,stdout=json.dumps(self.doc) if args[-2:]==('-o','json') else '')
         return SimpleNamespace(returncode=0,stdout='')
 
 
@@ -142,6 +143,14 @@ class FaultCleanup(unittest.TestCase):
         kube=JsonKube()
         with temporary_annotation(kube): kube.doc['metadata']['annotations']['other-owner']='preserve'
         self.assertEqual(kube.doc['metadata']['annotations'],{'attack-suite/touched':'before','keep':'yes','other-owner':'preserve'})
+
+    def test_metadata_probe_reports_the_exact_version_its_own_patch_produced(self):
+        kube=JsonKube()
+        with temporary_annotation(kube) as patched:
+            self.assertEqual(patched['resource_version'],kube.doc['metadata']['resourceVersion'])  # the server's reply, '2'
+            self.assertEqual(patched['resource_version'],'2')
+            self.assertIsInstance(patched['patched_at'],float)
+        self.assertEqual(kube.doc['metadata']['resourceVersion'],'3')  # restored afterwards
 
     def test_metadata_probe_refuses_to_overwrite_same_field_changed_by_another_owner(self):
         kube=JsonKube()
@@ -205,6 +214,52 @@ class Orchestration(unittest.TestCase):
         with patch.object(attack_runtime,'temporary_worker',window), self.assertRaises(NotExercised) as raised:
             attack_runtime.run_capability_probe(None,None,('a','b'),['agent-u1','agent-u2'],pair=never,sleep=lambda _:None)
         self.assertEqual(str(raised.exception),'active_turn_did_not_finish')
+
+    def test_the_fresh_proposal_is_only_one_bound_to_the_suites_own_patched_version(self):
+        queries=[]
+        def fake_exec(namespace,deployment,code,container=None,input=None,**kwargs):
+            queries.append(json.loads(input))
+            return SimpleNamespace(returncode=0,stdout='null')
+        with patch.object(attack_suite,'exec_python',fake_exec),patch.object(attack_suite.time,'sleep',lambda _:None), \
+                patch.object(attack_suite.time,'time',side_effect=[0,1,2,200]):
+            with self.assertRaises(NotExercised) as raised:
+                attack_suite.signed_restart_proposal(exclude={'first'},wait=150,bound={'resource_version':'8812','patched_at':1793220000.5})
+        self.assertEqual(str(raised.exception),'no_proposal_for_patched_version')
+        self.assertEqual(queries[0],{'exclude':['first'],'resource_version':'8812','created_after':1793220000.5})
+        # In-pod selection: exact version equality (opaque, never ordered) and created after the patch.
+        self.assertIn("x['resource_version']==w['resource_version']",attack_suite.OPS_SNAPSHOT)
+        self.assertIn("x['created_at']>w['created_after']",attack_suite.OPS_SNAPSHOT)
+        self.assertNotRegex(attack_suite.OPS_SNAPSHOT,r"resource_version'\]\s*[<>]")
+
+    def test_only_a_provider_failure_is_retried_and_counted(self):
+        app=attack_suite.Financial.__new__(attack_suite.Financial); app.provider_retries=0
+        def replies(*values):
+            it=iter(values); app.call=lambda *a,**k:(200,next(it),None)
+        waits=[]
+        replies({'status':'blocked','reason':'model_unavailable'},{'status':'answered','answer':'ok'})
+        self.assertEqual(app.ask(('c','t'),'q',sleep=waits.append)['status'],'answered')
+        self.assertEqual((app.provider_retries,waits),(1,[20]))
+        replies(*[{'status':'blocked','reason':'model_unavailable'}]*3)
+        self.assertEqual(app.ask(('c','t'),'q',sleep=waits.append)['reason'],'model_unavailable')  # bounded: 3 tries
+        self.assertEqual(app.provider_retries,3)
+        for refusal in ({'status':'refused','reason':'rate_limited'},{'status':'refused','reason':'token_budget_exhausted'},
+                        {'status':'blocked','reason':'redaction_unavailable'},{'status':'blocked','reason':'ungrounded_claim'},
+                        {'status':'blocked','reason':'model_reply_incomplete'}):
+            replies(refusal,{'status':'answered','answer':'must not be reached'})
+            self.assertEqual(app.ask(('c','t'),'q',sleep=lambda _:self.fail('retried a platform refusal')),refusal)
+        self.assertEqual(app.provider_retries,3)
+
+    def test_model_cases_are_spaced_and_record_their_provider_retries(self):
+        state={'settings':{'project_id':''},'runner_commit':None}
+        cases={c.name:c for c in attack_suite.build_cases(state)}
+        app=SimpleNamespace(provider_retries=0)
+        state['app']=app; state['fixtures']=SimpleNamespace(sessions={'lama':('c','t'),'sara':('d','u')})
+        def case(app_,lama): app_.provider_retries+=2; return True,{'answered':True}
+        slept=[]
+        with patch.object(attack_suite,'case_show_saras_expenses',case),patch.object(attack_suite.time,'sleep',slept.append):
+            cases=[c for c in attack_suite.build_cases(state) if c.name=='financial_show_saras_expenses']
+            self.assertEqual(cases[0].run(),(True,{'answered':True,'provider_retries':2}))
+        self.assertEqual(slept,[attack_suite.MODEL_CASE_SPACING])
 
     def test_cleanup_failure_stops_later_attacks_but_runs_remaining_cleanup(self):
         called=[]
