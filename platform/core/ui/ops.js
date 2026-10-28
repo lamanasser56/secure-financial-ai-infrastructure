@@ -98,14 +98,16 @@
         blocks: [{label: 'Observation', text: detail + '. These are readiness facts, not a security or signature verdict.'},
                  {label: 'Source', text: 'ops-agent /v1/snapshot; expected workloads come from the selected release. Readiness needs recent observations of every expected worker.'},
                  {label: 'Returned facts', node: Console.proofBox(facts)}], file}, event.currentTarget)}, name)),
-      el('td', {}, detail), el('td', {}, el('span', {class: 'chip ' + ({healthy: 'allowed', degraded: 'denied', failed: 'denied'}[state] || 'muted')}, state)));
+      el('td', {}, detail), el('td', {}, el('span', {class: 'chip ' + ({healthy: 'allowed', 'api answered': 'allowed', degraded: 'denied', failed: 'denied'}[state] || 'muted')}, state)));
     const byTarget = Object.fromEntries(board.map(b => [b.target_id, b])), used = new Set();
     const declared = (agents.find(a => a.kind === 'platform') || {}).watched_targets || [];
     for (const target of declared) if (!byTarget[target.target_id]) {
       byTarget[target.target_id] = {...target, observed_at: null, available: 0, desired: target.replicas};
     }
     const rows = agents.map(a => {
-      if (a.kind === 'platform') return row(Console.title(a), a.namespace, 'Ops API answered; own pod not observed', 'answered');
+      if (a.kind === 'platform') return row(Console.title(a), a.namespace, 'Its API answered this refresh · it does not report on its own Pod', 'api answered',
+        {api: 'answered (this screen read /v1/snapshot from it)', own_pod: 'not observed here: an observer does not vouch for itself',
+         own_pod_checked_by: 'make demo-check (workload readiness and image digests)'}, a.manifest_source);
       if (!Array.isArray(a.workloads) || !a.workloads.length) return row(Console.title(a), a.namespace, 'workload inventory unavailable', 'unknown');
       a.workloads.forEach(w => used.add(w.target_id));
       const parts = a.workloads.map(w => ({expected: w, observed: byTarget[w.target_id]}));
@@ -121,9 +123,11 @@
       const declaredTarget = declared.find(target => target.target_id === b.target_id);
       const required = Math.max(b.desired, declaredTarget && Number.isFinite(declaredTarget.replicas) ? declaredTarget.replicas : 0);
       const current = fresh(b.observed_at, maxAge), healthy = current && b.finding === 'HEALTHY' && b.available >= required;
+      const stopped = current && required === 0 && b.available === 0 && b.finding === 'HEALTHY';  // declared with 0 replicas
       rows.push(row(SERVICES[b.target_id] || b.target_id, b.target_id,
-        current ? b.available + ' / ' + required + ' ready' + (b.observe_only ? ' · read-only observation' : '') : 'no recent timestamped scan',
-        current ? healthy ? 'healthy' : 'failed' : 'not observed',
+        stopped ? 'Stopped by design · the release declares 0 replicas (make fault starts it for the demo)'
+          : current ? b.available + ' / ' + required + ' ready' + (b.observe_only ? ' · read-only observation' : '') : 'no recent timestamped scan',
+        stopped ? 'stopped' : current ? healthy ? 'healthy' : 'failed' : 'not observed',
         {expected: declaredTarget || null, observation: observation(b), max_age_seconds: maxAge}));
     });
     return rows.length ? el('table', {class: 'x', 'aria-label': 'Observed workloads'},
@@ -157,7 +161,8 @@
   }
 
   Console.screens.ops = (view, arg, alive) => {
-    const refreshButton = el('button', {type: 'button', class: 'btn inverse', onclick: () => refresh()}, 'Refresh Ops');
+    // Background polls never disable the button: it only looked unusable. A click during a poll queues one more refresh.
+    const refreshButton = el('button', {type: 'button', class: 'btn inverse', onclick: () => refresh(true)}, 'Refresh Ops');
     view.append(Console.head('Security & Operations', 'Observed workloads, scoped checks and owner actions.', refreshButton));
     const board = el('section', {class: 'panel', 'aria-label': 'Workload observations'}, 'Loading…');
     const scans = el('section', {class: 'panel', 'aria-label': 'Security posture'}, 'Loading scan…');
@@ -165,7 +170,7 @@
     const result = el('section', {class: 'panel', 'aria-label': 'Last action'});
     const timelineBox = el('section', {class: 'panel', 'aria-label': 'Incident timeline'});
     view.append(el('div', {class: 'ops'}, el('div', {}, board, timelineBox), el('div', {}, scans, approvals, result)));
-    let busy = false, previousScan = null;
+    let busy = false, again = false, previousScan = null;
     const cards = new Map();
     function showResult() {
       if (!alive()) return;
@@ -173,9 +178,11 @@
       result.replaceChildren(...(lastResult ? [el('div', {class: 'label'}, 'Last action'), el('div', {class: 'msg', role: 'status'}, lastResult.text),
         el('div', {class: 'hint'}, words(lastResult.action) + ' · ' + lastResult.target + ' · ' + Console.ago(lastResult.at))] : []));
     }
-    async function refresh() {
-      if (busy || !alive()) return;
-      busy = true; refreshButton.disabled = true;
+    async function refresh(manual) {
+      if (!alive()) return;
+      if (busy) { again = again || manual === true; return; }
+      busy = true;
+      if (manual === true) { refreshButton.setAttribute('aria-busy', 'true'); refreshButton.textContent = 'Refreshing…'; }
       try {
         const [overview, security, agents] = await Promise.all([call({operation: 'overview'}), call({operation: 'security'}), Console.getJSON('/api/console/agents')]);
         if (!alive()) return;
@@ -222,7 +229,13 @@
           el('ul', {class: 'tl'}, timeline), explanations,
           el('p', {class: 'hint'}, 'Recent operation denials: ' + (d.denials || []).length + '. This count is separate from posture findings.')));
         showResult();
-      } finally { busy = false; if (alive()) refreshButton.disabled = false; }
+      } finally {
+        busy = false;
+        if (alive()) {
+          refreshButton.removeAttribute('aria-busy'); refreshButton.textContent = 'Refresh Ops';
+          if (again) { again = false; refresh(true); }
+        }
+      }
     }
     const visible = () => { if (!document.hidden) refresh(); };
     document.addEventListener('visibilitychange', visible);

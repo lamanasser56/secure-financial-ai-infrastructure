@@ -172,6 +172,19 @@ class Scripts(unittest.TestCase):
         self.assertIn("'/#/break/' + encodeURIComponent(c.case)", core)
         self.assertIn('Console.attackProof(data.attack_proof)', map_js)
 
+    def test_refresh_buttons_are_never_disabled_by_background_polls(self):
+        ops, onboard = (FRONT / 'ops.js').read_text(), (FRONT / 'onboard.js').read_text()
+        self.assertNotIn('refreshButton.disabled', ops)
+        self.assertNotIn('check.disabled', onboard)
+        self.assertIn("refresh(true)", ops)
+        self.assertIn("tick(true)", onboard)
+
+    def test_a_declared_stopped_target_and_the_observer_row_say_what_they_are(self):
+        ops = (FRONT / 'ops.js').read_text()
+        self.assertIn('Stopped by design · the release declares 0 replicas', ops)
+        self.assertNotIn("'Ops API answered; own pod not observed', 'answered'", ops)
+        self.assertIn('an observer does not vouch for itself', ops)
+
     def test_ops_is_minimal_and_has_no_rollback(self):
         ops = (FRONT / 'ops.js').read_text()
         self.assertNotIn('rollback', ops.lower())
