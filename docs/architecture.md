@@ -27,7 +27,9 @@ flowchart LR
 
 ### Network
 
-Agents cannot reach the internet or each other. Every agent namespace starts from a default-deny NetworkPolicy for ingress and egress; the release then allows only DNS and the platform services that agent needs (the model gateway boundary, the redactor and, for the Financial workers, the data broker). No egress rule points at an address range and the cluster has no Cloud NAT, so there is no route out. Calls to Google's model and DLP APIs leave only from the platform's model gateway and redactor, through private endpoints for the named Google hostnames. Agent Pods also cannot reach the database, the private model provider gateway, the approval executor, the Kubernetes API or the cloud metadata server.
+Agents cannot reach the internet or each other. Each agent namespace has a default-deny NetworkPolicy for ingress and egress, plus rules that allow DNS (kube-dns and node-local DNS) and the platform services that agent needs: the model gateway boundary and the redactor, and, for the Financial workers, the data broker. No egress rule in an agent namespace points at an address range. Agent Pods cannot reach the database, the private model provider gateway, the approval executor, the Ops agent's API, the Kubernetes API or the cloud metadata server; `make attack` probes each of these paths from every agent Pod.
+
+The nodes are private and the infrastructure declares no Cloud NAT, so there is no internet route. Agent Pods cannot reach the model provider's or Google's public API hostnames directly. The release allows the model provider API only from the gateway Pods and the DLP API only from the redactor Pods, each through an FQDN policy for its named regional hostname, which resolves to a Private Service Connect endpoint inside the node subnet.
 
 ### Model gateway
 
