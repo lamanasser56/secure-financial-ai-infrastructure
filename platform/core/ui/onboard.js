@@ -33,7 +33,8 @@
   Console.screens.onboard = (view, arg, alive) => {
     let selected = arg, first = true, last = '', request = 0;
     const notice = el('p', {class: 'muted', role: 'status'}, 'Read-only review. No deployment or keys are created here.');
-    // Polls never disable the button (a superseded poll could leave it disabled); a click shows its own progress.
+    // Only a click disables the button, until the latest refresh lands; background polls never touch it (they made it look
+    // unusable every 5 s, and a superseded poll could leave it disabled).
     const check = el('button', {type: 'button', class: 'btn inverse', onclick: () => { first = true; last = ''; tick(true); }}, 'Refresh observations');
     view.append(Console.head('Review onboarding.', 'Manifest facts and checks, side by side.', check));
     const body = el('div', {}, el('p', {class: 'muted'}, 'Loading…'));
@@ -47,10 +48,10 @@
       el('span', {}, 'Extra egress, a $500 budget and a write tool fail the current rules. The checker returns nonzero.'), example));
     async function tick(manual) {
       const mine = ++request;
-      if (manual === true) { check.setAttribute('aria-busy', 'true'); check.textContent = 'Refreshing…'; }
+      if (manual === true) { check.disabled = true; check.setAttribute('aria-busy', 'true'); }
       const loaded = await Console.loadAgents();
       if (!alive() || mine !== request) return;
-      check.removeAttribute('aria-busy'); check.textContent = 'Refresh observations';
+      check.disabled = false; check.removeAttribute('aria-busy');
       const data = loaded && {...loaded, agents: loaded.agents.filter(a => a.kind !== 'platform')};
       const key = JSON.stringify(data) + selected;
       if (key === last) return;
