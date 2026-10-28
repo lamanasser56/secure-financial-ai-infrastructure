@@ -9,6 +9,7 @@ import unittest
 REPO = Path(__file__).resolve().parents[3]
 FRONT = REPO / 'platform/core/ui'
 FIN = REPO / 'platform/agents/financial/finance_agent/ui'
+REPO_ROOT = Path(__file__).resolve().parents[3]
 FRONT_FILES = ('index.html', 'style.css', 'core.js', 'app.js', 'map.js', 'agents.js', 'onboard.js', 'attacks.js', 'ops.js', 'shared-assets.json')
 FONTS = ('barlow-semi-condensed-latin-700-normal', 'barlow-semi-condensed-latin-800-normal', 'ibm-plex-sans-latin-400-normal',
          'ibm-plex-sans-latin-500-normal', 'ibm-plex-sans-latin-600-normal', 'ibm-plex-mono-latin-400-normal', 'ibm-plex-mono-latin-500-normal') + tuple('ibm-plex-sans-arabic-arabic-%d-normal' % weight for weight in (400, 500, 600, 700))
@@ -186,6 +187,14 @@ class Scripts(unittest.TestCase):
         self.assertIn('Stopped by design · the release declares 0 replicas', ops)
         self.assertNotIn("'Ops API answered; own pod not observed', 'answered'", ops)
         self.assertIn('an observer does not vouch for itself', ops)
+    def test_guide_renders_markdown_as_dom_with_distinct_source_titles(self):
+        guide = (REPO_ROOT / 'platform/agents/platform-guide/public/app.js').read_text()
+        self.assertNotIn('innerHTML', guide)
+        self.assertIn("function markdown(text, cls)", guide)
+        self.assertIn('sourceTitle(source, result.sources)', guide)  # document · section, numbered when repeated
+        answered = guide[guide.index("if (result.status === 'answered')"):guide.index("} else nodes.push(el('p', {class: 'guide-state', role: 'status'}, reasonText(result.reason)));")]
+        self.assertIn('guide-note', answered)  # the sources note appears only when there are sources
+        self.assertNotIn('Preview only', guide)
 
     def test_ops_is_minimal_and_has_no_rollback(self):
         ops = (FRONT / 'ops.js').read_text()
