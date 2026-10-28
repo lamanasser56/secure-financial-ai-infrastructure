@@ -11,10 +11,15 @@ report={'schema_version':attack_results.VERSION,'suite':attack_results.SUITE,'ru
             {'case':name,'kind':meta[0],'verdict':'PASS','result':'PASS','at':at}
             for name,meta in attack_results.CASES.items()]}
 payloads={'passed':attack_results.view(report,release)}
-for name,verdict in (('failed','FAIL'),('incomplete','NOT_EXERCISED')):
+for name,verdict,evidence in (('failed','FAIL',{'reason':'CONTROL_UNAVAILABLE'}),
+                              ('incomplete','NOT_EXERCISED',{'reason':'CONTROL_UNAVAILABLE','detail':'active_turn_not_established'})):
     changed=deepcopy(report)
-    next(r for r in changed['results'] if r['kind']=='attack').update(verdict=verdict,result='FAIL')
+    next(r for r in changed['results'] if r['kind']=='attack').update(verdict=verdict,result='FAIL',evidence=evidence)
     payloads[name]=attack_results.view(changed,release)
+held=deepcopy(report)
+next(r for r in held['results'] if r['case']=='financial_cross_user_api_and_forged_session')['evidence']={
+    'forged_session_cookie':401,'insert_naming_other_user':400,'lama_sees_sara_rows':False}
+payloads['facts']=attack_results.view(held,release)
 different=deepcopy(release);different['images']=['sha256:'+'f'*64]
 payloads['different']=attack_results.view(report,different)
 payloads['unbound']=attack_results.view(dict(report,release=None),release)
