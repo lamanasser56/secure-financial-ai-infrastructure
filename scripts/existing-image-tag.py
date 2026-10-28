@@ -55,12 +55,17 @@ CONFLICT = re.compile(r'ERROR: \(gcloud\.beta\.container\.binauthz\.attestations
                       r'"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}" on project "(' + PROJECT + r')"')
 
 
+def masked(text, project):
+    """gcloud errors name the project (and can carry its number); public logs get neither."""
+    return re.sub(r'\b[0-9]{10,13}\b', '[project-number]', text.replace(project, '[project]'))
+
+
 def attest(origin, project, command, *, run=subprocess.run, err=sys.stderr):
     """'created', or 'preexisting' for the exact occurrence conflict on the existing-tag path; raise otherwise."""
     if origin not in ORIGINS or not re.fullmatch(PROJECT, project) or not command:
         raise ValueError('invalid attest input')
     result = run(command, capture_output=True, text=True)
-    err.write(result.stderr)
+    err.write(masked(result.stderr, project))
     if result.returncode == 0:
         return 'created'
     lines = [line.strip() for line in result.stderr.splitlines() if line.strip()]

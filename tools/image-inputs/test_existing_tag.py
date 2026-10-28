@@ -259,3 +259,24 @@ class Attest(unittest.TestCase):
         self.assertIn('--origin "$(cat "$RUNNER_TEMP/subject-origin.txt")"', workflow)
         self.assertEqual(workflow.count('binauthz attestations sign-and-create'), 1)  # no direct call left
         self.assertIn("'attestation': sys.argv[6]", workflow)
+
+    def test_the_logged_error_never_carries_the_project_or_its_number(self):
+        log = io.StringIO()
+        number_line = 'ERROR: (gcloud...) project 123456789012 denied for ' + PROJECT + '\n'
+
+        def run(command, **kwargs):
+            return type('Result', (), {'returncode': 1, 'stderr': number_line + self.CONFLICT, 'stdout': ''})()
+        with self.assertRaises(RuntimeError):
+            existing.attest('existing_tag_verified', PROJECT, self.COMMAND, run=run, err=log)
+        self.assertNotIn(PROJECT, log.getvalue())
+        self.assertNotIn('123456789012', log.getvalue())
+        self.assertIn('[project]', log.getvalue())
+
+    def test_the_publish_job_masks_project_values_before_any_other_step(self):
+        import yaml
+        text = (ROOT / '.github/workflows/agent-platform-images.yml').read_text()
+        first = yaml.safe_load(text)['jobs']['publish']['steps'][0]
+        self.assertEqual(first['name'], "Mask project identifiers in this job's logs")
+        self.assertIn('::add-mask::$value', first['run'])
+        self.assertIn('"$REGISTRY/$PROJECT_ID"', first['run'])
+        self.assertNotRegex(text, r'\$\{\{ vars\.')  # every use reads secrets first

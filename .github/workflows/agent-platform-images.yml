@@ -271,6 +271,21 @@ jobs:
       SHA: ${{ needs.ci-gate.outputs.sha }}
       IMAGE: ${{ matrix.image }}
     steps:
+      # First step, before anything can print them: this repository and its logs are public, and the project values
+      # come from repository settings. A plain variable is shown once in this step's own env header; held as secrets
+      # of the same names (preferred), GitHub masks them there too.
+      - name: Mask project identifiers in this job's logs
+        env:
+          PROJECT_ID: ${{ secrets.AGENT_PLATFORM_PROJECT_ID || vars.AGENT_PLATFORM_PROJECT_ID }}
+          WIF_PROVIDER: ${{ secrets.AGENT_PLATFORM_CI_WIF_PROVIDER || vars.AGENT_PLATFORM_CI_WIF_PROVIDER }}
+          SERVICE_ACCOUNT: ${{ secrets.AGENT_PLATFORM_CI_SERVICE_ACCOUNT || vars.AGENT_PLATFORM_CI_SERVICE_ACCOUNT }}
+        run: |
+          set -Eeuo pipefail
+          number=$(sed -n 's#^projects/\([0-9][0-9]*\)/.*#\1#p' <<<"$WIF_PROVIDER")
+          [[ -n "$PROJECT_ID" && -n "$number" && -n "$SERVICE_ACCOUNT" ]] || { echo 'project settings missing'; exit 1; }
+          for value in "$PROJECT_ID" "$number" "$REGISTRY/$PROJECT_ID" "$WIF_PROVIDER" "$SERVICE_ACCOUNT"; do
+            echo "::add-mask::$value"
+          done
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ needs.ci-gate.outputs.sha }}
@@ -290,8 +305,8 @@ jobs:
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         id: lookup-auth
         with:
-          workload_identity_provider: ${{ vars.AGENT_PLATFORM_CI_WIF_PROVIDER }}
-          service_account: ${{ vars.AGENT_PLATFORM_CI_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.AGENT_PLATFORM_CI_WIF_PROVIDER || vars.AGENT_PLATFORM_CI_WIF_PROVIDER }}
+          service_account: ${{ secrets.AGENT_PLATFORM_CI_SERVICE_ACCOUNT || vars.AGENT_PLATFORM_CI_SERVICE_ACCOUNT }}
           token_format: access_token
           create_credentials_file: false
           export_environment_variables: false
@@ -299,7 +314,7 @@ jobs:
         id: existing
         env:
           ACCESS_TOKEN: ${{ steps.lookup-auth.outputs.access_token }}
-          PROJECT_ID: ${{ vars.AGENT_PLATFORM_PROJECT_ID }}
+          PROJECT_ID: ${{ secrets.AGENT_PLATFORM_PROJECT_ID || vars.AGENT_PLATFORM_PROJECT_ID }}
         run: |
           set -Eeuo pipefail
           [[ "$PROJECT_ID" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]]
@@ -319,8 +334,8 @@ jobs:
       - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         id: auth
         with:
-          workload_identity_provider: ${{ vars.AGENT_PLATFORM_CI_WIF_PROVIDER }}
-          service_account: ${{ vars.AGENT_PLATFORM_CI_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.AGENT_PLATFORM_CI_WIF_PROVIDER || vars.AGENT_PLATFORM_CI_WIF_PROVIDER }}
+          service_account: ${{ secrets.AGENT_PLATFORM_CI_SERVICE_ACCOUNT || vars.AGENT_PLATFORM_CI_SERVICE_ACCOUNT }}
           token_format: access_token
           create_credentials_file: true
           export_environment_variables: true
@@ -332,7 +347,7 @@ jobs:
         id: publish
         env:
           ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
-          PROJECT_ID: ${{ vars.AGENT_PLATFORM_PROJECT_ID }}
+          PROJECT_ID: ${{ secrets.AGENT_PLATFORM_PROJECT_ID || vars.AGENT_PLATFORM_PROJECT_ID }}
           EXISTING: ${{ steps.existing.outputs.digest }}
         run: |
           set -Eeuo pipefail
