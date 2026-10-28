@@ -33,7 +33,8 @@
   Console.screens.onboard = (view, arg, alive) => {
     let selected = arg, first = true, last = '', request = 0;
     const notice = el('p', {class: 'muted', role: 'status'}, 'Read-only review. No deployment or keys are created here.');
-    const check = el('button', {type: 'button', class: 'btn inverse', onclick: () => { first = true; last = ''; tick(); }}, 'Refresh observations');
+    // Polls never disable the button (a superseded poll could leave it disabled); a click shows its own progress.
+    const check = el('button', {type: 'button', class: 'btn inverse', onclick: () => { first = true; last = ''; tick(true); }}, 'Refresh observations');
     view.append(Console.head('Review onboarding.', 'Manifest facts and checks, side by side.', check));
     const body = el('div', {}, el('p', {class: 'muted'}, 'Loading…'));
     const help = el('button', {type: 'button', class: 'btn link', onclick: e => Console.explain({eyebrow: 'EXPLAIN · OWNER WORKFLOW', title: 'Onboarding workflow',
@@ -44,12 +45,12 @@
     const example = el('button', {type: 'button', class: 'btn link', onclick: e => showExample(e.currentTarget)}, 'See example →');
     view.append(notice, body, help, el('div', {class: 'rejected'}, el('b', {}, 'EXPECTED REJECTION'),
       el('span', {}, 'Extra egress, a $500 budget and a write tool fail the current rules. The checker returns nonzero.'), example));
-    async function tick() {
+    async function tick(manual) {
       const mine = ++request;
-      check.disabled = true;
+      if (manual === true) { check.setAttribute('aria-busy', 'true'); check.textContent = 'Refreshing…'; }
       const loaded = await Console.loadAgents();
       if (!alive() || mine !== request) return;
-      check.disabled = false;
+      check.removeAttribute('aria-busy'); check.textContent = 'Refresh observations';
       const data = loaded && {...loaded, agents: loaded.agents.filter(a => a.kind !== 'platform')};
       const key = JSON.stringify(data) + selected;
       if (key === last) return;
