@@ -26,7 +26,9 @@ async function open(page, scenario, status = 200) {
 test('current report distinguishes boundary attempts from positive controls and expands every row', async ({page}, info) => {
   await open(page, 'passed');
   await expect(page.getByText('This release', {exact: true})).toBeVisible();
-  await expect(page.getByText('6/6 controls passed · 0 failed · 0 not exercised')).toBeVisible();
+  await expect(page.getByText('Attack cases: 17 held · 0 failed · 0 not exercised (of 17)')).toBeVisible();
+  await expect(page.getByText('Controls: 6 passed · 0 failed · 0 not exercised (of 6)')).toBeVisible();
+  await expect(page.getByText('17 attack cases + 6 controls = 23 recorded cases.')).toBeVisible();
   await expect(page.locator('.atk')).toHaveCount(6);
   await page.screenshot({path: info.outputPath('break-current.png'), animations: 'disabled'});
   await page.getByRole('button', {name: 'Show all 23', exact: true}).click();
@@ -42,16 +44,39 @@ test('current report distinguishes boundary attempts from positive controls and 
 test('incomplete execution is distinct from an observed failure', async ({page}) => {
   await open(page, 'incomplete');
   await expect(page.getByText('Not exercised', {exact: true})).toBeVisible();
-  await expect(page.getByText('6/6 controls passed · 0 failed · 1 not exercised')).toBeVisible();
-  await expect(page.getByText('Incomplete report. Required execution or runner identity is missing.')).toBeVisible();
+  await expect(page.getByText('Attack cases: 16 held · 0 failed · 1 not exercised (of 17)')).toBeVisible();
+  await expect(page.getByText('Controls: 6 passed · 0 failed · 0 not exercised (of 6)')).toBeVisible();
+  await expect(page.getByText('Incomplete report. It cannot qualify this release because:')).toBeVisible();
+  await expect(page.locator('ul.why li')).toHaveText(['Read or write beyond broker database rights — not exercised: The two simultaneous user turns could not be held open together.']);
   await expect(page.getByText('Failed', {exact: true})).toHaveCount(0);
 });
 
 test('a real failed check remains a failure', async ({page}) => {
   await open(page, 'failed');
   await expect(page.getByText('Failed', {exact: true})).toBeVisible();
-  await expect(page.getByText('6/6 controls passed · 1 failed · 0 not exercised')).toBeVisible();
+  await expect(page.getByText('Attack cases: 16 held · 1 failed · 0 not exercised (of 17)')).toBeVisible();
   await expect(page.getByText('Incomplete report.', {exact: false})).toHaveCount(0);
+});
+
+test('every case opens with its outcome, recorded reason and facts', async ({page}) => {
+  await open(page, 'incomplete');
+  await page.locator('.atk').filter({hasText: 'Read or write beyond broker database rights'}).click();
+  const drawer = page.getByRole('dialog');
+  await expect(drawer.getByText('EXPLAIN · CASE 3 OF 23 · ATTACK', {exact: true})).toBeVisible();
+  await expect(drawer.getByText('The two simultaneous user turns could not be held open together.')).toBeVisible();
+  await expect(drawer.getByText('active_turn_not_established', {exact: true})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await open(page, 'facts');
+  await page.locator('.atk').filter({hasText: 'Forge a session or name another user'}).click();
+  await expect(page.getByRole('dialog').locator('pre')).toHaveText('forged_session_cookie: 401\ninsert_naming_other_user: 400\nlama_sees_sara_rows: false');
+});
+
+test('a case link opens that case directly, even beyond the first six', async ({page}) => {
+  await page.route('**/api/console/attacks', route => route.fulfill({status: 200, headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(fixtures.passed)}));
+  await page.goto(origin + '/#/break/ops_stale_approval_refused');
+  await expect(page.getByRole('dialog').getByRole('heading', {name: 'Forge, replay or reuse a stale approval'})).toBeVisible();
+  await expect(page.locator('.atk')).toHaveCount(23);
 });
 
 for (const [scenario, label] of [['different', 'Other release'], ['unbound', 'Release unbound']]) {
