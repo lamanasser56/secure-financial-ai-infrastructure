@@ -52,10 +52,17 @@ def temporary_annotation(k):
                  {'op':'test','path':'/metadata/resourceVersion','value':metadata['resourceVersion']})
     patch.append({'op':'add','path':escaped,'value':tag} if 'annotations' in metadata else
                  {'op':'add','path':'/metadata/annotations','value':{key:tag}})
-    if k('-n',namespace,'patch','deployment',name,'--type=json','-p',json.dumps(patch)).returncode:
+    patched=k('-n',namespace,'patch','deployment',name,'--type=json','-p',json.dumps(patch),'-o','json')
+    if patched.returncode:
         raise RestoreFailed('annotation_precondition_failed')
     try:
-        yield
+        # The exact version this patch produced, from the API server's own reply (resourceVersion is opaque: only
+        # equality is meaningful), and when the patch returned. A proposal bound to an earlier observation cannot match.
+        try:
+            version=json.loads(patched.stdout)['metadata']['resourceVersion']
+        except (ValueError,KeyError,TypeError):
+            raise NotExercised('patched_version_unavailable') from None
+        yield {'resource_version':version,'patched_at':time.time()}
     finally:
         patch=[{'op':'test','path':'/metadata/uid','value':metadata['uid']},
                {'op':'test','path':escaped,'value':tag},
