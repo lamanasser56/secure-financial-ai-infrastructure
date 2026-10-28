@@ -45,8 +45,9 @@
       + L('This is API receipt information, not a verdict on all services or the age of their data.', 'هذه معلومات وصول استجابة الخادم، وليست حكمًا على صحة كل الخدمات أو حداثة بياناتها.');
     badge.setAttribute('aria-label', badge.textContent + '. ' + badge.title);
   }
-  function observeAPI(status, valid = true) {
-    lastResponse = {at: Date.now(), status, state: status === 0 ? 'failed' : !valid ? 'invalid' : status >= 400 ? 'error' : 'answered'};
+  // expected: the caller asked a question whose normal answer is an error status (signed out: /api/me -> 401).
+  function observeAPI(status, valid = true, expected = false) {
+    lastResponse = {at: Date.now(), status, state: status === 0 ? 'failed' : !valid ? 'invalid' : status >= 400 && !expected ? 'error' : 'answered'};
     clearTimeout(responseTimer);
     responseTimer = setTimeout(paintConnection, 60000);
     paintConnection();

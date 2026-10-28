@@ -195,6 +195,10 @@ class Scripts(unittest.TestCase):
         answered = guide[guide.index("if (result.status === 'answered')"):guide.index("} else nodes.push(el('p', {class: 'guide-state', role: 'status'}, reasonText(result.reason)));")]
         self.assertIn('guide-note', answered)  # the sources note appears only when there are sources
         self.assertNotIn('Preview only', guide)
+    def test_signed_out_is_a_normal_answer_not_an_api_error(self):
+        fin, core = (FIN / 'app.js').read_text(), (FRONT / 'core.js').read_text()
+        self.assertIn("Console.observeAPI(response.status, true, path === '/api/me' && response.status === 401)", fin)
+        self.assertIn("status >= 400 && !expected ? 'error' : 'answered'", core)
 
     def test_ops_is_minimal_and_has_no_rollback(self):
         ops = (FRONT / 'ops.js').read_text()
