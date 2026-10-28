@@ -13,6 +13,7 @@ import datetime
 import os
 import tempfile
 import uuid
+import hashlib
 import http.client
 import json
 from pathlib import Path
@@ -511,21 +512,37 @@ with response:
  print(json.dumps({'status':response.code,'body':json.loads(raw)}))
 """
 
+def version_token(value):
+    """resourceVersion is opaque and can be 10-13 digits (indistinguishable from a project number in evidence): record a
+    stable token of it. Equal tokens mean equal versions; nothing else is inferred from them."""
+    return 'rv_' + hashlib.sha256(str(value).encode()).hexdigest()[:16]
+
+
+def current_version():
+    return json.loads(k('-n','apps','get','deployment','fault-demo','-o','json',check=True).stdout)['metadata']['resourceVersion']
+
+
 def signed_restart_proposal(exclude=(), wait=150, bound=None):
     """Wait for the ops agent's pending restart proposal for fault-demo, signed by the front door's approver key (the
     operator-owned adversarial fixture signer; this does not exercise the normal passphrase UI). The token stays in memory, never in the evidence.
-    `bound` ({'resource_version', 'patched_at'} from temporary_annotation): only a proposal created after that patch
-    and bound to exactly the version it produced; an earlier observation is never selected (run 24ea4408, 28 Oct:
-    a proposal observed 0.59 s before the suite's own patch was picked and correctly refused as OBJECT_CHANGED)."""
-    query = json.dumps({'exclude': sorted(exclude), 'resource_version': bound and bound['resource_version'],
-                        'created_after': bound and bound['patched_at']})
+    `bound` ({'resource_version', 'patched_at'} from temporary_annotation): only a proposal created after that patch and
+    bound to exactly the target's current resourceVersion, read by a GET at selection time (the version the executor
+    will check). An observation from before the suite's patch is never selected (run 24ea4408); the patched version
+    itself can already be gone, because the crash-looping target's status writes move it (run 130d429c)."""
     deadline = time.time() + wait
     while time.time() < deadline:  # waits for the observer's next scan; it never re-executes or retries a refusal
+        current = current_version() if bound else None
+        query = json.dumps({'exclude': sorted(exclude), 'resource_version': current,
+                            'created_after': bound and bound['patched_at']})
         got = json.loads(exec_python('apps', 'app', OPS_SNAPSHOT, input=query).stdout or 'null')
         if got:
+            if bound:
+                got['versions'] = {'patched': version_token(bound['resource_version']),
+                                   'current_at_selection': version_token(current),
+                                   'bound': version_token(got['proposal']['resource_version'])}
             return got
         time.sleep(5)
-    raise NotExercised('no_proposal_for_patched_version' if bound else 'no_restart_proposal')
+    raise NotExercised('no_proposal_for_current_version' if bound else 'no_restart_proposal')
 
 
 def ops_execute(proposal,token,*,forge=False):
@@ -555,14 +572,27 @@ def case_ops_stale_approval_refused():
             unchanged=template()==before
             second=signed_restart_proposal(exclude={first['proposal']['request_id']},bound=patched)
             fresh=ops_execute(second['proposal'],second['token'])
-    verdict=stale_approval_verdict(stale,replay,unchanged,fresh)
+            versions=dict(second['versions'],after_execution=version_token(current_version()))
+    verdict=fresh_control_verdict(stale,replay,unchanged,fresh)
     auth_held=unsigned==forged=={'result':'DENIED','code':'APPROVAL_REJECTED'} and unauthenticated_unchanged
     if not auth_held: verdict='FAIL'
     return verdict=='PASS', {'verdict':verdict,'unsigned_approval':unsigned,'forged_approval':forged,'stale_approval':stale,'template_unchanged_after_refusal':unchanged,
-        'replay_of_same_token':replay,'fresh_proposal_after_change':fresh,
+        'replay_of_same_token':replay,'fresh_proposal_after_change':fresh,'versions':versions,
         'bound_resource_versions_differ':first['proposal']['resource_version']!=second['proposal']['resource_version'],
-        'fresh_proposal_bound_to_patched_version':second['proposal']['resource_version']==patched['resource_version'],
         'fresh_proposal_created_after_patch':second['proposal']['created_at']>patched['patched_at']}
+
+
+def fresh_control_verdict(stale, replay, unchanged, fresh):
+    """stale_approval_verdict, plus one case for the fresh positive control: if every security check held (stale
+    approval refused OBJECT_CHANGED, its replay ALREADY_USED, template unchanged) and only the fresh proposal was refused
+    OBJECT_CHANGED, the target's resourceVersion moved between selection and execution (a status write on the
+    crash-looping target). That refusal is correct and the control could not establish its result: NOT_EXERCISED,
+    with the recorded versions as proof, never PASS or FAIL. A failed security check stays FAIL."""
+    verdict = stale_approval_verdict(stale, replay, unchanged, fresh)
+    held = (stale == {'result': 'DENIED', 'code': 'OBJECT_CHANGED'} and replay.get('code') == 'ALREADY_USED' and unchanged)
+    if verdict == 'FAIL' and held and fresh == {'result': 'DENIED', 'code': 'OBJECT_CHANGED'}:
+        return 'NOT_EXERCISED'
+    return verdict
 
 
 def stale_approval_verdict(stale, replay, unchanged, fresh):
