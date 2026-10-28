@@ -63,7 +63,8 @@
       const data = reply.data, code = Console.codeURL(data.file);
       blocks.push({label: COMPONENT[topic], node: el('div', {}, el('div', {class: 'mono muted'}, topic),
         el('p', {}, topic === 'gateway' ? data.title + '. ' + data.plain : data.plain),
-        el('p', {class: 'muted'}, data.proof ? 'Observed state: ' + (data.proof.state || 'source answered') : 'Declared · no live proof'))});
+        data.attack_proof ? Console.attackProof(data.attack_proof)
+          : el('p', {class: 'muted'}, data.proof ? 'Observed state: ' + (data.proof.state || 'source answered') : 'Declared · nothing current proves it'))});
       if (topic === 'redactor') masking = data.how;
       observations.push(el('div', {}, el('div', {class: 'label'}, COMPONENT[topic]), Console.proofBox(data.proof),
         code ? el('a', {href: code, class: 'btn link', target: '_blank', rel: 'noopener'}, 'View component code →') : null));
@@ -105,6 +106,7 @@
     if (allowed.length && groups.length) {
       const ys = allowed.map(({index}) => ayTop(index) + AH / 2);
       out.push(part('Platform network paths', network(allowed.map(({actor}) => actor.namespace)),
+        el('rect', {x: busX - 12, y: Math.min(entryY, ...ys) - 12, width: PX - busX + 24, height: Math.abs(Math.max(entryY, ...ys) - Math.min(entryY, ...ys)) + 24, class: 'hit'}),
         el('line', {x1: busX, y1: Math.min(entryY, ...ys), x2: busX, y2: Math.max(entryY, ...ys), class: 'edge'}),
         el('line', {x1: busX, y1: entryY, x2: PX, y2: entryY, class: 'edge'}), el('circle', {cx: PX, cy: entryY, r: 5, class: 'dot'})));
       allowed.forEach(({actor, index}) => {
@@ -159,6 +161,7 @@
       const blocked = agents.filter(actor => denied.some(edge => edge.from === actor.node && edge.to === 'internet'));
       const all = agents.length > 0 && blocked.length === agents.length;
       out.push(part('Internet: ' + (all ? 'no way out' : 'policy details'), from => Console.explainTopic('internet', from, (blocked.length ? blocked : agents).map(actor => actor.namespace)),
+        blocked.length ? el('path', {d: `M${busX},${agents.length ? ayTop(agents.length - 1) + AH / 2 : bottom - 8} L${busX},${IY} L${EX},${IY}`, class: 'hit-line'}) : null,
         blocked.length ? el('path', {d: `M${busX},${agents.length ? ayTop(agents.length - 1) + AH / 2 : bottom - 8} L${busX},${IY} L${EX},${IY}`, class: 'edge deny'}) : null,
         el('rect', {x: EX, y: IY - EH / 2, width: EW, height: EH, class: 'shape' + (blocked.length ? ' dash' : '')}),
         text(EX + 18, IY - 4, 't-item', 'Internet'), text(EX + 18, IY + 22, blocked.length ? 't-deny' : 't-sub', all ? 'no way out · why?' : 'policy details · why?'),

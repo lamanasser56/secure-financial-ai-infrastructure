@@ -163,6 +163,15 @@ class Scripts(unittest.TestCase):
         self.assertIn('d.incomplete', attacks)  # the note names each case and its recorded reason
         self.assertNotIn('Required execution or runner identity is missing', attacks)
 
+    def test_map_lines_have_wide_click_targets_and_explains_cite_attack_cases(self):
+        map_js, core, css = ((FRONT / n).read_text() for n in ('map.js', 'core.js', 'style.css'))
+        self.assertIn("class: 'hit'", map_js)       # Platform network paths: the whole bus area
+        self.assertIn("class: 'hit-line'", map_js)  # Internet: the deny line, besides the dashed box
+        self.assertIn('pointer-events: all', css)
+        self.assertIn('EXPLAIN · PROVEN BY ATTACK RUN', core)
+        self.assertIn("'/#/break/' + encodeURIComponent(c.case)", core)
+        self.assertIn('Console.attackProof(data.attack_proof)', map_js)
+
     def test_ops_is_minimal_and_has_no_rollback(self):
         ops = (FRONT / 'ops.js').read_text()
         self.assertNotIn('rollback', ops.lower())

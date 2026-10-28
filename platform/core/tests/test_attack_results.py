@@ -197,6 +197,26 @@ class Console(unittest.TestCase):
             self.assertEqual(data['status'], status)
             self.assertEqual(data['results'], [])
 
+    def test_map_explains_cite_only_held_cases_of_the_current_release(self):
+        run = report()
+        number = {name: i + 1 for i, name in enumerate(attack_results.CASES)}
+        proof = self.mounted(json.dumps(run)).explain('financial-frontdoor')['attack_proof']
+        self.assertEqual([c['case'] for c in proof['cases']],
+                         ['financial_broker_database_roles', 'financial_cross_user_api_and_forged_session', 'financial_show_saras_expenses'])
+        self.assertEqual([c['number'] for c in proof['cases']], [number[c['case']] for c in proof['cases']])
+        self.assertEqual(self.mounted(json.dumps(run)).explain('ops-executor')['attack_proof']['cases'][0]['case'], 'ops_stale_approval_refused')
+        self.assertIsNone(self.mounted(json.dumps(run)).explain('audit')['attack_proof'])  # nothing proves it: stays declared
+        # A case that did not hold, a different release, or history never becomes proof.
+        failed = report()
+        for row in failed['results']:
+            if row['case'] == 'gateway_redaction_failure_rejected':
+                row.update(result='FAIL', verdict='NOT_EXERCISED')
+        self.assertIsNone(self.mounted(json.dumps(failed)).explain('gateway-boundary')['attack_proof'])
+        other = report(); other['release']['source_commit'] = 'e'*40
+        self.assertIsNone(self.mounted(json.dumps(other)).explain('financial-frontdoor')['attack_proof'])
+        self.assertIsNone(self.mounted(json.dumps(old_report())).explain('ops-executor')['attack_proof'])
+        self.assertIsNone(self.mounted(None).explain('network')['attack_proof'])
+
     def test_valid_preversioned_mount_is_explicit_history(self):
         data = self.mounted(json.dumps(old_report())).attacks()
         self.assertTrue(data['available'])

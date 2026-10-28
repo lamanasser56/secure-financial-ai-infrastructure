@@ -35,7 +35,14 @@ ASSET_TYPES = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; cha
                '.woff2': 'font/woff2'}
 OPS = 'ops-agent'  # the Security & Operations Agent: a platform tenant (ops namespace), not onboarded from an agent.yaml
 OPS_GUARANTEES = ('namespace', 'network', 'model_key', 'budget', 'redaction', 'approval', 'image')
-REDACTION_RECENT_SECONDS = 3600  # how recent a redactor event for the agent's own key must be to count as seen
+# Boundaries a current-release attack case proves (attack_results.CASES). Shown only for a PASS bound to this release.
+ATTACK_PROOF = {
+    'financial-frontdoor': ('financial_broker_database_roles', 'financial_cross_user_api_and_forged_session', 'financial_show_saras_expenses'),
+    'ops-executor': ('ops_stale_approval_refused',),
+    'gateway-boundary': ('gateway_redaction_failure_rejected',),
+    'network': ('egress_containment',),
+    'internet': ('egress_containment',),
+}
 
 
 def locate_extras():
@@ -44,6 +51,10 @@ def locate_extras():
     if (image / 'agents').is_dir():
         return image / 'ui', image / 'examples'
     return HERE.parents[2] / 'ui', HERE.parents[4] / 'docs/examples'
+
+
+def utc(at):
+    return time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(at))
 
 
 def display(name):
@@ -81,6 +92,7 @@ class Console:
         self.ui_dir, self.examples_dir = extras or locate_extras()
         self.live_attacks = Path(live_attacks)  # the mounted ConfigMap apps/attack-results (optional)
         self._cache = {}
+        self._masking_seen = {}  # caller -> latest redactor event time seen by this console process (never forgotten by a window)
         self._manifests = self._load_manifests()
         self._opscfg = self._load_ops()
 
@@ -142,6 +154,16 @@ class Console:
             value = None
         self._cache[path] = (now, value)
         return value
+
+    def _masking_seen_at(self, caller):
+        """When this console last saw a redactor event for `caller`'s key. The redactor's log tail is short and shared by
+        every caller, so a busy agent pushes a quiet one out of it; the console keeps what it has already observed, and a
+        count changes only when something new is seen or the console restarts."""
+        for event in (self._live('/v1/activity') or {}).get('events', []):
+            caller_, at = event.get('caller'), event.get('at')
+            if type(caller_) is str and type(at) in (int, float) and at > self._masking_seen.get(caller_, 0):
+                self._masking_seen[caller_] = at
+        return self._masking_seen.get(caller)
 
     def _finding(self, target):
         snapshot = self._live('/v1/snapshot')
@@ -270,9 +292,7 @@ class Console:
         o, ns, file = self._opscfg, 'ops', self._opscfg['file']
         live = self._ops_live()
         posture = ((self._live('/v1/posture') or {}).get('network') or {}).get(ns)
-        activity = self._live('/v1/activity')
-        seen = [e for e in (activity or {}).get('events', []) if e.get('caller') == 'ops' and type(e.get('at')) in (int, float)
-                and self._clock() - e['at'] <= REDACTION_RECENT_SECONDS]
+        seen = self._masking_seen_at('ops')
         g = lambda gid, title, state, basis, source, detail: {'id': gid, 'title': title, 'state': state, 'basis': basis, 'source': source, 'detail': detail}
         out = [g('namespace', 'Its own namespace', 'verified', 'observed', 'ops-agent /v1/snapshot', 'its API answered at ops-agent.ops') if live else
                g('namespace', 'Its own namespace', 'declared', 'manifest', file, 'Deployment ops-agent in namespace ops')]
@@ -288,7 +308,7 @@ class Console:
         out.append(g('budget', 'Monthly budget', 'declared', 'manifest', 'platform/core/src/agent_platform/onboarding.py',
                      'ops-explain: %s per month' % self._ops_agent()['budget_usd_month']))
         out.append(g('redaction', 'Identifier masking checks', 'verified', 'observed', 'redactor audit via ops-agent /v1/activity',
-                     'a recent redactor event for the key of ops') if seen else
+                     'a redactor event for the key of ops at ' + utc(seen)) if seen else
                    g('redaction', 'Identifier masking checks', 'declared', 'manifest', 'platform/core/src/agent_platform/ops/explain.py',
                      'every explanation request is redacted before the model'))
         out.append(g('approval', 'Separate approval executor', 'declared', 'manifest', 'platform/core/src/agent_platform/ops/authority.json',
@@ -318,9 +338,7 @@ class Console:
         failing = lambda gid, title, source, detail: {'id': gid, 'title': title, 'state': 'failing', 'basis': 'observed',
                                                       'source': source, 'detail': detail}
         ns_doc = self._kind(entry['rendered'], 'Namespace')
-        activity = self._live('/v1/activity')
-        seen = [e for e in (activity or {}).get('events', []) if e.get('caller') == ns and type(e.get('at')) in (int, float)
-                and self._clock() - e['at'] <= REDACTION_RECENT_SECONDS]
+        seen = self._masking_seen_at(ns)
         out = []
         out.append(verified('namespace', 'Its own namespace', 'ops-agent /v1/snapshot', 'observed', 'a Deployment is running in ' + ns)
                    if live and finding['namespace'] == ns and ns_doc else
@@ -336,7 +354,7 @@ class Console:
         out.append(declared('model_key', 'Scoped model key', 'gateway key agent-' + name + ' created by make up; the key is never readable here'))
         out.append(declared('budget', 'Monthly budget', 'budget_usd_month: %s' % m['model']['budget_usd_month']))
         out.append(verified('redaction', 'Identifier masking checks', 'redactor audit via ops-agent /v1/activity', 'observed',
-                            'a recent redactor event for the key of ' + ns) if seen else
+                            'a redactor event for the key of ' + ns + ' at ' + utc(seen)) if seen else
                    declared('redaction', 'Identifier masking checks', 'redaction: required; egress rendered to the redactor'
                             if 'redactor' in reaches else 'redaction: required'))
         out.append(declared('tools', 'Read-only tools', ', '.join(t['id'] for t in m['tools']) or 'no tools'))
@@ -475,7 +493,21 @@ class Console:
         if entry is None:
             return None
         proof = entry['proof'](self) if entry['proof'] is not None else None
-        return dict(topic=topic, **entry['text'], proof=proof, file=entry['file'])
+        return dict(topic=topic, **entry['text'], proof=proof, attack_proof=self._attack_proof(topic), file=entry['file'])
+
+    def _attack_proof(self, topic):
+        """The attack cases of the current release's report that held this boundary, or None (never inferred from a
+        different release, an incomplete case or a failed one)."""
+        cases = ATTACK_PROOF.get(topic)
+        report = self.attacks() if cases else None
+        if not report or not report.get('available') or report.get('binding') != 'current':
+            return None
+        held = [{'case': row['case'], 'number': index + 1, 'label': row['label'], 'purpose': row['purpose'], 'at': row['at']}
+                for index, row in enumerate(report['results']) if row['case'] in cases and row['verdict'] == 'PASS']
+        if not held:
+            return None
+        return {'source': 'make attack report (ConfigMap apps/attack-results)', 'run_id': report['run_id'],
+                'completed_at': report['completed_at'], 'cases': held}
 
     def _network(self):
         posture = self._live('/v1/posture')

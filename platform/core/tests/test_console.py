@@ -293,18 +293,31 @@ class Onboarding(unittest.TestCase):
         network = next(g for g in make(answers).onboarding('financial')['guarantees'] if g['id'] == 'network')
         self.assertEqual((network['state'], network['source']), ('verified', 'ops-agent /v1/posture'))
 
-    def test_redaction_is_verified_only_by_a_recent_event_for_that_agents_own_key(self):
+    def test_redaction_is_verified_only_by_an_event_for_that_agents_own_key(self):
         state = lambda c, name: next(g for g in c.onboarding(name)['guarantees'] if g['id'] == 'redaction')
         self.assertEqual(state(make(), 'financial')['state'], 'verified')
         self.assertEqual(state(make(), 'financial')['basis'], 'observed')
         self.assertEqual(state(make(), 'platform-guide')['state'], 'declared')  # the only event is another agent's
-        old = ops_answers()
-        old['/v1/activity']['events'][0]['at'] = NOW - 7200
-        self.assertEqual(state(make(old), 'financial')['state'], 'declared')
-        old['/v1/activity']['events'][0].update(at=NOW - 5, caller='app')
-        self.assertEqual(state(make(old), 'financial')['state'], 'declared')
-        old['/v1/activity'] = None
-        self.assertEqual(state(make(old), 'financial')['state'], 'declared')
+        other = ops_answers()
+        other['/v1/activity']['events'][0].update(at=NOW - 5, caller='app')
+        self.assertEqual(state(make(other), 'financial')['state'], 'declared')
+        other['/v1/activity'] = None
+        self.assertEqual(state(make(other), 'financial')['state'], 'declared')
+
+    def test_an_observation_stays_until_something_new_is_seen(self):
+        """The redactor's log tail is shared: a busy agent pushes a quiet one out of it. The count must not flip between
+        two loads because of that; it shows when the event was seen."""
+        answers = ops_answers()
+        answers['/v1/activity']['events'][0]['at'] = NOW - 7200
+        c = make(answers)
+        first = next(g for g in c.onboarding('financial')['guarantees'] if g['id'] == 'redaction')
+        self.assertEqual(first['state'], 'verified')
+        self.assertIn('at 20', first['detail'])
+        answers['/v1/activity']['events'] = []  # pushed out of the tail by other callers
+        c._cache.clear()
+        again = next(g for g in c.onboarding('financial')['guarantees'] if g['id'] == 'redaction')
+        self.assertEqual(again, first)
+        self.assertEqual(c.onboarding('financial')['counts'], c.onboarding('financial')['counts'])
 
     def test_failing_means_a_live_check_ran_and_contradicts_the_manifest(self):
         answers = ops_answers()
@@ -357,7 +370,7 @@ class Explain(unittest.TestCase):
         for topic in self.topics:
             with self.subTest(topic=topic):
                 result = console_.explain(topic)
-                self.assertEqual(set(result), {'topic', 'title', 'plain', 'how', 'proof', 'without', 'file'})
+                self.assertEqual(set(result), {'topic', 'title', 'plain', 'how', 'proof', 'attack_proof', 'without', 'file'})
                 self.assertTrue((REPO / result['file']).is_file(), result['file'])
 
     def test_live_proofs(self):
@@ -463,7 +476,7 @@ class Http(unittest.TestCase):
                     with self.subTest(topic=topic,available=available):
                         status,body,headers = self.get('/api/console/explain/'+topic)
                         self.assertEqual(status,200,body)
-                        self.assertEqual(set(body),{'topic','title','plain','how','proof','without','file'})
+                        self.assertEqual(set(body),{'topic','title','plain','how','proof','attack_proof','without','file'})
                         self.assertEqual(body['topic'],topic)
                         self.assertEqual(headers['Cache-Control'],'no-store')
                         self.assertTrue(all(isinstance(body[key],str) and body[key] for key in ('title','plain','how','without','file')))

@@ -100,7 +100,9 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .stats dt { font: 700 12px var(--head); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); } .stats dd { margin: 0; font: 800 44px/1 var(--head); }
 .part { cursor: pointer; } .part:focus-visible { outline: none; } .part:focus-visible .shape, .part:hover .shape { stroke: var(--allowed); stroke-width: 2.5; }
 .shape { fill: var(--box); stroke: var(--line); stroke-width: 1.2; }
-.shape.dash { fill: none; stroke: var(--denied); stroke-dasharray: 5 4; pointer-events: all; }  /* the whole box is the click target, not only its outline */
+.shape.dash { fill: none; stroke: var(--denied); stroke-dasharray: 5 4; pointer-events: all; }
+.hit { fill: transparent; stroke: none; pointer-events: all; } .hit-line { fill: none; stroke: transparent; stroke-width: 22; pointer-events: stroke; }  /* thin lines get a wide click target */
+.attack-proof ul { margin: 0; padding-left: 18px; } .attack-proof li { margin: 4px 0; } .attack-proof a { color: var(--allowed); }  /* the whole box is the click target, not only its outline */
 .cell { fill: var(--box); stroke: var(--line); stroke-width: 1; }
 .t-name { font: 700 22px var(--head); fill: var(--ink); } .t-item { font: 700 20px var(--head); fill: var(--ink); } .t-sub { font: 400 13px var(--body); fill: var(--muted); }
 .t-head { font: 800 20px var(--head); fill: var(--ink); letter-spacing: 0.1em; } .t-label { font: 700 13px var(--head); fill: var(--muted); letter-spacing: 0.1em; }
