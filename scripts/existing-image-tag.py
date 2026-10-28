@@ -5,7 +5,9 @@ The registry refuses to move sha-<S>, and a rebuild is not byte-identical, so a 
 dispatch after the automatic run, or the reverse) must not rebuild. `lookup` reads the tag through the registry API
 (404 = absent; anything else unexpected fails closed). `verify` requires the keyless signature from this workflow at S
 and the signed source/material predicate recomputed for S, using the release verifier. Nothing is pushed, signed,
-retagged or overwritten here.
+retagged or overwritten here. `attest` runs the KMS attestation command: on the existing-tag path only, the exact
+"could not create occurrence" conflict means this subject was already attested by the earlier run and is recorded as
+`preexisting`; every other failure, and any conflict on a fresh build, fails the job.
 """
 import argparse
 import base64
@@ -45,6 +47,30 @@ def lookup(registry, project, repository, image, source, token, *, open_url=urll
     return digest
 
 
+ORIGINS = ('fresh_build', 'existing_tag_verified')
+PROJECT = r'[a-z][a-z0-9-]{4,28}[a-z0-9]'
+# The exact error Binary Authorization returns when the occurrence for this subject already exists (run 40387775479).
+CONFLICT = re.compile(r'ERROR: \(gcloud\.beta\.container\.binauthz\.attestations\.sign-and-create\) Resource in projects '
+                      r'\[(' + PROJECT + r')\] is the subject of a conflict: Could not create occurrence ID '
+                      r'"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}" on project "(' + PROJECT + r')"')
+
+
+def attest(origin, project, command, *, run=subprocess.run, err=sys.stderr):
+    """'created', or 'preexisting' for the exact occurrence conflict on the existing-tag path; raise otherwise."""
+    if origin not in ORIGINS or not re.fullmatch(PROJECT, project) or not command:
+        raise ValueError('invalid attest input')
+    result = run(command, capture_output=True, text=True)
+    err.write(result.stderr)
+    if result.returncode == 0:
+        return 'created'
+    lines = [line.strip() for line in result.stderr.splitlines() if line.strip()]
+    match = CONFLICT.fullmatch(lines[-1]) if lines else None
+    if (origin == 'existing_tag_verified' and match and match.group(1) == match.group(2) == project
+            and sum(line.startswith('ERROR') for line in lines) == 1):
+        return 'preexisting'
+    raise RuntimeError('KMS attestation failed (exit %d)' % result.returncode)
+
+
 def verify(ref, predicate, verifier):
     """Raise unless `ref` carries this workflow's keyless signature at S and the signed predicate for S."""
     if not verifier.signature(ref):
@@ -68,7 +94,15 @@ def main():
     check.add_argument('--source', required=True)
     check.add_argument('--predicate', type=Path, required=True)
     check.add_argument('--cosign', default='cosign')
+    sign = commands.add_parser('attest')
+    sign.add_argument('--origin', choices=ORIGINS, required=True)
+    sign.add_argument('--project', required=True)
+    sign.add_argument('attest_command', nargs=argparse.REMAINDER)
     args = parser.parse_args()
+    if args.command == 'attest':
+        command = args.attest_command[1:] if args.attest_command[:1] == ['--'] else args.attest_command
+        print(attest(args.origin, args.project, command))
+        return
     if args.command == 'lookup':
         # The short-lived token arrives in the environment, never on the command line.
         digest = lookup(args.registry, args.project, args.repository, args.image, args.source,

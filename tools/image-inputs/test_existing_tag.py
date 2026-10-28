@@ -203,3 +203,59 @@ class WorkflowContract(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class Attest(unittest.TestCase):
+    """KMS attestation outcomes: only the exact occurrence conflict, only on the existing-tag path, is accepted."""
+    COMMAND = ['gcloud', 'beta', 'container', 'binauthz', 'attestations', 'sign-and-create', '--project', PROJECT]
+    CONFLICT = ('ERROR: (gcloud.beta.container.binauthz.attestations.sign-and-create) Resource in projects [' + PROJECT
+                + '] is the subject of a conflict: Could not create occurrence ID "41f6a054-c665-447c-b1fa-45c69108c391" on project "'
+                + PROJECT + '"\n')
+
+    def run_with(self, returncode, stderr, origin):
+        calls = []
+
+        def run(command, **kwargs):
+            calls.append((command, kwargs))
+            return type('Result', (), {'returncode': returncode, 'stderr': stderr, 'stdout': ''})()
+        result = existing.attest(origin, PROJECT, self.COMMAND, run=run, err=io.StringIO())
+        self.assertEqual(calls[0][0], self.COMMAND)
+        return result
+
+    def test_success_is_created_on_both_paths(self):
+        for origin in existing.ORIGINS:
+            self.assertEqual(self.run_with(0, '', origin), 'created')
+
+    def test_the_exact_conflict_on_the_existing_tag_path_is_preexisting(self):
+        self.assertEqual(self.run_with(1, self.CONFLICT, 'existing_tag_verified'), 'preexisting')
+        warned = 'WARNING: a newer gcloud is available\n' + self.CONFLICT
+        self.assertEqual(self.run_with(1, warned, 'existing_tag_verified'), 'preexisting')
+
+    def test_a_fresh_build_never_accepts_a_conflict(self):
+        with self.assertRaises(RuntimeError):
+            self.run_with(1, self.CONFLICT, 'fresh_build')
+
+    def test_any_other_error_fails_on_the_existing_tag_path(self):
+        for stderr in (
+                'ERROR: (gcloud.beta.container.binauthz.attestations.sign-and-create) PERMISSION_DENIED: denied\n',
+                'ERROR: (gcloud.beta.container.binauthz.attestations.sign-and-create) Resource in projects [' + PROJECT
+                + '] is the subject of a conflict: something else\n',
+                self.CONFLICT.replace('[' + PROJECT + ']', '[other-project-x]'),
+                'ERROR: (gcloud.auth) token refresh failed\n' + self.CONFLICT,
+                self.CONFLICT + 'trailing output\n',
+                ''):
+            with self.subTest(stderr=stderr), self.assertRaises(RuntimeError):
+                self.run_with(1, stderr, 'existing_tag_verified')
+
+    def test_invalid_input_is_refused_before_running_anything(self):
+        for origin, project, command in (('rebuilt', PROJECT, self.COMMAND), ('fresh_build', 'Bad_Project', self.COMMAND),
+                                         ('fresh_build', PROJECT, [])):
+            with self.subTest(origin=origin), self.assertRaises(ValueError):
+                existing.attest(origin, project, command, run=lambda *a, **k: self.fail('ran'), err=io.StringIO())
+
+    def test_the_workflow_routes_the_attestation_through_this_check_and_records_it(self):
+        workflow = (ROOT / '.github/workflows/agent-platform-images.yml').read_text()
+        self.assertIn('scripts/existing-image-tag.py attest', workflow)
+        self.assertIn('--origin "$(cat "$RUNNER_TEMP/subject-origin.txt")"', workflow)
+        self.assertEqual(workflow.count('binauthz attestations sign-and-create'), 1)  # no direct call left
+        self.assertIn("'attestation': sys.argv[6]", workflow)

@@ -8,7 +8,8 @@
 # Binary Authorization attestation with the Cloud KMS attestor key (GKE admission cannot enforce keyless signatures
 # natively). An unsigned, unattested digest left in the registry by a blocked run is never admitted.
 # The immutable tag sha-<S> is never moved: when it already exists (another run for the same S), that subject is not
-# rebuilt but passes the same post-push gates and must already carry this workflow's signature and predicate for S.
+# rebuilt but passes the same post-push gates and must already carry this workflow's signature and predicate for S;
+# its KMS attestation from that earlier run is accepted only as the exact occurrence conflict (receipt: preexisting).
 # Credentials: Workload Identity Federation provider agent-platform-ci (repository + ref + workflow bound).
 name: agent-platform-images
 
@@ -396,17 +397,22 @@ jobs:
               --cosign "$RUNNER_TEMP/tools/cosign"
             echo fresh_build > "$RUNNER_TEMP/subject-origin.txt"
           fi
-          gcloud beta container binauthz attestations sign-and-create --project "$PROJECT_ID" --artifact-url "$ref" \
+          # The existing-tag path accepts only the exact "occurrence already exists" conflict (attested by the earlier run
+          # for this S); a fresh build never does. The operator verifies every KMS attestation before locking a release.
+          attestation=$(PYTHONPATH=platform/core/src python3 scripts/existing-image-tag.py attest \
+            --origin "$(cat "$RUNNER_TEMP/subject-origin.txt")" --project "$PROJECT_ID" -- \
+            gcloud beta container binauthz attestations sign-and-create --project "$PROJECT_ID" --artifact-url "$ref" \
             --attestor "projects/$PROJECT_ID/attestors/agent-platform-ci" \
-            --keyversion "projects/$PROJECT_ID/locations/us-east1/keyRings/agent-platform/cryptoKeys/binauthz-attestor/cryptoKeyVersions/1"
-          python3 - "$ref" "$RUNNER_TEMP/trivy.json" "$SHA" "$RUNNER_TEMP/release-gate.txt" "$smoke" > "$RUNNER_TEMP/receipt.json" <<'PY'
+            --keyversion "projects/$PROJECT_ID/locations/us-east1/keyRings/agent-platform/cryptoKeys/binauthz-attestor/cryptoKeyVersions/1")
+          echo "KMS attestation: $attestation"
+          python3 - "$ref" "$RUNNER_TEMP/trivy.json" "$SHA" "$RUNNER_TEMP/release-gate.txt" "$smoke" "$attestation" > "$RUNNER_TEMP/receipt.json" <<'PY'
           import hashlib, json, sys
           trivy = json.load(open(sys.argv[2]))
           findings = sum(v.get('Severity') in ('HIGH', 'CRITICAL') for r in trivy.get('Results', [])
                          for v in (r.get('Vulnerabilities') or []))
           print(json.dumps({'image': sys.argv[1], 'source_sha': sys.argv[3], 'trivy_high_critical': findings,
                             'release_gate': open(sys.argv[4]).read().strip(), 'cosign': 'keyless_verified',
-                            'binauthz': 'attested_kms', 'sbom': 'cyclonedx', 'runtime_smoke': sys.argv[5]},
+                            'binauthz': 'attested_kms', 'attestation': sys.argv[6], 'sbom': 'cyclonedx', 'runtime_smoke': sys.argv[5]},
                            sort_keys=True))
           PY
           docker logout "https://$REGISTRY" >/dev/null
