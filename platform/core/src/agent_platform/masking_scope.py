@@ -1,15 +1,15 @@
 """Presentation of the existing masking contract; this module does not change detection or policy."""
 from runtime.phase3.trusted_runtime import SUPPORTED_ENTITIES
 
-LABELS = {
-    'EMAIL_ADDRESS': 'email addresses',
-    'PHONE_NUMBER': 'phone numbers (supported Saudi and international formats)',
-    'CREDIT_CARD': 'card numbers (supported formats and validation)',
-    'IBAN_CODE': 'IBANs (Saudi formats and labelled international formats)',
-    'SAUDI_BANK_ACCOUNT': 'labelled bank account numbers',
-    'SAUDI_NATIONAL_ID': 'Saudi national ID numbers (supported labelled or contextual formats)',
-    'SAUDI_RESIDENT_ID': 'Saudi residence ID numbers (supported labelled or contextual formats)',
-    'SAUDI_VAT_ID': 'VAT/tax IDs (supported labelled or Saudi-shaped formats)',
+LABELS = {  # short list labels; format details live in the redactor's pattern set, not in this presentation
+    'EMAIL_ADDRESS': 'Email addresses',
+    'PHONE_NUMBER': 'Phone numbers',
+    'CREDIT_CARD': 'Payment card numbers',
+    'IBAN_CODE': 'IBANs',
+    'SAUDI_BANK_ACCOUNT': 'Bank account numbers (labelled)',
+    'SAUDI_NATIONAL_ID': 'Saudi national IDs',
+    'SAUDI_RESIDENT_ID': 'Saudi residence IDs',
+    'SAUDI_VAT_ID': 'VAT / tax IDs',
 }
 SUMMARY = 'Supported identifier patterns are masked before model requests. Person names and passport numbers are not masked.'
 LIMITS = 'Matching depends on format and context. It does not cover every spelling, format or kind of sensitive information.'
@@ -18,13 +18,13 @@ EXTRA = 'Some other labelled numeric IDs can be masked without a named category 
 
 AR_LABELS = {
     'EMAIL_ADDRESS': 'عناوين البريد الإلكتروني',
-    'PHONE_NUMBER': 'أرقام الهاتف بصيغ سعودية ودولية مدعومة',
-    'CREDIT_CARD': 'أرقام البطاقات بالصيغ والتحقق المدعومين',
-    'IBAN_CODE': 'أرقام آيبان السعودية والدولية المسبوقة بوصف',
-    'SAUDI_BANK_ACCOUNT': 'أرقام الحسابات المصرفية المسبوقة بوصف',
-    'SAUDI_NATIONAL_ID': 'أرقام الهوية الوطنية السعودية ضمن الصيغ والأوصاف المدعومة',
-    'SAUDI_RESIDENT_ID': 'أرقام الإقامة السعودية ضمن الصيغ والأوصاف المدعومة',
-    'SAUDI_VAT_ID': 'الأرقام الضريبية المسبوقة بوصف أو المطابقة للصيغة السعودية',
+    'PHONE_NUMBER': 'أرقام الهاتف',
+    'CREDIT_CARD': 'أرقام بطاقات الدفع',
+    'IBAN_CODE': 'أرقام الآيبان',
+    'SAUDI_BANK_ACCOUNT': 'أرقام الحسابات البنكية (المسبوقة بوصف)',
+    'SAUDI_NATIONAL_ID': 'أرقام الهوية الوطنية السعودية',
+    'SAUDI_RESIDENT_ID': 'أرقام الإقامة السعودية',
+    'SAUDI_VAT_ID': 'الأرقام الضريبية',
 }
 
 
@@ -44,5 +44,6 @@ def scope(language='en'):
 
 
 def explanation():
+    """One short list sentence plus the limit: "Masked: Email addresses · Phone numbers · …"."""
     value = scope()
-    return 'Supported patterns: ' + '; '.join(row['label'] for row in value['supported']) + '. ' + LIMITS + ' ' + EXTRA
+    return 'Masked: ' + ' · '.join(row['label'] for row in value['supported']) + '. Not masked: person names, passport numbers. ' + LIMITS

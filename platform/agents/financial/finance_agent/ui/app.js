@@ -61,7 +61,8 @@
       let data;
       try { data = await response.json(); } catch { Console.observeAPI(response.status, false); return {ok: false, status: response.status, data: {error: 'invalid_response'}}; }
       if (!data || typeof data !== 'object' || Array.isArray(data)) { Console.observeAPI(response.status, false); return {ok: false, status: response.status, data: {error: 'invalid_response'}}; }
-      Console.observeAPI(response.status);
+      // Not signed in yet is the normal answer to /api/me, not an API failure; the page shows the sign-in form.
+      Console.observeAPI(response.status, true, path === '/api/me' && response.status === 401);
       return {ok: response.ok, status: response.status, data};
     } catch {
       Console.observeAPI(0);
