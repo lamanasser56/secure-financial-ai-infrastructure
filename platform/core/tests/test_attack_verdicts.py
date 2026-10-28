@@ -115,3 +115,22 @@ class LogInjection(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FreshControl(unittest.TestCase):
+    STALE, REPLAY = {'result': 'DENIED', 'code': 'OBJECT_CHANGED'}, {'result': 'DENIED', 'code': 'ALREADY_USED'}
+    MOVED = {'result': 'DENIED', 'code': 'OBJECT_CHANGED'}
+
+    def test_a_version_moved_before_the_fresh_execution_is_not_exercised(self):
+        self.assertEqual(attack_suite.fresh_control_verdict(self.STALE, self.REPLAY, True, self.MOVED), 'NOT_EXERCISED')
+
+    def test_the_fresh_control_passes_only_when_verified(self):
+        self.assertEqual(attack_suite.fresh_control_verdict(self.STALE, self.REPLAY, True, {'result': 'VERIFIED', 'code': 'ROLLOUT_COMPLETE_AND_HEALTHY'}), 'PASS')
+        self.assertEqual(attack_suite.fresh_control_verdict(self.STALE, self.REPLAY, True, {'result': 'DENIED', 'code': 'APPROVAL_REJECTED'}), 'FAIL')
+
+    def test_a_broken_security_check_stays_a_failure_even_if_the_fresh_one_moved(self):
+        for stale, replay, unchanged in (({'result': 'VERIFIED', 'code': 'X'}, self.REPLAY, True),
+                                         (self.STALE, {'result': 'VERIFIED', 'code': 'X'}, True),
+                                         (self.STALE, self.REPLAY, False)):
+            with self.subTest(stale=stale, replay=replay, unchanged=unchanged):
+                self.assertEqual(attack_suite.fresh_control_verdict(stale, replay, unchanged, self.MOVED), 'FAIL')

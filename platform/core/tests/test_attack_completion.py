@@ -215,21 +215,30 @@ class Orchestration(unittest.TestCase):
             attack_runtime.run_capability_probe(None,None,('a','b'),['agent-u1','agent-u2'],pair=never,sleep=lambda _:None)
         self.assertEqual(str(raised.exception),'active_turn_did_not_finish')
 
-    def test_the_fresh_proposal_is_only_one_bound_to_the_suites_own_patched_version(self):
+    def test_the_fresh_proposal_is_created_after_the_patch_and_bound_to_the_current_version(self):
         queries=[]
+        versions=iter(['9001','9002','9003'])  # status writes move the opaque version between scans
         def fake_exec(namespace,deployment,code,container=None,input=None,**kwargs):
             queries.append(json.loads(input))
-            return SimpleNamespace(returncode=0,stdout='null')
-        with patch.object(attack_suite,'exec_python',fake_exec),patch.object(attack_suite.time,'sleep',lambda _:None), \
-                patch.object(attack_suite.time,'time',side_effect=[0,1,2,200]):
-            with self.assertRaises(NotExercised) as raised:
-                attack_suite.signed_restart_proposal(exclude={'first'},wait=150,bound={'resource_version':'8812','patched_at':1793220000.5})
-        self.assertEqual(str(raised.exception),'no_proposal_for_patched_version')
-        self.assertEqual(queries[0],{'exclude':['first'],'resource_version':'8812','created_after':1793220000.5})
-        # In-pod selection: exact version equality (opaque, never ordered) and created after the patch.
+            if len(queries)<3: return SimpleNamespace(returncode=0,stdout='null')
+            return SimpleNamespace(returncode=0,stdout=json.dumps({'proposal':{'request_id':'fresh','resource_version':'9003','created_at':5.0},'token':'t'}))
+        with patch.object(attack_suite,'exec_python',fake_exec),patch.object(attack_suite,'current_version',lambda:next(versions)), \
+                patch.object(attack_suite.time,'sleep',lambda _:None):
+            got=attack_suite.signed_restart_proposal(exclude={'first'},bound={'resource_version':'8812','patched_at':4.0})
+        self.assertEqual([q['resource_version'] for q in queries],['9001','9002','9003'])  # always the version read just now
+        self.assertEqual({q['created_after'] for q in queries},{4.0})
+        token=attack_suite.version_token
+        self.assertEqual(got['versions'],{'patched':token('8812'),'current_at_selection':token('9003'),'bound':token('9003')})
+        self.assertRegex(token('1793220000123'),r'^rv_[0-9a-f]{16}$')  # never a raw 10-13 digit value in evidence
         self.assertIn("x['resource_version']==w['resource_version']",attack_suite.OPS_SNAPSHOT)
         self.assertIn("x['created_at']>w['created_after']",attack_suite.OPS_SNAPSHOT)
         self.assertNotRegex(attack_suite.OPS_SNAPSHOT,r"resource_version'\]\s*[<>]")
+        with patch.object(attack_suite,'exec_python',lambda *a,**k:SimpleNamespace(returncode=0,stdout='null')), \
+                patch.object(attack_suite,'current_version',lambda:'9004'),patch.object(attack_suite.time,'sleep',lambda _:None), \
+                patch.object(attack_suite.time,'time',side_effect=[0,1,200]):
+            with self.assertRaises(NotExercised) as raised:
+                attack_suite.signed_restart_proposal(exclude={'first'},wait=150,bound={'resource_version':'8812','patched_at':4.0})
+        self.assertEqual(str(raised.exception),'no_proposal_for_current_version')
 
     def test_only_a_provider_failure_is_retried_and_counted(self):
         app=attack_suite.Financial.__new__(attack_suite.Financial); app.provider_retries=0
