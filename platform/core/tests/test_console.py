@@ -354,6 +354,15 @@ class Activity(unittest.TestCase):
         self.assertNotIn('request_id', walk(result))
         self.assertNotIn('approver', walk(result))
 
+    def test_an_agents_checked_events_are_its_observed_masking_path(self):
+        answers = ops_answers()
+        answers['/v1/activity']['events'] = [
+            {'kind': 'checked', 'at': NOW - 3, 'source': 'redactor', 'caller': 'agent-financial', 'categories': []},
+            {'kind': 'checked', 'at': NOW - 2, 'source': 'redactor', 'caller': 'gateway-boundary', 'categories': []},
+            {'kind': 'checked', 'at': NOW - 1, 'source': 'redactor', 'caller': 'app', 'categories': []}]
+        events = [e for e in make(answers).activity(10)['events'] if e.get('source') == 'redactor']
+        self.assertEqual([(e['kind'], e['caller']) for e in events], [('checked', 'agent-financial')])
+
     def test_unreadable_source_is_reported_not_hidden(self):
         result = make({'/v1/snapshot': None, '/v1/activity': None}).activity()
         self.assertEqual((result['events'], result['sources']['redactor'], result['sources']['ops_timeline']), ([], 'unavailable', 'unavailable'))
