@@ -109,12 +109,16 @@
       L("The trusted frontdoor authenticates the session. The broker checks capabilities bound to the user and worker; workers do not hold login or database credentials.", "تتحقق البوابة الأمامية الموثوقة من الجلسة. يتحقق وسيط البيانات من صلاحيات مرتبطة بالمستخدم والعامل؛ ولا يحمل العامل بيانات دخول أو اتصال بقاعدة البيانات."),
       ['user_ref: ' + trace.user_ref, 'outcome: ' + trace.outcome])});
     if (trace.redaction && trace.redaction.calls > 0) {
-      const found = Object.entries(trace.redaction.categories || {}).filter(([, count]) => count > 0).map(([code, count]) => code + ' × ' + count);
+      // Each count is the number of identifier checks (redactor calls) in which the category appeared, not a number of
+      // values: one IBAN checked in three calls is "found in 3 of 4 identifier checks", never "IBAN × 3".
+      const checks = trace.redaction.calls;
+      const found = Object.entries(trace.redaction.categories || {}).filter(([, count]) => count > 0)
+        .map(([code, count]) => code + L(': found in ' + count + ' of ' + checks + ' identifier checks', ': ظهر في ' + count + ' من ' + checks + ' فحوص معرّفات'));
       const title = found.length ? L("Identifier masking reported", "إخفاء معرّفات أبلغ عنه العامل") : L("Identifier checks reported", "فحوص معرّفات أبلغ عنها العامل");
       out.push({mark: '·', kind: 'plain', text: title, open: ex(title,
         L("The worker reported redaction calls and the categories found. A call with no findings does not prove that text contained no sensitive data.", "أبلغ العامل عن استدعاءات الإخفاء والفئات المكتشفة. عدم اكتشاف شيء لا يثبت خلو النص من البيانات الحساسة."),
         L("The mandatory model boundary checks accepted messages before using private provider credentials. Unavailable redaction refuses that request.", "يفحص حد النموذج الإلزامي الرسائل المقبولة قبل استخدام بيانات المزوّد الخاصة. يُرفض الطلب عند تعذر الإخفاء."),
-        ['redactor calls: ' + trace.redaction.calls, 'categories found: ' + (found.join(', ') || 'none reported')], maskingBlocks())});
+        ['identifier checks (redactor calls): ' + checks, ...(found.length ? found : ['categories found: none reported'])], maskingBlocks())});
     }
     if (trace.data_access) out.push({mark: '·', kind: 'plain', text: L("Scoped reads reported", "قراءات مقيّدة أبلغ عنها العامل"), open: ex(L("Scoped reads reported", "قراءات مقيّدة أبلغ عنها العامل"),
       L("The worker reported calls through the user-scoped data path.", "أبلغ العامل عن استدعاءات عبر مسار بيانات مقيّد بالمستخدم."),

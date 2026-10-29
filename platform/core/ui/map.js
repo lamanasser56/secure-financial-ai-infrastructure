@@ -249,6 +249,7 @@
   Console.plainCategories = plainCategories;
   function eventText(e) {
     if (e.kind === 'masked') return (e.categories && e.categories.length ? 'Masked ' + plainCategories(e.categories) : 'Identifier check') + (e.caller ? ' · ' + e.caller : '');
+    if (e.kind === 'checked') return 'Checked by the redactor · ' + e.caller + ' · nothing left to mask (the agent masks supported identifiers first)';
     if (e.kind === 'approved') return 'Approved' + (e.action ? ' ' + e.action : '') + (e.target ? ' · ' + e.target : '');
     return (e.code || e.reason || 'refused').toLowerCase().replace(/_/g, ' ') + (e.target ? ' · ' + e.target : e.caller ? ' · ' + e.caller : '');
   }

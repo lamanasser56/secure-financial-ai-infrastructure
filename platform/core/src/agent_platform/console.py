@@ -443,7 +443,10 @@ class Console:
         events, sources = [], {}
         redactor = self._live('/v1/activity')
         sources['redactor'] = 'ok' if redactor and redactor.get('available') else 'unavailable'
-        events += [e for e in (redactor or {}).get('events', []) if e.get('kind') in ('masked', 'blocked')]
+        # An agent that masks locally first sends the redactor nothing left to mask: its "checked" events are that agent's
+        # observed masking path. The platform's own second check (gateway-boundary) and the demo warm-up (app) are not.
+        events += [e for e in (redactor or {}).get('events', []) if e.get('kind') in ('masked', 'blocked')
+                   or (e.get('kind') == 'checked' and str(e.get('caller') or '').startswith('agent-'))]
         snapshot = self._live('/v1/snapshot')
         sources['ops_timeline'] = 'ok' if snapshot else 'unavailable'
         for e in (snapshot or {}).get('timeline', []):

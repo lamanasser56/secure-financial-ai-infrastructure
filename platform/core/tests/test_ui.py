@@ -200,6 +200,12 @@ class Scripts(unittest.TestCase):
         self.assertIn("Console.observeAPI(response.status, true, path === '/api/me' && response.status === 401)", fin)
         self.assertIn("status >= 400 && !expected ? 'error' : 'answered'", core)
 
+    def test_masking_counts_are_identifier_checks_not_values(self):
+        fin = (FIN / 'app.js').read_text()
+        self.assertNotIn("code + ' × ' + count", fin)
+        self.assertIn("': found in ' + count + ' of ' + checks + ' identifier checks'", fin)
+        self.assertIn("e.kind === 'checked'", (FRONT / 'map.js').read_text())
+
     def test_ops_is_minimal_and_has_no_rollback(self):
         ops = (FRONT / 'ops.js').read_text()
         self.assertNotIn('rollback', ops.lower())
