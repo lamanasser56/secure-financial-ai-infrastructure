@@ -25,7 +25,7 @@ html[dir="rtl"] body, html[dir="rtl"] button, html[dir="rtl"] input, html[dir="r
 }
 
 /* The screen shows an explicitly labelled preview; the source drawer contains the full indexed passage. */
-.guide-out .guide-excerpt { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+/* Each selected passage is shown in full (docs/platform/guide-corpus.md); no line clamp in the answer. */
 .guide-quote { margin: 0 0 18px; padding-inline-start: 14px; border-inline-start: 3px solid var(--hair); }
 .guide-quote-from { font: 600 13px var(--mono); color: var(--muted); margin-bottom: 4px; }
 .guide-md p { margin: 0 0 8px; } .guide-md ul, .guide-md ol { margin: 0 0 8px; padding-inline-start: 22px; } .guide-md li { margin: 3px 0; }
