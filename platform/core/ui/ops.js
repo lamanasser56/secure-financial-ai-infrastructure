@@ -43,6 +43,11 @@
       return response.ok ? {ok: true, data} : {ok: false, error: errorCode(data.error || 'status_' + response.status)};
     } catch { return {ok: false, error: 'unavailable'}; }
   }
+  // Every timeline row says what happened; an observation has no code, so it shows its readiness counts.
+  const eventDetail = e => e.stage === 'observed' ? 'observed · ' + e.available + ' / ' + e.desired + ' ready' + (Number.isFinite(e.pods) ? ' (' + e.pods + ' pods)' : '')
+    : e.stage === 'denied' && e.code === 'SUPERSEDED' ? 'proposal replaced by a newer observation'
+    : e.stage === 'approved' ? 'approved by the owner' + (e.action ? ' · ' + words(e.action) : '')
+    : words(e.code || e.finding || e.action || e.stage);
   const stageChip = stage => el('span', {class: 'chip ' + ({denied: 'denied', failed: 'denied', verified: 'allowed', executed: 'allowed', approved: 'allowed'}[stage] || 'muted')}, stage);
 
   function pending(p, report, refresh) {
@@ -221,11 +226,13 @@
         } else approvals.replaceChildren(heading, el('p', {class: 'muted'}, 'No pending approvals.'));
         const events = (d.timeline || []).slice(-20).reverse();
         const incidents = d.board.filter(b => b.finding !== 'HEALTHY');
-        const timeline = events.map(e => el('li', {}, el('time', {}, Console.ago(e.at)), el('span', {}, e.target + ' · ' + words(e.code || e.finding || e.action)), stageChip(e.stage)));
+        const timeline = events.map(e => el('li', {}, el('time', {}, Console.ago(e.at)), el('span', {}, (e.target || 'request') + ' · ' + eventDetail(e)),
+          stageChip(e.stage === 'denied' && e.code === 'SUPERSEDED' ? 'superseded' : e.stage)));
         const explanations = incidents.map(b => el('div', {}, el('b', {}, b.target_id + ' · Explain'),
           b.explanation ? el('p', {}, b.explanation + ' · AI text, display only; it cannot change the action.')
             : el('p', {class: 'muted'}, b.observe_only ? 'Read-only observation. Owner action: ' + words(b.owner_action || 'inspect_workload') + '.'
-              : b.automated_fix ? 'Not needed: an automated fix is proposed.' : 'No explanation yet.')));
+              : b.automated_fix ? 'No AI explanation: this finding has a registered automated fix, so the platform proposes that fix for '
+                + 'your approval (Needs approval) instead of asking a model.' : 'No explanation yet.')));
         timelineBox.replaceChildren(el('details', {}, el('summary', {}, 'Incident timeline · ' + events.length + ' events'),
           el('ul', {class: 'tl'}, timeline), explanations,
           el('p', {class: 'hint'}, 'Recent operation denials: ' + (d.denials || []).length + '. This count is separate from posture findings.')));
