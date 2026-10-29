@@ -225,6 +225,24 @@ class Console(unittest.TestCase):
         self.assertIsNone(self.mounted(json.dumps(old_report())).explain('ops-executor')['attack_proof'])
         self.assertIsNone(self.mounted(None).explain('network')['attack_proof'])
 
+    def test_explain_wording_follows_the_proof_state(self):
+        proven = self.mounted(json.dumps(report()))
+        for topic in ('financial-frontdoor', 'ops-executor'):
+            how = proven.explain(topic)['how']
+            self.assertIn("This release's attack run tested this boundary", how)
+            self.assertNotIn('no independent live enforcement proof', how.lower())
+            self.assertNotIn('No current attack run', how)
+        unproven = self.mounted(None)
+        for topic in ('financial-frontdoor', 'ops-executor'):
+            how = unproven.explain(topic)['how']
+            self.assertIn('No current attack run or live check proves this boundary for this release.', how)
+            self.assertNotIn('tested this boundary', how)
+        self.assertNotIn('how_proven', proven.explain('financial-frontdoor'))
+
+    def test_the_internet_explain_is_scoped_to_agent_namespaces(self):
+        how = self.mounted(None).explain('internet')['how']
+        self.assertIn('No egress rule in an agent namespace points at an address range.', how)
+
     def test_valid_preversioned_mount_is_explicit_history(self):
         data = self.mounted(json.dumps(old_report())).attacks()
         self.assertTrue(data['available'])
