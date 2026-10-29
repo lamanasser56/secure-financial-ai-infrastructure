@@ -217,6 +217,11 @@ class Scripts(unittest.TestCase):
         self.assertNotIn('line-clamp', css)
         doc = (REPO_ROOT / 'docs/platform/guide-corpus.md').read_text()
         self.assertIn('The answer shows each selected passage in full', doc)
+    def test_only_controls_show_a_focus_outline(self):
+        css = (FRONT / 'style.css').read_text()
+        self.assertIn(':focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }', css)
+        self.assertIn('main[tabindex="-1"]:focus, main[tabindex="-1"]:focus-visible { outline: none; }', css)
+        self.assertNotRegex(css, r'(^|[},\s])(button|a|input|select|textarea)?:focus\s*\{\s*outline:\s*none')
 
     def test_ops_is_minimal_and_has_no_rollback(self):
         ops = (FRONT / 'ops.js').read_text()
