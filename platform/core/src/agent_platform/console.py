@@ -493,7 +493,12 @@ class Console:
         if entry is None:
             return None
         proof = entry['proof'](self) if entry['proof'] is not None else None
-        return dict(topic=topic, **entry['text'], proof=proof, attack_proof=self._attack_proof(topic), file=entry['file'])
+        attack_proof = self._attack_proof(topic)
+        text = dict(entry['text'])
+        if attack_proof and 'how_proven' in text:  # the wording follows the proof state: never "no proof" beside a held case
+            text['how'] = text['how_proven']
+        text.pop('how_proven', None)
+        return dict(topic=topic, **text, proof=proof, attack_proof=attack_proof, file=entry['file'])
 
     def _attack_proof(self, topic):
         """The attack cases of the current release's report that held this boundary, or None (never inferred from a
@@ -580,7 +585,7 @@ EXPLAIN = {
     'internet': {'proof': Console._proof_internet, 'file': 'platform/core/kubernetes/policies/network.yaml', 'text': {
         'title': 'No way out',
         'plain': 'Agents cannot reach the internet.',
-        'how': 'No egress rule points at an address range. The only exits are DNS and the platform services.',
+        'how': 'No egress rule in an agent namespace points at an address range. The only exits for an agent are DNS and the platform services it needs.',
         'without': 'A tricked agent could send data to any server.'}},
     'redactor': {'proof': Console._proof_redactor, 'file': 'platform/core/src/agent_platform/programs/redactor_server.py', 'text': {
         'title': 'Redactor',
@@ -606,8 +611,10 @@ for _topic, _title, _description, _source in (
     ('ops-executor', 'Independent approval executor', 'Only this identity can patch registered workloads after verifying owner approval and consuming a durable one-use receipt.', 'platform/core/src/agent_platform/ops/executor.py'),
 ):
     # These declarations have no independent read-only proof source in this API.
+    _how = (masking_scope.SUMMARY + ' ' + masking_scope.explanation()) if _topic == 'gateway-boundary' else 'This describes the selected source architecture.'
     EXPLAIN[_topic] = {'proof': None, 'file': _source, 'text': {'title': _title, 'plain': _description,
-                      'how': (masking_scope.SUMMARY + ' ' + masking_scope.explanation()) if _topic == 'gateway-boundary' else 'This describes the selected source architecture. This panel has no independent live enforcement proof.',
+                      'how': _how + ' No current attack run or live check proves this boundary for this release.',
+                      'how_proven': _how + ' This release\'s attack run tested this boundary (cases below); there is no continuous live check.',
                       'without': 'A compromised worker could cross a boundary intended to be enforced independently.'}}
 
 
