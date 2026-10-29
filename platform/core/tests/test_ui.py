@@ -139,9 +139,9 @@ class Scripts(unittest.TestCase):
         self.assertIn("value.slice(0, 4) + '…' + value.slice(-4)", core)
         self.assertIn('navigator.clipboard.writeText(value)', core)
 
-    def test_ops_explain_says_not_needed_when_an_automated_fix_is_proposed(self):
+    def test_ops_explain_says_why_no_ai_explanation_is_shown_for_an_automated_fix(self):
         ops = (FRONT / 'ops.js').read_text()
-        self.assertIn("b.automated_fix ? 'Not needed: an automated fix is proposed.' : 'No explanation yet.'", ops)
+        self.assertIn("b.automated_fix ? 'No AI explanation: this finding has a registered automated fix, so the platform proposes that fix for '", ops)
 
     def test_mrz_is_built_from_real_values_only(self):
         agents = (FRONT / 'agents.js').read_text()
@@ -205,6 +205,13 @@ class Scripts(unittest.TestCase):
         self.assertNotIn("code + ' × ' + count", fin)
         self.assertIn("': found in ' + count + ' of ' + checks + ' identifier checks'", fin)
         self.assertIn("e.kind === 'checked'", (FRONT / 'map.js').read_text())
+    def test_the_timeline_says_superseded_and_never_renders_an_empty_detail(self):
+        ops = (FRONT / 'ops.js').read_text()
+        self.assertIn("e.stage === 'denied' && e.code === 'SUPERSEDED' ? 'superseded' : e.stage", ops)
+        self.assertIn("e.stage === 'observed' ? 'observed · '", ops)
+        self.assertIn("words(e.code || e.finding || e.action || e.stage)", ops)
+        self.assertNotIn('Not needed: an automated fix is proposed.', ops)
+        self.assertIn('No AI explanation: this finding has a registered automated fix', ops)
 
     def test_ops_is_minimal_and_has_no_rollback(self):
         ops = (FRONT / 'ops.js').read_text()

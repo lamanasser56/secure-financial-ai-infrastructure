@@ -25,8 +25,15 @@ def _last_terminated(status):
     return ((status.get('lastState') or {}).get('terminated') or {}).get('reason')
 
 
+def live_pods(pods):
+    """Pods that still belong to the workload: a Pod with a deletionTimestamp is terminating (for example the old Pod
+    of a verified restart) and its readiness says nothing about the workload any more."""
+    return [pod for pod in pods if not (pod.get('metadata') or {}).get('deletionTimestamp')]
+
+
 def diagnose(deployment, pods, events, replicasets=()):
     name = deployment['metadata']['name']
+    pods = live_pods(pods)
     findings, evidence = [], []
     for pod in pods:
         pod_name = pod['metadata']['name']

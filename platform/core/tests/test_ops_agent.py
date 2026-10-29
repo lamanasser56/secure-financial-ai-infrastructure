@@ -34,6 +34,22 @@ class Diagnosis(unittest.TestCase):
         self.assertEqual(self.finding([pending]), 'PENDING')
         self.assertEqual(self.finding([pod()]), 'HEALTHY')
 
+    def test_a_terminating_pod_does_not_count(self):
+        # After a verified restart the old Pod is not ready while it terminates; the new one is ready.
+        old = pod('fault-demo-old', ready=False); old['metadata']['deletionTimestamp'] = '2026-10-29T00:08:05Z'
+        self.assertEqual(self.finding([old, pod('fault-demo-new')]), 'HEALTHY')
+        self.assertEqual(self.finding([pod('fault-demo-new', ready=False)]), 'READINESS_FAILING')  # a live Pod still counts
+        self.assertEqual(diagnose.live_pods([old, pod('fault-demo-new')]), [pod('fault-demo-new')])
+
+    def test_the_observer_proposes_nothing_while_the_old_pod_terminates(self):
+        old = pod('fault-demo-old', ready=False); old['metadata']['deletionTimestamp'] = '2026-10-29T00:08:05Z'
+        client = FakeClient(deployment(revision=2, tmpl=template()), pods=[old, pod('fault-demo-new')])
+        agent = Agent(client, {'apps.fault-demo': REGISTRY['apps.fault-demo']}, approval.Verifier(approval.generate_keypair()[1]))
+        agent.scan()
+        self.assertEqual([p for p in agent.proposals.values() if p['state'] == 'proposed'], [])
+        observed = [e for e in agent.timeline if e['stage'] == 'observed']
+        self.assertEqual(observed[-1]['pods'], 1)
+
     def test_binary_authorization_denial_is_admission_denied(self):
         event = {'reason': 'FailedCreate', 'involvedObject': {'kind': 'ReplicaSet', 'name': 'fault-demo-h3'},
                  'message': 'admission webhook "imagepolicywebhook.image-policy.k8s.io" denied the request: image policy'}

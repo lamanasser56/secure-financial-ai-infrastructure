@@ -55,7 +55,7 @@ class Agent:
         target = self.targets[key]
         deployment = self.client.get('deployments', target.namespace, target.name)
         selector = ','.join(f'{k}={v}' for k, v in sorted(deployment['spec']['selector']['matchLabels'].items()))
-        pods = self.client.list('pods', target.namespace, selector)
+        pods = diagnose.live_pods(self.client.list('pods', target.namespace, selector))  # terminating Pods are not counted
         events = self.client.list('events', target.namespace)
         return deployment, pods, events
 
