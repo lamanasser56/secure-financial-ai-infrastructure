@@ -27,6 +27,9 @@ body {
 [hidden] { display: none !important; }
 a { color: var(--ink); }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* main#view is a programmatic focus target (skip link, route change), not a control: Chrome counts that focus as
+   :focus-visible and drew a box around the whole screen. Controls keep their keyboard outline. */
+main[tabindex="-1"]:focus, main[tabindex="-1"]:focus-visible { outline: none; }
 .mono { font-family: var(--mono); font-size: 13px; }
 .muted { color: var(--muted); }
 .skip { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } .skip:focus { width: auto; height: auto; clip-path: none; left: 16px; top: 8px; background: var(--ink); color: var(--bg); padding: 6px 10px; z-index: 20; }
