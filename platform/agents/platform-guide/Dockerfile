@@ -11,7 +11,7 @@ COPY platform/agents/platform-guide/current-docs.json ./current-docs.json
 ARG SOURCE_COMMIT
 RUN node tools/build-index.js docs docs-index.json current-docs.json "$SOURCE_COMMIT"
 
-FROM gcr.io/distroless/nodejs24-debian13:nonroot@sha256:cb606325b7ec4af55462cb0b424a53b452a5b4a894ffe841fcf1048d216fb9f8 AS runtime
+FROM gcr.io/distroless/nodejs24-debian13:nonroot@sha256:a6c34457f6da4295807e051411c7783739c65b997a324fed14e4fa292615ae91 AS runtime
 WORKDIR /app/platform/agents/platform-guide
 COPY --chown=65532:65532 platform/agents/platform-guide/package.json ./
 COPY --chown=65532:65532 platform/agents/platform-guide/src/ ./src/
