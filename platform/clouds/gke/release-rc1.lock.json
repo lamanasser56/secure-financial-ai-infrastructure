@@ -1,21 +1,21 @@
 {
-  "_comment": "Release lock R: the seven digests built on GitHub-hosted runners from source_commit S by agent-platform-images run 40740467628, each keyless-signed by that workflow at S, carrying its signed source/material predicate and KMS-attested; verified with agent_platform.release_verify. make up resolves PROJECT_ID into a private copy and passes it to render.py --images-lock; images.json stays the historical pin set.",
+  "_comment": "Release lock R: the seven digests built on GitHub-hosted runners from source_commit S by agent-platform-images (forced run 41149140702: four fresh builds; app, financial and guide verified as the existing sha-S tags built by the automatic run 40804464497), each keyless-signed by that workflow at S, carrying its signed source/material predicate and KMS-attested; verified with agent_platform.release_verify. make up resolves PROJECT_ID into a private copy and passes it to render.py --images-lock; images.json stays the historical pin set.",
   "schema_version": 2,
-  "source_commit": "9a542ca4759c7871698a9017aa40112e5fe9f0e8",
+  "source_commit": "cca639d7d37e54ee9d6033d219b70d3b4bc23d2d",
   "runtime_contract": "trusted-boundaries-v2",
   "registry": "us-east1-docker.pkg.dev/PROJECT_ID/sdp-evaluation-images/",
   "images": {
-    "gateway": "agent-platform-gateway@sha256:ff75fc68b35fd8ebccac7edeb841c23ed0d9fb4017db1b56b79a31f544f3adf1",
-    "database": "agent-platform-database@sha256:66802bb7833440515c2e9586658d24b333a1585031f3c5fa25eda08b095c80ce",
-    "redactor": "agent-platform-redactor@sha256:0ac4a342b0947cb9332bc321186e3a3fbc4a18681949f8e8ed8214e3fb6bcc53",
-    "app": "agent-platform-app@sha256:91b62084d0e71c1c8da50fdf193612c5e341fac84a3590aa734f40cd92f6a545",
-    "ops-agent": "agent-platform-ops@sha256:932bd977b518254ee2ea7355d936a242f819e21c269c3ef4a4278a8928296687",
-    "agent-financial": "agent-financial@sha256:191fc3a87d555a151c52f25719fd5acaa6335689012539a5a95156d3422c3af6",
-    "platform-guide": "platform-guide@sha256:ba32593669e9cc8769ac4262dfffd7d8426d9c9dc0f95b27dd8d1ea47747a323"
+    "gateway": "agent-platform-gateway@sha256:e968a26420dc4849403de310b68c21c4c966740d9c094c76df754e95b72b438c",
+    "database": "agent-platform-database@sha256:0bf9743fd2aef9a472243b39f8cd556c4641ca768fdcb29504928be9bd101196",
+    "redactor": "agent-platform-redactor@sha256:9a1fa16910155788ed1c47d95d1b4aed17d04f30fc0112ae6bce0d9a92d35800",
+    "app": "agent-platform-app@sha256:85cc878f38e90d801912f5e68408637a79830f550db57e525d5a9c5ec732f825",
+    "ops-agent": "agent-platform-ops@sha256:67b9027f05d7ccd116de8f78aa447b3d0b652d0072e4b054502a07f3192c7abc",
+    "agent-financial": "agent-financial@sha256:b90db588bcc9c6971168935fdf5c8689f0ca21c65dcea9eca2c2a2376231520d",
+    "platform-guide": "platform-guide@sha256:39c0f06d3d5d38453bcdb2f4fce53e43e331c9ecdcc0ad94f2010ae00515b076"
   },
   "provenance": {
     "gateway": {
-      "git_archive_sha256": "100b70441e62fd7b3e110470b43a65fbe888e50da531f3898d7504836f378cb1",
+      "git_archive_sha256": "f4088bd5e8b05399c664274eb378f10dfef0ec2a0821203f72dc62675fce0b47",
       "input_fingerprint": "65d430692340516e88ef5d4b6d387fce3e4cd9b3822aad27967b72d56b351f2c",
       "materials": [
         "gcr.io/distroless/base-debian13:nonroot@sha256:f9518b74815721f537a7458cc693b4406208c04fce23bbffab511516117f34fd",
@@ -25,7 +25,7 @@
       ]
     },
     "database": {
-      "git_archive_sha256": "100b70441e62fd7b3e110470b43a65fbe888e50da531f3898d7504836f378cb1",
+      "git_archive_sha256": "f4088bd5e8b05399c664274eb378f10dfef0ec2a0821203f72dc62675fce0b47",
       "input_fingerprint": "6a2c95e52dd175e8fd65ae791006f8c7b0da2a3bca737e7218b4cd12ff4cd758",
       "materials": [
         "golang:1.27.3-alpine@sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c",
@@ -34,7 +34,7 @@
       ]
     },
     "redactor": {
-      "git_archive_sha256": "100b70441e62fd7b3e110470b43a65fbe888e50da531f3898d7504836f378cb1",
+      "git_archive_sha256": "f4088bd5e8b05399c664274eb378f10dfef0ec2a0821203f72dc62675fce0b47",
       "input_fingerprint": "aeb0e5e5f63bfbada2db3567a994d431524ca3881c0ec5273ebc138bfcc10a1d",
       "materials": [
         "gcr.io/distroless/base-debian13:nonroot@sha256:f9518b74815721f537a7458cc693b4406208c04fce23bbffab511516117f34fd",
@@ -43,8 +43,8 @@
       ]
     },
     "app": {
-      "git_archive_sha256": "100b70441e62fd7b3e110470b43a65fbe888e50da531f3898d7504836f378cb1",
-      "input_fingerprint": "84c82c9a561441826f5c640fe79a6d582f566bb24ebe40787cc912955c52fb2e",
+      "git_archive_sha256": "f4088bd5e8b05399c664274eb378f10dfef0ec2a0821203f72dc62675fce0b47",
+      "input_fingerprint": "dd326e0b0cafb02c801a02c0a52cfe256cd72d7332bfdecc41712d4d7ce416d2",
       "materials": [
         "gcr.io/distroless/base-debian13:nonroot@sha256:f9518b74815721f537a7458cc693b4406208c04fce23bbffab511516117f34fd",
         "moby/buildkit@sha256:99368f3e46177c6405b9740e4461d91cee004128daeecca78d4ceac50ec1da5c",
@@ -52,8 +52,8 @@
       ]
     },
     "ops-agent": {
-      "git_archive_sha256": "100b70441e62fd7b3e110470b43a65fbe888e50da531f3898d7504836f378cb1",
-      "input_fingerprint": "2a6ba0bc435e142acbfd8c723509ccd0363f3dfe4832a900c0828eb428ea03bf",
+      "git_archive_sha256": "f4088bd5e8b05399c664274eb378f10dfef0ec2a0821203f72dc62675fce0b47",
+      "input_fingerprint": "4127c245b3990f157200c56394185e915251fca720668b9d5a86346db88e53c6",
       "materials": [
         "gcr.io/distroless/base-debian13:nonroot@sha256:f9518b74815721f537a7458cc693b4406208c04fce23bbffab511516117f34fd",
         "moby/buildkit@sha256:99368f3e46177c6405b9740e4461d91cee004128daeecca78d4ceac50ec1da5c",
@@ -61,8 +61,8 @@
       ]
     },
     "agent-financial": {
-      "git_archive_sha256": "100b70441e62fd7b3e110470b43a65fbe888e50da531f3898d7504836f378cb1",
-      "input_fingerprint": "ad8f8a3874e27d9b0ae511caa14509698169a89cbbea65feb3fa55adae8ed28e",
+      "git_archive_sha256": "f4088bd5e8b05399c664274eb378f10dfef0ec2a0821203f72dc62675fce0b47",
+      "input_fingerprint": "75fb4216856fa81086711c72ac331d3daa7ed26d251373e3889a3a23009ddc4e",
       "materials": [
         "gcr.io/distroless/base-debian13:nonroot@sha256:f9518b74815721f537a7458cc693b4406208c04fce23bbffab511516117f34fd",
         "moby/buildkit@sha256:99368f3e46177c6405b9740e4461d91cee004128daeecca78d4ceac50ec1da5c",
@@ -70,8 +70,8 @@
       ]
     },
     "platform-guide": {
-      "git_archive_sha256": "100b70441e62fd7b3e110470b43a65fbe888e50da531f3898d7504836f378cb1",
-      "input_fingerprint": "6ea5c865d863b667dcbf6aeee1983ace5b3b2870d29470f62a20d003eba82ed4",
+      "git_archive_sha256": "f4088bd5e8b05399c664274eb378f10dfef0ec2a0821203f72dc62675fce0b47",
+      "input_fingerprint": "c5ce037b0134e664000b95acca22ece7f61277f6b85b8c4718e03ae530a82381",
       "materials": [
         "gcr.io/distroless/nodejs24-debian13:nonroot@sha256:cb606325b7ec4af55462cb0b424a53b452a5b4a894ffe841fcf1048d216fb9f8",
         "moby/buildkit@sha256:99368f3e46177c6405b9740e4461d91cee004128daeecca78d4ceac50ec1da5c",

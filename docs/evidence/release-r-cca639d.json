@@ -1,0 +1,935 @@
+{
+  "source_commit": "cca639d7d37e54ee9d6033d219b70d3b4bc23d2d",
+  "image_workflow_run": 41149140702,
+  "build_event": "workflow_dispatch",
+  "earlier_image_workflow_run": 40804464497,
+  "build_statement": "The automatic agent-platform-images run 40804464497 (workflow_run after the successful CI push run for S; headSha == S) selected and published only agent-platform-app, agent-financial and platform-guide, because the other four image inputs were unchanged. The forced run 41149140702 (workflow_dispatch on main, headSha == S) then built all seven on GitHub-hosted runners: agent-platform-database, agent-platform-gateway, agent-platform-ops and agent-platform-redactor are fresh builds (subject_origin fresh_build, attestation created); agent-platform-app, agent-financial and platform-guide were not rebuilt: their immutable sha-S tags were verified as existing subjects (subject_origin existing_tag_verified, attestation preexisting), and they are the exact digests and signed predicates that run 40804464497 built fresh, runtime-smoked, signed and KMS-attested at the same S. All seven passed the Trivy/KEV release gate of run 41149140702. Before any push or signature, its runtime-smoke job ran all seven together, every declared workload with the exact command/args of the rendered manifests, and the import sweep. All seven digests were then verified with the repository verifier: agent_platform.release_verify Verifier.signature and Verifier.attestation, and scripts/image-provenance.py --verify-ref (Verifier.provenance).",
+  "subjects_by_origin": {
+    "fresh_build_run_41149140702": [
+      "agent-platform-database",
+      "agent-platform-gateway",
+      "agent-platform-ops",
+      "agent-platform-redactor"
+    ],
+    "existing_tag_verified_built_by_run_40804464497": [
+      "agent-financial",
+      "agent-platform-app",
+      "platform-guide"
+    ]
+  },
+  "fixable_findings_blocked": "agent-platform-gateway: CVE-2026-112909 and CVE-2026-112910 (filelock 3.20.3, MEDIUM, fixed in 4.2.1): fix available upstream, blocked by LiteLLM's filelock<4 (litellm 1.104.0 and 1.106.2 both require filelock<4, so 4.2.1 cannot be installed without breaking that constraint). The KEV/HIGH/CRITICAL gate passed; no exception is added. Exposure is recorded per finding under images.gateway.",
+  "runtime_smoke": {
+    "passed": true,
+    "stability_seconds": 60,
+    "workloads": {
+      "smoke-agent-financial-agent-u1": "stable",
+      "smoke-agent-financial-agent-u2": "stable",
+      "smoke-agent-financial-agent-u3": "stable",
+      "smoke-agent-platform-guide-agent": "stable",
+      "smoke-apps-app": "stable",
+      "smoke-apps-fault-demo": "stable",
+      "smoke-apps-financial-frontdoor": "stable",
+      "smoke-ops-ops-agent": "stable",
+      "smoke-ops-ops-executor": "stable",
+      "smoke-platform-gateway": "stable",
+      "smoke-platform-gateway-boundary": "stable",
+      "smoke-platform-postgres": "stable",
+      "smoke-platform-redactor": "stable",
+      "smoke-platform-schema": "completed"
+    },
+    "import_sweep_missing": {
+      "agent-financial": 0,
+      "agent-platform-app": 0,
+      "agent-platform-gateway": 0,
+      "agent-platform-ops": 0,
+      "agent-platform-redactor": 0
+    }
+  },
+  "exception_register": "empty: the obsolete App/Ops filelock exception was removed; no image needs an exception",
+  "reviewed_toolchain": {
+    "litellm[proxy]": "1.104.0 (published 2026-10-03)",
+    "litellm-enterprise": "0.1.71 (2026-09-25)",
+    "litellm-proxy-extras": "0.4.102.post1 (2026-10-03)",
+    "prisma": "0.15.0",
+    "reason": "pre-incident LiteLLM set: the vendor advisory after the 2026-10-21 LiteLLM pipeline compromise says to pin versions published before 21 October; 1.104.7 and 0.1.71.post1 (25/24 October) were introduced in theme 19 without an owner decision and no fixable finding required them."
+  },
+  "dependency_inputs": "requirements, Dockerfiles and policy/ are unchanged since S 9a542ca4759c7871698a9017aa40112e5fe9f0e8 (R aa20b08); this S changes only application, UI, Guide public files, tests and attack-suite code.",
+  "existing_tag_path": "#188 accepts only the exact KMS occurrence conflict on the existing-tag path (receipt attestation: preexisting); this run used it for the three subjects of run 40804464497.",
+  "verifier": "platform/core/src/agent_platform/release_verify.py at S (signature, attestation, provenance)",
+  "images": {
+    "gateway": {
+      "image": "agent-platform-gateway@sha256:e968a26420dc4849403de310b68c21c4c966740d9c094c76df754e95b72b438c",
+      "subject_origin": "fresh_build",
+      "origin": "fresh build in run 41149140702",
+      "release_gate": "PASS: no KEV-listed finding (catalog 2026.10.30); accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding",
+      "reviewed_exception_gate": "PASS: full-severity KEV clear; 0 exact reviewed finding(s) accepted; no exception registered",
+      "high_critical_unreviewed": 0,
+      "fixable_findings": 2,
+      "fix_available_upstream_blocked": [
+        {
+          "id": "CVE-2026-112909",
+          "package": "filelock",
+          "severity": "MEDIUM",
+          "installed": "3.20.3",
+          "fixed": "4.2.1",
+          "status": "fix available upstream, blocked by LiteLLM's filelock<4",
+          "exposure": "arbitrary file truncation via lock path replacement; needs a second local user able to rename or hard-link files onto the lock path. The gateway runs one non-root user with a read-only root filesystem and a private /tmp."
+        },
+        {
+          "id": "CVE-2026-112910",
+          "package": "filelock",
+          "severity": "MEDIUM",
+          "installed": "3.20.3",
+          "fixed": "4.2.1",
+          "status": "fix available upstream, blocked by LiteLLM's filelock<4",
+          "exposure": "in WindowsFileLock (lock file mode ignored on Windows); not used on Linux."
+        }
+      ],
+      "no_fix_findings": 23,
+      "no_fix": [
+        {
+          "id": "CVE-2010-4756",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2018-20796",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010022",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010023",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010024",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010025",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-9192",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2026-18374",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-19499",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-19542",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-27171",
+          "package": "zlib1g",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-5435",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6238",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6368",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6791",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-77117",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-80489",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-85091",
+          "package": "zlib1g",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-8674",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-86805",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-89092",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-95818",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-97399",
+          "package": "libc6",
+          "severity": "LOW"
+        }
+      ],
+      "verified_by_release_verify": {
+        "signature": true,
+        "kms_attestation": true,
+        "provenance": true
+      }
+    },
+    "database": {
+      "image": "agent-platform-database@sha256:0bf9743fd2aef9a472243b39f8cd556c4641ca768fdcb29504928be9bd101196",
+      "subject_origin": "fresh_build",
+      "origin": "fresh build in run 41149140702",
+      "release_gate": "PASS: no KEV-listed finding (catalog 2026.10.30); accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding",
+      "reviewed_exception_gate": "PASS: full-severity KEV clear; 0 exact reviewed finding(s) accepted; no exception registered",
+      "high_critical_unreviewed": 0,
+      "fixable_findings": 0,
+      "fix_available_upstream_blocked": [],
+      "no_fix_findings": 0,
+      "no_fix": [],
+      "verified_by_release_verify": {
+        "signature": true,
+        "kms_attestation": true,
+        "provenance": true
+      }
+    },
+    "redactor": {
+      "image": "agent-platform-redactor@sha256:9a1fa16910155788ed1c47d95d1b4aed17d04f30fc0112ae6bce0d9a92d35800",
+      "subject_origin": "fresh_build",
+      "origin": "fresh build in run 41149140702",
+      "release_gate": "PASS: no KEV-listed finding (catalog 2026.10.30); accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding",
+      "reviewed_exception_gate": "PASS: full-severity KEV clear; 0 exact reviewed finding(s) accepted; no exception registered",
+      "high_critical_unreviewed": 0,
+      "fixable_findings": 0,
+      "fix_available_upstream_blocked": [],
+      "no_fix_findings": 23,
+      "no_fix": [
+        {
+          "id": "CVE-2010-4756",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2018-20796",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010022",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010023",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010024",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010025",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-9192",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2026-18374",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-19499",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-19542",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-27171",
+          "package": "zlib1g",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-5435",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6238",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6368",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6791",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-77117",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-80489",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-85091",
+          "package": "zlib1g",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-8674",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-86805",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-89092",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-95818",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-97399",
+          "package": "libc6",
+          "severity": "LOW"
+        }
+      ],
+      "verified_by_release_verify": {
+        "signature": true,
+        "kms_attestation": true,
+        "provenance": true
+      }
+    },
+    "app": {
+      "image": "agent-platform-app@sha256:85cc878f38e90d801912f5e68408637a79830f550db57e525d5a9c5ec732f825",
+      "subject_origin": "existing_tag_verified",
+      "origin": "existing tag sha-cca639d7d37e54ee9d6033d219b70d3b4bc23d2d verified in run 41149140702; built fresh, runtime-smoked, signed and KMS-attested at the same S by the automatic run 40804464497 (identical digest and predicate)",
+      "release_gate": "PASS: no KEV-listed finding (catalog 2026.10.30); accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding",
+      "reviewed_exception_gate": "PASS: full-severity KEV clear; 0 exact reviewed finding(s) accepted; no exception registered",
+      "high_critical_unreviewed": 0,
+      "fixable_findings": 0,
+      "fix_available_upstream_blocked": [],
+      "no_fix_findings": 23,
+      "no_fix": [
+        {
+          "id": "CVE-2010-4756",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2018-20796",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010022",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010023",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010024",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010025",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-9192",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2026-18374",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-19499",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-19542",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-27171",
+          "package": "zlib1g",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-5435",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6238",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6368",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6791",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-77117",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-80489",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-85091",
+          "package": "zlib1g",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-8674",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-86805",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-89092",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-95818",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-97399",
+          "package": "libc6",
+          "severity": "LOW"
+        }
+      ],
+      "verified_by_release_verify": {
+        "signature": true,
+        "kms_attestation": true,
+        "provenance": true
+      }
+    },
+    "ops-agent": {
+      "image": "agent-platform-ops@sha256:67b9027f05d7ccd116de8f78aa447b3d0b652d0072e4b054502a07f3192c7abc",
+      "subject_origin": "fresh_build",
+      "origin": "fresh build in run 41149140702",
+      "release_gate": "PASS: no KEV-listed finding (catalog 2026.10.30); accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding",
+      "reviewed_exception_gate": "PASS: full-severity KEV clear; 0 exact reviewed finding(s) accepted; no exception registered",
+      "high_critical_unreviewed": 0,
+      "fixable_findings": 0,
+      "fix_available_upstream_blocked": [],
+      "no_fix_findings": 23,
+      "no_fix": [
+        {
+          "id": "CVE-2010-4756",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2018-20796",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010022",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010023",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010024",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010025",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-9192",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2026-18374",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-19499",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-19542",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-27171",
+          "package": "zlib1g",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-5435",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6238",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6368",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6791",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-77117",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-80489",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-85091",
+          "package": "zlib1g",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-8674",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-86805",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-89092",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-95818",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-97399",
+          "package": "libc6",
+          "severity": "LOW"
+        }
+      ],
+      "verified_by_release_verify": {
+        "signature": true,
+        "kms_attestation": true,
+        "provenance": true
+      }
+    },
+    "agent-financial": {
+      "image": "agent-financial@sha256:b90db588bcc9c6971168935fdf5c8689f0ca21c65dcea9eca2c2a2376231520d",
+      "subject_origin": "existing_tag_verified",
+      "origin": "existing tag sha-cca639d7d37e54ee9d6033d219b70d3b4bc23d2d verified in run 41149140702; built fresh, runtime-smoked, signed and KMS-attested at the same S by the automatic run 40804464497 (identical digest and predicate)",
+      "release_gate": "PASS: no KEV-listed finding (catalog 2026.10.30); accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding",
+      "reviewed_exception_gate": "PASS: full-severity KEV clear; 0 exact reviewed finding(s) accepted; no exception registered",
+      "high_critical_unreviewed": 0,
+      "fixable_findings": 0,
+      "fix_available_upstream_blocked": [],
+      "no_fix_findings": 23,
+      "no_fix": [
+        {
+          "id": "CVE-2010-4756",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2018-20796",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010022",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010023",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010024",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010025",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-9192",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2026-18374",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-19499",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-19542",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-27171",
+          "package": "zlib1g",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-5435",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6238",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6368",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6791",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-77117",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-80489",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-85091",
+          "package": "zlib1g",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-8674",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-86805",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-89092",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-95818",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-97399",
+          "package": "libc6",
+          "severity": "LOW"
+        }
+      ],
+      "verified_by_release_verify": {
+        "signature": true,
+        "kms_attestation": true,
+        "provenance": true
+      }
+    },
+    "platform-guide": {
+      "image": "platform-guide@sha256:39c0f06d3d5d38453bcdb2f4fce53e43e331c9ecdcc0ad94f2010ae00515b076",
+      "subject_origin": "existing_tag_verified",
+      "origin": "existing tag sha-cca639d7d37e54ee9d6033d219b70d3b4bc23d2d verified in run 41149140702; built fresh, runtime-smoked, signed and KMS-attested at the same S by the automatic run 40804464497 (identical digest and predicate)",
+      "release_gate": "PASS: no KEV-listed finding (catalog 2026.10.30); accepted 0 exact finding(s); no unreviewed HIGH/CRITICAL finding",
+      "reviewed_exception_gate": "PASS: full-severity KEV clear; 0 exact reviewed finding(s) accepted; no exception registered",
+      "high_critical_unreviewed": 0,
+      "fixable_findings": 0,
+      "fix_available_upstream_blocked": [],
+      "no_fix_findings": 31,
+      "no_fix": [
+        {
+          "id": "CVE-2010-4756",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2018-20796",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010022",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010023",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010024",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-1010025",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2019-9192",
+          "package": "libc6",
+          "severity": "LOW"
+        },
+        {
+          "id": "CVE-2026-102010",
+          "package": "gcc-14-base",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-102010",
+          "package": "libgcc-s1",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-102010",
+          "package": "libgomp1",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-102010",
+          "package": "libstdc++6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-18374",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-19499",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-19542",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-27171",
+          "package": "zlib1g",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-5435",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6238",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6368",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-6791",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-77117",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-80489",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-85091",
+          "package": "zlib1g",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-8674",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-86805",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-89092",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-95619",
+          "package": "gcc-14-base",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-95619",
+          "package": "libgcc-s1",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-95619",
+          "package": "libgomp1",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-95619",
+          "package": "libstdc++6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-95818",
+          "package": "libc6",
+          "severity": "MEDIUM"
+        },
+        {
+          "id": "CVE-2026-97399",
+          "package": "libc6",
+          "severity": "LOW"
+        }
+      ],
+      "verified_by_release_verify": {
+        "signature": true,
+        "kms_attestation": true,
+        "provenance": true
+      }
+    }
+  }
+}
