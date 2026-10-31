@@ -354,6 +354,14 @@ class Activity(unittest.TestCase):
         self.assertNotIn('request_id', walk(result))
         self.assertNotIn('approver', walk(result))
 
+    def test_a_superseded_proposal_is_superseded_not_blocked(self):
+        answers = ops_answers()
+        answers['/v1/snapshot']['timeline'] = [
+            {'stage': 'denied', 'target': 'apps.fault-demo', 'at': NOW - 4, 'code': 'SUPERSEDED', 'request_id': 'r3'},
+            {'stage': 'denied', 'target': 'apps.fault-demo', 'at': NOW - 3, 'code': 'APPROVAL_DENIED', 'request_id': 'r4'}]
+        events = [e for e in make(answers).activity(10)['events'] if e.get('source') == 'ops-agent']
+        self.assertEqual([(e['kind'], e['code']) for e in events], [('blocked', 'APPROVAL_DENIED'), ('superseded', 'SUPERSEDED')])
+
     def test_an_agents_checked_events_are_its_observed_masking_path(self):
         answers = ops_answers()
         answers['/v1/activity']['events'] = [
