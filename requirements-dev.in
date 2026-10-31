@@ -1,10 +1,10 @@
 # Direct Python 3.12 development and validation dependencies.
-jsonschema==4.23.0
+jsonschema==4.26.0
 PyYAML==6.0.3
-actionlint-py==1.7.12.24
-pymarkdownlnt==0.9.39
+actionlint-py==1.7.12.25
+pymarkdownlnt==0.9.41
 shellcheck-py==0.11.0.1
 yamllint==1.38.0
 referencing==0.37.0
-pip-tools==7.6.1
-setuptools==84.1.0  # Patched for GHSA-xmj3-9gf7-h52w.
+pip-tools==7.6.2
+setuptools==84.2.1  # Patched for GHSA-xmj3-9gf7-h52w.
