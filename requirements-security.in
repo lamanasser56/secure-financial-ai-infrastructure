@@ -1,16 +1,16 @@
 # Shared compatibility and security constraints; component inputs decide what is installed.
 cryptography==50.0.2
-PyJWT==2.15.0
+PyJWT==2.15.1
 opentelemetry-api==1.45.1
-google-auth==2.59.1
+google-auth==2.62.0
 # Last unaffected compatible 3.x release: ReadWriteLock advisories start at 3.20.4.
 # LiteLLM currently requires <4; full unfiltered image scans must confirm this pin.
-filelock==3.20.3
+filelock==3.32.7
 jsonschema==4.26.0
 # CVE-2026-114605 (HIGH, DNS compression pointer DoS) is fixed in 2.9.0 (published 2026-10-09); transitive via email-validator.
 dnspython==2.9.0
 # CVE-2026-119194..119197 (HIGH, ASN.1 decoder DoS) are fixed in 0.6.5 (published 2026-10-29); transitive via google-auth.
 pyasn1==0.6.5
 PyYAML==6.0.3
-psycopg[binary]==3.2.10
+psycopg[binary]==3.3.6
 argon2-cffi==25.1.0
