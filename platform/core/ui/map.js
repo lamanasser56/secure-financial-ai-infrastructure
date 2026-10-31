@@ -224,7 +224,7 @@
     return svg(out, width, y + 12, 'Platform map: vertical list of agents, three platform groups, request events and external services', 'list');
   }
 
-  const kindChip = k => el('span', {class: 'chip ' + (k === 'blocked' ? 'denied' : 'allowed')}, k);
+  const kindChip = k => el('span', {class: 'chip ' + ({blocked: 'denied', superseded: 'muted'}[k] || 'allowed')}, k);
 
   // Count the facts actually observed, without turning partial coverage into a protection verdict.
   function stats(data) {
@@ -250,6 +250,7 @@
   function eventText(e) {
     if (e.kind === 'masked') return (e.categories && e.categories.length ? 'Masked ' + plainCategories(e.categories) : 'Identifier check') + (e.caller ? ' · ' + e.caller : '');
     if (e.kind === 'checked') return 'Checked by the redactor · ' + e.caller + ' · nothing left to mask (the agent masks supported identifiers first)';
+    if (e.kind === 'superseded') return 'proposal replaced by a newer observation' + (e.target ? ' · ' + e.target : '');
     if (e.kind === 'approved') return 'Approved' + (e.action ? ' ' + e.action : '') + (e.target ? ' · ' + e.target : '');
     return (e.code || e.reason || 'refused').toLowerCase().replace(/_/g, ' ') + (e.target ? ' · ' + e.target : e.caller ? ' · ' + e.caller : '');
   }

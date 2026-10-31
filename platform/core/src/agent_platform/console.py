@@ -3,7 +3,7 @@
 GET /api/console/topology           what exists and which paths are open or denied (sanitized facts from the selected final release render)
 GET /api/console/agents             manifest facts + live state (pods, restarts, running image digest) per agent
 GET /api/console/onboarding/<agent> the eight guarantees, each "verified" (seen live, with its source) or "declared"
-GET /api/console/activity?limit=3   latest blocked / masked / approved events
+GET /api/console/activity?limit=3   latest blocked / masked / approved / superseded events
 GET /api/console/explain/<topic>    {title, plain, how, proof, without, file}; proof is live or null, never static text
 GET /api/console/attacks            the latest attack-suite results file (closed fields), or {available: false}
 GET /api/console/example            the rejected-agent example manifest (shipped file) and the command that checks it
@@ -450,7 +450,9 @@ class Console:
         snapshot = self._live('/v1/snapshot')
         sources['ops_timeline'] = 'ok' if snapshot else 'unavailable'
         for e in (snapshot or {}).get('timeline', []):
-            kind = {'denied': 'blocked', 'approved': 'approved'}.get(e.get('stage'))
+            # A superseded proposal was replaced by a newer observation; nothing was refused (the Ops timeline says the same).
+            kind = 'superseded' if e.get('stage') == 'denied' and e.get('code') == 'SUPERSEDED' else \
+                {'denied': 'blocked', 'approved': 'approved'}.get(e.get('stage'))
             if kind:
                 events.append({'kind': kind, 'at': e.get('at'), 'source': 'ops-agent', 'target': e.get('target'), 'code': e.get('code')})
         for line in self._recent_audit():

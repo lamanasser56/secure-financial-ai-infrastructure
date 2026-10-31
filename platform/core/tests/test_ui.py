@@ -212,6 +212,11 @@ class Scripts(unittest.TestCase):
         self.assertIn("words(e.code || e.finding || e.action || e.stage)", ops)
         self.assertNotIn('Not needed: an automated fix is proposed.', ops)
         self.assertIn('No AI explanation: this finding has a registered automated fix', ops)
+    def test_live_activity_shows_a_superseded_proposal_as_neutral(self):
+        map_js = (FRONT / 'map.js').read_text()
+        self.assertIn("{blocked: 'denied', superseded: 'muted'}[k] || 'allowed'", map_js)
+        self.assertIn("if (e.kind === 'superseded') return 'proposal replaced by a newer observation'", map_js)
+        self.assertIn("'proposal replaced by a newer observation'", (FRONT / 'ops.js').read_text())
     def test_the_guide_shows_each_passage_in_full_as_its_doc_says(self):
         css = (REPO_ROOT / 'platform/agents/platform-guide/public/guide.css').read_text()
         self.assertNotIn('line-clamp', css)
