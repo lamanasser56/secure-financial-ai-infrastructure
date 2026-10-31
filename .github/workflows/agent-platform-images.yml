@@ -64,12 +64,12 @@ jobs:
           [[ "$ok" =~ ^[1-9][0-9]*$ ]] || { echo "no successful CI run on push to main for $sha"; exit 1; }
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.sha.outputs.sha }}
           persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: tools/image-inputs/go.mod
           cache-dependency-path: tools/image-inputs/go.sum
@@ -98,7 +98,7 @@ jobs:
               "source_argument": e["source_argument"], "publish": e["image"] in selected} for e in plan["images"]]},
               separators=(",", ":")))' "$RUNNER_TEMP/input-plan.json" "$matrix")
           printf 'all_matrix=%s\n' "$all_matrix" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: image-input-plan
           path: ${{ runner.temp }}/input-plan.json
@@ -123,7 +123,7 @@ jobs:
       DOCKERFILE: ${{ matrix.dockerfile }}
       SOURCE_ARGUMENT: ${{ matrix.source_argument }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.ci-gate.outputs.sha }}
           persist-credentials: false
@@ -139,7 +139,7 @@ jobs:
           sha256sum "$archive" | cut -d' ' -f1 > "$RUNNER_TEMP/git-archive.sha256"
           mkdir "$RUNNER_TEMP/source-context"
           tar -xzf "$archive" -C "$RUNNER_TEMP/source-context"
-      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
         with:
           version: v0.30.1
           driver: docker-container
@@ -177,7 +177,7 @@ jobs:
           docker image inspect --format '{{.Id}}' "local/$IMAGE:${SHA}" > "$RUNNER_TEMP/image-id.txt"
           [[ "$(cat "$RUNNER_TEMP/image-id.txt")" =~ ^sha256:[0-9a-f]{64}$ ]]
           docker save "local/$IMAGE:${SHA}" | gzip -1 > "$RUNNER_TEMP/image.tar.gz"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.image }}-build
           path: |
@@ -203,7 +203,7 @@ jobs:
     env:
       SHA: ${{ needs.ci-gate.outputs.sha }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.ci-gate.outputs.sha }}
           persist-credentials: false
@@ -213,7 +213,7 @@ jobs:
           set -Eeuo pipefail
           [[ "$(git rev-parse HEAD)" == "$SHA" ]]
           make tools operator-env
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: '*-build'
           path: ${{ runner.temp }}/builds
@@ -245,7 +245,7 @@ jobs:
           PYTHONPATH=platform/core/src:. .cache/operator-venv/bin/python -B scripts/runtime-smoke.py \
             --images "$RUNNER_TEMP/images.json" --kubectl "$PWD/.cache/platform-tools/kubectl" \
             --out "$RUNNER_TEMP/runtime-smoke.json"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: runtime-smoke
@@ -286,18 +286,18 @@ jobs:
           for value in "$PROJECT_ID" "$number" "$REGISTRY/$PROJECT_ID" "$WIF_PROVIDER" "$SERVICE_ACCOUNT"; do
             echo "::add-mask::$value"
           done
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.ci-gate.outputs.sha }}
           persist-credentials: false
           fetch-depth: 1
       - name: Pinned qualification tools (Trivy 0.72.0, Syft 1.44.0, cosign 2.6.2; sha256-verified)
         run: mkdir -p "$RUNNER_TEMP/tools" && bash scripts/install-qualification-tools.sh "$RUNNER_TEMP/tools"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: image-input-plan
           path: ${{ runner.temp }}
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ matrix.image }}-build
           path: ${{ runner.temp }}
@@ -431,7 +431,7 @@ jobs:
                            sort_keys=True))
           PY
           docker logout "https://$REGISTRY" >/dev/null
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.image }}-evidence
           path: |
