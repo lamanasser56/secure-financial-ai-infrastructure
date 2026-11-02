@@ -15,7 +15,7 @@ import subprocess
 import cloud_log
 from cloud_wait import Waiter
 from janitor import cleanup, gcloud_json, inspect_project, load_manifest, resource_absence, write_receipt
-from operator_cluster import ROOT, run_terraform
+from operator_cluster import ROOT, run_terraform, tool_path
 from operator_setup import remove_default_network
 
 
@@ -79,6 +79,7 @@ def destroy(manifest, run_dir, *, terraform='terraform', kubectl_path='kubectl',
     except RuntimeError:
         volumes = 'drain_failed'  # The disk fallback and the absence inventory still apply.
     plan = tf_dir / 'destroy.tfplan'
+    terraform = tool_path(terraform)
 
     def terraform_run(*args):
         return runner([terraform, *args], data_dir=data, cwd=config)
