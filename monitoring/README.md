@@ -38,7 +38,7 @@ In Cloud Monitoring, Metrics Explorer, switch the query editor to PromQL:
 
 | Question | PromQL |
 | --- | --- |
-| Scrape targets up | `up` |
+| Scrape targets up (kubelet `:metrics` and `:cadvisor`) | `up{job="kubelet"}` |
 | Container memory (working set) by Pod | `sum by (namespace, pod) (container_memory_working_set_bytes{container!=""})` |
 | Container CPU cores by Pod | `sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{container!=""}[5m]))` |
 | Container filesystem usage | `sum by (namespace, pod) (container_fs_usage_bytes{container!=""})` |
@@ -51,5 +51,11 @@ a Terraform `monitoring_config` change, and a self-run exporter needs a ClusterR
 ## Cost
 
 Managed Service for Prometheus bills per ingested sample. At a 30 s interval each series costs
-2 x 60 x 24 x 30 = 86,400 samples a month. Count the series after applying with `count({job=~".+"})` and price them
-with the current [Managed Service for Prometheus pricing](https://cloud.google.com/stackdriver/pricing).
+2 x 60 x 24 x 30 = 86,400 samples a month. Count the series per scrape with
+`sum(scrape_samples_post_metric_relabeling)` (Managed Service for Prometheus needs an exact metric name, so
+`count({job=~".+"})` is refused) and price them with the current
+[Managed Service for Prometheus pricing](https://cloud.google.com/stackdriver/pricing).
+
+Measured on the one-node platform cluster (2 Nov 2026): about 8,500 series per scrape (cAdvisor 5,808 after GKE's own
+relabeling, kubelet 2,666), so roughly 730 million samples a month. That is a real cost for a portfolio cluster: a longer
+`interval` lowers it in proportion, and rolling back stops it.
