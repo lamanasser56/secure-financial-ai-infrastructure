@@ -34,7 +34,15 @@ Collection stops at once; samples already written age out under Cloud Monitoring
 
 ## Example queries
 
-In Cloud Monitoring, Metrics Explorer, switch the query editor to PromQL:
+In Cloud Monitoring, Metrics Explorer, switch the query editor to PromQL.
+
+Recommended view, memory of the platform's own namespaces (the y-axis is MiB):
+
+```promql
+sum by (namespace) (container_memory_working_set_bytes{container!="", namespace!~"kube-system|gmp-system|gmp-public"}) / 1024 / 1024
+```
+
+Other queries (the memory and filesystem ones are in bytes):
 
 | Question | PromQL |
 | --- | --- |
