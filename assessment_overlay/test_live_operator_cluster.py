@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 from cloud_wait import Waiter
-from operator_cluster import TERRAFORM_SOURCE, allowed_plan, create_cluster, private_config
+from operator_cluster import TERRAFORM_SOURCE, allowed_plan, create_cluster, private_config, tool_path
 from render_live_bundle import ROOT
 
 
@@ -50,7 +50,7 @@ def cloud(*args):
     raise AssertionError(args)
 
 
-def create(run_dir, runner):
+def create(run_dir, runner, **options):
     (run_dir / 'initial-manifest.json').write_text(json.dumps(MANIFEST))
     (run_dir / 'evidence').mkdir()
     (run_dir / 'evidence/project-setup.json').write_text(json.dumps({
@@ -61,7 +61,7 @@ def create(run_dir, runner):
     return create_cluster(MANIFEST, run_dir, gke_version='1.35.1-gke.100', cloud=cloud, runner=runner,
                           now=now, waiter=Waiter(MANIFEST['deadline_at'], clock=lambda: now,
                                                  sleep=lambda seconds: None),
-                          configure=lambda tf_dir: tf_dir)
+                          configure=lambda tf_dir: tf_dir, **options)
 
 
 CREATE = {'mode': 'managed', 'change': {'actions': ['create']}}
@@ -83,6 +83,16 @@ class OperatorClusterTest(unittest.TestCase):
             self.assertIn('-var=deletion_protection=false', runner.commands[1])
             self.assertFalse([command for command in runner.commands if '-backend=false' in command])
             self.assertTrue((run_dir / 'evidence/cluster-setup.json').exists())
+
+    def test_relative_terraform_path_resolves_before_running_inside_the_private_config(self):
+        # Run 5 (2 Nov 2026): the documented `--terraform .cache/platform-tools/terraform` was not found once
+        # Terraform ran with the private config copy as its working directory.
+        with tempfile.TemporaryDirectory() as temp:
+            runner = TerraformFixture()
+            create(Path(temp), runner, terraform='.cache/platform-tools/terraform')
+            self.assertEqual({command[0] for command in runner.commands},
+                             {str(Path('.cache/platform-tools/terraform').resolve())})
+        self.assertEqual(tool_path('terraform'), 'terraform')  # A bare name is still looked up on PATH.
 
     def test_deferred_data_read_is_not_a_mutation(self):
         self.assertEqual(allowed_plan({'format_version': '1.2',

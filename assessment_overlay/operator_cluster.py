@@ -95,6 +95,11 @@ def allowed_plan(value, *, resumed=False):
     return creates
 
 
+def tool_path(tool):
+    """A tool given as a relative path must still resolve once Terraform runs inside the private config copy."""
+    return str(Path(tool).resolve()) if os.sep in str(tool) else str(tool)
+
+
 def create_cluster(manifest, run_dir, *, gke_version, terraform='terraform',
                    cloud=gcloud_json, runner=run_terraform, now=None, waiter=None,
                    configure=private_config):
@@ -128,6 +133,7 @@ def create_cluster(manifest, run_dir, *, gke_version, terraform='terraform',
     data_dir = tf_dir / 'data'
     data_dir.mkdir(mode=0o700)
     config = configure(tf_dir)
+    terraform = tool_path(terraform)
 
     def terraform_run(*args, timeout=TERRAFORM_SECONDS):
         return runner([terraform, *args], data_dir=data_dir, cwd=config, timeout=timeout)

@@ -92,9 +92,9 @@ class OperatorCleanupTest(unittest.TestCase):
             (directory / 'kube').mkdir()
             (directory / 'kube' / 'kubeconfig').write_text('{}')
 
-    def run_destroy(self, path, runner, *, call=None, kube=None, janitor=None):
+    def run_destroy(self, path, runner, *, call=None, kube=None, janitor=None, **options):
         clock = Clock()
-        return destroy(MANIFEST, path, runner=runner, cloud=lambda *args: None,
+        return destroy(MANIFEST, path, runner=runner, cloud=lambda *args: None, **options,
                        call=call or CloudFixture(), kube=kube or KubeFixture(),
                        waiter=Waiter(clock=clock, sleep=clock.sleep),
                        janitor=janitor or (lambda *args, **kwargs: {'result': 'PASS'}))
@@ -116,6 +116,15 @@ class OperatorCleanupTest(unittest.TestCase):
             forwarding = [args for args in cloud.commands if args[:3] == ('compute', 'forwarding-rules', 'list')]
             self.assertEqual(len(forwarding), 3)  # Polled until the lingering rule was gone.
             self.assertEqual(order, [len(cloud.commands)])
+
+    def test_relative_terraform_path_resolves_before_running_inside_the_private_config(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp)
+            self.private_state(path)
+            runner, tools = TerraformFixture(['delete']), set()
+            self.run_destroy(path, lambda command, **kwargs: tools.add(command[0]) or runner(command, **kwargs),
+                             terraform='.cache/platform-tools/terraform')
+            self.assertEqual(tools, {str(Path('.cache/platform-tools/terraform').resolve())})
 
     def test_orphan_claim_disk_is_deleted_when_the_cluster_was_unreachable(self):
         with tempfile.TemporaryDirectory() as temp:
