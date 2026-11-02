@@ -1,0 +1,6 @@
+# Merge patch for the GKE-managed OperatorConfig gmp-public/config: Managed Service for Prometheus scrapes every
+# node's kubelet and cAdvisor endpoints every 30 s. Node-level targets only: no Pod, NetworkPolicy, RBAC or IAM change.
+# Apply and roll back as described in monitoring/README.md.
+collection:
+  kubeletScraping:
+    interval: 30s
