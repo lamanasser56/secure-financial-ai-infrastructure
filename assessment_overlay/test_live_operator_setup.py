@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import unittest
 
 from cloud_wait import Waiter
+import janitor
 from operator_setup import JANITOR_ROLES, SERVICES, setup_project
 
 
@@ -120,7 +121,33 @@ def setup(cloud, wait=None):
                          waiter=wait or waiter(), now=START)
 
 
+# The API behind each gcloud command group the janitor calls with its Workload Identity.
+GCLOUD_GROUP_API = {
+    'projects': 'cloudresourcemanager.googleapis.com', 'billing': 'cloudbilling.googleapis.com',
+    'compute': 'compute.googleapis.com', 'container': 'container.googleapis.com',
+    'storage': 'storage.googleapis.com', 'artifacts': 'artifactregistry.googleapis.com',
+}
+
+
 class OperatorSetupTest(unittest.TestCase):
+    def test_every_api_the_janitor_calls_is_enabled_in_the_disposable_project(self):
+        # Run 4 (2 Nov 2026): the janitor's identity check failed for 15 minutes because Cloud Resource Manager was
+        # not enabled in the disposable project, which its Workload Identity uses as the quota project.
+        groups, states = set(), iter(['ACTIVE', 'DELETE_REQUESTED'])
+
+        def call(*args):
+            groups.add(args[0])
+            if args[:2] == ('projects', 'describe'):
+                return {'projectId': PROJECT, 'labels': {'assessment_run': RUN}, 'lifecycleState': next(states)}
+            if args[:2] == ('billing', 'projects'):
+                return {'billingEnabled': True, 'billingAccountName': 'billingAccounts/' + BILLING}
+            return [] if args[-1].startswith('--project=') else {}
+
+        receipt = janitor.cleanup(MANIFEST, call=call, now=START)
+        self.assertEqual(receipt['result'], 'TAKEOVER')  # The fixture never reports the unlink.
+        self.assertEqual(groups, set(GCLOUD_GROUP_API))
+        self.assertLessEqual({GCLOUD_GROUP_API[group] for group in groups}, set(SERVICES))
+
     def test_project_local_janitor_is_armed_before_setup_succeeds(self):
         cloud = CloudFixture()
         receipt = setup(cloud)

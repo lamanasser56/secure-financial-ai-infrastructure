@@ -19,12 +19,14 @@ from source_selection import assert_harness_unchanged
 
 
 JANITOR_ROLES = ('roles/resourcemanager.projectDeleter', 'roles/billing.projectManager', 'roles/viewer')
+# The janitor's Workload Identity bills its calls to the disposable project, so every API it calls must be enabled
+# there: Cloud Resource Manager (identity check, delete), Cloud Billing (unlink) and Cloud Storage (bucket inventory).
 SERVICES = (
-    'artifactregistry.googleapis.com', 'binaryauthorization.googleapis.com',
-    'cloudkms.googleapis.com', 'compute.googleapis.com', 'container.googleapis.com',
-    'containeranalysis.googleapis.com', 'dlp.googleapis.com', 'dns.googleapis.com',
+    'artifactregistry.googleapis.com', 'binaryauthorization.googleapis.com', 'cloudbilling.googleapis.com',
+    'cloudkms.googleapis.com', 'cloudresourcemanager.googleapis.com', 'compute.googleapis.com',
+    'container.googleapis.com', 'containeranalysis.googleapis.com', 'dlp.googleapis.com', 'dns.googleapis.com',
     'iam.googleapis.com', 'iamcredentials.googleapis.com', 'logging.googleapis.com', 'monitoring.googleapis.com',
-    'networkconnectivity.googleapis.com', 'serviceusage.googleapis.com',
+    'networkconnectivity.googleapis.com', 'serviceusage.googleapis.com', 'storage.googleapis.com',
     'sts.googleapis.com',
 )
 BILLING_PATTERN = re.compile(r'[A-F0-9]{6}-[A-F0-9]{6}-[A-F0-9]{6}\Z')
